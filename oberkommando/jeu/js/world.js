@@ -6,7 +6,7 @@ import {SITE_RANGE,HOUR_REAL,DAY,NIGHT,MAP_N,RADIUS,CARRY,GAP,TERRAIN,T,RES,RARE
 import {ECO} from './eco.js';
 import {generate,rng} from './gen.js';
 import {Pather} from './path.js';
-import {derive,wound,TILE_M,CRATE_KG,CONSTRUCTIONS} from './ballistics.js';
+import {derive,wound,TILE_M,CRATE_KG,CONSTRUCTIONS,ACTIONS} from './ballistics.js';
 import {regionAt,AIM,SILH,BODY_H,BLOOD,setSpecies} from './body.js';
 import {newHealth,applyWound,tickHealth,malus,firstAid,doctorCare,heal,needsCare,needsDoctor,needsSurgery,bleedRate,triage,MED} from './health.js';
 import {DEFAULT_DESIGNS,weightOf,crateCost,weaponCost,protoCost,PROTO_HOURS,fragDesign} from './designs.js';
@@ -454,7 +454,7 @@ export class World{
     u.dry=false;if(u.cool>0)return true;if(u.f==='meumeu')this.practice('tir',.03);
     if(u.aimAt!==(e.id??e.wall??'b')){u.aimAt=e.id??e.wall??'b';u.cool=W.aim*(u.post==='couche'?1.2:1);return true;}
     // le coup part
-    u.mag--;if(W.p.action==='auto'){u.burst=(u.burst||0)+1;if(u.burst>=4){u.burst=0;u.cool=W.aim*.7;}else u.cool=W.cyc;}else{u.burst=0;u.cool=W.cyc+W.aim*.4;}
+    u.mag--;if(ACTIONS[W.p.action]?.auto){u.burst=(u.burst||0)+1;if(u.burst>=4){u.burst=0;u.cool=W.aim*.7;}else u.cool=W.cyc;}else{u.burst=0;u.cool=W.cyc+W.aim*.4;}
     const R=distT*TILE_M;const fl=W.at(R);
     const share={};let ix=x,iy=y;for(let k=0;k<(isB||e.wall!=null?1:(W.pel||1));k++){const res=isB||e.wall!=null?{hit:true,struct:true,v:fl.v}:this.resolve(u,e,W,R,u.burst||0,share);
       [ix,iy]=res.hit?[x,y]:[res.px??x,res.py??y];
@@ -464,7 +464,7 @@ export class World{
   // l'erreur d'estimation de la distance (la chute), puis ce qu'elle rencontre : le couvert (et s'il le perce), le corps.
   resolve(u,e,W,R,burst,share=null){const D=UDEF(u);const skill=(D.skill||2.4)/(1+(u.xp||0)/60)/(u.f==='meumeu'?this.mod('tir'):1);const moving=this.s.t-(u.moved||-9)<.03;
     const sigS=skill*POST[u.post||'debout']*(moving?2.4:1)*(1+1.5*(u.supp||0))*(u.h?malus(u.h).aim:1)*(u.armor?this.armorOf(u.armor)?.D.aim||1:1);
-    const sigW=W.moa*.291;const sigR=burst*W.rk*9;const sig=Math.hypot(sigS,sigW,sigR)/1000;
+    const sigW=W.moa*.291;const sigR=burst*W.rk*9;const sig=Math.hypot(sigS,sigW,sigR)/1000*(W.tracer&&burst>0?.7:1);
     const fl=W.at(R),fl2=W.at(R+1);const slope=fl2.drop-fl.drop;const dropErr=slope*.12*R;
     let ex,ey;if(share?.ex!=null){ex=share.ex;ey=share.ey;}else{ex=sig*R*this.gauss();ey=sig*R*this.gauss()+dropErr*this.gauss();if(share){share.ex=ex;share.ey=ey;}}
     if(W.pel>1){const sp=(CONSTRUCTIONS[W.p.cons].spread||20)/1000*R/2;ex+=sp*this.gauss()*.7;ey+=sp*this.gauss()*.7;}

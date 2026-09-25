@@ -41,8 +41,12 @@ const HELP={
   heavy:(D,p)=>`<b>Canon lourd</b> : un tube plus épais, ${p.heavy?'monté':'non monté'}. Il chauffe moins vite (tient ${D.sustain} coups/min en continu), vibre moins (dispersion −15 %), dure plus longtemps ; mais il pèse bien plus lourd.`,
   action:(D,p)=>`<b>La culasse</b> : ${esc(ACTIONS[p.action].desc)}. ${p.action==='verrou'?'Le tireur manœuvre à la main : précis, fiable, lent':p.action==='semi'?'Les gaz réarment : un coup par pression':'Les gaz réarment en boucle : des rafales, de la suppression — mais la chaleur, le recul qui disperse, et les caisses qui fondent'}. Cadence : ${D.rpm} coups/min.`,
   rof:(D,p)=>`<b>La cadence</b> en automatique : ${p.rof} coups/min. Plus haute, plus de balles dans la zone (l’ennemi se couche), mais le tube chauffe (il tient ${D.sustain} coups/min en continu) et un chargeur de ${p.mag} dure ${fmt(p.mag/p.rof*60,1)} s.`,
-  mag:(D,p)=>`<b>Le chargeur</b> : ${p.mag} coups. ${p.action==='auto'&&p.mag>=50?'À partir de 50 en automatique, c’est une bande : il faut un chargeur à côté du tireur. ':''}Plus grand, moins de rechargements ; mais plus lourd (${Math.round(p.mag*D.rm)} g plein).`,
+  mag:(D,p)=>`<b>Le chargeur</b> : ${p.mag} coups. ${ACTIONS[p.action]?.auto&&p.mag>=50?'À partir de 50 en automatique, c’est une bande : il faut un chargeur à côté du tireur. ':''}Plus grand, moins de rechargements ; mais plus lourd (${Math.round(p.mag*D.rm)} g plein).`,
   zero:(D,p)=>`<b>La hausse</b> : on règle la visée pour toucher juste à ${p.zero||50} m. La balle monte au-dessus de la ligne de visée, la croise à ${p.zero||50} m, puis retombe : ${[25,50,100,200].filter(r=>r<=600&&!D.at(r).beyond).map(r=>`${r} m : ${D.los(r)>=0?'+':''}${cm(D.los(r))}`).join(' · ')}. Un Meumeu fait 20 cm de haut : au-delà de ±10 cm, on le rate sans corriger.`,
+  wallx:(D,p)=>`<b>L’épaisseur du tube</b> : ×${fmt(D.wallx,2)}. Un tube épais vibre moins (dispersion ${fmt(D.moa,1)} MOA), chauffe moins vite (tient ${D.sustain} coups/min), dure plus (${D.life} coups) ; il pèse (arme ${Math.round(D.mass*1000)} g). Mince : léger, mais il se tord à la chaleur et disperse.`,
+  jacket:(D,p)=>`<b>La chemise</b> : l’enveloppe de cuivre autour du noyau, ×${fmt(D.jacket,1)}. Épaisse, la balle reste entière plus longtemps : elle se brise au-dessus de ${Math.round((CONSTRUCTIONS[p.cons].frag||0)*Math.sqrt(D.jacket))||'—'} m/s et s’ouvre plus tard. Mince : elle éclate vite dans le corps (grosse blessure, perce peu).`,
+  core:(D,p)=>`<b>Le noyau d’acier</b> : ${Math.round((D.core||0)*100)} % du plomb remplacé par de l’acier trempé. Plus dur, il perce mieux (${fmt(D.pen(D.at(30).v),2)} mm à 30 m), mais la balle est plus légère et coûte du fer.`,
+  hef:(D,p)=>D.he?`<b>La charge explosive</b> : ${Math.round(D.hef*100)} % du volume de la balle, soit ${D.he.g<1?Math.round(D.he.g*1000)+' mg':fmt(D.he.g,2)+' g'}. Le souffle tue à ${cm(D.he.blast)} ; la coque (${mg(D.he.casing)}) éclate en ${D.he.n} éclats lancés à ${Math.round(D.he.vg)} m/s, mortels à ${cm(D.he.lethal)}. Plus d’explosif : plus de souffle, des éclats plus rapides — mais moins nombreux, et une balle plus légère qui perce moins.`:'<b>La charge explosive</b> : seulement pour les munitions explosives (explosive, explosive-incendiaire, semi-perforante, charge creuse).',
   mods:(D,p)=>`<b>Les modules</b> : chacun a son prix en poids et en fabrication. Montés ici : ${D.mods.length?D.mods.map(k=>`${MODS[k].name.toLowerCase()} (${Math.round(D.modKg[k]*1000)} g)`).join(', '):'aucun'}.`,
   ...Object.fromEntries(Object.entries(MODS).map(([k,M])=>[`mod-${k}`,(D,p)=>`<b>${esc(M.name)}</b> : ${esc(M.desc)}.${D.modKg[k]!=null?` Ici : ${Math.round(D.modKg[k]*1000)} g.`:''}`])),
 };
@@ -80,6 +84,9 @@ export class Designer{
           <details open><summary>La balle</summary>
             ${range('d','Calibre',LIMITS.d[0],LIMITS.d[1],LIMITS.d[2],p.d,'large : plus lourde, grosse blessure ; freine plus, perce moins à masse égale')}
             ${range('l','Longueur',LIMITS.l[0],LIMITS.l[1],LIMITS.l[2],p.l,'longue : plus lourde, file mieux ; demande plus de rayure')}
+            ${range('jacket','Chemise',LIMITS.jacket[0],LIMITS.jacket[1],LIMITS.jacket[2],p.jacket??1,'épaisse : se brise et s’ouvre plus tard ; plus de cuivre')}
+            ${range('core','Noyau d’acier',LIMITS.core[0],LIMITS.core[1],LIMITS.core[2],p.core||0,'une part de plomb remplacée par de l’acier : perce mieux, plus légère')}
+            ${range('hef','Charge explosive',LIMITS.hef[0],LIMITS.hef[1],LIMITS.hef[2],p.hef??.3,'munitions explosives : plus d’explosif, plus de souffle — moins de coque, moins d’éclats')}
             <div class="dz-f"><span>Nez</span>${seg('nose',NOSES)}</div>
             <div class="dz-f"><span>Culot</span>${seg('base',BASES)}</div>
             <div class="dz-f" data-help="cons"><span>Construction</span>${FAMS.map(([fam,ks])=>`<div class="dz-fam"><small>${fam}</small><div class="seg wrap">${ks.filter(k=>CONSTRUCTIONS[k]).map(v=>`<button data-dz="cons:${v}" class="${p.cons===v?'on':''}" title="${esc(CONSTRUCTIONS[v].desc)}"><i class="tip" style="background:${TIPC[v]||'#c07a3e'}"></i>${esc(CONSTRUCTIONS[v].name)}</button>`).join('')}</div></div>`).join('')}</div>
@@ -88,7 +95,7 @@ export class Designer{
             ${range('c','Poudre',0,1000,1,cToS(p.c),'plus : plus vite — plus de pression, un étui et un recul plus gros')}
             ${range('L','Canon',LIMITS.L[0],LIMITS.L[1],LIMITS.L[2],p.L,'long : brûle toute la poudre, plus précis ; plus lourd')}
             ${range('twist','Pas de rayure',LIMITS.twist[0],LIMITS.twist[1],LIMITS.twist[2],p.twist,'court : tient les balles longues ; trop long, elles basculent')}
-            <label class="dz-ck" data-help="heavy"><input type="checkbox" id="dz-heavy" ${p.heavy?'checked':''}> Canon lourd <small>— tient la chaleur, plus précis ; bien plus lourd</small></label>
+            ${range('wallx','Épaisseur du tube',LIMITS.wallx[0],LIMITS.wallx[1],LIMITS.wallx[2],p.wallx??(p.heavy?1.5:1),'épais : plus précis, tient la chaleur, dure ; bien plus lourd')}
           </details>
           <details open><summary>L’arme</summary>
             <div class="dz-f"><span>Culasse</span>${seg('action',ACTIONS)}</div>
@@ -126,7 +133,8 @@ export class Designer{
     this.sync();}
   read(el){const id=el.id.replace('dz-','');if(id==='name'){this.name=el.value;return;}if(id==='heavy'){this.p.heavy=el.checked;this.help='heavy';}else if(id==='c'){this.p.c=sToC(+el.value);this.help='c';}else if(id in LIMITS||id in this.p){this.p[id]=+el.value;this.help=id;}else return;this.sync();this.render();}
   sync(){const p=this.p;const $=id=>this.host.querySelector('#dz-v-'+id);const set=(id,t)=>{const e=$(id);if(e)e.textContent=t;};
-    set('d',` ${fmt(p.d,1)} mm`);set('l',` ${fmt(p.l,1)} mm`);set('c',` ${mg(p.c)}`);set('L',` ${p.L} mm`);set('twist',` 1 tour / ${p.twist} mm`);set('rof',p.action==='auto'?` ${p.rof} coups/min`:' — (automatique seulement)');set('mag',` ${p.mag} coups`);set('zero',` ${p.zero} m`);
+    set('d',` ${fmt(p.d,1)} mm`);set('l',` ${fmt(p.l,1)} mm`);set('c',` ${mg(p.c)}`);set('L',` ${p.L} mm`);set('twist',` 1 tour / ${p.twist} mm`);set('rof',ACTIONS[p.action]?.auto?` ${p.rof} coups/min`:' — (automatique seulement)');set('mag',` ${p.mag} coups`);set('zero',` ${p.zero} m`);set('wallx',` ×${fmt(p.wallx??(p.heavy?1.5:1),2)}`);set('jacket',` ×${fmt(p.jacket??1,1)}`);set('core',` ${Math.round((p.core||0)*100)} %`);set('hef',CONSTRUCTIONS[p.cons].he?` ${Math.round((p.hef??.3)*100)} % du volume`:' — (munitions explosives)');
+    const C0=CONSTRUCTIONS[p.cons];for(const [id,off] of [['hef',!C0.he],['core',!!(C0.core||C0.he||C0.pellets)]]){const e=this.host.querySelector('#dz-'+id);if(e)e.disabled=off;}
     const rof=this.host.querySelector('#dz-rof');if(rof)rof.disabled=p.action!=='auto';const ms=new Set(p.mods||[]);
     for(const b of this.host.querySelectorAll('[data-dz]')){const [k,v]=b.dataset.dz.split(':');if(['nose','base','action','cons'].includes(k))b.classList.toggle('on',p[k]===v);if(k==='gel')b.classList.toggle('on',+v===this.gelR);if(k==='tgt')b.classList.toggle('on',v===this.target);if(k==='shotmode')b.classList.toggle('on',v===(this.shot?.mode||'xray'));if(k==='mod')b.classList.toggle('on',ms.has(v));}}
   renderHelp(){const el=this.host.querySelector('#dz-help');if(!el||!this.D)return;const f=HELP[this.help]||HELP.cons;el.innerHTML=`<h3>Ce que ça change</h3><p>${f(this.D,this.p)}</p>`;}
@@ -181,7 +189,7 @@ export class Designer{
     const bg=x.createLinearGradient(0,0,0,H);bg.addColorStop(0,'#1c2a33');bg.addColorStop(.72,'#141d23');bg.addColorStop(1,'#0e1418');x.fillStyle=bg;x.fillRect(0,0,W,H);const sp=x.createRadialGradient(W*.4,H*.6,10,W*.4,H*.6,W*.6);sp.addColorStop(0,'rgba(255,230,190,.10)');sp.addColorStop(1,'rgba(255,230,190,0)');x.fillStyle=sp;x.fillRect(0,0,W,H);
     const ground=H-26;x.fillStyle='rgba(90,70,45,.45)';x.fillRect(0,ground,W,H-ground);x.strokeStyle='rgba(160,130,90,.45)';x.beginPath();x.moveTo(0,ground);x.lineTo(W,ground);x.stroke();
     // les dimensions de l'arme (mm)
-    const d=p.d,Dc=d*(D.pistol?1.25:1.45),COL=D.COL,wall=d*(.35+.00075*D.P)*(p.heavy?1.5:1),Dout=d+2*wall;const crewGun=D.have==='trepied';
+    const d=p.d,Dc=d*(D.pistol?1.25:1.45),COL=D.COL,wall=d*(.35+.00075*D.P)*D.wallx,Dout=d+2*wall;const crewGun=D.have==='trepied';
     const act=COL*2.4+8,stock=crewGun?COL*1.1+14:Math.max(55,60+COL*1.6),dev=ms.has('manchon')?d*14:ms.has('frein')?d*3.2:ms.has('cacheflamme')?d*4:0;const Lw=stock+act+p.L+dev;
     // la place des servants derrière l'arme : le tireur, puis les pourvoyeurs qui attendent avec leurs caisses
     const bearers=D.roles.filter(r=>r!=='tireur'&&r!=='chargeur').length;const behind=D.have==='epaule'?.075:D.have==='bipied'?.18:.075;const crewMm=(behind+bearers*.13)*1000+40;
@@ -202,11 +210,11 @@ export class Designer{
     // la cartouche en coupe, en médaillon
     this.cartridge(x,D,W-250,10,240,96);
     x.fillStyle='#e8dcc4';x.font='600 12px system-ui';const TW=W-280;x.fillText(`${MOUNTS[D.have].name.toLowerCase()} · ${D.crew} servant${D.crew>1?'s':''} · ${Math.round(D.mass*1000)} g chargée · ${fmt(Lw/10,1)} cm`,12,18,TW);
-    x.fillStyle='#a8b4ba';x.font='11px system-ui';x.fillText(`${ACTIONS[p.action].name.toLowerCase()}${p.action==='auto'?` · ${p.rof} coups/min`:''} · ${p.action==='auto'&&p.mag>=50?'bande':'chargeur'} de ${p.mag}${D.mods.length?' · '+D.mods.map(k=>MODS[k].name.toLowerCase()).join(', '):''}`,12,34,TW);
+    x.fillStyle='#a8b4ba';x.font='11px system-ui';x.fillText(`${ACTIONS[p.action].name.toLowerCase()}${ACTIONS[p.action]?.auto?` · ${p.rof} coups/min`:''} · ${ACTIONS[p.action]?.auto&&p.mag>=50?'bande':'chargeur'} de ${p.mag}${D.mods.length?' · '+D.mods.map(k=>MODS[k].name.toLowerCase()).join(', '):''}`,12,34,TW);
     // l'échelle
     x.strokeStyle='#a8b4ba';x.beginPath();x.moveTo(12,ground+14);x.lineTo(12+u(.1),ground+14);x.stroke();x.fillStyle='#a8b4ba';x.fillText('10 cm',16+u(.1),ground+18);}
   // l'arme de profil : crosse (ou poignées de pièce), boîte de culasse, canon, bouche, chargeur, modules. Rend la bouche.
-  gun(x,D,bx,ay,s,ground,ms,stock,act,dev){const p=D.p;const d=p.d,Dc=d*(D.pistol?1.25:1.45),COL=D.COL,wall=d*(.35+.00075*D.P)*(p.heavy?1.5:1),Dout=d+2*wall;const crewGun=D.have==='trepied';
+  gun(x,D,bx,ay,s,ground,ms,stock,act,dev){const p=D.p;const d=p.d,Dc=d*(D.pistol?1.25:1.45),COL=D.COL,wall=d*(.35+.00075*D.P)*D.wallx,Dout=d+2*wall;const crewGun=D.have==='trepied';
     const X=v=>bx+v*s;const hR=Math.max(Dc*3.2+6,Dout*1.8);const r2=hR*s/2;
     const metal=(y0,h)=>{const g=x.createLinearGradient(0,y0,0,y0+h);g.addColorStop(0,'#7b848d');g.addColorStop(.45,'#3d434a');g.addColorStop(1,'#23272b');return g;};
     const wood=(y0,h)=>{const g=x.createLinearGradient(0,y0,0,y0+h);g.addColorStop(0,'#a8703f');g.addColorStop(1,'#6a4221');return g;};
@@ -225,16 +233,19 @@ export class Designer{
     if(p.action==='verrou'){x.strokeStyle='#c9cdd2';x.lineWidth=2;x.beginPath();x.moveTo(X(stock+act*.62),ay-r2*.2);x.lineTo(X(stock+act*.62)+6,ay+r2*1.4);x.stroke();x.fillStyle='#c9cdd2';x.beginPath();x.arc(X(stock+act*.62)+6,ay+r2*1.4,2.5,0,7);x.fill();x.lineWidth=1;}
     else{x.fillStyle='#c9cdd2';x.fillRect(X(stock+act*.7),ay-r2*.5,5,2);x.fillStyle='#15181b';x.fillRect(X(stock+act*.45),ay-r2*.25,act*s*.25,r2*.5);}
     // le canon, son garde-main
-    const bw=Math.max(2,Dout*s);const b0=stock+act;x.fillStyle=p.heavy?metal(ay-bw/2,bw):metal(ay-bw/2,bw);x.fillRect(X(b0),ay-bw/2,p.L*s,bw);x.strokeRect(X(b0),ay-bw/2,p.L*s,bw);
+    const bw=Math.max(2,Dout*s);const b0=stock+act;const multi=ACTIONS[p.action]?.multi;
+    // une arme rotative : un faisceau de canons autour d'un axe, tenu par des colliers
+    if(multi){for(const o of [-.95,0,.95]){x.fillStyle=metal(ay+o*bw-bw/2,bw);x.fillRect(X(b0),ay+o*bw-bw/2,p.L*s,bw);x.strokeRect(X(b0),ay+o*bw-bw/2,p.L*s,bw);}x.fillStyle='#2b2f33';for(const f of [.05,.5,.95])x.fillRect(X(b0+p.L*f)-2,ay-bw*1.6,4,bw*3.2);}
+    else{x.fillStyle=metal(ay-bw/2,bw);x.fillRect(X(b0),ay-bw/2,p.L*s,bw);x.strokeRect(X(b0),ay-bw/2,p.L*s,bw);}
     if(!crewGun){x.fillStyle=wood(ay-r2*.8,r2*1.6);x.fillRect(X(b0),ay-r2*.8,p.L*s*.42,r2*1.6);x.strokeRect(X(b0),ay-r2*.8,p.L*s*.42,r2*1.6);}
-    else if(p.heavy||p.action==='auto'){x.fillStyle='rgba(30,34,38,.85)';for(let k=0;k<p.L*.5;k+=d*1.6){x.fillRect(X(b0+k),ay-bw*.95,Math.max(1,d*s*.8),bw*1.9);}}
+    else if(D.wallx>1.3||ACTIONS[p.action]?.auto){x.fillStyle='rgba(30,34,38,.85)';for(let k=0;k<p.L*.5;k+=d*1.6){x.fillRect(X(b0+k),ay-bw*.95,Math.max(1,d*s*.8),bw*1.9);}}
     x.fillStyle='#c9cdd2';x.fillRect(X(b0+p.L)-3,ay-bw/2-4,2,4);
     // la bouche
     const m0=b0+p.L;if(ms.has('manchon')){const hh=Math.max(bw*2.3,6);x.fillStyle=metal(ay-hh/2,hh);x.fillRect(X(m0),ay-hh/2,dev*s,hh);x.strokeRect(X(m0),ay-hh/2,dev*s,hh);x.fillStyle='rgba(255,255,255,.12)';x.fillRect(X(m0),ay-hh/2+1,dev*s,hh*.2);}
     else if(ms.has('frein')){const hh=Math.max(bw*1.6,5);x.fillStyle=metal(ay-hh/2,hh);x.fillRect(X(m0),ay-hh/2,dev*s,hh);x.fillStyle='#101214';for(let k=1;k<4;k++)x.fillRect(X(m0+dev*k/4)-1,ay-hh/2,2,hh);}
     else if(ms.has('cacheflamme')){x.fillStyle='#2b2f33';for(const o of [-1,1])x.fillRect(X(m0),ay+o*bw*.45-(o<0?1.5:0),dev*s,1.5);x.fillRect(X(m0),ay-bw/2,dev*s*.3,bw);}
     // le chargeur : boîte, tambour, ou bande qui pend vers une caisse
-    const mag=p.mag,rmm=Dc;if(p.action==='auto'&&mag>=50){const bxx=X(stock+act*.35),by=ay+r2;x.strokeStyle='#b8912f';x.lineWidth=Math.max(2,Dc*s*1.2);x.beginPath();x.moveTo(bxx,by);x.quadraticCurveTo(bxx-10,by+30,bxx-5,Math.min(ground-8,by+50));x.stroke();x.lineWidth=1;
+    const mag=p.mag,rmm=Dc;if(ACTIONS[p.action]?.auto&&mag>=50){const bxx=X(stock+act*.35),by=ay+r2;x.strokeStyle='#b8912f';x.lineWidth=Math.max(2,Dc*s*1.2);x.beginPath();x.moveTo(bxx,by);x.quadraticCurveTo(bxx-10,by+30,bxx-5,Math.min(ground-8,by+50));x.stroke();x.lineWidth=1;
       const bw2=Math.max(14,COL*s*1.6),bh=Math.max(10,Math.min(60,mag*D.rm*.1*s*30));x.fillStyle='#4f5a3a';x.fillRect(bxx-bw2,Math.min(ground-bh,by+40),bw2,bh);x.strokeRect(bxx-bw2,Math.min(ground-bh,by+40),bw2,bh);}
     else if(mag>30){const rr=Math.max(6,Math.sqrt(mag)*rmm*s*1.3);x.fillStyle=metal(ay,rr*2);x.beginPath();x.arc(X(stock+act*.45),ay+r2+rr*.9,rr,0,7);x.fill();x.stroke();}
     else if(mag>1){const mh=Math.max(6,Math.min(r2*8,mag/2*rmm*s*1.05+6)),mw=Math.max(4,COL*s*1.1);const mx0=X(stock+act*.55);x.fillStyle=metal(ay,mh);x.beginPath();x.moveTo(mx0,ay+r2);x.lineTo(mx0+mw,ay+r2);x.lineTo(mx0+mw+mh*.15,ay+r2+mh);x.lineTo(mx0+mh*.15,ay+r2+mh);x.closePath();x.fill();x.stroke();}
@@ -263,7 +274,7 @@ export class Designer{
       x.save();x.beginPath();x.rect(px(b0),py(r),l*sc,r*sc);x.clip();if(!C.mono&&!C.sub){x.fillStyle='#8d9196';x.fillRect(px(b0+d*.12),py(r*.82),(l-nose*.6)*sc,r*.82*sc);}
       if(C.core){x.fillStyle=C.rare?'#5fd1c1':p.cons==='tungstene'?'#9aa4ad':'#40464d';x.fillRect(px(b0+d*.25),py(r*.5),(l-nose*.4)*sc,r*.5*sc);}
       if(p.cons==='hp'){x.fillStyle='#2a2418';x.beginPath();x.moveTo(px(tip),py(r*.4));x.lineTo(px(tip-nose*.7),py(0));x.lineTo(px(tip),py(0));x.fill();}
-      if(C.he&&!C.shaped){x.fillStyle='#f0c419';x.fillRect(px(b0+shank*.3),py(r*.6),shank*.6*sc,r*.6*sc);}
+      if(C.he&&!C.shaped){const hf=Math.sqrt(D.hef||.3);x.fillStyle='#f0c419';x.fillRect(px(b0+shank*.15),py(r*.9*hf),shank*.8*sc,r*.9*hf*sc);}
       if(C.shaped){x.fillStyle='#f0c419';x.fillRect(px(b0+d*.2),py(r*.8),shank*.6*sc,r*.8*sc);x.strokeStyle='#e08a4a';x.lineWidth=2;x.beginPath();x.moveTo(px(b0+shank*.75),py(r*.8));x.lineTo(px(b0+shank*.4),py(0));x.stroke();x.lineWidth=1;}
       if(C.tracer){x.fillStyle='#d23a2e';x.fillRect(px(b0),py(r*.4),d*.6*sc,r*.4*sc);}x.restore();
       if(TIPC[p.cons]){x.fillStyle=TIPC[p.cons];x.beginPath();x.arc(px(tip-nose*.12),py(0),Math.max(1.5,r*.5*sc),0,7);x.fill();}}
