@@ -102,6 +102,15 @@ export class World{
   building(id){return this.bIndex.get(id)||null;}
   unit(id){return this.uIndex.get(id)||null;}
   centreOf(b){const cs=this.s.buildings.filter(x=>x.k==='centre'&&x.f===b.f&&!x.ruin);return cs.sort((a,z)=>d2(a.i,a.j,b.i,b.j)-d2(z.i,z.j,b.i,b.j))[0]||null;}
+  // Les villes : chaque centre-ville en est une ; un bâtiment appartient au centre le plus proche (à moins de 26 cases),
+  // un Meumeu à la ville où il est né (ou la plus proche). Chaque ville a ses places (son centre, ses maisons), ses
+  // habitants, et sa croissance : son centre forme des villageois tant qu'il a des vivres et de la place.
+  cityOf(b){const c=this.centreOf(b);return c&&d2(c.i,c.j,b.i,b.j)<26*26?c:null;}
+  homeOf(u){let c=u.home!=null&&this.building(u.home);if(!c||c.ruin||c.k!=='centre'){c=this.s.buildings.filter(x=>x.k==='centre'&&x.f===u.f&&!x.ruin&&x.done).sort((a,z)=>d2(a.i,a.j,u.x,u.y)-d2(z.i,z.j,u.x,u.y))[0]||null;u.home=c?.id??null;}return c;}
+  cityStats(c){const cap=this.s.buildings.filter(b=>b.f===c.f&&b.done&&BUILDINGS[b.k].pop&&this.cityOf(b)===c).reduce((a,b)=>a+BUILDINGS[b.k].pop,0);
+    const res=this.s.units.filter(u=>u.f===c.f&&this.homeOf(u)===c).length+this.s.vehicles.filter(v=>v.k==='porteur'&&v.f===c.f&&v.u&&this.homeOf(v.u)===c).length;
+    const houses=this.s.buildings.filter(b=>b.f===c.f&&b.k==='maison'&&this.cityOf(b)===c).length;return {cap,res,houses};}
+  cities(f){return this.s.buildings.filter(b=>b.k==='centre'&&b.f===f&&!b.ruin&&b.done);}
   cityName(b){const c=this.centreOf(b);return c&&d2(c.i,c.j,b.i,b.j)<30?c.city:b.f==='beee'?'Terres bèè':'Avant-poste';}
   capital(){return this.s.buildings.find(b=>b.capital)||null;}
 
@@ -632,6 +641,7 @@ export class World{
 
   // ---------- les bâtiments ----------
   buildingTick(b,dt){const B=BUILDINGS[b.k];b.working=false;
+    if(b.k==='centre'&&b.f==='meumeu'&&b.done&&!b.ruin&&b.grow!==false){b.growT=(b.growT||0)-dt;if(b.growT<=0){b.growT=1;if(!b.queue.length){const st=this.cityStats(b);if(st.res<st.cap&&this.canTrain(b,'villageois').ok)this.train(b,'villageois');}}}
     if(b.hide?.length&&(b.ruin||!this.s.units.some(e=>e.f!==b.f&&alive(e)&&this.distB(b,e.x,e.y)<13))){b.hideT=(b.hideT||0)+dt;if(b.hideT>.5||b.ruin){this.unhide(b);}}else b.hideT=0;
     if(b.fire>0){b.fire-=dt;b.hp-=FIRE.dps*dt;if(b.hp<=0&&!b.ruin)this.collapse(b);}
     // les blessés soignés ici
@@ -650,7 +660,7 @@ export class World{
     // le bureau d'études : le prototype avance
     if(b.proto){b.proto.left-=dt;b.working=true;if(b.proto.left<=0){const d=this.design(b.proto.id);if(d){d.status='adopte';this.log(this.cityName(b),`Prototype réussi : ${d.name} est adopté. La manufacture et l’arsenal peuvent le fabriquer.`,'good');this.emit({type:'design',id:d.id});}b.proto=null;}}
     const q=b.queue[0];if(q){q.left-=dt;if(q.left<=0){b.queue.shift();const [w,h]=B.size;
-      if(UNITS[q.k]||(b.f==='beee'&&BEEE.units[q.k])){const u=this.addUnit(b.f,q.k,b.i+w/2+(this.rand()-.5)*w,b.j+h+.7,{w:q.w,rounds:0,armor:q.armor});this.resupply(u);if(b.rally)u.task={kind:u.k==='villageois'?'move':'guard',tx:b.rally[0],ty:b.rally[1]};this.emit({type:'trained',x:u.x,y:u.y,k:q.k,f:b.f});}
+      if(UNITS[q.k]||(b.f==='beee'&&BEEE.units[q.k])){const u=this.addUnit(b.f,q.k,b.i+w/2+(this.rand()-.5)*w,b.j+h+.7,{w:q.w,rounds:0,armor:q.armor});u.home=(this.cityOf(b)||this.centreOf(b))?.id??null;this.resupply(u);if(b.rally)u.task={kind:u.k==='villageois'?'move':'guard',tx:b.rally[0],ty:b.rally[1]};this.emit({type:'trained',x:u.x,y:u.y,k:q.k,f:b.f});}
       else{const v=this.addVehicle(b.f,q.k,b);this.log(this.cityName(b),`${VEHICLES[q.k].name} « ${v.name} » prêt.`,'good');this.emit({type:'trained',x:v.x,y:v.y,k:q.k,f:b.f});}}}
     const here=B.workers?this.workers(b).filter(u=>u.at):[];if(!here.length)return;const n=here.length;
     // les fermes et les mines livrent à leur dépôt de sortie (le plus proche, ou celui que le joueur a choisi)

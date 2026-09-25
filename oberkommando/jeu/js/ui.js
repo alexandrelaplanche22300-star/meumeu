@@ -277,6 +277,9 @@ function buildingPane(b){const B=BUILDINGS[b.k];const beee=b.f==='beee';let h=`<
     if(!b.done&&!b.ruin)h+=`<div class="row"><button class="small ghost" data-act="cancel-site">Annuler (rembourse)</button></div>`;
     if(B.defense&&b.done){const wid=world.bestRifle('meumeu');h+=`<div class="kv"><span>Tireurs</span><b>${Math.round(B.defense.shooters*world.mod('creneaux'))+Math.floor((b.hide||[]).length/3)} · ${esc(world.design(wid)?.name||'')}</b></div>${b.dry?'<p class="small bad">À sec : aucune caisse de munitions dans les dépôts voisins.</p>':''}`;}}
   h+='</section>';
+  if(b.k==='centre'&&!beee&&b.done){const st=world.cityStats(b);h+=`<section class="pane"><h2>La ville <small>${esc(b.city||'')}</small></h2><div class="kv"><span>Habitants</span><b class="${st.res>=st.cap?'warn':''}">${st.res} / ${st.cap} places</b></div><div class="kv"><span>Maisons</span><b>${st.houses} · 5 places chacune</b></div>
+    <div class="row"><button class="small ${b.grow===false?'ghost':''}" data-act="grow">${b.grow===false?'Croissance arrêtée':'Croissance : le centre forme des villageois'}</button><span class="quiet small">25 vivres chacun, tant qu’il y a de la place</span></div>
+    <p class="quiet small">Chaque ville grandit par son centre : plus de villes, plus de naissances en même temps. Une maison compte pour la ville la plus proche (26 cases).</p></section>`;}
   if(b.stock&&!beee&&b.done)h+=depotPane(b);
   if(beee){h+=`<section class="pane war"><p>Choisissez des soldats, puis clic droit sur ce bâtiment : au contact, ils le saccagent et y mettent le feu ; les commandos y jettent leurs grenades. Les canons l’abattent de loin ; un bombardier, d’en haut.${!world.atWar?' <b>Nous sommes en paix : attaquer, c’est déclarer la guerre.</b>':''}</p></section>`;return h;}
   if(!b.done)return h;
@@ -333,7 +336,7 @@ function overviewPane(){const s=world.s;const cap=world.capital();const st=cap?.
   const W=wounded();
   let h=stepsPane()+`<section class="pane"><h2>${esc(cap?.city||'La capitale')} <small>la capitale</small></h2>
     <p class="quiet small">Le but : la chute de toutes les villes bèè — et que la capitale tienne.</p>${s.won?`<p class="good"><b>Gagné au jour ${s.won.day}.</b></p>`:''}${s.lost?`<p class="bad"><b>La civilisation meumeu est tombée au jour ${s.lost.day}.</b></p>`:''}</section>`;
-  h+=`<section class="pane"><h2>Civilisation</h2><div class="kv"><span>Villes</span><b>${ours.filter(b=>b.k==='centre'&&!b.ruin).map(b=>`<a data-goto="${b.id}">${esc(b.city)}</a>`).join(', ')}</b></div>
+  h+=`<section class="pane"><h2>Civilisation</h2><div class="kv"><span>Villes</span><b>${ours.filter(b=>b.k==='centre'&&!b.ruin).map(b=>{const st=b.done?world.cityStats(b):null;return `<a data-goto="${b.id}">${esc(b.city)}</a>${st?` <small>${st.res}/${st.cap}</small>`:' <small>chantier</small>'}`;}).join(', ')}</b></div>
     <div class="kv"><span>Villageois</span><b>${s.units.filter(u=>u.f==='meumeu'&&u.k==='villageois').length}${idle.length?` · <a data-act="idle">${idle.length} sans rien à faire</a>`:''}</b></div>
     <div class="kv"><span>Armée</span><b>${army.length?Object.entries(army.reduce((o,u)=>(o[u.k]=(o[u.k]||0)+1,o),{})).map(([k,n])=>`${n} ${UNITS[k].name.toLowerCase()}${n>1?'s':''}`).join(', '):'aucune'}${army.length?` · <a data-act="army">choisir</a>`:''}</b></div>
     ${W.length?`<div class="kv"><span>Blessés</span><b><a data-modal="med">${W.length} · ${W.filter(x=>triage(x.u.h).k==='rouge').length} en urgence</a></b></div>`:''}
@@ -518,6 +521,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   else if(a==='sq-open'){const u=[...view.sel].map(id=>world.unit(id)).find(u=>u?.sq);if(u)openModal('squad',u.sq);}
   else if(a==='sq-crews'){const sq=world.squad(ui.modal?.id);if(sq){for(const u of world.members(sq))if(u.serve)u.serve=null;world.assignCrews(sq);ui.modalHtml='';renderModal();say('Servants répartis.','good');}}
   else if(a==='sq-resupply'){const sq=world.squad(ui.modal?.id);if(sq){for(const u of world.members(sq))world.resupply(u);ui.modalHtml='';renderModal();say('Cartouchières remplies au dépôt (s’il en a).','good');}}
+  else if(a==='grow'){const bd=world.building(view.selB);if(bd){bd.grow=bd.grow===false;say(bd.grow?`${bd.city} : croissance.`:`${bd.city} : croissance arrêtée.`);}}
   else if(a==='porters'){const bd=world.building(view.selB);const r=world.addPorters(bd,2);say(r.ok?`${r.n} porteur${r.n>1?'s':''} pour ${world.depotName(bd)}.`:r.why[0],r.ok?'good':'bad');}
   else if(a==='porters-off'){const bd=world.building(view.selB);const v=bd&&world.porters(bd).pop();if(v){world.releasePorter(v);say('Un porteur rendu au village.');}}
   else if(a==='porter-free'){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v){world.releasePorter(v);view.selV=null;say('Rendu au village.');}}

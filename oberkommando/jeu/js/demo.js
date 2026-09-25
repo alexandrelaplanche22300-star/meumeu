@@ -30,8 +30,8 @@ export function setupDemo(W){const s=W.s;const cap=W.capital();const [ci,cj]=[ca
   W.formSquad([...sol.slice(0,5),med[0],med[2]].map(u=>u.id));W.formSquad([...sol.slice(5),med[1],med[3]].map(u=>u.id));
   // l'avant-poste bèè, vers les Bèè, à une quarantaine de cases
   const [bi,bj]=W.G.beee[0];const d=Math.hypot(bi-ci,bj-cj);let post=null;
-  for(let R=40;R<=70&&!post;R+=3){const x=Math.round(ci+(bi-ci)/d*R),y=Math.round(cj+(bj-cj)/d*R);for(let r=0;r<10&&!post;r++)for(let a=0;a<12;a++){const i=Math.round(x+Math.cos(a/12*6.283)*r),j=Math.round(y+Math.sin(a/12*6.283)*r);
-      let ok=true;for(let dy=-5;dy<=5&&ok;dy++)for(let dx=-5;dx<=5;dx++){const kk=(j+dy)*W.N+i+dx;const T=W.G.terrain[kk];if(T==null||T<2||T>6||W.occ[kk]>=0){ok=false;break;}}if(ok){post=[i,j];break;}}}
+  for(let R=38;R<=95&&!post;R+=3){const x=Math.round(ci+(bi-ci)/d*R),y=Math.round(cj+(bj-cj)/d*R);for(let r=0;r<18&&!post;r++)for(let a=0;a<16;a++){const i=Math.round(x+Math.cos(a/16*6.283)*r),j=Math.round(y+Math.sin(a/16*6.283)*r);
+      if(W.G.comp[j*W.N+i]!==W.G.main)continue;let ok=true;for(let dy=-4;dy<=4&&ok;dy++)for(let dx=-4;dx<=4;dx++){const kk=(j+dy)*W.N+i+dx;const T=W.G.terrain[kk];if(T==null||T<2||T>6||W.occ[kk]>=0){ok=false;break;}}if(ok){post=[i,j];break;}}}
   if(post){W.makeBeeeCity(post[0],post[1],'Avant-poste de Bèèval');const c=s.beee.cities[s.beee.cities.length-1];
     for(let n=0;n<6;n++){const a=n/6*Math.PI*2;const u=W.addUnit('beee',n<5?'soldat':'commando',post[0]+Math.cos(a)*4,post[1]+Math.sin(a)*4,{armor:n<5?'bee_casque':'bee_plaque'});W.resupply?.(u);u.city=c.id;}}
   // la guerre est déclarée ; leurs grandes vagues attendent le jour 5
