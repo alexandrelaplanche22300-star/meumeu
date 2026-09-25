@@ -198,3 +198,5 @@ table.dem td{padding:3px 4px;border-bottom:1px dotted var(--line);vertical-align
 button.on{outline:2px solid var(--accent,#ffd36a)}
 .dz-he-ctl{border-left:3px solid #f0c419;padding-left:8px;margin:4px 0 8px}
 .dz-he-ctl.off{opacity:.4;pointer-events:none}
+body.nopanel .panel{display:none}
+body.nopanel .layout{grid-template-columns:1fr!important}

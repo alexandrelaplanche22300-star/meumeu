@@ -381,6 +381,10 @@ export class World{
     // le corps : le sang coule, on tombe, on meurt
     if(u.h){const ch=tickHealth(u.h,dts);if(ch)this.stateChange(u,ch);if(u.h.log?.length&&u.h.log[u.h.log.length-1].t==null)u.h.log[u.h.log.length-1].t=this.s.t;if(!alive(u))return;
       if(u.h.state==='hors'){u.anim='down';u.task=u.task?.kind==='carried'?u.task:null;u.path=null;u.post='couche';return;}}
+    // on ne se marche pas dessus : deux Meumeu trop proches s'écartent (1,2 m au moins entre deux soldats)
+    {const R=u.k==='villageois'?.2:.3;for(const o of this.s.units){if(o===u||o.f!==u.f||!alive(o))continue;let dx=u.x-o.x,dy=u.y-o.y;const dd=dx*dx+dy*dy;if(dd>=R*R)continue;
+      let d=Math.sqrt(dd);if(d<1e-4){const a=(u.id*2.399)%6.283;dx=Math.cos(a);dy=Math.sin(a);d=1;}const k=Math.min(.05,(R-d)*.5);const nx=u.x+dx/d*k,ny=u.y+dy/d*k;const kk=Math.floor(ny)*this.N+Math.floor(nx);
+      if(TERRAIN[this.G.terrain[kk]]?.walk&&this.occ[kk]<0){u.x=nx;u.y=ny;}}}
     if(u.role==='munitions'&&u.sq)this.bearerTick(u);
     // un servant rejoint sa pièce quand elle s'arrête
     if(u.serve&&(!u.task||u.task.kind==='guard')){const g=this.unit(u.serve);if(g&&alive(g)&&this.s.t-(g.moved||-9)>.05){const tx=g.x-.45,ty=g.y+.35;if(Math.hypot(u.x-tx,u.y-ty)>.9)u.task={kind:'guard',tx,ty};}}
@@ -474,7 +478,7 @@ export class World{
   // ---------- tirer ----------
   // Engager : à portée et à vue, on vise (le temps de viser dépend de l'arme), on tire au rythme de la culasse,
   // on recharge le chargeur depuis les munitions qu'on porte. Faux si l'on doit d'abord se rapprocher.
-  engage(u,e){const D=UDEF(u);const [x,y]=this.posOf(e);const isB=e.k&&BUILDINGS[e.k]&&e.i!=null;const distT=isB?this.distB(e,u.x,u.y):d2(x,y,u.x,u.y);
+  engage(u,e){if(u.h&&u.h.state!=='ok'&&u.h.state!=='blesse')return false;const D=UDEF(u);const [x,y]=this.posOf(e);const isB=e.k&&BUILDINGS[e.k]&&e.i!=null;const distT=isB?this.distB(e,u.x,u.y):d2(x,y,u.x,u.y);
     if(D.img)return this.cannon(u,e,distT,isB);
     // un fusil ne démolit pas une maison : au contact, on la saccage (on y met le feu, on arrache, on fait sauter) ; les commandos y jettent leurs grenades
     if(isB||e.wall!=null){if(distT>(isB?.9:1.5))return false;this.face(u,x-u.x,y-u.y);u.anim='action';u.path=null;

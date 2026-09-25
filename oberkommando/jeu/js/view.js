@@ -471,7 +471,7 @@ export class View{
       if(this.placing){if(e.button===2){this.placing=null;this.ui.changed();return;}const r=this.ui.place(this.placing,this.ghost[0],this.ghost[1]);if(r.ok&&!e.shiftKey)this.placing=null;return;}
       if(e.button===0){const u=this.unitAt(sx,sy);const v=u?null:this.vehicleAt(sx,sy);
         if(this.ui.pickStop&&!u){const t=this.world.targetAt(w.x,w.y);if(t?.type==='building'){this.ui.pickStop(t.id);return;}}
-        if(u&&u.f==='meumeu'){if(D.shift){this.sel.has(u.id)?this.sel.delete(u.id):this.sel.add(u.id);}else{this.sel.clear();this.sel.add(u.id);
+        if(u&&u.f==='meumeu'){const grp=u.sq&&!e.altKey?this.world.members(this.world.squad(u.sq)||{m:[]}).map(m=>m.id):[u.id];if(D.shift){for(const id of grp)this.sel.has(u.id)?this.sel.delete(id):this.sel.add(id);}else{this.sel.clear();for(const id of grp)this.sel.add(id);
             if(e.detail>=2){for(const o of this.world.s.units)if(o.f==='meumeu'&&o.k===u.k){const q=this.toScreen(o.x,o.y);if(q.x>0&&q.y>0&&q.x<this.canvas.width&&q.y<this.canvas.height)this.sel.add(o.id);}}}
           this.selB=null;this.selV=null;this.ui.changed();return;}
         if(u&&u.f!=='meumeu'&&this.ui.unitInfo){this.ui.unitInfo(u);return;}
