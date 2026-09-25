@@ -9,7 +9,7 @@ import {bleedRate,triage} from './health.js';
 export const TW=64,TH=32;
 // assombrir ou éclaircir une couleur #rrggbb
 function shade(hex,f){const n=parseInt(hex.slice(1),16);const c=v=>Math.max(0,Math.min(255,Math.round(v*f)));return `rgb(${c(n>>16)},${c((n>>8)&255)},${c(n&255)})`;}
-const TREES={[T.grass]:['tree_oak','tree_birch','tree_round','tree_maple'],[T.meadow]:['tree_fir','tree_pines','tree_birch-yellow','tree_oak'],[T.sand]:['tree_palm'],[T.dirt]:['tree_spruce','tree_fir'],[T.scrub]:['tree_dead','tree_cypress']};
+const TREES={[T.grass]:['tree_oak','tree_birch','tree_round','tree_maple','tree_cherry','tree_fruit','tree_willow','tree_red','tree_oak','tree_round'],[T.meadow]:['tree_fir','tree_pines','tree_birch-yellow','tree_oak','tree_firs','tree_yellow','tree_jacaranda','tree_fir'],[T.sand]:['tree_palm','tree_banana','tree_umbrella','tree_palm'],[T.dirt]:['tree_spruce','tree_fir','tree_snowfir','tree_orange','tree_spruce'],[T.scrub]:['tree_dead','tree_cypress','tree_bamboo','tree_cypress']};
 const BEEE_SPRITE={centre:'beee-colonial-shelter',maison:'beee-colonial-shelter',camp:'beee-depot'};
 // les caisses de munitions et les armes n'ont pas d'image dans le pack : on les dessine (une cartouche, un fusil)
 export const AMMO_SVG='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="12" rx="2" fill="#6b5a3a" stroke="#3b301d"/><rect x="3" y="9" width="18" height="3" fill="#8a7650"/><g fill="#d9a441" stroke="#7a5a1a" stroke-width=".6"><rect x="6" y="3" width="3" height="9" rx="1.2"/><rect x="10.5" y="3" width="3" height="9" rx="1.2"/><rect x="15" y="3" width="3" height="9" rx="1.2"/></g><g fill="#b87333"><path d="M6 4.2a1.5 1.5 0 0 1 3 0z"/><path d="M10.5 4.2a1.5 1.5 0 0 1 3 0z"/><path d="M15 4.2a1.5 1.5 0 0 1 3 0z"/></g></svg>');
@@ -141,7 +141,10 @@ export class View{
     // tout ce qui a de la hauteur, trié par profondeur
     const items=[];const inView=(x,y,m=3)=>x>=i0-m&&x<=i1+m&&y>=j0-m&&y<=j1+m;
     if(this.zoom>=.3)for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const nd=W.nodeAt[j*N+i];if(nd>=0){const n=s.nodes[nd];items.push({d:i+j+1,f:()=>this.drawNode(n)});}}
-    for(const b of s.buildings){const [w,h]=BUILDINGS[b.k].size;if(!inView(b.i,b.j,6))continue;items.push({d:b.k==='aerodrome'?b.i+b.j+1:b.i+b.j+w+h-.5,f:()=>this.drawBuilding(b)});}
+    this.puffT=(this.puffT||0)+dt;const puff=this.puffT>.4;if(puff)this.puffT=0;
+    for(const b of s.buildings){const [w,h]=BUILDINGS[b.k].size;if(!inView(b.i,b.j,6))continue;
+      if(puff&&!b.ruin){const R=Math.random;if(!b.done&&b.progress>0&&b.progress<1&&!b.why&&R()<.3)this.sfx('construction-dust',b.i+R()*w,b.j+h,{z:.05,size:24+R()*12,life:1.2,rise:.15,grow:1.3,alpha:.4,ang:R()*6});
+        else if(b.done&&b.working&&BUILDINGS[b.k].factory&&R()<.45)this.sfx('workshop-sparks',b.i+w*(.3+R()*.4),b.j+h*(.3+R()*.4),{z:.6,size:26,life:.35,add:true,ang:R()*6});}items.push({d:b.k==='aerodrome'?b.i+b.j+1:b.i+b.j+w+h-.5,f:()=>this.drawBuilding(b)});}
     for(const c of s.corpses)if(inView(c.x,c.y)&&this.zoom>=.35)items.push({d:c.x+c.y-.05,f:()=>this.drawCorpse(c)});
     this.toppling=this.toppling.filter(t=>(t.age+=dt)<1.6);for(const t of this.toppling)if(inView(t.x,t.y))items.push({d:t.x+t.y,f:()=>{const im=prop(t.name);if(!im)return;const q=this.toScreen(t.x,t.y);const w=TW*1.15*z;const k=Math.min(1,t.age/.9);const ang=t.side*1.45*k*k;
       ctx.save();ctx.globalAlpha=t.age<1.1?1:Math.max(0,1-(t.age-1.1)/.5);ctx.translate(q.x,q.y);ctx.rotate(ang);ctx.drawImage(im,-w/2,-w*.9,w,w);ctx.restore();}});
@@ -199,8 +202,8 @@ export class View{
     if(n.type==='ore'){const im=prop(OUTCROP[n.res]);const w=TW*1.3*z;const pulse=.5+.5*Math.sin(this.frame/3);ctx.save();ctx.globalAlpha=.2+.2*pulse;ctx.fillStyle='#ffd36a';ctx.beginPath();ctx.ellipse(q.x,q.y,w*.5,w*.22,0,0,7);ctx.fill();ctx.restore();
       if(im&&!W.s.buildings.some(b=>b.ore===n.id))ctx.drawImage(im,q.x-w/2,q.y-w*.75,w,w);const ic=icon(n.res);if(ic&&this.zoom>.5)ctx.drawImage(ic,q.x-9*z,q.y-w*.9,18*z,18*z);return;}
     if(n.left<1&&n.type!=='bush')return;let name,w,lift=.9;const f=Math.min(1,n.left/n.max);
-    if(n.type==='tree'){const ks=TREES[W.G.terrain[n.j*W.N+n.i]]||TREES[T.grass];name=ks[n.id%ks.length];w=TW*(1+.25*f)*z;}
-    else if(n.type==='rock'){name='outcrop_rock';w=TW*(.6+.4*f)*z;lift=.72;}else{name=n.left>=1?'bush_berry':'bush_green';w=TW*.7*z;lift=.8;}
+    if(n.type==='tree'){const ks=TREES[W.G.terrain[n.j*W.N+n.i]]||TREES[T.grass];name=f<.25?'tree_sapling':ks[(n.id*7+n.i)%ks.length];w=TW*(f<.25?.7:1+.25*f)*z;}
+    else if(n.type==='rock'){name='outcrop_rock';w=TW*(.6+.4*f)*z;lift=.72;}else{name=n.left>=1?(n.id%4===0?'bush_flower':'bush_berry'):(n.id%2?'bush_green':'bush_low');w=TW*.7*z;lift=.8;}
     const im=prop(name);if(!im)return;const ox=((n.id*37)%9-4)*z,oy=((n.id*53)%7-3)*z*.5;ctx.drawImage(im,q.x-w/2+ox,q.y-w*lift+oy,w,w);}
   // La tente médicale : une toile blanche sur deux mâts, une croix rouge sur chaque pan, la porte ouverte ; à moitié montée,
   // les mâts seuls ; en ruine, la toile à terre.
@@ -245,7 +248,7 @@ export class View{
     if(u.f==='beee'&&!down){ctx.strokeStyle='rgba(224,80,58,.75)';ctx.lineWidth=1.6*this.dpr;ctx.beginPath();ctx.ellipse(q.x,q.y,9*z,4.5*z,0,0,7);ctx.stroke();}
     if(u.h){const lost=1-u.h.blood/BLOOD;if(down||lost>.06)this.pool(q.x,q.y,lost,z,u.id);}
     if(D.img==='canon'){this.drawCannon(u,q,z);}
-    else{const act=down?'idle':u.anim==='aim'?'aim':u.anim==='action'?'action':u.anim==='walk'?'walk':'idle';let name=D.sheet;if(u.k==='villageois'){const t=u.task?.kind;name=t==='build'||t==='line'||t==='repair'?'meumeu_builder':u.carry?'meumeu_logistician':t==='work'?'meumeu_mechanic':'meumeu_colonist';}
+    else{const act=down?'idle':u.anim==='aim'?'aim':u.anim==='action'?'action':u.anim==='walk'?'walk':'idle';let name=D.sheet;if(u.k==='villageois'){const t=u.task?.kind;name=t==='build'||t==='line'||t==='repair'?'meumeu_builder':u.carry?'meumeu_logistician':t==='work'?(W.building(u.task.b)?.k==='mine'?'meumeu_prospector':'meumeu_mechanic'):u.task?.type==='ore'?'meumeu_prospector':'meumeu_colonist';}
       const sh=sheet(name,act,u.dir||'se')||sheet(name,'idle',u.dir||'se');const pose=down?'down':u.post==='couche'?'prone':u.post==='accroupi'?'crouch':'up';
       if(sh)this.body(sh,down?0:Math.floor(this.frame+(u.id%5)),q,size,pose,u.h?.wounds,u.dir,u.id,down?.25:0,u.armor?W.armorOf(u.armor)?.D:null);else{ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(q.x,q.y-8*z,5*z,0,7);ctx.fill();}}
     const top=down?q.y-size*.35:u.post==='couche'?q.y-size*.4:u.post==='accroupi'?q.y-size*.78:q.y-size;
