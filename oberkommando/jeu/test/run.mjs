@@ -202,10 +202,11 @@ if(on(15)){say('\n=== banc 15 : la chaîne complète — filons, mines, briquete
   say(`  mines : ${m1.b.done?'bâtie':'chantier '+Math.round(m1.b.progress*100)+' % '+(m1.b.why||'')}, ${m2.b.done?'bâtie':'chantier '+Math.round(m2.b.progress*100)+' % '+(m2.b.why||'')} · livrent à : ${W.depotName(W.building(m1.b.out))}, ${W.depotName(W.building(m2.b.out))}`);
   for(const [m,us] of [[m1.b,vil.slice(0,2)],[m2.b,vil.slice(2,4)]])W.order(us.map(u=>u.id),{type:'building',id:m.id});
   // une briqueterie près de la capitale, approvisionnée par la capitale : elle commande argile et charbon
+  cap.stock.pierre=(cap.stock.pierre||0)+100;   // la pierre vient d'une mine de pierre, pas encore posée ici
   const at=free(W,'briqueterie',cap.i+2,cap.j+2,6,14);const br=W.place('meumeu','briqueterie',...at).b;W.order(vil.slice(4,7).map(u=>u.id),{type:'building',id:br.id});run(W,10);
   W.order(vil.slice(4,7).map(u=>u.id),{type:'building',id:br.id});const b0=cap.stock.briques||0;run(W,36);
   const carts=W.s.vehicles.filter(v=>v.k==='porteur');
-  say(`  36 h : briqueterie ${br.done?(br.why||'au travail'):'chantier'} · commande de la briqueterie : ${JSON.stringify(Object.fromEntries(Object.entries(W.factoryNeed(br)||{}).map(([k,v])=>[k,+v.toFixed(1)])))} · briques à la capitale ${fmt(b0)} → ${fmt(cap.stock.briques||0)} · argile à la capitale ${fmt(cap.stock.argile||0,1)} · charbon ${fmt(cap.stock.charbon||0,1)} · porteurs : ${carts.map(v=>`${W.depotName(W.building(v.base))} ${v.trips||0}${v.why?' ('+v.why+')':''}`).join(', ')}`);
+  say(`  36 h : briqueterie ${br.done?(br.why||'au travail'):'chantier '+Math.round(br.progress*100)+' % '+(br.why||'')+' · bâtisseurs '+W.s.units.filter(u=>u.task?.b===br.id).length} · commande de la briqueterie : ${JSON.stringify(Object.fromEntries(Object.entries(W.factoryNeed(br)||{}).map(([k,v])=>[k,+v.toFixed(1)])))} · briques à la capitale ${fmt(b0)} → ${fmt(cap.stock.briques||0)} · argile à la capitale ${fmt(cap.stock.argile||0,1)} · charbon ${fmt(cap.stock.charbon||0,1)} · porteurs : ${carts.map(v=>`${W.depotName(W.building(v.base))} ${v.trips||0}${v.why?' ('+v.why+')':''}`).join(', ')}`);
   // les priorités : un dépôt en urgence (5) passe avant les autres et peut prendre ce que la capitale garde pour elle
   const e=put(W,'meumeu','entrepot',...free(W,'entrepot',cap.i+2,cap.j+2,8,14));e.stock={};W.setWant(e,'pieces',20);W.setPrio(e,5);run(W,8);
   say(`  un entrepôt en urgence qui demande 20 pièces : ${fmt(e.stock.pieces||0,1)} arrivées en 8 h`);

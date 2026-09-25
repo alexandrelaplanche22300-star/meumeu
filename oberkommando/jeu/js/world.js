@@ -2,7 +2,7 @@
 // (cadences de tir, vol des balles, hémorragies). Une heure de jeu dure HOUR_REAL secondes à 1× : c'est aussi le nombre de
 // secondes de combat qu'elle contient. Les positions sont en cases (x = i, y = j) ; une case vaut TILE_M mètres pour la balistique.
 // Deux civilisations sur la même carte. Tout est un objet placé ; les stocks sont dans les dépôts, les munitions en caisses.
-import {HOUR_REAL,DAY,NIGHT,MAP_N,RADIUS,CARRY,GAP,TERRAIN,T,RES,RARE,NODES,BUILDINGS,LINES,UNITS,BLASTS,VEHICLES,PRODUCTS,LIMIT_OF,FRET,BOMB,FLAK,FIRE,BEEE,START,GOAL,NAMES,CITY_NAMES,BEEE_CITIES,VEHICLE_NAMES,INNOV,DOMAINS} from './data.js';
+import {SITE_RANGE,HOUR_REAL,DAY,NIGHT,MAP_N,RADIUS,CARRY,GAP,TERRAIN,T,RES,RARE,NODES,BUILDINGS,LINES,UNITS,BLASTS,VEHICLES,PRODUCTS,LIMIT_OF,FRET,BOMB,FLAK,FIRE,BEEE,START,GOAL,NAMES,CITY_NAMES,BEEE_CITIES,VEHICLE_NAMES,INNOV,DOMAINS} from './data.js';
 import {ECO} from './eco.js';
 import {generate,rng} from './gen.js';
 import {Pather} from './path.js';
@@ -189,6 +189,23 @@ export class World{
     const rows=Math.ceil(n/F[0]);rear.forEach((u,q)=>set(u,{kind:'move',tx:t.x+px*(q-(rear.length-1)/2)*.8-dx*(rows*F[2]+.8),ty:t.y+py*(q-(rear.length-1)/2)*.8-dy*(rows*F[2]+.8),fx:dx,fy:dy}));
     return {ok:true,text:us.length>1?`${us.length} en route, ${sq?{ligne:'en ligne',colonne:'en colonne',dispersee:'dispersés'}[sq.form]:'en ligne'}`:'en route'};}
   workers(b){return this.s.units.filter(u=>u.task?.kind==='work'&&u.task.b===b.id);}
+  // Les bâtisseurs portent les matériaux : du dépôt du chantier au chantier, CARRY caisses par voyage, jusqu'à ce que tout
+  // soit là. Ce qui manque au dépôt y devient une commande (le fret l'y amène : porteurs, trains).
+  siteDepot(b){const D=this.building(b.site);if(D&&D.done&&!D.ruin)return D;const [x,y]=this.bc(b);const N=this.depots(b.f,x,y,SITE_RANGE)[0]||null;if(N)b.site=N.id;return N;}
+  enRoute(b,k){let n=0;for(const u of this.s.units)if(u.task?.kind==='build'&&u.task.b===b.id){if(u.task.fetch===k)n+=u.task.fetchN||0;else if(u.carry?.k===k&&u.task.bring)n+=u.carry.n;}return n;}
+  // au chantier : déposer ce qu'on porte ; sinon partir chercher ce qui manque le plus. Rend vrai si le chantier a de quoi avancer.
+  haulTick(u,T0,b,dt){b.paid??={};if(u.carry&&T0.bring){const k=u.carry.k;const need=Math.max(0,(this.siteCost(b)[k]||0)-(b.paid[k]||0));const q=Math.min(need,u.carry.n);b.paid[k]=(b.paid[k]||0)+q;u.carry.n-=q;
+      if(u.carry.n<=1e-6)u.carry=null;T0.bring=false;if(q>0)return true;}
+    const rem=this.siteRemaining(b);const D=this.siteDepot(b);u.anim='idle';
+    if(!D){b.why='aucun dépôt d’où apporter les matériaux';return false;}
+    const want=Object.entries(rem).map(([k,n])=>[k,n-this.enRoute(b,k)]).filter(([,n])=>n>1e-6).sort((a,z)=>z[1]-a[1]);
+    if(!want.length){b.why=Object.keys(rem).length?`les matériaux arrivent (${this.siteMissing(b)})`:null;return false;}
+    const has=want.find(([k])=>(D.stock[k]||0)>=Math.min(1,want.find(w=>w[0]===k)[1])-1e-6);
+    if(!has){b.why=`attend au ${this.depotName(D)} : ${want.map(([k,n])=>`${Math.ceil(n)} ${this.goodName(k).toLowerCase()}`).join(', ')} (commandé)`;return false;}
+    if(u.carry){const R=this.depots(u.f,u.x,u.y,SITE_RANGE)[0];if(R)this.put(R,u.carry.k,u.carry.n);u.carry=null;}
+    T0.fetch=has[0];T0.fetchN=Math.min(CARRY,has[1]);u.path=null;b.why=null;return false;}
+  fetchTick(u,T0,b,dt){const D=this.siteDepot(b);if(!D){T0.fetch=null;return;}const [w,h]=BUILDINGS[D.k].size;if(!this.go(u,D.i+w/2,D.j+h/2,[D.i,D.j,w,h]))return;
+    const k=T0.fetch;const q=Math.min(T0.fetchN,D.stock[k]||0);if(q>0){D.stock[k]-=q;u.carry={k,n:q};T0.bring=true;}T0.fetch=null;T0.fetchN=0;u.path=null;}
   idle(f='meumeu'){return this.s.units.filter(u=>u.f===f&&u.k==='villageois'&&!u.task&&active(u));}
   setPosture(ids,post){for(const id of ids){const u=this.unit(id);if(u&&u.h)u.orderPost=post==='auto'?null:post;}}
 
@@ -203,12 +220,12 @@ export class World{
     if(k==='centre'&&this.s.buildings.some(b=>b.f===f&&b.k==='centre'&&d2(b.i,b.j,i,j)<24))why.push('trop près d’une autre ville');
     if(B.station&&!this.platformAt(i,j,w,h))why.push('au bord d’une voie ferrée');
     // un chantier se paie à mesure : il lui faut un dépôt à moins de RADIUS cases, où le fret apportera ce qui manque (le camp est gratuit)
-    const site=Object.keys(B.cost).length?this.depots(f,i+w/2,j+h/2)[0]||null:null;if(Object.keys(B.cost).length&&!site)why.push(`aucun dépôt à moins de ${RADIUS} cases pour l’approvisionner : posez d’abord un camp`);
+    const site=Object.keys(B.cost).length?this.depots(f,i+w/2,j+h/2,SITE_RANGE)[0]||null:null;if(Object.keys(B.cost).length&&!site)why.push(`aucun dépôt à moins de ${SITE_RANGE} cases d’où apporter les matériaux`);
     return {ok:!why.length,why,ore,site};}
   place(f,k,i,j){const r=this.canPlace(f,k,i,j);if(!r.ok)return r;const B=BUILDINGS[k];
     // le chantier dégage ce qui pousse ou traîne sous lui : arbres, buissons, rochers (le bois et la pierre sont perdus)
     for(let a=0;a<B.size[0];a++)for(let c=0;c<B.size[1];c++){const kk=(j+c)*this.N+i+a;const nd=this.nodeAt[kk];if(nd>=0&&this.s.nodes[nd].type!=='ore'){this.s.nodes[nd].left=0;this.nodeAt[kk]=-1;}}
-    const b=this.addBuilding(f,k,i,j,false);if(r.ore)b.ore=r.ore.id;b.paid={};b.site=r.site?.id??null;this.sitePay(b);
+    const b=this.addBuilding(f,k,i,j,false);if(r.ore)b.ore=r.ore.id;b.paid={};b.site=r.site?.id??null;if(f!=='meumeu')this.sitePay(b);
     if(k==='centre'){b.city=CITY_NAMES[this.s.cityN%CITY_NAMES.length];this.s.cityN++;}
     this.emit({type:'placed',x:i+B.size[0]/2,y:j+B.size[1]/2});return {ok:true,b};}
   cancel(id){const b=this.building(id);if(!b||b.done||b.ruin)return;const d=this.building(b.site)||this.depots(b.f,b.i,b.j)[0];if(d)for(const [k,n] of Object.entries(b.paid||{}))this.put(d,k,n);this.remove(b);}
@@ -355,10 +372,12 @@ export class World{
       case 'gather':return this.gatherTick(u,T0,dt);
       case 'deposit':{const b=this.building(T0.b);if(!b||!u.carry){u.task=null;return;}this.deliverTo(u,b);return;}
       case 'build':case 'repair':{const b=this.building(T0.b);if(!b||(T0.kind==='build'&&b.done)||(T0.kind==='repair'&&(b.ruin||!b.done||(b.hp>=b.max-.5&&!b.fire)))){u.task=null;return;}
+        // un bâtisseur meumeu qui va chercher des matériaux au dépôt du chantier
+        if(T0.kind==='build'&&T0.fetch!=null&&u.f==='meumeu'){this.fetchTick(u,T0,b,dt);return;}
         const [w,h]=BUILDINGS[b.k].size;if(!this.go(u,b.i+w/2,b.j+h/2,[b.i,b.j,w,h]))return;u.anim='action';this.face(u,b.i+w/2-u.x,b.j+h/2-u.y);
         if(T0.kind==='build'){
           // on ne bâtit que ce qui est payé : les bâtisseurs prennent les matériaux aux dépôts proches, à mesure qu'ils arrivent
-          const frac=this.sitePaidFrac(b);if(b.progress>=frac-1e-6&&!this.sitePay(b)){u.anim='idle';b.why=`attend des matériaux : ${this.siteMissing(b)}`;return;}b.why=null;
+          const frac=this.sitePaidFrac(b);if(b.progress>=frac-1e-6&&(u.f==='meumeu'?!this.haulTick(u,T0,b,dt):!this.sitePay(b))){if(u.f!=='meumeu'){u.anim='idle';b.why=`attend des matériaux : ${this.siteMissing(b)}`;}return;}b.why=null;
           const nb=this.s.units.filter(x=>x.task?.kind==='build'&&x.task.b===b.id).length;b.progress=Math.min(this.sitePaidFrac(b),1,b.progress+dt/BUILDINGS[b.k].hours*(1/Math.sqrt(Math.max(1,nb))*1.2)*this.mod('construction'));this.practice('construction',dt);b.hp=Math.max(b.hp,b.max*b.progress);
           if(b.progress>=1){b.done=true;const was=b.ruin;b.ruin=false;b.why=null;b.hp=Math.max(b.hp,b.max*.6);this.autoLink(b);this.log(this.cityName(b),`${BUILDINGS[b.k].name} : ${was?'rebâti':'terminé'}.`,'good');this.emit({type:'built',x:b.i+w/2,y:b.j+h/2,k:b.k});u.task=null;
             if(BUILDINGS[b.k].workers&&this.workers(b).length<BUILDINGS[b.k].workers)u.task={kind:'work',b:b.id};}}

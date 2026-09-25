@@ -1,6 +1,6 @@
 // Oberkommando der Meumeu — l'interface. La boucle, le panneau, la barre de construction, la minicarte, les alertes, le son,
 // les radiographies, le bureau d'études, le service de santé, les idées des Meumeu, l'économie.
-import {HOUR_REAL,DAY,RES,RARE,GOODS,BUILDINGS,BUILD_ORDER,BUILD_CATS,UNITS,VEHICLES,LINES,BEEE,GOAL,RADIUS,RECIPES,PRODUCTS,FAMILIES,PRIO,FRET,LIMIT_OF,INNOV,DOMAINS,STEPS,NODES} from './data.js';
+import {SITE_RANGE,CARRY,HOUR_REAL,DAY,RES,RARE,GOODS,BUILDINGS,BUILD_ORDER,BUILD_CATS,UNITS,VEHICLES,LINES,BEEE,GOAL,RADIUS,RECIPES,PRODUCTS,FAMILIES,PRIO,FRET,LIMIT_OF,INNOV,DOMAINS,STEPS,NODES} from './data.js';
 import {World} from './world.js';
 import {loadManifest,manifest} from './sprites.js';
 import {View,AMMO_SVG,ARM_SVG} from './view.js';
@@ -43,6 +43,8 @@ const view=new View($('#view'),world,{
     let vil=[...view.sel].map(id=>world.unit(id)).filter(u=>u?.k==='villageois');const B=BUILDINGS[k];
     if(!vil.length)vil=world.idle().filter(u=>Math.hypot(u.x-i,u.y-j)<45).sort((a,b)=>Math.hypot(a.x-i,a.y-j)-Math.hypot(b.x-i,b.y-j)).slice(0,B.size[0]*B.size[1]>=9?4:3);
     if(vil.length)world.order(vil.map(u=>u.id),{type:'building',id:r.b.id});
+    // la fiche du chantier s'ouvre : ce qu'il lui faut, qui y travaille, d'où viennent les matériaux
+    view.sel.clear();view.selV=null;view.selB=r.b.id;
     say(`${B.name} posé${vil.length?` : ${vil.length} villageois ${view.sel.size?'y vont':'oisifs y vont d’eux-mêmes'}`:' — aucun villageois libre : choisissez-en, clic droit sur le chantier'}.`,'good');audio.play('order');renderPanel(true);return r;},
   planLine:(kind,cells)=>{const r=world.planLine('meumeu',kind,cells);if(!r.ok){say('rien à poser là','bad');return;}let vil=[...view.sel].map(id=>world.unit(id)).filter(u=>u?.k==='villageois');
     const [i,j]=cells[0];if(!vil.length)vil=world.idle().filter(u=>Math.hypot(u.x-i,u.y-j)<45).slice(0,4);if(vil.length)world.order(vil.map(u=>u.id),{type:kind==='rail'?'rail':'wall',k:j*world.N+i});
@@ -259,7 +261,10 @@ function reservePane(b){const sup=world.building(b.sup);const need=b.need||{};
   return h+linksPane(b);}
 function sitePane(b){const cost=world.siteCost(b);if(!Object.keys(cost).length)return '';const site=world.building(b.site);
   return `<section class="pane"><h2>Matériaux <small>payés à mesure qu’ils arrivent</small></h2>${Object.entries(cost).map(([k,v])=>{const pd=b.paid?.[k]||0;return `<div class="kv"><span>${ico(k)} ${esc(world.goodName(k))}</span><b class="${pd>=v-1e-6?'good':''}">${n1(pd)} / ${n1(v)}</b></div>`;}).join('')}
-    <p class="quiet small">Commandé à : ${site?`<a data-selb="${site.id}">${esc(world.depotName(site))}</a>`:'aucun dépôt'} — le bureau du fret y amène ce qui manque ; les bâtisseurs le prennent aux dépôts à moins de ${RADIUS} cases.</p></section>`;}
+    ${(()=>{const bs=world.s.units.filter(u=>u.task?.kind==='build'&&u.task.b===b.id);const on=bs.filter(u=>u.task.fetch!=null||u.task.bring).length;const idle=world.idle().length;
+      return `<div class="row"><span>Bâtisseurs : <b>${bs.length}</b>${on?` · ${on} en chemin avec des matériaux`:''}</span><button class="small" data-act="site-idle" ${idle?'':'disabled'}>Envoyer ${Math.min(2,idle)||2} oisifs</button></div>`;})()}
+    <label class="row small">Dépôt du chantier <select data-sitedep>${world.depots('meumeu',...world.bc(b),SITE_RANGE).map(d=>`<option value="${d.id}" ${site?.id===d.id?'selected':''}>${esc(world.depotName(d))} · ${Math.round(world.distB(d,...world.bc(b)))} cases</option>`).join('')}</select></label>
+    <p class="quiet small">Les bâtisseurs vont y chercher les matériaux à pied, ${CARRY} caisses par voyage. Ce qui manque au dépôt y est commandé : le fret l’y amène (porteurs, trains, depuis les gares reliées). Choisissez des Meumeu, clic droit sur le chantier : ils y travaillent.</p></section>`;}
 function buildingPane(b){const B=BUILDINGS[b.k];const beee=b.f==='beee';let h=`<section class="pane"><div class="bhead">${bthumb(b.k)?`<img src="${bthumb(b.k)}" alt="">`:''}<div><h2>${B.name}${beee?' bèè':''} <small>${esc(world.cityName(b))}</small></h2>
     <div class="kv"><span>Solidité</span><b class="${b.hp<b.max*.4?'bad':''}">${n0(b.hp)}/${b.max}${b.fire>0?' · <span class="bad">en feu</span>':''}${b.ruin?' · <span class="bad">en ruine</span>':''}</b></div></div></div>
     ${!b.done&&!beee?`<div class="kv"><span>Chantier</span><b>${Math.round(b.progress*100)} % · ${world.s.units.filter(u=>u.task?.b===b.id).length} dessus</b></div><i class="gauge"><i style="width:${Math.round(b.progress*100)}%"></i></i>`:''}${b.why?`<p class="small warn">${esc(b.why)}</p>`:''}<p class="quiet small">${esc(B.why)}</p>`;
@@ -488,6 +493,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   else if(a==='send-repair'){const bd=world.building(view.selB);const ids=world.s.units.filter(u=>u.f==='meumeu'&&u.k==='villageois'&&u.h?.state!=='hors').sort((p,q)=>Math.hypot(p.x-bd.i,p.y-bd.j)-Math.hypot(q.x-bd.i,q.y-bd.j)).slice(0,4).map(u=>u.id);const r=world.order(ids,{type:'building',id:bd.id});say(r.ok?r.text:r.why[0]);}
   else if(a==='cancel-site'){world.cancel(view.selB);view.selB=null;}
   else if(a==='need-add'){const bd=world.building(view.selB);const k=$('[data-wantk]')?.value;if(bd&&k){ui.wantK=k;world.setNeed(bd,k,(bd.need?.[k]||0)+4);say(`${BUILDINGS[bd.k].name} : réserve de ${bd.need[k]} ${world.goodName(k).toLowerCase()}.`,'good');}}
+  else if(a==='site-idle'){const bd=world.building(view.selB);if(bd){const [x,y]=world.bc(bd);const us=world.idle().sort((a,z)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(z.x-x,z.y-y)).slice(0,2);if(us.length){world.order(us.map(u=>u.id),{type:'building',id:bd.id});say(`${us.length} bâtisseur${us.length>1?'s':''} en route.`,'good');}}}
   else if(a==='porters'){const bd=world.building(view.selB);const r=world.addPorters(bd,2);say(r.ok?`${r.n} porteur${r.n>1?'s':''} pour ${world.depotName(bd)}.`:r.why[0],r.ok?'good':'bad');}
   else if(a==='porters-off'){const bd=world.building(view.selB);const v=bd&&world.porters(bd).pop();if(v){world.releasePorter(v);say('Un porteur rendu au village.');}}
   else if(a==='porter-free'){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v){world.releasePorter(v);view.selV=null;say('Rendu au village.');}}
@@ -510,6 +516,7 @@ document.addEventListener('change',e=>{const s=e.target.closest('[data-trainw]')
   else if(t.matches('[data-link]')&&bd&&t.value){const r=world.setLink(bd,t.dataset.link,+t.value);say(r.ok?r.text:r.why[0],r.ok?'good':'bad');renderPanel(true);}
   else if(t.matches('[data-wantk]'))ui.wantK=t.value;
   else if(t.matches('[data-vbase]')){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v){v.base=+t.value;v.job=v.job?.phase==='src'?null:v.job;say(`${v.name} : basée à ${world.depotName(world.building(v.base))}.`);}renderPanel(true);}
+  else if(t.matches('[data-sitedep]')){const bd=world.building(view.selB);if(bd){bd.site=+t.value;say(`Matériaux pris à ${world.depotName(world.building(bd.site))}.`);renderPanel(true);}}
   else if(t.matches('[data-udep]')){const v=t.value===''?null:+t.value;for(const id of view.sel){const u=world.unit(id);if(u&&u.k==='villageois')u.dep=v;}say(v==null?'Ils rapportent au dépôt le plus proche.':`Ils rapportent à ${world.depotName(world.building(v))}.`);renderPanel(true);}});
 $('#panel').addEventListener('pointermove',()=>{ui.lastPointer=performance.now();ui.pointerIn=true;});$('#panel').addEventListener('pointerleave',()=>{ui.pointerIn=false;});
 $('#modal').addEventListener('click',e=>{if(e.target.id==='modal'){ui.modal=null;renderModal();}});

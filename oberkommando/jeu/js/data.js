@@ -11,10 +11,11 @@
 export const HOUR_REAL=4;      // secondes réelles par heure de jeu, à 1× : une journée dure une minute et demie
 export const DAY=24;
 export const NIGHT=[21,5];
-export const MAP_N=192;        // cases de côté
+export const MAP_N=320;        // cases de côté : assez pour que le rail soit indispensable (capitale ↔ Bèè : ~330 cases)
 export const RADIUS=14;        // un chantier, un soldat, un canon puisent dans les dépôts à moins de RADIUS cases
 export const CARRY=10;         // ce qu'un Meumeu porte d'un coup
-export const GAP=2;            // l'écart minimum entre deux bâtiments, en cases : des rues, une vue claire, un feu qui ne saute pas
+export const GAP=2;
+export const SITE_RANGE=30;    // un chantier est servi par un dépôt à moins de SITE_RANGE cases : ses bâtisseurs y vont à pied chercher les matériaux            // l'écart minimum entre deux bâtiments, en cases : des rues, une vue claire, un feu qui ne saute pas
 
 // Le terrain. walk : on y marche ; build : on y bâtit.
 export const TERRAIN=[
@@ -88,7 +89,7 @@ export const NODES={
 export const BUILDINGS={
   centre:{name:'Centre-ville',sprite:'command',big:true,size:[4,4],cost:{bois:200,pierre:120,pieces:20,briques:60},hours:30,store:4000,pop:10,hp:1600,trains:['villageois'],defense:{range:9,shooters:2},shelter:20,ward:4,
     why:'Le cœur d’une ville : un grand dépôt, dix places de vie, on y forme des Meumeu. Le premier est la capitale : le rare doit y arriver. Tombé, la ville est perdue.'},
-  camp:{name:'Camp',sprite:'shelter',size:[2,2],cost:{},hours:5,store:500,hp:300,workers:6,hub:true,
+  camp:{name:'Camp',sprite:'shelter',size:[2,2],cost:{bois:15},hours:5,store:500,hp:300,workers:6,hub:true,
     why:'Un dépôt de poche au bord d’une forêt, de rochers, de buissons : envoyez-y des villageois, ils ramassent tout autour (10 cases) et y rapportent. Ce qui est au camp y reste : charrettes, trains et avions le font circuler.'},
   maison:{name:'Maison',sprite:'dorm',size:[2,2],cost:{bois:30},hours:6,pop:5,hp:350,shelter:5,why:'Cinq places de vie de plus, et un abri pour cinq quand les Bèè sont là.'},
   ferme:{name:'Ferme',sprite:'food',size:[3,3],cost:{bois:35},hours:8,workers:3,makes:{vivres:3.2},hp:300,why:'Trois Meumeu y font des vivres sans fin.'},
@@ -100,9 +101,9 @@ export const BUILDINGS={
     why:'Argile et charbon : le four cuit des briques. Sans briques, pas de gare, pas d’arsenal, pas de ville nouvelle.'},
   mine:{name:'Mine',sprite:'kiln',size:[2,2],cost:{bois:40,pierre:30,pieces:6},hours:10,workers:4,onOre:true,rate:4,hp:500,
     why:'Sur un filon. Quatre Meumeu en sortent le rare quatre fois plus vite qu’à la main. Il faut un dépôt tout près.'},
-  gare:{name:'Gare',sprite:'depot',size:[3,2],cost:{bois:40,pierre:30,pieces:8,briques:10},hours:10,store:1500,station:true,hp:600,trains:['train'],
+  gare:{name:'Gare',sprite:'depot',size:[3,2],cost:{bois:70},hours:10,store:1500,station:true,hp:600,trains:['train'],
     why:'Un dépôt au bord de la voie. Les trains y chargent et y déchargent ; on y construit les locomotives. Une mine, une usine qui y sont rattachées sont reliées au réseau.'},
-  entrepot:{name:'Entrepôt',sprite:'warehouse',big:true,size:[3,3],cost:{bois:50,pierre:30,briques:20},hours:10,store:2500,hp:700,
+  entrepot:{name:'Entrepôt',sprite:'warehouse',big:true,size:[3,3],cost:{bois:80},hours:10,store:2500,hp:700,
     why:'Un grand dépôt, sans voie : au cœur d’un quartier d’usines, au pied d’une mine. Réglez sa priorité et ses demandes : le fret le remplit.'},
   labo:{name:'Laboratoire',sprite:'still',size:[3,3],cost:{bois:80,pierre:60,briques:20},hours:14,unique:true,hp:500,lab:true,
     why:'Les idées des Meumeu y deviennent des innovations : chaque idée se développe ici, contre des ressources et du temps.'},
