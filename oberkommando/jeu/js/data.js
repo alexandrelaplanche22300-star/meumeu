@@ -63,7 +63,7 @@ export const FAMILIES={
 export const familyOf=k=>{for(const [f,F] of Object.entries(FAMILIES))if(F.goods.includes(k)||(F.prefix||[]).some(p=>k.startsWith(p)))return f;return 'materiaux';};
 // Le fret : une usine commande de quoi faire BUF lots d'avance (au moins BUF_H heures de travail) ; une charrette sert les
 // dépôts à CART_RANGE cases de sa base ; une locomotive brûle COAL_PER_CASE charbon par case et part le tender plein.
-export const FRET={BUF:3,BUF_H:6,CART_RANGE:45,TENDER:12,COAL_PER_CASE:.05,LOOK:.5};
+export const FRET={BUF:3,BUF_H:6,CART_RANGE:45,TENDER:12,COAL_PER_CASE:.05,LOOK:.5,EVAC_HI:.6,EVAC_LO:.35};
 export const PRIO=['','Basse','Réduite','Normale','Haute','Urgente'];
 
 // Ce qu'on ramasse. left : ce que contient une touffe ; rate : par heure et par Meumeu.
@@ -77,7 +77,7 @@ export const NODES={
 // Les bâtiments. size : [i, j] en cases. store : un dépôt, et combien il tient. pop : places de vie. hp : ce qu'il encaisse.
 // Un bâtiment à zéro s'effondre : il reste une ruine qu'on rebâtit (sans repayer), ou qu'on déblaie.
 export const BUILDINGS={
-  centre:{name:'Centre-ville',sprite:'command',size:[4,4],cost:{bois:200,pierre:120,pieces:20,briques:60},hours:30,store:4000,pop:10,hp:1600,trains:['villageois','charrette'],defense:{range:9,shooters:2},shelter:20,ward:4,
+  centre:{name:'Centre-ville',sprite:'command',big:true,size:[4,4],cost:{bois:200,pierre:120,pieces:20,briques:60},hours:30,store:4000,pop:10,hp:1600,trains:['villageois','charrette'],defense:{range:9,shooters:2},shelter:20,ward:4,
     why:'Le cœur d’une ville : un grand dépôt, dix places de vie, on y forme des Meumeu. Le premier est la capitale : le rare doit y arriver. Tombé, la ville est perdue.'},
   camp:{name:'Camp',sprite:'shelter',size:[2,2],cost:{},hours:5,store:500,hp:300,trains:['charrette'],workers:6,hub:true,
     why:'Un dépôt de poche au bord d’une forêt, de rochers, de buissons : envoyez-y des villageois, ils ramassent tout autour (10 cases) et y rapportent. Ce qui est au camp y reste : charrettes, trains et avions le font circuler.'},
@@ -93,13 +93,13 @@ export const BUILDINGS={
     why:'Sur un filon. Quatre Meumeu en sortent le rare quatre fois plus vite qu’à la main. Il faut un dépôt tout près.'},
   gare:{name:'Gare',sprite:'depot',size:[3,2],cost:{bois:40,pierre:30,pieces:8,briques:10},hours:10,store:1500,station:true,hp:600,trains:['train','charrette'],
     why:'Un dépôt au bord de la voie. Les trains y chargent et y déchargent ; on y construit les locomotives. Une mine, une usine qui y sont rattachées sont reliées au réseau.'},
-  entrepot:{name:'Entrepôt',sprite:'warehouse',size:[3,3],cost:{bois:50,pierre:30,briques:20},hours:10,store:2500,hp:700,trains:['charrette'],
+  entrepot:{name:'Entrepôt',sprite:'warehouse',big:true,size:[3,3],cost:{bois:50,pierre:30,briques:20},hours:10,store:2500,hp:700,trains:['charrette'],
     why:'Un grand dépôt, sans voie : au cœur d’un quartier d’usines, au pied d’une mine. Réglez sa priorité et ses demandes : le fret le remplit.'},
   aerodrome:{name:'Aérodrome',sprite:'hangar',size:[6,2],cost:{pierre:60,bois:30,pieces:12,briques:20},hours:16,store:600,airfield:true,hp:700,trains:['avion','bombardier'],
     why:'Une piste et un hangar. Avions de transport et bombardiers y chargent, y font le plein, en décollent.'},
   labo:{name:'Laboratoire',sprite:'still',size:[3,3],cost:{bois:80,pierre:60,briques:20},hours:14,unique:true,hp:500,lab:true,
     why:'Les idées des Meumeu y deviennent des innovations : chaque idée se développe ici, contre des ressources et du temps.'},
-  caserne:{name:'Caserne',sprite:'school',size:[3,3],cost:{bois:60,pierre:40,briques:20},hours:12,hp:800,trains:['soldat','commando'],
+  caserne:{name:'Caserne',sprite:'school',size:[3,3],cost:{bois:60,pierre:40,briques:20},stock0:{'a:mle1':4,vivres:60,pieces:8},hours:12,hp:800,trains:['soldat','commando'],
     why:'On y forme soldats et commandos, armés d’une conception adoptée : il faut l’arme et ses munitions dans un dépôt proche. Ils rechargent dans les dépôts : une armée loin de ses dépôts finit à sec.'},
   arsenal:{name:'Arsenal',sprite:'chem',size:[2,2],cost:{bois:40,pierre:40,pieces:10,briques:20},hours:10,workers:2,hp:500,arsenal:true,factory:{coal:.25,mod:'armement'},
     why:'Les munitions d’une conception adoptée (fer, sels, pièces), ou des explosifs : une seule production par arsenal. Tout part en caisses au dépôt de sortie.'},
@@ -107,13 +107,13 @@ export const BUILDINGS={
     why:'On y conçoit les armes : le calibre, l’ogive, la poudre, le canon, la culasse. Un prototype coûte des ressources et du temps ; adopté, il se fabrique.'},
   manufacture:{name:'Manufacture d’armes',sprite:'foundry',size:[3,3],cost:{pierre:80,bois:40,pieces:30,fer:10,briques:40},hours:20,workers:4,hp:900,manufacture:true,factory:{coal:.3,mod:'armement'},
     why:'Une usine d’armes, outillée pour un seul modèle (fusil ou protection) : changer de modèle, c’est refaire l’outillage (6 h). Quand la dernière tombe, les plans sont perdus — sauf des archives dans une autre ville.'},
-  hopital:{name:'Hôpital',sprite:'lab',size:[3,3],cost:{bois:60,pierre:40,pieces:10,briques:20},hours:14,hp:600,ward:12,workers:2,trains:['infirmier','medecin'],makesMed:true,factory:{coal:0,mod:'soins'},
+  hopital:{name:'Hôpital',sprite:'lab',stock0:{vivres:40,sante:8},size:[3,3],cost:{bois:60,pierre:40,pieces:10,briques:20},hours:14,hp:600,ward:12,workers:2,trains:['infirmier','medecin'],makesMed:true,factory:{coal:0,mod:'soins'},
     why:'On y opère et on y guérit tout à fait : le sang revient, les os se ressoudent en trois jours. On y forme infirmiers et médecins, on y fait les fournitures médicales avec de la soie.'},
   tente:{name:'Tente médicale',sprite:'tent',size:[2,2],cost:{bois:5,sante:1},hours:1.5,hp:120,ward:6,store:30,tent:true,
     why:'Le poste de secours avancé : un médecin la plante près du front et y opère — hémostase, ligatures, sutures. On y stabilise, puis on évacue vers l’hôpital. Un petit dépôt : ravitaillez-la en fournitures médicales.'},
   archives:{name:'Archives techniques',sprite:'loom',size:[2,2],cost:{pierre:40,bois:20},hours:10,hp:500,archives:true,
     why:'Une copie des plans d’armes. Si la manufacture tombe, les conceptions survivent — à condition que les archives soient loin d’elle (20 cases).'},
-  fonderie:{name:'Fonderie',sprite:'boiler',size:[3,2],cost:{pierre:60,pieces:20,briques:40},hours:14,hp:700,trains:['canon'],
+  fonderie:{name:'Fonderie',sprite:'boiler',size:[3,2],cost:{pierre:60,pieces:20,briques:40},stock0:{pieces:40,fer:30,bois:30,charbon:10},hours:14,hp:700,trains:['canon'],
     why:'Des canons, avec du fer. Ils portent loin et abattent les murs, les tours, les maisons.'},
   tour:{name:'Tour',sprite:'turret',size:[2,2],cost:{pierre:50,bois:20},hours:10,hp:1000,defense:{range:11,shooters:3},
     why:'Elle tire seule sur tout Bèè à portée. Plusieurs lignes de tours derrière un mur : la défense en profondeur.'},

@@ -162,3 +162,4 @@ a{color:var(--teal);cursor:pointer;text-decoration:underline;text-underline-offs
 table.dem{width:100%;border-collapse:collapse;font-size:12px}table.dem th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:3px 4px;border-bottom:1px solid var(--line)}
 table.dem td{padding:3px 4px;border-bottom:1px dotted var(--line);vertical-align:middle;font-variant-numeric:tabular-nums}table.dem td button{padding:0 6px;margin-left:2px}table.dem tr.short td:first-child{box-shadow:inset 3px 0 0 var(--orange)}
 .gauge.coal i{background:#3b3f44}
+.jam{border-left:3px solid var(--orange);background:color-mix(in srgb,var(--orange) 10%,transparent);padding:6px 9px;border-radius:6px;margin-bottom:6px;font-size:12.5px}
