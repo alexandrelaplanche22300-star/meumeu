@@ -41,7 +41,7 @@ fabrique l'application avec Electron sur une machine Windows et la publie dans l
 <https://github.com/alexandrelaplanche22300-star/meumeu/releases/latest/download/OberkommandoDerMeumeu.exe>
 
 C'est une vraie application : elle embarque son propre moteur (Chromium), sans navigateur, sans Edge ni WebView2.
-Un seul fichier, rien à installer ; F11 : plein écran. Les parties sont sauvées dans `%APPDATA%\Oberkommando der Meumeu`.
+Un seul fichier, rien à installer ; F11 : plein écran. Taille de l’interface : boutons A− / A+ en haut à droite (ou Ctrl + / Ctrl −, Ctrl 0 : automatique) — calée d’office selon le grossissement de Windows. Les parties sont sauvées dans `%APPDATA%\Oberkommando der Meumeu`.
 
 Pour la lancer depuis les sources : `npm install` puis `npm start` dans ce dossier ; pour fabriquer l'exe soi-même sous
 Windows : `npm run dist` (il sort dans `release/`).

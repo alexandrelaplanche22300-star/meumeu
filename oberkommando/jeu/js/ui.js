@@ -75,6 +75,24 @@ function describe(t){if(!t)return null;const peace=!world.atWar;
   if(t.type==='node'){const nd=world.s.nodes[t.id];return nd.type==='ore'?`extraire ${RES[nd.res].name.toLowerCase()} à la main (${n0(nd.left)})`:`${nd.type==='tree'?'couper':nd.type==='rock'?'casser':'cueillir'} (${n0(nd.left)})`;}
   if(t.type==='rail')return 'poser la voie';if(t.type==='wall'){const w=world.s.walls[t.k];return w?.f==='beee'?`abattre le mur${peace?' — ce sera la guerre':''}`:'bâtir le mur';}return 'aller là';}
 function say(text,tone=''){const h=$('#hint');h.textContent=text;h.className='hint show '+tone;clearTimeout(ui.sayT);ui.sayT=setTimeout(()=>h.className='hint',4500);}
+// La taille de l'interface (A− / A+, Ctrl + / Ctrl −). Dans l'application : un vrai zoom de page, net, les clics justes ;
+// dans un navigateur : le zoom CSS. Par défaut, calée pour que l'écran fasse ~1650 points de large quel que soit le
+// grossissement de Windows (à 175 % sur un écran 1920 : 65 %). Le choix du joueur est retenu d'une partie à l'autre.
+const ZOOMS=[.5,.55,.6,.65,.7,.75,.8,.85,.9,.95,1,1.1,1.2,1.3,1.4,1.5];
+const near=z=>ZOOMS.reduce((a,b)=>Math.abs(b-z)<Math.abs(a-z)?b:a);
+const uiZ={auto(){return Math.min(1,near((screen.width||innerWidth)/1650));},
+  cur:1,
+  set(z,keep=true){z=Math.max(ZOOMS[0],Math.min(ZOOMS[ZOOMS.length-1],z));this.cur=z;
+    if(window.okmApp?.zoom)window.okmApp.zoom(z);else document.documentElement.style.zoom=z===1?'':String(z);
+    if(keep){try{localStorage.setItem('okm-zoom',String(z));}catch(e){}}
+    const l=document.querySelector('[data-act="zoom-auto"]');if(l)l.textContent=Math.round(z*100)+' %';
+    requestAnimationFrame(()=>view?.resize?.());},
+  step(d){if(!d){try{localStorage.removeItem('okm-zoom');}catch(e){}this.cur=1;this.set(this.auto(),false);return;}
+    const i=ZOOMS.findIndex(x=>x>=this.cur-1e-6);this.set(ZOOMS[Math.max(0,Math.min(ZOOMS.length-1,(i<0?ZOOMS.length-1:i)+d))]);
+    say(`Taille de l’interface : ${Math.round(this.cur*100)} % (Ctrl + / Ctrl −).`);},
+  init(){let z=NaN;try{z=parseFloat(localStorage.getItem('okm-zoom'));}catch(e){}this.set(z>0?z:this.auto(),false);}};
+window.okmZoom=d=>uiZ.step(d);
+uiZ.init();
 function setSpeed(v){ui.speed=v;document.querySelectorAll('[data-speed]').forEach(b=>b.classList.toggle('on',+b.dataset.speed===v));}
 const wounded=()=>{const L=world.s.units.filter(u=>u.f==='meumeu'&&u.h&&u.h.state!=='ok').map(u=>({u,where:'terrain'}));for(const b of world.s.buildings)if(b.f==='meumeu')for(const u of b.wardList||[])L.push({u,where:b});return L;};
 
@@ -476,6 +494,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   else if(a==='pick-off')ui.pick=null;
   else if(a==='shelter'){const n=world.shelterAll();say(n?`${n} villageois courent aux abris.`:'Aucun abri à portée.',n?'':'bad');audio.play('siren');}
   else if(a==='sound'){b.textContent=audio.toggle()?'🔈':'🔇';}
+  else if(a==='zoom-in')uiZ.step(1);else if(a==='zoom-out')uiZ.step(-1);else if(a==='zoom-auto'){uiZ.step(0);say(`Taille de l’interface : automatique (${Math.round(uiZ.cur*100)} %).`);}
   else if(a==='save'){localStorage.setItem('okm-save',world.save());say('Partie sauvée.','good');}
   else if(a==='load'){const j=localStorage.getItem('okm-save');if(!j){say('Aucune sauvegarde.','bad');return;}try{const w=new World(1);w.load(j);setWorld(w);say('Partie reprise.','good');}catch(err){console.error(err);say('Sauvegarde illisible (d’une version plus ancienne).','bad');}}
   else if(a==='new'){if(confirm('Nouvelle partie : une nouvelle carte. La partie en cours sera perdue si elle n’est pas sauvée.')){setWorld(new World());say('Une nouvelle carte.','good');}}
@@ -491,7 +510,8 @@ document.addEventListener('change',e=>{const s=e.target.closest('[data-trainw]')
 $('#panel').addEventListener('pointermove',()=>{ui.lastPointer=performance.now();ui.pointerIn=true;});$('#panel').addEventListener('pointerleave',()=>{ui.pointerIn=false;});
 $('#modal').addEventListener('click',e=>{if(e.target.id==='modal'){ui.modal=null;renderModal();}});
 const keys=new Set();
-document.addEventListener('keydown',e=>{if(e.target.closest('input,textarea,select'))return;if(designer.open){if(e.key==='Escape')designer.close();return;}if(room.isOpen){if(e.key==='Escape')room.close();return;}audio.init();const k=e.key;
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','=','-','0'].includes(e.key)){e.preventDefault();uiZ.step(e.key==='-'?-1:e.key==='0'?0:1);return;}
+  if(e.target.closest('input,textarea,select'))return;if(designer.open){if(e.key==='Escape')designer.close();return;}if(room.isOpen){if(e.key==='Escape')room.close();return;}audio.init();const k=e.key;
   if(ui.modal&&k==='Escape'){ui.modal=null;renderModal();return;}keys.add(k.toLowerCase());
   if(k==='Escape'){view.placing=null;view.lining=null;ui.pick=null;view.sel.clear();view.selB=null;view.selV=null;renderPanel(true);}
   else if(k===' '){e.preventDefault();setSpeed(ui.speed?0:(ui.lastSpeed||1));if(ui.speed)ui.lastSpeed=ui.speed;}

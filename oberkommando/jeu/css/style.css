@@ -178,3 +178,4 @@ table.dem td{padding:3px 4px;border-bottom:1px dotted var(--line);vertical-align
 @media (min-width:1700px){.layout{grid-template-columns:1fr 420px}#mini{width:340px;height:170px}.buildbar{left:360px;max-width:calc(100% - 380px)}}
 @media (max-width:1600px){.keys{display:none}.top .brand .title{display:none}}
 @media (max-width:1600px){.top{column-gap:10px;padding:5px 10px}.stocks{gap:3px}.rchip{padding:1px 5px;font-size:12.5px;gap:3px}.rchip i{font-size:10.5px}.rchip.rare small{display:none}.rsep{width:4px}.tb{padding:3px 7px}}
+.menu .zoom{display:flex;gap:1px;margin-left:4px}.menu .zoom button{padding:4px 6px;min-width:0}.menu .zoom [data-act=zoom-auto]{font-variant-numeric:tabular-nums;min-width:46px}
