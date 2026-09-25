@@ -129,7 +129,14 @@ export class World{
       const goal=rect?(k=>{const i=k%N,j=(k/N)|0;return i>=rect[0]-1&&i<=rect[0]+rect[2]&&j>=rect[1]-1&&j<=rect[1]+rect[3];}):(k=>k===tj*N+ti);
       const r=this.pather.find(si,sj,ti,tj,this.costFn(u.f),goal);u.path=r.path;u.pathDone=r.done;u.goal=key;u.pi=0;}
     return this.follow(u,rect?null:[tx,ty]);}
-  speedOf(u){const D=UDEF(u);let s=D.speed*(u.armor?this.armorOf(u.armor)?.D.move||1:1)*(u.carry?.n>5?.85:1)*(u.carrying!=null?.55*this.mod('brancard'):1)*(u.amput?.7:1);if(u.h){if(u.h.state==='hors')return 0;s*=Math.max(.15,malus(u.h).move);}if(u.post==='couche')s*=.25;else if(u.post==='accroupi')s*=.7;return s;}
+  speedOf(u){const D=UDEF(u);let s=D.speed*(u.armor?this.armorOf(u.armor)?.D.move||1:1)*(u.carry?.n>5?.85:1)*(u.carrying!=null?.55*this.mod('brancard'):1)*(u.amput?.7:1);if(u.h){if(u.h.state==='hors')return 0;s*=Math.max(.15,malus(u.h).move);}if(u.post==='couche')s*=.25;else if(u.post==='accroupi')s*=.7;
+    if(u.w){const Wd=this.W(u.w);if(Wd.crew>1){const n=this.servants(u,1.5).length;s*=Math.min(.8,.3+.5*n/(Wd.crew-1));}}if(u.crates>0)s*=Math.max(.6,1-u.crates*.15);return s;}
+  // les servants d'une pièce : ceux de l'escouade qui la servent, à `r` cases au plus
+  servants(u,r=1.2){return this.s.units.filter(o=>o.serve===u.id&&alive(o)&&o.h?.state!=='hors'&&Math.hypot(o.x-u.x,o.y-u.y)<=r);}
+  // une escouade répartit ses rôles : pour chaque pièce, ses servants (les plus proches) ; le reste tire
+  assignCrews(sq){const ms=this.members(sq);for(const u of ms)if(u.serve&&!ms.some(g=>g.id===u.serve))u.serve=null;
+    for(const g of ms){if(!g.w)continue;const Wd=this.W(g.w);const need=Wd.crew-1-ms.filter(o=>o.serve===g.id).length;if(need<=0)continue;
+      const free=ms.filter(o=>o!==g&&!o.serve&&o.role!=='munitions'&&!UNITS[o.k]?.medic&&!(o.w&&this.W(o.w).crew>1)).sort((a,b)=>Math.hypot(a.x-g.x,a.y-g.y)-Math.hypot(b.x-g.x,b.y-g.y));for(const o of free.slice(0,need))o.serve=g.id;}}
   follow(u,exact){const sp=this.speedOf(u)*this.dt;let left=sp;if(sp<=0){u.anim='idle';return false;}
     while(left>0){let tgt;if(u.pi<u.path.length){const [i,j]=u.path[u.pi];tgt=[i+.5,j+.5];}else if(exact&&u.pathDone){tgt=exact;}else{u.anim='idle';return true;}
       if(u.pi<u.path.length){const [i,j]=u.path[u.pi];const w=this.wall[j*this.N+i];if(w===(u.f==='meumeu'?-2:2)){u.blockedBy=j*this.N+i;u.anim='idle';return false;}}
@@ -142,8 +149,25 @@ export class World{
   // Des soldats choisis, la touche G : une escouade. On la commande d'un bloc ; elle se met en formation, se couvre, se soigne.
   formSquad(ids){const us=ids.map(id=>this.unit(id)).filter(u=>alive(u)&&u.f==='meumeu'&&u.k!=='villageois');if(us.length<2)return {ok:false,why:['au moins deux soldats']};
     for(const u of us)if(u.sq)this.leave(u);const n=++this.s.squadN;const sq={id:this.id(),f:'meumeu',name:`${n}${n===1?'re':'e'} escouade`,m:us.map(u=>u.id),leader:us.slice().sort((a,b)=>(b.xp||0)-(a.xp||0))[0].id,morale:1,form:'ligne'};
-    for(const u of us)u.sq=sq.id;this.s.squads.push(sq);this.log('Armée',`${sq.name} formée : ${us.length} ${us.length>1?'hommes':'homme'}.`,'good');return {ok:true,sq,text:`${sq.name} : ${us.length}`};}
+    for(const u of us)u.sq=sq.id;this.s.squads.push(sq);this.assignCrews(sq);this.log('Armée',`${sq.name} formée : ${us.length} ${us.length>1?'hommes':'homme'}.`,'good');return {ok:true,sq,text:`${sq.name} : ${us.length}`};}
   squad(id){return this.s.squads.find(q=>q.id===id)||null;}
+  // Changer d'arme, de protection : au dépôt le plus proche (à moins de RADIUS cases), qui doit l'avoir en stock ; l'ancienne y reste
+  rearm(u,wid){const dep=this.depots(u.f,u.x,u.y)[0];if(!dep)return {ok:false,why:[`aucun dépôt à moins de ${RADIUS} cases`]};if(u.w===wid)return {ok:true};
+    if((dep.stock['a:'+wid]||0)<1)return {ok:false,why:[`${this.design(wid)?.name||'cette arme'} : aucune au ${this.depotName(dep)}`]};
+    dep.stock['a:'+wid]-=1;if(u.w){this.put(dep,'a:'+u.w,1);const Wo=this.W(u.w);const back=(u.mag+u.pouch)/Wo.perCrate;if(back>0)this.put(dep,'m:'+u.w,back);}
+    u.w=wid;u.mag=0;u.pouch=0;this.resupply(u);const Wn=this.W(wid);const n=Math.min(Wn.p.mag,u.pouch);u.mag=n;u.pouch-=n;u.serve=null;const sq=u.sq&&this.squad(u.sq);if(sq)this.assignCrews(sq);return {ok:true};}
+  rearmor(u,aid){const dep=this.depots(u.f,u.x,u.y)[0];if(!dep)return {ok:false,why:[`aucun dépôt à moins de ${RADIUS} cases`]};if((u.armor||'')===(aid||''))return {ok:true};
+    if(aid&&(dep.stock['p:'+aid]||0)<1)return {ok:false,why:[`${this.s.armors[aid]?.name||'cette protection'} : aucune au ${this.depotName(dep)}`]};
+    if(aid)dep.stock['p:'+aid]-=1;if(u.armor)this.put(dep,'p:'+u.armor,1);u.armor=aid||null;u.plates={};return {ok:true};}
+  // le rôle dans l'escouade : tireur, servant d'une pièce, porteur de munitions
+  setRole(u,role){if(role==='munitions'){u.role='munitions';u.serve=null;}else if(role?.startsWith('serve:')){u.role=null;u.serve=+role.slice(6);}else{u.role=null;u.serve=null;}return {ok:true};}
+  // Le porteur de munitions : deux caisses au plus, des munitions de l'arme la plus portée de son escouade ; il les prend au
+  // dépôt quand il passe à portée, et remplit les cartouchières de ceux qui sont à moins de 1,5 case et ont moins de la moitié.
+  bearerTick(u){const sq=this.squad(u.sq);if(!sq)return;const ms=this.members(sq).filter(o=>o.w&&alive(o));if(!ms.length)return;
+    const cnt={};for(const o of ms)cnt[o.w]=(cnt[o.w]||0)+1;const wid=u.ammoW&&cnt[u.ammoW]?u.ammoW:Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0][0];if(u.ammoW!==wid){u.ammoW=wid;u.crates=0;}
+    const Wd=this.W(wid);if((u.crates||0)<2){const got=this.take(u.f,u.x,u.y,'m:'+wid,2-(u.crates||0));if(got>0)u.crates=(u.crates||0)+got;}
+    if(!(u.crates>0))return;for(const o of ms){if(o.w!==wid||o===u||Math.hypot(o.x-u.x,o.y-u.y)>1.5)continue;const want=Wd.carry-(o.pouch||0);if(want<Wd.carry*.5)continue;
+      const give=Math.min(want,Math.floor(u.crates*Wd.perCrate));if(give<=0)break;o.pouch=(o.pouch||0)+give;u.crates=Math.max(0,u.crates-give/Wd.perCrate);if(o.why?.startsWith('à sec'))o.why=null;}}
   leave(u){const sq=this.squad(u.sq);u.sq=null;if(!sq)return;sq.m=sq.m.filter(id=>id!==u.id);if(sq.leader===u.id)sq.leader=sq.m[0]??null;if(!sq.m.length)this.s.squads.splice(this.s.squads.indexOf(sq),1);}
   dissolve(id){const sq=this.squad(id);if(!sq)return;for(const mid of sq.m){const u=this.unit(mid);if(u)u.sq=null;}this.s.squads.splice(this.s.squads.indexOf(sq),1);}
   members(sq){return sq.m.map(id=>this.unit(id)).filter(Boolean);}
@@ -346,6 +370,9 @@ export class World{
     // le corps : le sang coule, on tombe, on meurt
     if(u.h){const ch=tickHealth(u.h,dts);if(ch)this.stateChange(u,ch);if(u.h.log?.length&&u.h.log[u.h.log.length-1].t==null)u.h.log[u.h.log.length-1].t=this.s.t;if(!alive(u))return;
       if(u.h.state==='hors'){u.anim='down';u.task=u.task?.kind==='carried'?u.task:null;u.path=null;u.post='couche';return;}}
+    if(u.role==='munitions'&&u.sq)this.bearerTick(u);
+    // un servant rejoint sa pièce quand elle s'arrête
+    if(u.serve&&(!u.task||u.task.kind==='guard')){const g=this.unit(u.serve);if(g&&alive(g)&&this.s.t-(g.moved||-9)>.05){const tx=g.x-.45,ty=g.y+.35;if(Math.hypot(u.x-tx,u.y-ty)>.9)u.task={kind:'guard',tx,ty};}}
     // se réapprovisionner : munitions de sa conception, grenades, trousses — dans les dépôts proches
     u.resup=(u.resup||0)-dts;if(u.resup<=0){u.resup=3;this.resupply(u);this.selfCare(u);}
     const T0=u.task;
@@ -450,11 +477,13 @@ export class World{
       this.s.shots.push({kind:'grenade',f:u.f,by:u.id,x0:u.x,y0:u.y,x1:x+(this.rand()-.5)*sp,y1:y+(this.rand()-.5)*sp,t:0,dur:BLASTS.grenade.fuse/HOUR_REAL});this.emit({type:'throw',x:u.x,y:u.y});return true;}
     u.gcool=Math.max(0,(u.gcool||0)-this.dts);
     if(u.reload>0)return true;
-    if(u.mag<=0){if(u.pouch>0){const n=Math.min(W.p.mag,u.pouch);u.mag=n;u.pouch-=n;u.reload=W.p.mag>12?4:W.p.action==='verrou'?3:2.5;u.burst=0;this.emit({type:'reload',x:u.x,y:u.y});return true;}u.dry=true;return false;}
+    // une pièce : elle se met en batterie (immobile) avant de tirer ; il manque des servants, elle tire et recharge lentement
+    let miss=0;if(W.crew>1){const mv=this.s.t-(u.moved||-9)<.03;u.deployT=mv?0:(u.deployT||0)+this.dts;if(u.deployT<W.setup){u.why='mise en batterie';return true;}if(u.why==='mise en batterie')u.why=null;miss=Math.max(0,W.crew-1-this.servants(u).length);}
+    if(u.mag<=0){if(u.pouch>0){const n=Math.min(W.p.mag,u.pouch);u.mag=n;u.pouch-=n;u.reload=(W.p.mag>12?4:W.p.action==='verrou'?3:2.5)*(1+miss*.8);u.burst=0;this.emit({type:'reload',x:u.x,y:u.y});return true;}u.dry=true;return false;}
     u.dry=false;if(u.cool>0)return true;if(u.f==='meumeu')this.practice('tir',.03);
     if(u.aimAt!==(e.id??e.wall??'b')){u.aimAt=e.id??e.wall??'b';u.cool=W.aim*(u.post==='couche'?1.2:1);return true;}
     // le coup part
-    u.mag--;if(ACTIONS[W.p.action]?.auto){u.burst=(u.burst||0)+1;if(u.burst>=4){u.burst=0;u.cool=W.aim*.7;}else u.cool=W.cyc;}else{u.burst=0;u.cool=W.cyc+W.aim*.4;}
+    u.mag--;if(ACTIONS[W.p.action]?.auto){u.burst=(u.burst||0)+1;if(u.burst>=4){u.burst=0;u.cool=W.aim*.7;}else u.cool=W.cyc;}else{u.burst=0;u.cool=W.cyc+W.aim*.4;}if(miss)u.cool*=1+miss*.5;
     const R=distT*TILE_M;const fl=W.at(R);
     const share={};let ix=x,iy=y;for(let k=0;k<(isB||e.wall!=null?1:(W.pel||1));k++){const res=isB||e.wall!=null?{hit:true,struct:true,v:fl.v}:this.resolve(u,e,W,R,u.burst||0,share);
       [ix,iy]=res.hit?[x,y]:[res.px??x,res.py??y];

@@ -2,6 +2,8 @@
 // les clics deviennent des demandes à l'interface. Deux niveaux de détail pour le sol : de près, une texture par case ;
 // de loin, une image de toute la carte, calculée une fois (c'est aussi la minicarte).
 import {MAP_N,TERRAIN,T,BUILDINGS,UNITS,VEHICLES,BEEE,RES,OUTCROP,ORE_COL,NODES,LINES,DAY} from './data.js';
+import {MATS} from './armor.js';
+import {MODS as GMODS} from './ballistics.js';
 import {building,vehicle,resource,terrain,prop,sheet,drawFrame,fx,img} from './sprites.js';
 import {BLOOD,BODY_H} from './body.js';
 import {bleedRate,triage} from './health.js';
@@ -251,7 +253,9 @@ export class View{
     if(D.img==='canon'){this.drawCannon(u,q,z);}
     else{const act=down?'idle':u.anim==='aim'?'aim':u.anim==='action'?'action':u.anim==='walk'?'walk':'idle';let name=D.sheet;if(u.k==='villageois'){const t=u.task?.kind;name=t==='build'||t==='line'||t==='repair'?'meumeu_builder':u.carry?'meumeu_logistician':t==='work'?(W.building(u.task.b)?.k==='mine'?'meumeu_prospector':'meumeu_mechanic'):u.task?.type==='ore'?'meumeu_prospector':'meumeu_colonist';}
       const sh=sheet(name,act,u.dir||'se')||sheet(name,'idle',u.dir||'se');const pose=down?'down':u.post==='couche'?'prone':u.post==='accroupi'?'crouch':'up';
-      if(sh)this.body(sh,down?0:Math.floor(this.frame+(u.id%5)),q,size,pose,u.h?.wounds,u.dir,u.id,down?.25:0,u.armor?W.armorOf(u.armor)?.D:null);else{ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(q.x,q.y-8*z,5*z,0,7);ctx.fill();}}
+      const Wg=u.w&&!down?W.W(u.w):null;const away=u.dir==='ne'||u.dir==='nw';if(Wg&&away)this.drawGun(u,q,size,Wg,pose);
+      if(sh)this.body(sh,down?0:Math.floor(this.frame+(u.id%5)),q,size,pose,u.h?.wounds,u.dir,u.id,down?.25:0,u.armor?W.armorOf(u.armor)?.D:null,D.uniform||null);else{ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(q.x,q.y-8*z,5*z,0,7);ctx.fill();}
+      if(Wg&&!away)this.drawGun(u,q,size,Wg,pose);}
     const top=down?q.y-size*.35:u.post==='couche'?q.y-size*.4:u.post==='accroupi'?q.y-size*.78:q.y-size;
     if(u.carry&&u.carry.n>=1){const ic=icon(u.carry.k);if(ic)ctx.drawImage(ic,q.x-7*z,top-14*z,14*z,14*z);}
     if(u.carrying!=null){ctx.fillStyle='#fff8e6';ctx.font=`800 ${10*this.dpr}px system-ui`;ctx.textAlign='center';ctx.fillText('✚',q.x,top-4*z);}
@@ -271,21 +275,49 @@ export class View{
     ctx.fillStyle='rgba(150,18,18,.55)';ctx.beginPath();ctx.ellipse(x+ox-r*.25,y+1.5*z,r*.45,r*.18,0,0,7);ctx.fill();ctx.restore();}
   // Dessine un personnage dans une posture, avec son sang : on compose d'abord le cadre à part (le sang ne tache que le personnage),
   // puis on le pose — accroupi, on le tasse ; couché ou à terre, on le couche sur le sol.
-  body(sh,frame,q,size,pose,wounds,dir,seed,dim=0,arm=null){const ctx=this.ctx;const blood=wounds&&wounds.length;
-    if(pose==='up'&&!blood&&!dim&&!arm){drawFrame(ctx,sh,frame,q.x,q.y,size);return;}
+  body(sh,frame,q,size,pose,wounds,dir,seed,dim=0,arm=null,uniform=null){const ctx=this.ctx;const blood=wounds&&wounds.length;
+    if(pose==='up'&&!blood&&!dim&&!arm&&!uniform){drawFrame(ctx,sh,frame,q.x,q.y,size);return;}
     const ow=Math.ceil(size*1.7),oh=Math.ceil(size*1.3);if(!this.oc)this.oc=document.createElement('canvas');const oc=this.oc;if(oc.width<ow||oc.height<oh){oc.width=Math.max(oc.width,ow);oc.height=Math.max(oc.height,oh);}
     const o=oc.getContext('2d');o.setTransform(1,0,0,1,0,0);o.globalCompositeOperation='source-over';o.clearRect(0,0,ow+2,oh+2);const fx=ow/2,fy=oh-2;drawFrame(o,sh,frame,fx,fy,size);
     if(blood){o.globalCompositeOperation='source-atop';const front=dir==='se'||dir==='sw'||!dir,facing=dir==='se'||dir==='ne'||!dir?1:-1;const k=size/BODY_H;
       for(const w of wounds){for(const [p,out] of [[w.entry,0],[w.exit,1]]){if(!p)continue;const x=fx+(front?-1:1)*p[0]*k*.85+facing*p[2]*k*.6,y=fy-p[1]*k;const r=Math.max(1.3,size*(.03+.012*(w.sev||2))*(out?1.5:1));
         o.fillStyle='rgba(112,6,8,.92)';o.beginPath();o.arc(x,y,r,0,7);o.fill();o.fillStyle='rgba(100,5,7,.8)';o.fillRect(x-r*.3,y,r*.6,r*(1.4+(w.sev||2)*.7));o.fillStyle='rgba(185,28,28,.85)';o.beginPath();o.arc(x-r*.3,y-r*.3,r*.38,0,7);o.fill();}}}
-    if(arm){o.globalCompositeOperation='source-atop';const k=size/BODY_H;const col={acier:'rgba(110,120,130,.8)',ceramique:'rgba(225,218,200,.8)',soie:'rgba(160,140,90,.75)',verre:'rgba(90,200,190,.75)'};
+    if(uniform){o.globalCompositeOperation='source-atop';const k=size/BODY_H;o.fillStyle=uniform;o.fillRect(fx-.07*k,fy-.2*k,.14*k,.135*k);o.fillRect(fx-.05*k,fy-.07*k,.1*k,.035*k);}
+    if(arm){o.globalCompositeOperation='source-atop';const k=size/BODY_H;const col=Object.fromEntries(Object.entries(MATS).map(([m,M])=>[m,M.col+(M.soft?'8c':'b8')]));
       if(arm.zones.casque.t>0){o.fillStyle=col[arm.zones.casque.mat];o.beginPath();o.ellipse(fx,fy-.262*k,.04*k,.024*k,0,Math.PI,0);o.fill();o.fillRect(fx-.04*k,fy-.264*k,.08*k,.006*k);}
-      if(arm.zones.plastron.t>0||arm.zones.dos.t>0){const z=arm.zones.plastron.t>0?arm.zones.plastron:arm.zones.dos;o.fillStyle=col[z.mat];o.fillRect(fx-.045*k,fy-.19*k,.09*k,.115*k);o.fillStyle='rgba(0,0,0,.25)';o.fillRect(fx-.045*k,fy-.135*k,.09*k,.004*k);}}
+      if(arm.zones.plastron.t>0||arm.zones.dos.t>0){const z=arm.zones.plastron.t>0?arm.zones.plastron:arm.zones.dos;o.fillStyle=col[z.mat];o.beginPath();o.ellipse(fx,fy-.135*k,.047*k,.058*k,0,0,7);o.fill();o.strokeStyle='rgba(0,0,0,.28)';o.lineWidth=Math.max(.6,.004*k);o.beginPath();o.moveTo(fx-.03*k,fy-.19*k);o.lineTo(fx-.02*k,fy-.08*k);o.moveTo(fx+.03*k,fy-.19*k);o.lineTo(fx+.02*k,fy-.08*k);o.stroke();}}
     if(dim){o.globalCompositeOperation='source-atop';o.fillStyle=`rgba(38,30,28,${dim})`;o.fillRect(0,0,ow,oh);}
     o.globalCompositeOperation='source-over';ctx.save();ctx.translate(q.x,q.y);
     if(pose==='crouch'){ctx.scale(1,.74);ctx.drawImage(oc,0,0,ow,oh,-fx,-fy,ow,oh);}
     else if(pose==='prone'||pose==='down'||pose==='dead'){const sgn=seed%2?1:-1;ctx.scale(1,.55);ctx.rotate(sgn*(pose==='prone'?1.5:1.35));ctx.drawImage(oc,0,0,ow,oh,-fx,-fy+size*.5,ow,oh);}
     else ctx.drawImage(oc,0,0,ow,oh,-fx,-fy,ow,oh);ctx.restore();}
+  // L'arme du soldat, d'après sa conception : crosse, boîte de culasse, canon, chargeur, lunette, bouche ; à l'échelle du
+  // Meumeu (30 cm). En visée, à l'épaule, pointée vers où il regarde ; en marche, en bandoulière ; une pièce sur trépied est
+  // posée au sol devant son tireur quand il ne bouge pas, et portée sur le dos quand il marche.
+  drawGun(u,q,size,D,pose){const ctx=this.ctx,p=D.p;const k=size/BODY_H;const dx=u.dir==='sw'||u.dir==='nw'?-1:1,dy=u.dir==='ne'||u.dir==='nw'?-1:1;
+    const Dc=p.d*(D.pistol?1.25:1.45),COL=D.COL,crew=D.have==='trepied',ms=new Set(D.mods||[]);const stock=crew?COL*1.1+14:Math.max(55,60+COL*1.6),act=COL*2.4+8,dev=ms.has('manchon')?p.d*14:ms.has('frein')?p.d*3.2:ms.has('cacheflamme')?p.d*4:0;
+    const Lm=(stock+act+p.L+dev)/1000;const L=Lm*k;const th=Math.max(1.6,(Dc*3.2+6)/1000*k);const moving=u.anim==='walk';const aiming=u.anim==='aim'||u.anim==='action'||(u.cool>0&&!moving);
+    let x0,y0,ang;const low=pose==='prone'?.03:pose==='crouch'?.13:.17;
+    if(crew&&!moving){x0=q.x-dx*.03*k;y0=q.y-.09*k;ang=dy*.12;}                                   // en batterie, au sol
+    else if(crew||!aiming){x0=q.x-dx*.05*k;y0=q.y-.05*k;ang=-1.05;}                                // porté en bandoulière, ou sur le dos
+    else{x0=q.x-dx*.02*k;y0=q.y-low*k;ang=dy*.22;}                                                  // à l'épaule
+    ctx.save();ctx.translate(x0,y0);if(dx<0)ctx.scale(-1,1);ctx.rotate(ang);ctx.lineJoin='round';
+    const f=v=>v/(stock+act+p.L+dev)*L;const h=th;
+    // le trépied (en batterie)
+    if(crew&&!moving){ctx.strokeStyle='#2b2f33';ctx.lineWidth=Math.max(1.2,h*.35);const hx=f(stock+act*.6);ctx.beginPath();ctx.moveTo(hx,h*.4);ctx.lineTo(hx+.08*k,.09*k);ctx.moveTo(hx,h*.4);ctx.lineTo(hx-.09*k,.09*k);ctx.stroke();}
+    // la crosse (ou les poignées d'une pièce), la culasse, le canon, la bouche
+    if(!crew){ctx.fillStyle='#8a5a2e';ctx.beginPath();ctx.moveTo(0,-h*.45);ctx.lineTo(f(stock),-h*.4);ctx.lineTo(f(stock),h*.45);ctx.lineTo(f(stock*.45),h*.6);ctx.lineTo(0,h*1.1);ctx.closePath();ctx.fill();}
+    else{ctx.fillStyle='#3a3f44';ctx.fillRect(0,-h*.35,f(stock),h*.7);}
+    ctx.fillStyle='#3d434a';ctx.fillRect(f(stock),-h*.5,f(act),h);ctx.fillStyle='#8a929a';ctx.fillRect(f(stock),-h*.5,f(act),Math.max(.6,h*.18));
+    const bw=Math.max(1.1,h*.42);const multi=D.p.action==='rotatif';ctx.fillStyle='#2a2e33';if(multi)for(const o of [-.6,0,.6])ctx.fillRect(f(stock+act),o*bw-bw/2,f(p.L),bw);else ctx.fillRect(f(stock+act),-bw/2,f(p.L),bw);
+    if(!crew&&!multi){ctx.fillStyle='#7a4e28';ctx.fillRect(f(stock+act),-h*.38,f(p.L*.4),h*.76);}
+    if(dev){ctx.fillStyle=ms.has('manchon')?'#4a5058':'#23272b';const dh=ms.has('manchon')?bw*2:bw*1.4;ctx.fillRect(f(stock+act+p.L),-dh/2,f(dev),dh);}
+    // le chargeur : boîte, tambour, ou bande
+    if(p.mag>1){ctx.fillStyle='#2f3439';if(D.p.mag>=50&&(D.p.action==='auto'||multi)){ctx.fillStyle='#b8912f';ctx.fillRect(f(stock+act*.3),h*.5,Math.max(1,h*.3),h*1.8);}else if(p.mag>30){ctx.beginPath();ctx.arc(f(stock+act*.5),h*1.1,h*.9,0,7);ctx.fill();}else ctx.fillRect(f(stock+act*.5),h*.5,f(COL*1.1)+1,Math.min(h*3,h*.6+p.mag*.12*h));}
+    if(ms.has('lunette')){ctx.fillStyle='#1e2226';ctx.fillRect(f(stock+act*.1),-h*1.25,f(COL*3),h*.55);}
+    if(ms.has('bipied')&&!moving&&aiming){ctx.strokeStyle='#2b2f33';ctx.lineWidth=1;const bx=f(stock+act+p.L*.6);ctx.beginPath();ctx.moveTo(bx,0);ctx.lineTo(bx-2,h*3);ctx.moveTo(bx,0);ctx.lineTo(bx+2,h*3);ctx.stroke();}
+    if(ms.has('bouclier')&&crew&&!moving){ctx.fillStyle='rgba(90,98,106,.95)';ctx.fillRect(f(stock+act+Math.min(p.L*.2,40)),-.12*k,Math.max(2,h*.5),.2*k);}
+    ctx.restore();}
   // les fumigènes : un nuage épais qui gonfle, tourne lentement, puis se dissipe
   drawSmokes(){const ctx=this.ctx,z=this.z(),W=this.world;const im=img('fx/smoke_cloud.webp'),im2=img('fx/smoke_gray1.webp');if(!im)return;
     for(const s of W.s.smokes){if(this.near(s.x,s.y)<=0)continue;const age=W.t-s.t0,left=s.end-W.t;const a=Math.min(1,age*3)*Math.min(1,left/2);const grow=Math.min(1,.4+age*1.5);

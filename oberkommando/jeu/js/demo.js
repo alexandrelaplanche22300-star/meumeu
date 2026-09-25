@@ -6,7 +6,7 @@ import {BUILDINGS,DAY,RARE} from './data.js';
 
 const MEUMEU=['caserne','armurerie','manufacture','arsenal','arsenal','poudrerie','hopital','entrepot','atelier','maison','maison','maison','maison','maison','maison'];
 const STOCK={bois:700,pierre:400,charbon:300,fer:260,cuivre:200,plomb:220,salpetre:160,pieces:300,poudre:160,explosifs:40,soie:60,
-  vivres:900,sante:60,'a:mle1':30,'m:mle1':60,'p:casque':20,'p:gilet':12};
+  vivres:900,sante:60,'a:mle1':30,'m:mle1':60,'a:mg2':4,'m:mg2':30,'p:casque':20,'p:gilet':12};
 
 // un emplacement libre pour un bâtiment, en anneaux autour de (cx, cy) : le terrain, l'écart, la place (le dépôt, on s'en passe)
 function spot(W,f,k,cx,cy,r0=6,r1=30){for(let r=r0;r<=r1;r++)for(let a=0;a<24;a++){const an=a/24*Math.PI*2+r*.37;const i=Math.round(cx+Math.cos(an)*r),j=Math.round(cy+Math.sin(an)*r);
@@ -15,6 +15,8 @@ function build(W,f,k,at){const B=BUILDINGS[k];const [i,j]=at;for(let a=0;a<B.siz
   return W.addBuilding(f,k,i,j,true);}
 
 export function setupDemo(W){const s=W.s;const cap=W.capital();const [ci,cj]=[cap.i+2,cap.j+2];
+  // une mitrailleuse lourde déjà adoptée : sur trépied, trois servants
+  s.designs.mg2={id:'mg2',f:'meumeu',name:'Mitrailleuse Mle 2',status:'adopte',p:{d:2.6,l:10,nose:'pointue',base:'bt',cons:'fmj',c:.09,L:230,twist:75,action:'auto',rof:500,mag:100,mods:['trepied','cacheflamme'],zero:100}};
   // la capitale équipée
   for(const k of MEUMEU){const at=spot(W,'meumeu',k,ci,cj,7,34);if(at)build(W,'meumeu',k,at);}
   const ent=s.buildings.find(b=>b.k==='entrepot'&&b.f==='meumeu');
@@ -24,6 +26,7 @@ export function setupDemo(W){const s=W.s;const cap=W.capital();const [ci,cj]=[ca
   const sol=[];for(let n=0;n<10;n++){const a=n/10*Math.PI*2;const u=W.addUnit('meumeu','soldat',ci+6+Math.cos(a)*2,cj+6+Math.sin(a)*2,{w:'mle1',armor:n<4?'gilet':'casque'});W.resupply(u);sol.push(u);}
   const med=[];for(const k of ['medecin','medecin','infirmier','infirmier']){const u=W.addUnit('meumeu',k,ci+8+med.length*.6,cj+4);W.resupply?.(u);med.push(u);}
   for(let n=0;n<6;n++)W.addUnit('meumeu','villageois',ci-4+n*.7,cj+5);
+  sol[0].w='mg2';sol[0].mag=100;sol[0].pouch=300;sol[4].role='munitions';
   W.formSquad([...sol.slice(0,5),med[0],med[2]].map(u=>u.id));W.formSquad([...sol.slice(5),med[1],med[3]].map(u=>u.id));
   // l'avant-poste bèè, vers les Bèè, à une quarantaine de cases
   const [bi,bj]=W.G.beee[0];const d=Math.hypot(bi-ci,bj-cj);let post=null;

@@ -146,9 +146,9 @@ export const LINES={
 export const UNITS={
   villageois:{name:'Villageois',sheet:'meumeu_colonist',speed:9,cost:{vivres:25},hours:4,pop:1,
     why:'Ramasse, porte, bâtit, répare, éteint les incendies. Sans arme : sous le feu, il court aux abris.'},
-  soldat:{name:'Soldat',sheet:'meumeu_guard',speed:8,arm:true,skill:2.2,smoke:1,cost:{vivres:30,pieces:4},hours:3,pop:1,
+  soldat:{name:'Soldat',sheet:'meumeu_colonist',uniform:'rgba(58,92,58,.62)',speed:8,arm:true,skill:2.2,smoke:1,cost:{vivres:30,pieces:4},hours:3,pop:1,
     why:'Une arme de la conception choisie et les munitions qu’il porte ; il recharge dans les dépôts proches.'},
-  commando:{name:'Commando',sheet:'meumeu_heavy-commando',speed:8.5,arm:true,skill:1.6,grenades:3,smoke:2,cost:{vivres:40,pieces:8,fer:2},hours:5,pop:1,
+  commando:{name:'Commando',sheet:'meumeu_colonist',uniform:'rgba(40,58,44,.72)',speed:8.5,arm:true,skill:1.6,grenades:3,smoke:2,cost:{vivres:40,pieces:8,fer:2},hours:5,pop:1,
     why:'Mieux entraîné, il tire mieux ; il porte des grenades (explosifs du dépôt) : la guerre des rues.'},
   infirmier:{name:'Infirmier',sheet:'meumeu_assistant',speed:9,medic:true,kits:6,cost:{vivres:30,sante:2},hours:4,pop:1,
     why:'Les premiers secours sous le feu : garrots, pansements, pansement thoracique, plasma. Il porte les blessés à la tente, puis de la tente à l’hôpital.'},
@@ -244,8 +244,8 @@ export const FIRE={hours:6,dps:6};  // un bâtiment qui brûle perd des points j
 // Ensuite une vague tous les `every` jours, plus grosse chaque fois ; leurs bombardiers `air` jours après la déclaration.
 export const BEEE={cities:2,peace:[14,18],every:2.2,wave:3,grow:2,air:5,airEvery:1.6,garrison:8,buildEvery:18,cap:40,
   units:{
-    soldat:{name:'Soldat bèè',sheet:'beee_pathfinder-soldier',speed:7.5,arm:'bee_fusil',skill:2.4},
-    commando:{name:'Commando bèè',sheet:'beee_mountain-commando',speed:8,arm:'bee_pm',skill:1.8,grenades:3,smoke:1},
+    soldat:{name:'Soldat bèè',sheet:'beee_colonist',uniform:'rgba(112,76,42,.62)',speed:7.5,arm:'bee_fusil',skill:2.4},
+    commando:{name:'Commando bèè',sheet:'beee_colonist',uniform:'rgba(70,52,36,.72)',speed:8,arm:'bee_pm',skill:1.8,grenades:3,smoke:1},
     canon:{name:'Canon bèè',img:'canon',speed:4.5,range:13,cd:10,vsB:3,dmg:40,hp:150,shell:true},
   }};
 

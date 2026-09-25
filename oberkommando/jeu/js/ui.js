@@ -200,7 +200,7 @@ function unitsPane(sel){const by={};for(const u of sel)by[u.k]=(by[u.k]||0)+1;co
   h+=postureRow(sel);const sm=sel.filter(u=>u.smoke>0).length;if(sm)h+=`<div class="row"><button class="small ghost" data-act="smoke" title="Un nuage entre eux et l’ennemi : il coupe la vue">Fumigène (F) · ${sel.reduce((a,u)=>a+(u.smoke||0),0)}</button></div>`;
   if(sq&&whole){h+=`<div class="kv"><span>Moral</span><b class="${sq.morale<.4?'bad':sq.morale<.7?'warn':'good'}">${Math.round(sq.morale*100)} %${sq.broken?' · en déroute':''}</b></div><i class="bloodbar morale"><b style="width:${Math.round(sq.morale*100)}%"></b></i>
       <div class="row"><span class="quiet small">Formation</span><div class="seg">${[['ligne','En ligne'],['colonne','En colonne'],['dispersee','Dispersés']].map(([k,n])=>`<button data-form="${k}" class="${sq.form===k?'on':''}">${n}</button>`).join('')}</div></div>
-      <div class="row"><button class="small ghost" data-act="dissolve">Dissoudre l’escouade</button></div>`;}
+      <div class="row"><button class="small" data-act="sq-open">Gérer l’escouade : rôles, armes, caisses</button><button class="small ghost" data-act="dissolve">Dissoudre l’escouade</button></div>`;}
   else if(sel.filter(u=>u.k!=='villageois').length>=2)h+=`<div class="row"><button class="small" data-act="squad">Former une escouade (G)</button><span class="quiet small">elle se commande d’un bloc, tient son moral ; un médecin la suit</span></div>`;
   h+=`<p class="quiet small">Clic droit : une cible (ressource, chantier, camp, bâtiment, ennemi, blessé) ou un point — les soldats y vont en formation et attaquent ce qu’ils voient.</p><div class="row"><button class="small ghost" data-act="stop">Arrêter</button></div></section>`;
   if(vil.length){const cx=vil.reduce((a,u)=>a+u.x,0)/vil.length,cy=vil.reduce((a,u)=>a+u.y,0)/vil.length;const deps=world.s.buildings.filter(d=>d.f==='meumeu'&&world.isDepot(d)).sort((a,z)=>world.distB(a,cx,cy)-world.distB(z,cx,cy)).slice(0,10);const cur=vil.every(u=>u.dep===vil[0].dep)?vil[0].dep:undefined;
@@ -350,10 +350,27 @@ function overviewPane(){const s=world.s;const cap=world.capital();const st=cap?.
 // ---------- les grandes fenêtres : santé, fiche médicale, idées, économie ----------
 function openModal(kind,id=null){ui.modal={kind,id};ui.modalHtml='';renderModal();}
 function renderModal(){const el=$('#modal');if(!ui.modal){if(!el.hidden){el.hidden=true;el.innerHTML='';}return;}
-  let body='';try{body={med:medModal,fiche:ficheModal,innov:innovModal,eco:ecoModal}[ui.modal.kind]?.(ui.modal.id)||'';}catch(e){console.error(e);body=`<p class="bad">${esc(e.message)}</p>`;}
+  let body='';try{body={med:medModal,fiche:ficheModal,innov:innovModal,eco:ecoModal,squad:squadModal}[ui.modal.kind]?.(ui.modal.id)||'';}catch(e){console.error(e);body=`<p class="bad">${esc(e.message)}</p>`;}
   if(!body){ui.modal=null;el.hidden=true;return;}
   if(body!==ui.modalHtml){const box=el.querySelector('.mbody');const top=box?box.scrollTop:0;el.innerHTML=`<div class="mbox ${ui.modal.kind}" role="dialog">${body}</div>`;el.hidden=false;ui.modalHtml=body;const nb=el.querySelector('.mbody');if(nb)nb.scrollTop=top;
     const slot=el.querySelector('#f3dslot');if(slot)slot.appendChild(body3d.cv);}}
+// ---------- l'escouade : chaque membre, son rôle, son arme, sa protection, ses munitions ; les pièces et leurs servants ----------
+function squadModal(id){const sq=world.squad(id);if(!sq)return '';const ms=world.members(sq);const dep=ms[0]&&world.depots('meumeu',ms[0].x,ms[0].y)[0];const have=dep?dep.stock:{};
+  const guns=world.designsOf('meumeu');const arms=world.armorsOf('meumeu');const pieces=ms.filter(u=>u.w&&world.W(u.w).crew>1);
+  const roleSel=u=>{const opts=[['tireur','Tireur'],['munitions','Porteur de munitions'],...pieces.filter(g=>g!==u).map(g=>[`serve:${g.id}`,`Servant de ${unitName(g)}`])];const cur=u.role==='munitions'?'munitions':u.serve?`serve:${u.serve}`:'tireur';
+    return `<select data-sqr="${u.id}">${opts.map(([v,n])=>`<option value="${v}" ${v===cur?'selected':''}>${esc(n)}</option>`).join('')}</select>`;};
+  const rows=ms.map(u=>{const W=u.w?world.W(u.w):null;const st=u.h?.state||'ok';const ammo=W?u.mag+u.pouch:0;
+    return `<tr class="${st==='hors'?'bad':''}"><td><a data-fiche="${u.id}">${esc(unitName(u))}</a><small>${esc(UNITS[u.k].name)}${sq.leader===u.id?' · chef':''}</small></td>
+      <td>${UNITS[u.k].medic?'<span class="quiet">soignant</span>':roleSel(u)}</td>
+      <td>${UNITS[u.k].arm?`<select data-sqw="${u.id}">${guns.map(d=>`<option value="${d.id}" ${d.id===u.w?'selected':''}>${esc(d.name)}${d.id!==u.w?` (${n0(have['a:'+d.id]||0)} au dépôt)`:''}</option>`).join('')}</select>${W&&W.crew>1?`<small>pièce à ${W.crew} · ${world.servants(u,1.5).length}/${W.crew-1} servants · ${u.deployT>=W.setup?'en batterie':'à mettre en batterie'}</small>`:''}`:'—'}</td>
+      <td>${UNITS[u.k].arm||UNITS[u.k].medic?`<select data-sqa="${u.id}"><option value="">rien</option>${arms.map(a=>`<option value="${a.id}" ${a.id===u.armor?'selected':''}>${esc(a.name)}${a.id!==u.armor?` (${n0(have['p:'+a.id]||0)})`:''}</option>`).join('')}</select>`:'—'}</td>
+      <td>${W?`<i class="gauge inline"><i style="width:${Math.min(100,ammo/W.carry*100)}%"></i></i> ${ammo}/${W.carry}`:'—'}${u.role==='munitions'?`<small>${fmt(u.crates||0,1)} caisse${(u.crates||0)>=2?'s':''} de ${esc(world.design(u.ammoW)?.name||'—')}</small>`:''}</td>
+      <td>${st==='ok'?'<span class="good">indemne</span>':st==='blesse'?'<span class="warn">blessé</span>':'<span class="bad">à terre</span>'}</td></tr>`;}).join('');
+  return mhead(esc(sq.name),`${ms.length} membres · moral ${Math.round(sq.morale*100)} % · ${dep?`dépôt le plus proche : ${esc(world.depotName(dep))}`:'aucun dépôt à portée — on ne change d’arme qu’au dépôt'}`)+`<div class="mbody">
+    <div class="row"><span class="quiet small">Formation</span><div class="seg">${[['ligne','En ligne'],['colonne','En colonne'],['dispersee','Dispersés']].map(([k,n])=>`<button data-form="${k}" class="${sq.form===k?'on':''}">${n}</button>`).join('')}</div>
+      <button class="small" data-act="sq-crews" title="Pour chaque pièce, les plus proches deviennent ses servants">Répartir les servants</button><button class="small ghost" data-act="sq-resupply" title="Remplir les cartouchières au dépôt le plus proche">Ravitailler au dépôt</button></div>
+    <table class="medt eco sqt"><thead><tr><th>Membre</th><th>Rôle</th><th>Arme</th><th>Protection</th><th>Munitions</th><th>État</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="quiet small">Une pièce (trépied) se met en batterie immobile avant de tirer ; chaque servant manquant la ralentit, seule elle se traîne. Un porteur de munitions prend deux caisses au dépôt et remplit les cartouchières à moins d’une case et demie. On change d’arme ou de protection au dépôt, qui doit l’avoir en stock ; l’ancienne y reste.</p></div>`;}
 function mhead(title,sub){return `<header class="mhead"><div><b>${title}</b><small>${sub}</small></div><button class="ghost" data-act="modal-off">Fermer</button></header>`;}
 // le service de santé : tous les blessés, du plus urgent au moins urgent
 function medModal(){const L=wounded();const ord={noir:3,rouge:0,jaune:1,vert:2,ok:4,mort:5};L.sort((a,b)=>ord[triage(a.u.h).k]-ord[triage(b.u.h).k]||bleedRate(b.u.h)-bleedRate(a.u.h));
@@ -498,6 +515,9 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   else if(a==='cancel-site'){world.cancel(view.selB);view.selB=null;}
   else if(a==='need-add'){const bd=world.building(view.selB);const k=$('[data-wantk]')?.value;if(bd&&k){ui.wantK=k;world.setNeed(bd,k,(bd.need?.[k]||0)+4);say(`${BUILDINGS[bd.k].name} : réserve de ${bd.need[k]} ${world.goodName(k).toLowerCase()}.`,'good');}}
   else if(a==='site-idle'){const bd=world.building(view.selB);if(bd){const [x,y]=world.bc(bd);const us=world.idle().sort((a,z)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(z.x-x,z.y-y)).slice(0,2);if(us.length){world.order(us.map(u=>u.id),{type:'building',id:bd.id});say(`${us.length} bâtisseur${us.length>1?'s':''} en route.`,'good');}}}
+  else if(a==='sq-open'){const u=[...view.sel].map(id=>world.unit(id)).find(u=>u?.sq);if(u)openModal('squad',u.sq);}
+  else if(a==='sq-crews'){const sq=world.squad(ui.modal?.id);if(sq){for(const u of world.members(sq))if(u.serve)u.serve=null;world.assignCrews(sq);ui.modalHtml='';renderModal();say('Servants répartis.','good');}}
+  else if(a==='sq-resupply'){const sq=world.squad(ui.modal?.id);if(sq){for(const u of world.members(sq))world.resupply(u);ui.modalHtml='';renderModal();say('Cartouchières remplies au dépôt (s’il en a).','good');}}
   else if(a==='porters'){const bd=world.building(view.selB);const r=world.addPorters(bd,2);say(r.ok?`${r.n} porteur${r.n>1?'s':''} pour ${world.depotName(bd)}.`:r.why[0],r.ok?'good':'bad');}
   else if(a==='porters-off'){const bd=world.building(view.selB);const v=bd&&world.porters(bd).pop();if(v){world.releasePorter(v);say('Un porteur rendu au village.');}}
   else if(a==='porter-free'){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v){world.releasePorter(v);view.selV=null;say('Rendu au village.');}}
@@ -515,7 +535,8 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   else if(a==='demo'){if(confirm('Démo de guerre : une capitale équipée, deux escouades, un avant-poste bèè à 40 cases. La partie en cours sera perdue si elle n’est pas sauvée.')){const w=new World();const r=setupDemo(w);setWorld(w);if(r.post)alertBox('La guerre est déclarée : un avant-poste bèè vous attend.',r.post[0],r.post[1],'bad');say('Démo de guerre : escouades sur les touches 1 et 2.','good');}}
   else if(a==='win-off'){$('#win').hidden=true;}
   renderPanel(true);});
-document.addEventListener('change',e=>{const s=e.target.closest('[data-trainw]');if(s){ui.trainW[+s.dataset.trainw]=s.value;renderPanel(true);}const a=e.target.closest('[data-traina]');if(a){ui.trainA[+a.dataset.traina]=a.value;renderPanel(true);}
+document.addEventListener('change',e=>{const sr=e.target.closest('[data-sqr],[data-sqw],[data-sqa]');if(sr){const d=sr.dataset;const u=world.unit(+(d.sqr||d.sqw||d.sqa));if(u){const r=d.sqr?world.setRole(u,sr.value):d.sqw?world.rearm(u,sr.value):world.rearmor(u,sr.value||null);if(!r.ok)say(r.why[0],'bad');ui.modalHtml='';renderModal();renderPanel(true);}return;}
+  const s=e.target.closest('[data-trainw]');if(s){ui.trainW[+s.dataset.trainw]=s.value;renderPanel(true);}const a=e.target.closest('[data-traina]');if(a){ui.trainA[+a.dataset.traina]=a.value;renderPanel(true);}
   const t=e.target;const bd=world.building(view.selB);
   if(t.matches('[data-prod]')&&bd){const r=world.setProduct(bd,t.value||null);say(r.ok?r.text:r.why[0],r.ok?'good':'bad');audio.play(r.ok?'click':'bad');renderPanel(true);}
   else if(t.matches('[data-link]')&&bd&&t.value){const r=world.setLink(bd,t.dataset.link,+t.value);say(r.ok?r.text:r.why[0],r.ok?'good':'bad');renderPanel(true);}
