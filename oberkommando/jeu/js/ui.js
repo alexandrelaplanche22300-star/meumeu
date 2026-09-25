@@ -1,6 +1,6 @@
 // Oberkommando der Meumeu — l'interface. La boucle, le panneau, la barre de construction, la minicarte, les alertes, le son,
 // les radiographies, le bureau d'études, le service de santé, les idées des Meumeu, l'économie.
-import {HOUR_REAL,DAY,RES,RARE,GOODS,BUILDINGS,BUILD_ORDER,BUILD_CATS,UNITS,VEHICLES,LINES,BEEE,GOAL,RADIUS,RECIPES,PRODUCTS,FAMILIES,PRIO,FRET,LIMIT_OF,INNOV,DOMAINS,STEPS,NODES} from './data.js';
+import {SITE_RANGE,CARRY,HOUR_REAL,DAY,RES,RARE,GOODS,BUILDINGS,BUILD_ORDER,BUILD_CATS,UNITS,VEHICLES,LINES,BEEE,GOAL,RADIUS,RECIPES,PRODUCTS,FAMILIES,PRIO,FRET,LIMIT_OF,INNOV,DOMAINS,STEPS,NODES} from './data.js';
 import {World} from './world.js';
 import {loadManifest,manifest} from './sprites.js';
 import {View,AMMO_SVG,ARM_SVG} from './view.js';
@@ -8,6 +8,7 @@ import {Audio} from './audio.js';
 import {XRay,XRoom,BodyView} from './xray.js';
 import {warm as warm3d} from './gl3d.js';
 import {Designer} from './designer.js';
+import {setupDemo} from './demo.js';
 import {Armorer} from './armorer.js';
 import {deriveArmor,ZONES,MATS} from './armor.js';
 import {REGIONS,PARTS,BLOOD,setSpecies} from './body.js';
@@ -43,6 +44,8 @@ const view=new View($('#view'),world,{
     let vil=[...view.sel].map(id=>world.unit(id)).filter(u=>u?.k==='villageois');const B=BUILDINGS[k];
     if(!vil.length)vil=world.idle().filter(u=>Math.hypot(u.x-i,u.y-j)<45).sort((a,b)=>Math.hypot(a.x-i,a.y-j)-Math.hypot(b.x-i,b.y-j)).slice(0,B.size[0]*B.size[1]>=9?4:3);
     if(vil.length)world.order(vil.map(u=>u.id),{type:'building',id:r.b.id});
+    // la fiche du chantier s'ouvre : ce qu'il lui faut, qui y travaille, d'où viennent les matériaux
+    view.sel.clear();view.selV=null;view.selB=r.b.id;
     say(`${B.name} posé${vil.length?` : ${vil.length} villageois ${view.sel.size?'y vont':'oisifs y vont d’eux-mêmes'}`:' — aucun villageois libre : choisissez-en, clic droit sur le chantier'}.`,'good');audio.play('order');renderPanel(true);return r;},
   planLine:(kind,cells)=>{const r=world.planLine('meumeu',kind,cells);if(!r.ok){say('rien à poser là','bad');return;}let vil=[...view.sel].map(id=>world.unit(id)).filter(u=>u?.k==='villageois');
     const [i,j]=cells[0];if(!vil.length)vil=world.idle().filter(u=>Math.hypot(u.x-i,u.y-j)<45).slice(0,4);if(vil.length)world.order(vil.map(u=>u.id),{type:kind==='rail'?'rail':'wall',k:j*world.N+i});
@@ -54,7 +57,7 @@ const view=new View($('#view'),world,{
   vehicleHint:w=>{const v=world.s.vehicles.find(x=>x.id===view.selV);return v?.k==='bombardier'?'clic droit : bombarder ici':null;},
   get pickStop(){return ui.pick?pickStop:null;}});
 const room=new XRoom($('#xroom'));const body3d=new BodyView();
-const xray=new XRay($('#xray'),{onGo:(x,y)=>view.lookAt(x,y),room,onFiche:id=>openFiche(id)});warm3d();
+const xray=new XRay($('#xray'),{onGo:(x,y)=>view.lookAt(x,y),room,onFiche:id=>openFiche(id),hostL:$('#xrayL')});warm3d();
 const designer=new Designer($('#dz'),{world:()=>world,
   bureau:()=>{const b=world.building(view.selB);if(b?.k==='armurerie'&&b.f==='meumeu'&&b.done)return b;return world.s.buildings.find(x=>x.k==='armurerie'&&x.f==='meumeu'&&x.done&&!x.proto)||null;},
   propose:(p,name)=>{const b=designer.bureau();if(!b)return {ok:false,why:['un bureau d’études']};const r=world.propose(b,name,p);if(r.ok){audio.play('built');say(r.text,'good');}return r;},
@@ -75,6 +78,24 @@ function describe(t){if(!t)return null;const peace=!world.atWar;
   if(t.type==='node'){const nd=world.s.nodes[t.id];return nd.type==='ore'?`extraire ${RES[nd.res].name.toLowerCase()} à la main (${n0(nd.left)})`:`${nd.type==='tree'?'couper':nd.type==='rock'?'casser':'cueillir'} (${n0(nd.left)})`;}
   if(t.type==='rail')return 'poser la voie';if(t.type==='wall'){const w=world.s.walls[t.k];return w?.f==='beee'?`abattre le mur${peace?' — ce sera la guerre':''}`:'bâtir le mur';}return 'aller là';}
 function say(text,tone=''){const h=$('#hint');h.textContent=text;h.className='hint show '+tone;clearTimeout(ui.sayT);ui.sayT=setTimeout(()=>h.className='hint',4500);}
+// La taille de l'interface (A− / A+, Ctrl + / Ctrl −). Dans l'application : un vrai zoom de page, net, les clics justes ;
+// dans un navigateur : le zoom CSS. Par défaut, calée pour que l'écran fasse ~1650 points de large quel que soit le
+// grossissement de Windows (à 175 % sur un écran 1920 : 65 %). Le choix du joueur est retenu d'une partie à l'autre.
+const ZOOMS=[.5,.55,.6,.65,.7,.75,.8,.85,.9,.95,1,1.1,1.2,1.3,1.4,1.5];
+const near=z=>ZOOMS.reduce((a,b)=>Math.abs(b-z)<Math.abs(a-z)?b:a);
+const uiZ={auto(){return Math.min(1,near((screen.width||innerWidth)/1650));},
+  cur:1,
+  set(z,keep=true){z=Math.max(ZOOMS[0],Math.min(ZOOMS[ZOOMS.length-1],z));this.cur=z;
+    if(window.okmApp?.zoom)window.okmApp.zoom(z);else document.documentElement.style.zoom=z===1?'':String(z);
+    if(keep){try{localStorage.setItem('okm-zoom',String(z));}catch(e){}}
+    const l=document.querySelector('[data-act="zoom-auto"]');if(l)l.textContent=Math.round(z*100)+' %';
+    requestAnimationFrame(()=>view?.resize?.());},
+  step(d){if(!d){try{localStorage.removeItem('okm-zoom');}catch(e){}this.cur=1;this.set(this.auto(),false);return;}
+    const i=ZOOMS.findIndex(x=>x>=this.cur-1e-6);this.set(ZOOMS[Math.max(0,Math.min(ZOOMS.length-1,(i<0?ZOOMS.length-1:i)+d))]);
+    say(`Taille de l’interface : ${Math.round(this.cur*100)} % (Ctrl + / Ctrl −).`);},
+  init(){let z=NaN;try{z=parseFloat(localStorage.getItem('okm-zoom'));}catch(e){}this.set(z>0?z:this.auto(),false);}};
+window.okmZoom=d=>uiZ.step(d);
+uiZ.init();
 function setSpeed(v){ui.speed=v;document.querySelectorAll('[data-speed]').forEach(b=>b.classList.toggle('on',+b.dataset.speed===v));}
 const wounded=()=>{const L=world.s.units.filter(u=>u.f==='meumeu'&&u.h&&u.h.state!=='ok').map(u=>({u,where:'terrain'}));for(const b of world.s.buildings)if(b.f==='meumeu')for(const u of b.wardList||[])L.push({u,where:b});return L;};
 
@@ -84,9 +105,9 @@ function topbar(){const cap=world.capital();const p=world.pop('meumeu');const st
   const B=world.s.beee;const war=world.atWar?`<span class="rchip war" title="La guerre depuis le jour ${B.warDay}">⚔ <b>Guerre</b></span>`:`<span class="rchip peace" title="Les Bèè s’arment. La guerre éclatera entre le jour ${BEEE.peace[0]} et le jour ${BEEE.peace[1]} — ils l’annonceront.">☮ <b>Paix armée</b></span>`;
   const W=wounded();const red=W.filter(x=>triage(x.u.h).k==='rouge').length;const ideas=world.s.innov.ideas.length;
   // la ligne des ressources : chacune avec son nom, ce qu'il y a à la capitale
-  const SHORT={bois:'Bois',pierre:'Pierre',briques:'Briques',charbon:'Charbon',vivres:'Vivres',pieces:'Pièces',carburant:'Carburant',explosifs:'Explosifs',sante:'Santé',fer:'Fer',sels:'Sels',soie:'Soie',verre:'Verre',argile:'Argile'};
+  const SHORT={bois:'Bois',pierre:'Pierre',briques:'Briques',charbon:'Charbon',vivres:'Vivres',pieces:'Pièces',poudre:'Poudre',explosifs:'Explosifs',sante:'Santé',fer:'Fer',sels:'Sels',soie:'Soie',verre:'Verre',argile:'Argile'};
   const chip=(k,v,cls='')=>`<span class="rchip ${cls}" title="${RES[k].name} à la capitale">${ico(k)}<b>${v}</b><i>${SHORT[k]}</i></span>`;
-  const h=`${['bois','pierre','argile','briques','charbon','vivres','pieces','carburant','explosifs','sante'].map(k=>chip(k,n0(st[k]||0))).join('')}
+  const h=`${['bois','pierre','argile','briques','charbon','vivres','pieces','poudre','explosifs','sante'].map(k=>chip(k,n0(st[k]||0))).join('')}
     <span class="rchip" title="Caisses de munitions à la capitale (toutes conceptions)"><img class="ico" src="${AMMO_SVG}" alt=""><b>${n1(sumK('m:'))}</b><i>Munitions</i></span><span class="rchip" title="Armes en stock à la capitale"><img class="ico" src="${ARM_SVG}" alt=""><b>${n0(sumK('a:'))}</b><i>Armes</i></span>
     <span class="rsep"></span>${RARE.map(k=>chip(k,`${n0(st[k]||0)}<small>/${GOAL}</small>`,'rare')).join('')}`;
   const h2=`<span class="rchip ${p.used>=p.cap?'bad':''}" title="Population / places de vie">👥 <b>${p.used}/${p.cap}</b><i>Meumeu</i></span>${war}
@@ -212,13 +233,14 @@ function linksPane(b){const near=world.reach(b);
   const need=world.takesIn(b)&&world.factoryNeed(b);const sup=world.building(b.sup);
   if(need&&sup){const {inb}=world.demandLines(sup);h+=`<h3>Sa commande au dépôt d’approvisionnement</h3>${Object.entries(need).map(([k,n])=>{const have=sup.stock[k]||0;return `<div class="kv"><span>${ico(k)} ${esc(world.goodName(k))}</span><b class="${have>=n-1e-6?'good':have>0?'':'warn'}">${n1(have)} / ${n1(n)}${inb[k]?` · <span class="good">+${n1(inb[k])} en route</span>`:''}</b></div>`;}).join('')}`;}
   else if(world.takesIn(b))h+=`<p class="quiet small">Pas de commande en ce moment (${b.halt?'usine arrêtée':!b.prod?'aucune production':'plafond atteint'}).</p>`;
-  h+=`<p class="quiet small">Le dépôt d’approvisionnement porte la commande : le bureau du fret y amène ce qui manque, dans l’ordre des priorités. Reliez-le : charrettes, rail, avions.</p></section>`;return h;}
+  h+=`<p class="quiet small">Le dépôt d’approvisionnement porte la commande : le bureau du fret y amène ce qui manque, dans l’ordre des priorités. Reliez-le : porteurs, rail.</p></section>`;return h;}
 function wantGoods(){return [...GOODS,...world.designsOf('meumeu').flatMap(d=>['m:'+d.id,'a:'+d.id]),...world.armorsOf('meumeu').map(a=>'p:'+a.id)];}
 function depotPane(b){const B=BUILDINGS[b.k];const st=Object.entries(b.stock).filter(([,v])=>v>=.05);const used=world.stored(b);const {lines,inb,outb,def}=world.demandLines(b);const L=world.linkedTo(b);const p=b.prio??3;
   let h=`<section class="pane"><h2>Dépôt <small>${n0(used)}/${B.store} caisses</small></h2><i class="gauge"><i style="width:${Math.min(100,used/B.store*100)}%"></i></i>
     <div class="stockrow">${st.map(([k,v])=>`<span class="rchip" title="${esc(world.goodName(k))}">${ico(k)}<b>${n1(v)}</b></span>`).join('')||'<span class="quiet">vide</span>'}</div>${(b.pass||[]).length?`<p class="small">${b.pass.length} passagers attendent l’avion.</p>`:''}
     <div class="row"><span class="quiet small">Priorité</span><div class="seg prio">${[1,2,3,4,5].map(q=>`<button data-prio="${q}" class="${p===q?'on':''}" title="${PRIO[q]}">${q}</button>`).join('')}</div><b class="small">${PRIO[p]}</b></div>
     <p class="quiet small">Le fret sert d’abord les dépôts les plus prioritaires ; un dépôt garde ce qu’il demande lui-même, sauf face à une priorité plus haute.</p>
+    <div class="row"><span>Porteurs : <b>${world.porters(b).length}</b></span><button class="small" data-act="porters" ${world.idle().length?'':'disabled'} title="Des villageois oisifs deviennent porteurs de ce dépôt : à pied, ils servent les dépôts à ${VEHICLES.porteur.range} cases">Affecter 2 porteurs</button>${world.porters(b).length?`<button class="small ghost" data-act="porters-off">En rendre 1</button>`:''}</div>
     ${B.big?'':`<div class="row"><button class="small ${b.evac===false?'ghost':''}" data-act="evac">${b.evac===false?'Trop-plein gardé ici':'Trop-plein évacué'}</button><span class="quiet small">plein à ${Math.round(FRET.EVAC_HI*100)} %, il envoie le surplus au grand dépôt le plus proche</span></div>`}</section>`;
   const byK={};for(const l of lines)(byK[l.k]??=[]).push(l);const miss=Object.fromEntries(def.map(d=>[d.k,(def.filter(x=>x.k===d.k).reduce((a,x)=>a+x.n,0))]));
   h+=`<section class="pane"><h2>Demandes <small>ce que le fret doit y amener</small></h2>${Object.keys(byK).length?`<table class="dem"><thead><tr><th>Bien</th><th>Pour</th><th>Voulu</th><th>Ici</th><th>En route</th></tr></thead><tbody>${Object.entries(byK).map(([k,ls])=>ls.map((l,i)=>{
@@ -240,7 +262,10 @@ function reservePane(b){const sup=world.building(b.sup);const need=b.need||{};
   return h+linksPane(b);}
 function sitePane(b){const cost=world.siteCost(b);if(!Object.keys(cost).length)return '';const site=world.building(b.site);
   return `<section class="pane"><h2>Matériaux <small>payés à mesure qu’ils arrivent</small></h2>${Object.entries(cost).map(([k,v])=>{const pd=b.paid?.[k]||0;return `<div class="kv"><span>${ico(k)} ${esc(world.goodName(k))}</span><b class="${pd>=v-1e-6?'good':''}">${n1(pd)} / ${n1(v)}</b></div>`;}).join('')}
-    <p class="quiet small">Commandé à : ${site?`<a data-selb="${site.id}">${esc(world.depotName(site))}</a>`:'aucun dépôt'} — le bureau du fret y amène ce qui manque ; les bâtisseurs le prennent aux dépôts à moins de ${RADIUS} cases.</p></section>`;}
+    ${(()=>{const bs=world.s.units.filter(u=>u.task?.kind==='build'&&u.task.b===b.id);const on=bs.filter(u=>u.task.fetch!=null||u.task.bring).length;const idle=world.idle().length;
+      return `<div class="row"><span>Bâtisseurs : <b>${bs.length}</b>${on?` · ${on} en chemin avec des matériaux`:''}</span><button class="small" data-act="site-idle" ${idle?'':'disabled'}>Envoyer ${Math.min(2,idle)||2} oisifs</button></div>`;})()}
+    <label class="row small">Dépôt du chantier <select data-sitedep>${world.depots('meumeu',...world.bc(b),SITE_RANGE).map(d=>`<option value="${d.id}" ${site?.id===d.id?'selected':''}>${esc(world.depotName(d))} · ${Math.round(world.distB(d,...world.bc(b)))} cases</option>`).join('')}</select></label>
+    <p class="quiet small">Les bâtisseurs vont y chercher les matériaux à pied, ${CARRY} caisses par voyage. Ce qui manque au dépôt y est commandé : le fret l’y amène (porteurs, trains, depuis les gares reliées). Choisissez des Meumeu, clic droit sur le chantier : ils y travaillent.</p></section>`;}
 function buildingPane(b){const B=BUILDINGS[b.k];const beee=b.f==='beee';let h=`<section class="pane"><div class="bhead">${bthumb(b.k)?`<img src="${bthumb(b.k)}" alt="">`:''}<div><h2>${B.name}${beee?' bèè':''} <small>${esc(world.cityName(b))}</small></h2>
     <div class="kv"><span>Solidité</span><b class="${b.hp<b.max*.4?'bad':''}">${n0(b.hp)}/${b.max}${b.fire>0?' · <span class="bad">en feu</span>':''}${b.ruin?' · <span class="bad">en ruine</span>':''}</b></div></div></div>
     ${!b.done&&!beee?`<div class="kv"><span>Chantier</span><b>${Math.round(b.progress*100)} % · ${world.s.units.filter(u=>u.task?.b===b.id).length} dessus</b></div><i class="gauge"><i style="width:${Math.round(b.progress*100)}%"></i></i>`:''}${b.why?`<p class="small warn">${esc(b.why)}</p>`:''}<p class="quiet small">${esc(B.why)}</p>`;
@@ -281,21 +306,21 @@ function vehiclePane(){const v=world.s.vehicles.find(x=>x.id===view.selV);if(!v)
   h+=`<div class="kv"><span>À bord</span><b>${Object.entries(v.cargo).filter(([,n])=>n>=.05).map(([k,n])=>`${ico(k)}${n1(n)}`).join(' ')||'vide'}${v.pass?.length?` · ${v.pass.length} passagers`:''}</b></div><i class="gauge"><i style="width:${Math.min(100,world.cargoW(v)/cap*100)}%"></i></i><p class="quiet small">${n1(world.cargoW(v))} / ${n1(cap)} caisses · ${v.trips||0} voyages</p>`;
   if(v.k==='train')h+=`<div class="kv"><span>Tender</span><b class="${(v.coal||0)<2?'warn':''}">${fmt(v.coal||0,1)} / ${fmt(world.tender(),0)} charbon</b></div><i class="gauge coal"><i style="width:${Math.min(100,(v.coal||0)/world.tender()*100)}%"></i></i><p class="quiet small">Une caisse de charbon pour ${Math.round(1/FRET.COAL_PER_CASE)} cases. Elle fait le plein en gare avant chaque trajet.</p>`;
   h+=`<div class="row"><span class="quiet small">Service</span><div class="seg">${[['fret','À la demande'],['ligne','Ligne fixe']].map(([k,n])=>`<button data-vmode="${k}" class="${(v.mode||'fret')===k?'on':''}">${n}</button>`).join('')}</div></div>`;
-  if(v.mode==='fret'){h+=`<div class="goods"><span class="quiet small">Porte</span>${Object.entries(FAMILIES).map(([k,F])=>`<button class="chip ${!v.only?.length||v.only.includes(k)?'on':''}" data-fam="${k}">${F.name}</button>`).join('')}</div><p class="quiet small">Aucune famille cochée à part : il porte de tout. Un train de charbon, une charrette de munitions : c’est ici.</p>`;
-    if(v.k==='charrette'){const base=world.building(v.base)||world.building(v.home);const deps=world.s.buildings.filter(d=>d.f==='meumeu'&&world.isDepot(d)).sort((a,z)=>world.distB(a,v.x,v.y)-world.distB(z,v.x,v.y)).slice(0,14);
+  if(v.mode==='fret'){h+=`<div class="goods"><span class="quiet small">Porte</span>${Object.entries(FAMILIES).map(([k,F])=>`<button class="chip ${!v.only?.length||v.only.includes(k)?'on':''}" data-fam="${k}">${F.name}</button>`).join('')}</div><p class="quiet small">Aucune famille cochée à part : il porte de tout. Un train de charbon, un porteur de munitions : c’est ici.</p>`;
+    if(v.k==='porteur'){const base=world.building(v.base)||world.building(v.home);const deps=world.s.buildings.filter(d=>d.f==='meumeu'&&world.isDepot(d)).sort((a,z)=>world.distB(a,v.x,v.y)-world.distB(z,v.x,v.y)).slice(0,14);
       h+=`<label class="row small">Basée à <select data-vbase>${deps.map(d=>`<option value="${d.id}" ${base?.id===d.id?'selected':''}>${esc(BUILDINGS[d.k].name)} · ${esc(world.cityName(d))}</option>`).join('')}</select></label>
-        <div class="kv"><span>Rayon de service</span><b class="kctl"><button class="small ghost" data-vrange="-5">−</button> ${v.range||FRET.CART_RANGE} cases <button class="small ghost" data-vrange="5">+</button></b></div>`;}
+        <div class="kv"><span>Rayon de service</span><b class="kctl"><button class="small ghost" data-vrange="-5">−</button> ${v.range||VEHICLES.porteur.range} cases <button class="small ghost" data-vrange="5">+</button></b></div><div class="row"><button class="small ghost" data-act="porter-free">Rendre au village</button></div>`;}
     h+=`<p class="quiet small">À la demande : il prend le manque le plus prioritaire qu’il peut servir, le charge au dépôt qui en a de trop le plus commode, et le livre. ${v.k==='train'?'Il sert les gares de son réseau.':v.k==='avion'?'Il sert les aérodromes ; le carburant est pris au départ.':'Il sert les dépôts de son rayon, sur la même terre.'}</p>`;}
   else{const A=v.route&&world.building(v.route.a),B=v.route&&world.building(v.route.b);
     h+=`<div class="kv"><span>Ligne</span><b>${A&&B?`${esc(world.cityName(A))} (${BUILDINGS[A.k].name.toLowerCase()}) ↔ ${esc(world.cityName(B))} (${BUILDINGS[B.k].name.toLowerCase()})`:'aucune'}</b></div><div class="row"><button class="small" data-act="route">${v.route?'Changer la ligne':'Tracer la ligne'}</button></div>`;
-    if(v.route){const sets=[['guerre','munitions, armes, explosifs, santé'],['vivres','vivres'],['industrie','pièces, carburant'],['materiaux','bois, pierre, argile, briques, charbon'],['rare','le rare']];
+    if(v.route){const sets=[['guerre','munitions, armes, explosifs, santé'],['vivres','vivres'],['industrie','pièces'],['materiaux','bois, pierre, argile, briques, charbon'],['rare','le rare']];
       for(const [dir,label] of [['out',`→ vers ${esc(B?world.cityName(B):'B')}`],['back',`← vers ${esc(A?world.cityName(A):'A')}`]])h+=`<div class="goods"><span class="quiet small">${label}</span>${sets.map(([k,n])=>`<button class="chip ${v.route[dir].includes(k)?'on':''}" data-goods="${dir}:${k}">${n}</button>`).join('')}</div>`;
       h+=`<p class="quiet small">Un convoi part mêlé : au premier tour, aucun bien ne prend plus de 40 % de la place.</p>`;}}
   return h+'</section>';}
 // les étapes : ce qui est fait, ce qui vient
 const has=(W,k,more=()=>true)=>W.s.buildings.some(b=>b.f==='meumeu'&&b.k===k&&b.done&&more(b));
 const STEP_OK={bois:W=>(W.capital()?.stock.bois||0)>=260||(W.s.innov.prac.bois||0)>4,maisons:W=>W.s.buildings.filter(b=>b.f==='meumeu'&&b.k==='maison'&&b.done).length>=2,
-  camp:W=>has(W,'camp',b=>W.workers(b).length),charbon:W=>has(W,'mine',b=>W.s.nodes[b.ore]?.res==='charbon'),charrette:W=>W.s.vehicles.some(v=>v.f==='meumeu'&&v.k==='charrette'&&(v.trips||0)>0),
+  camp:W=>has(W,'camp',b=>W.workers(b).length),charbon:W=>has(W,'mine',b=>W.s.nodes[b.ore]?.res==='charbon'),charrette:W=>W.s.vehicles.some(v=>v.f==='meumeu'&&v.k==='porteur'&&(v.trips||0)>0),
   briques:W=>has(W,'briqueterie',b=>(b.made||0)>0),atelier:W=>has(W,'atelier'),labo:W=>has(W,'labo'),hopital:W=>has(W,'hopital'),
   caserne:W=>has(W,'caserne')&&W.s.units.filter(u=>u.f==='meumeu'&&u.w).length>=6,arsenal:W=>has(W,'arsenal',b=>(b.made||0)>0),
   rail:W=>W.s.buildings.filter(b=>b.f==='meumeu'&&b.k==='gare'&&b.done).length>=2&&W.s.vehicles.some(v=>v.f==='meumeu'&&v.k==='train'),
@@ -384,7 +409,7 @@ function innovModal(){const I=world.s.innov;const lab=world.s.buildings.find(b=>
     <div class="ideas">${I.ideas.map(x=>card({...x,who:typeof x.who==='object'?x.who:{name:x.who}},true)).join('')||'<p class="quiet">Pas d’idée en attente : travaillez, elles viendront.</p>'}</div>
     <h3>Ce qu’on pratique</h3><div class="doms">${doms}</div>
     <h3>Adoptées</h3><div class="ideas done">${I.done.map(id=>card({id},false)).join('')||'<p class="quiet small">aucune encore</p>'}</div></div>`;}
-const MODN={gather_tree:'coupe du bois',gather_rock:'taille de pierre',gather_bush:'cueillette',gather_ore:'extraction à la main',ferme:'fermes',mine:'mines',atelier:'ateliers',carburant_bois:'bois par carburant',cap_charrette:'charge des charrettes',cap_train:'charge des trains',vit_train:'vitesse des trains',
+const MODN={gather_tree:'coupe du bois',gather_rock:'taille de pierre',gather_bush:'cueillette',gather_ore:'extraction à la main',ferme:'fermes',mine:'mines',atelier:'ateliers',carburant_bois:'bois par carburant',cap_porteur:'charge des portettes',cap_train:'charge des trains',vit_train:'vitesse des trains',
   construction:'vitesse de construction',charbon_machines:'charbon des machines',briques:'briqueteries',tender:'tender des locomotives',mur:'solidité des murs',fer_munitions:'fer par caisse',armement:'arsenal et manufacture',tir:'précision',garrot:'durée d’un garrot',plasma:'plasma',brancard:'vitesse des brancardiers',antiseptique:'vitesse de l’infection',chirurgie:'vitesse de la chirurgie',creneaux:'tireurs par tour',couvert:'protection des murs'};
 // l'économie : ce qui produit, où sont les stocks, ce qui roule
 function ecoModal(){const tab=ui.ecoTab||'fret';const bs=world.s.buildings.filter(b=>b.f==='meumeu'&&b.done);let body='';
@@ -393,7 +418,7 @@ function ecoModal(){const tab=ui.ecoTab||'fret';const bs=world.s.buildings.filte
     body=`<table class="medt eco"><thead><tr><th></th><th>Bâtiment</th><th>Au travail</th><th>Fait</th><th>Approvisionné par</th><th>Livre à</th><th>État</th></tr></thead><tbody>${prod.map(b=>{const B=BUILDINGS[b.k];const n=B.workers?world.workers(b).length:0;
       const what=B.factory?`${b.prod?`${ico(b.prod)} ${esc(world.productName(b.prod))}`:'<span class="warn">rien</span>'}${b.batch?` <small>${Math.round(Math.min(1,b.batch.done/b.batch.hours)*100)} %</small>`:''}`:B.makes?Object.entries(B.makes).map(([k,v])=>`${ico(k)} ${fmt(v*n*world.mod('ferme'),1)}/h`).join(' '):b.k==='mine'?(()=>{const nd=world.s.nodes[b.ore];return nd?`${ico(nd.res)} ${fmt(B.rate*n*world.mod('mine'),1)}/h · filon ${n0(nd.left)}`:'';})():B.hub?`récolte : ${({auto:'ce qui manque',bois:'bois',pierre:'pierre',vivres:'baies'})[b.res||'auto']}`:b.dev?`innovation ${Math.round((1-b.dev.left/b.dev.total)*100)} %`:b.proto?'prototype':'—';
       return `<tr><td>${bthumb(b.k)?`<img class="thumb" src="${bthumb(b.k)}" alt="">`:''}</td><td><a data-selb="${b.id}">${esc(B.name)}</a><small>${esc(world.cityName(b))}</small></td><td>${B.workers?`${n}/${B.workers}`:'—'}</td><td>${what}</td><td>${world.takesIn(b)?dn(b.sup):'—'}</td><td>${world.givesOut(b)?dn(b.out):'—'}</td><td class="${b.why?'warn':b.working?'good':'quiet'}">${esc(b.why||(b.working?'au travail':'à l’arrêt'))}</td></tr>`;}).join('')}</tbody></table>`;}
-  else if(tab==='stocks'){const deps=bs.filter(b=>BUILDINGS[b.k].store);const cols=['bois','pierre','argile','briques','charbon','vivres','pieces','carburant','explosifs','sante','fer','sels','soie','verre'];
+  else if(tab==='stocks'){const deps=bs.filter(b=>BUILDINGS[b.k].store);const cols=['bois','pierre','argile','briques','charbon','vivres','pieces','cuivre','plomb','soufre','salpetre','poudre','explosifs','sante','fer','sels','soie','verre'];
     body=`<table class="medt eco"><thead><tr><th>Dépôt</th><th>Prio.</th><th>Plein</th>${cols.map(k=>`<th title="${RES[k].name}">${ico(k)}</th>`).join('')}<th title="Munitions (caisses)"><img class="ico" src="${AMMO_SVG}" alt=""></th><th title="Armes"><img class="ico" src="${ARM_SVG}" alt=""></th></tr></thead><tbody>${deps.map(b=>{const B=BUILDINGS[b.k];const u=world.stored(b);const sum=pre=>Object.entries(b.stock).filter(([k])=>k.startsWith(pre)).reduce((a,[,v])=>a+v,0);
       return `<tr><td><a data-selb="${b.id}">${esc(B.name)}</a><small>${esc(world.cityName(b))}</small></td><td>${b.prio??3}</td><td><i class="gauge inline"><i style="width:${Math.min(100,u/B.store*100)}%"></i></i> ${n0(u)}/${B.store}</td>${cols.map(k=>`<td class="${(b.stock[k]||0)<1?'quiet':''}">${n0(b.stock[k]||0)}</td>`).join('')}<td>${n1(sum('m:'))}</td><td>${n0(sum('a:'))}</td></tr>`;}).join('')}</tbody></table>`;}
   else if(tab==='fret'){const L=world.shortages('meumeu');const fv=world.s.vehicles.filter(v=>v.f==='meumeu'&&v.mode==='fret');const J=world.jams('meumeu');
@@ -443,7 +468,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   if(d.want){const bd=world.building(view.selB);const i=d.want.lastIndexOf(':');const k=d.want.slice(0,i);if(bd)world.setWant(bd,k,(bd.want?.[k]||0)+(+d.want.slice(i+1)));renderPanel(true);return;}
   if(d.vmode){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v){const r=world.setMode(v,d.vmode);say(r.ok?r.text:r.why[0],r.ok?'':'bad');}renderPanel(true);return;}
   if(d.fam){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v)world.toggleFamily(v,d.fam);renderPanel(true);return;}
-  if(d.vrange){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v)v.range=Math.max(10,Math.min(120,(v.range||FRET.CART_RANGE)+(+d.vrange)));renderPanel(true);return;}
+  if(d.vrange){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v)v.range=Math.max(6,Math.min(30,(v.range||VEHICLES.porteur.range)+Math.sign(+d.vrange)*2));renderPanel(true);return;}
   if(d.post){world.setPosture([...view.sel],d.post);renderPanel(true);return;}
   if(d.form){const u=world.unit([...view.sel][0]);const sq=u&&world.squad(u.sq);if(sq){sq.form=d.form;say(`${sq.name} : ${b.textContent.toLowerCase()} au prochain ordre de marche.`);}renderPanel(true);return;}
   if(d.squad){selectSquad(+d.squad,e.detail>=2);return;}
@@ -469,6 +494,10 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   else if(a==='send-repair'){const bd=world.building(view.selB);const ids=world.s.units.filter(u=>u.f==='meumeu'&&u.k==='villageois'&&u.h?.state!=='hors').sort((p,q)=>Math.hypot(p.x-bd.i,p.y-bd.j)-Math.hypot(q.x-bd.i,q.y-bd.j)).slice(0,4).map(u=>u.id);const r=world.order(ids,{type:'building',id:bd.id});say(r.ok?r.text:r.why[0]);}
   else if(a==='cancel-site'){world.cancel(view.selB);view.selB=null;}
   else if(a==='need-add'){const bd=world.building(view.selB);const k=$('[data-wantk]')?.value;if(bd&&k){ui.wantK=k;world.setNeed(bd,k,(bd.need?.[k]||0)+4);say(`${BUILDINGS[bd.k].name} : réserve de ${bd.need[k]} ${world.goodName(k).toLowerCase()}.`,'good');}}
+  else if(a==='site-idle'){const bd=world.building(view.selB);if(bd){const [x,y]=world.bc(bd);const us=world.idle().sort((a,z)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(z.x-x,z.y-y)).slice(0,2);if(us.length){world.order(us.map(u=>u.id),{type:'building',id:bd.id});say(`${us.length} bâtisseur${us.length>1?'s':''} en route.`,'good');}}}
+  else if(a==='porters'){const bd=world.building(view.selB);const r=world.addPorters(bd,2);say(r.ok?`${r.n} porteur${r.n>1?'s':''} pour ${world.depotName(bd)}.`:r.why[0],r.ok?'good':'bad');}
+  else if(a==='porters-off'){const bd=world.building(view.selB);const v=bd&&world.porters(bd).pop();if(v){world.releasePorter(v);say('Un porteur rendu au village.');}}
+  else if(a==='porter-free'){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v){world.releasePorter(v);view.selV=null;say('Rendu au village.');}}
   else if(a==='evac'){const bd=world.building(view.selB);if(bd){bd.evac=bd.evac===false?true:false;say(bd.evac?'Le trop-plein part au grand dépôt le plus proche.':'Le trop-plein reste ici.');}}
   else if(a==='halt'){const bd=world.building(view.selB);if(bd){bd.halt=!bd.halt;say(`${BUILDINGS[bd.k].name} : ${bd.halt?'arrêtée — elle ne commande plus rien':'reprend le travail'}.`);}}
   else if(a==='want-add'){const bd=world.building(view.selB);const k=$('[data-wantk]')?.value;if(bd&&k){ui.wantK=k;world.setWant(bd,k,(bd.want?.[k]||0)+10);say(`${world.depotName(bd)} demande ${bd.want[k]} ${world.goodName(k).toLowerCase()}.`,'good');}}
@@ -476,9 +505,11 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   else if(a==='pick-off')ui.pick=null;
   else if(a==='shelter'){const n=world.shelterAll();say(n?`${n} villageois courent aux abris.`:'Aucun abri à portée.',n?'':'bad');audio.play('siren');}
   else if(a==='sound'){b.textContent=audio.toggle()?'🔈':'🔇';}
+  else if(a==='zoom-in')uiZ.step(1);else if(a==='zoom-out')uiZ.step(-1);else if(a==='zoom-auto'){uiZ.step(0);say(`Taille de l’interface : automatique (${Math.round(uiZ.cur*100)} %).`);}
   else if(a==='save'){localStorage.setItem('okm-save',world.save());say('Partie sauvée.','good');}
   else if(a==='load'){const j=localStorage.getItem('okm-save');if(!j){say('Aucune sauvegarde.','bad');return;}try{const w=new World(1);w.load(j);setWorld(w);say('Partie reprise.','good');}catch(err){console.error(err);say('Sauvegarde illisible (d’une version plus ancienne).','bad');}}
   else if(a==='new'){if(confirm('Nouvelle partie : une nouvelle carte. La partie en cours sera perdue si elle n’est pas sauvée.')){setWorld(new World());say('Une nouvelle carte.','good');}}
+  else if(a==='demo'){if(confirm('Démo de guerre : une capitale équipée, deux escouades, un avant-poste bèè à 40 cases. La partie en cours sera perdue si elle n’est pas sauvée.')){const w=new World();const r=setupDemo(w);setWorld(w);if(r.post)alertBox('La guerre est déclarée : un avant-poste bèè vous attend.',r.post[0],r.post[1],'bad');say('Démo de guerre : escouades sur les touches 1 et 2.','good');}}
   else if(a==='win-off'){$('#win').hidden=true;}
   renderPanel(true);});
 document.addEventListener('change',e=>{const s=e.target.closest('[data-trainw]');if(s){ui.trainW[+s.dataset.trainw]=s.value;renderPanel(true);}const a=e.target.closest('[data-traina]');if(a){ui.trainA[+a.dataset.traina]=a.value;renderPanel(true);}
@@ -487,11 +518,13 @@ document.addEventListener('change',e=>{const s=e.target.closest('[data-trainw]')
   else if(t.matches('[data-link]')&&bd&&t.value){const r=world.setLink(bd,t.dataset.link,+t.value);say(r.ok?r.text:r.why[0],r.ok?'good':'bad');renderPanel(true);}
   else if(t.matches('[data-wantk]'))ui.wantK=t.value;
   else if(t.matches('[data-vbase]')){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v){v.base=+t.value;v.job=v.job?.phase==='src'?null:v.job;say(`${v.name} : basée à ${world.depotName(world.building(v.base))}.`);}renderPanel(true);}
+  else if(t.matches('[data-sitedep]')){const bd=world.building(view.selB);if(bd){bd.site=+t.value;say(`Matériaux pris à ${world.depotName(world.building(bd.site))}.`);renderPanel(true);}}
   else if(t.matches('[data-udep]')){const v=t.value===''?null:+t.value;for(const id of view.sel){const u=world.unit(id);if(u&&u.k==='villageois')u.dep=v;}say(v==null?'Ils rapportent au dépôt le plus proche.':`Ils rapportent à ${world.depotName(world.building(v))}.`);renderPanel(true);}});
 $('#panel').addEventListener('pointermove',()=>{ui.lastPointer=performance.now();ui.pointerIn=true;});$('#panel').addEventListener('pointerleave',()=>{ui.pointerIn=false;});
 $('#modal').addEventListener('click',e=>{if(e.target.id==='modal'){ui.modal=null;renderModal();}});
 const keys=new Set();
-document.addEventListener('keydown',e=>{if(e.target.closest('input,textarea,select'))return;if(designer.open){if(e.key==='Escape')designer.close();return;}if(room.isOpen){if(e.key==='Escape')room.close();return;}audio.init();const k=e.key;
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','=','-','0'].includes(e.key)){e.preventDefault();uiZ.step(e.key==='-'?-1:e.key==='0'?0:1);return;}
+  if(e.target.closest('input,textarea,select'))return;if(designer.open){if(e.key==='Escape')designer.close();return;}if(room.isOpen){if(e.key==='Escape')room.close();return;}audio.init();const k=e.key;
   if(ui.modal&&k==='Escape'){ui.modal=null;renderModal();return;}keys.add(k.toLowerCase());
   if(k==='Escape'){view.placing=null;view.lining=null;ui.pick=null;view.sel.clear();view.selB=null;view.selV=null;renderPanel(true);}
   else if(k===' '){e.preventDefault();setSpeed(ui.speed?0:(ui.lastSpeed||1));if(ui.speed)ui.lastSpeed=ui.speed;}
@@ -516,14 +549,14 @@ function where(x,y){const q=view.toScreen(x,y);const w=view.canvas.width,h=view.
 function alertBox(text,x,y,tone='bad'){const box=$('#alert');box.innerHTML=`${text}${x!=null?` <button class="small" data-gotoxy="${x},${y}">Voir</button>`:''}`;box.className='alert '+tone;box.hidden=false;clearTimeout(ui.alertT);ui.alertT=setTimeout(()=>box.hidden=true,9000);}
 function woundCard(e){if(xray.mode==='off')return;const mine=xray.mode==='sel'?(view.sel.has(e.victim)||(e.shooter!=null&&view.sel.has(e.shooter))):!where(e.x,e.y).far;if(!mine)return;
   const vD=e.vf==='beee'?BEEE.units[e.vk]:UNITS[e.vk];const victim=e.vf==='beee'?(vD?.name||'Bèè'):(e.name||vD?.name||'Meumeu');const shooter=e.frag?`${{grenade:'Grenade',obus:'Obus',bombe:'Bombe'}[e.frag]}${e.sname?' de '+e.sname:''}`:(e.sname||(e.vf==='meumeu'?'Un Bèè':'Un Meumeu'));
-  const received=view.sel.has(e.victim);const d=e.w?world.design(e.w):null;
-  xray.add(e,{title:`${received?'Reçu · ':''}${shooter} → ${victim}`,sub:`${e.frag?`éclat de ${fmt(e.rec.E0*1000/Math.max(1,e.v*e.v)*2,2)} g`:(d?.name||'')} · ${fmt(e.R,e.R<10?1:0)} m · ${Math.round(e.v)} m/s à l’impact${e.cover?` · à travers : ${e.cover}`:''}`});}
+  const received=e.vf==='meumeu';const d=e.w?world.design(e.w):null;if(d)e.cons=d.p.cons;
+  xray.add(e,{side:received?'L':'R',title:`${received?'Reçu · ':'Envoyé · '}${shooter} → ${victim}`,sub:`${e.frag?`éclat de ${fmt(e.rec.E0*1000/Math.max(1,e.v*e.v)*2,2)} g`:(d?.name||'')} · ${fmt(e.R,e.R<10?1:0)} m · ${Math.round(e.v)} m/s à l’impact${e.cover?` · à travers : ${e.cover}`:''}`});}
 function events(){for(const e of world.events.splice(0)){view.onEvent(e);const P=e.x!=null?where(e.x,e.y):null;
   switch(e.type){
     case 'shot':audio.play('shot',P,e);break;case 'cannon':audio.play('cannon',P);break;
     case 'wound':{const v=world.unit(e.victim);if(v){hurtRefs.delete(e.victim);hurtRefs.set(e.victim,v);if(hurtRefs.size>80)hurtRefs.delete(hurtRefs.keys().next().value);}woundCard(e);audio.play('hit',P,e);break;}
     case 'down':audio.play('down',P);if(e.f==='meumeu'&&P&&!P.far)say(`${unitName(world.unit(e.id)||{k:'soldat',f:'meumeu'})} est à terre : ${e.cause||''}.`,'bad');break;
-    case 'throw':audio.play('throw',P);break;case 'plate':audio.play('plate',P);break;case 'smoke':audio.play('smoke',P);break;case 'reload':audio.play('reload',P);break;case 'pierce':audio.play('pierce',P);break;case 'impact':if(e.mat==='pierre'||e.mat==='mur'||e.mat==='rocher')audio.play('ricochet',P);break;
+    case 'throw':audio.play('throw',P);break;case 'plate':audio.play('plate',P);if(e.rec)woundCard(e);break;case 'smoke':audio.play('smoke',P);break;case 'reload':audio.play('reload',P);break;case 'pierce':audio.play('pierce',P);break;case 'impact':if(e.mat==='pierre'||e.mat==='mur'||e.mat==='rocher')audio.play('ricochet',P);break;
     case 'boom':audio.play(e.kind==='bomb'?'bomb':'boom',P);break;case 'flak':audio.play('flak',P);break;
     case 'collapse':audio.play('collapse',P);if(e.k&&e.f==='meumeu'&&!e.small)alertBox(`<b>${BUILDINGS[e.k].name} détruit !</b>`,e.x,e.y);break;
     case 'fire':audio.play('fire',P);break;case 'felled':audio.play('felled',P);break;case 'death':audio.play('death',P);break;
@@ -558,7 +591,7 @@ function frame(now){const dt=Math.min(.1,(now-last)/1000);last=now;
 $('#xmode').addEventListener('click',()=>{xray.setMode({sel:'ecran',ecran:'off',off:'sel'}[xray.mode]);topbar();});
 $('#squads').addEventListener('click',e=>{const b=e.target.closest('[data-squad]');if(b)selectSquad(+b.dataset.squad,e.detail>=2);});
 await loadManifest();
-{const j=localStorage.getItem('okm-auto');const P=new URLSearchParams(location.search);if(j&&!P.has('new')){try{const w=new World(1);w.load(j);world=w;view.world=w;}catch(e){console.warn('sauvegarde ancienne ignorée',e.message);}}
+{const j=localStorage.getItem('okm-auto');const P=new URLSearchParams(location.search);if(P.has('demo')){const w=new World();setupDemo(w);world=w;view.world=w;}else if(j&&!P.has('new')){try{const w=new World(1);w.load(j);world=w;view.world=w;}catch(e){console.warn('sauvegarde ancienne ignorée',e.message);}}
   const c=world.capital();if(c)view.lookAt(c.i+2,c.j+2);if(P.get('speed'))setSpeed(+P.get('speed'));if(P.get('at')){const [x,y,z]=P.get('at').split(',').map(Number);view.lookAt(x,y);if(z)view.zoom=z;}}
 setSpeed(ui.speed);renderPanel(true);requestAnimationFrame(frame);
 window.world=()=>world;window.view=view;window.ui=ui;window.audio=audio;window.xray=xray;window.designer=designer;window.room=room;window.openModal=openModal;window.openFiche=id=>openFiche(id);

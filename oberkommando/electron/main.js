@@ -21,14 +21,13 @@ app.whenReady().then(()=>{
     return net.fetch(pathToFileURL(file).toString());});
   Menu.setApplicationMenu(null);
   win=new BrowserWindow({title:'Oberkommando der Meumeu',width:1600,height:900,minWidth:1024,minHeight:680,show:false,backgroundColor:'#0d2233',
-    icon:path.join(__dirname,'icon.png'),autoHideMenuBar:true,webPreferences:{contextIsolation:true,sandbox:true,spellcheck:false,backgroundThrottling:false}});
+    icon:path.join(__dirname,'icon.png'),autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,sandbox:true,spellcheck:false,backgroundThrottling:false}});
   win.maximize();win.once('ready-to-show',()=>win.show());
   win.loadURL('app://jeu/index.html');
-  // pas de zoom de navigateur (la molette zoome la carte) ; F11 : plein écran
+  // pas de zoom au pincement (la molette zoome la carte) ; F11 : plein écran. Ctrl + / Ctrl − / Ctrl 0 : c'est le jeu qui
+  // les prend (la taille de l'interface, comme ses boutons A+ / A−, retenue d'une partie à l'autre)
   win.webContents.setVisualZoomLevelLimits(1,1);
-  win.webContents.on('before-input-event',(e,i)=>{if(i.type!=='keyDown')return;
-    if(i.key==='F11'){win.setFullScreen(!win.isFullScreen());e.preventDefault();}
-    if(i.control&&['+','-','=','0'].includes(i.key))e.preventDefault();});
+  win.webContents.on('before-input-event',(e,i)=>{if(i.type==='keyDown'&&i.key==='F11'){win.setFullScreen(!win.isFullScreen());e.preventDefault();}});
   // un lien vers l'extérieur s'ouvre dans le navigateur du système, jamais dans le jeu
   win.webContents.setWindowOpenHandler(({url})=>{if(/^https?:/.test(url))shell.openExternal(url);return {action:'deny'};});
   win.webContents.on('will-navigate',(e,url)=>{if(!url.startsWith('app://'))e.preventDefault();});

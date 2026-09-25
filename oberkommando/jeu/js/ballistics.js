@@ -45,6 +45,14 @@ export const CONSTRUCTIONS={
   api:{name:'Perforante-incendiaire',rho:9,frag:Infinity,fr:0,K:1.25e-3,core:1,inc:1,disp:.5,desc:'un noyau dur et une charge incendiaire : perce la tôle et met le feu derrière'},
   hei:{name:'Explosive-incendiaire',rho:8.8,frag:0,fr:.9,K:3.5e-4,he:1,inc:1,minD:3,disp:.6,desc:'éclate et enflamme (3 mm et plus) : contre les dépôts, les réservoirs, les trains'},
   chevrotine:{name:'Chevrotine (9 plombs)',rho:11.3,frag:Infinity,fr:0,K:3e-4,pellets:9,spread:28,fill:.5,disp:0,desc:'neuf plombs ronds par coup : de près, rien ne résiste à la gerbe ; à 30 m, elle s’est ouverte et ne touche plus'},
+  plombnu:{name:'Plomb nu',rho:11.3,expand:[300,650,1.4],frag:Infinity,fr:0,K:2e-4,disp:.3,soft:1,desc:'la balle des vieux fusils, sans chemise : se déforme dans le corps, coûte peu ; au-delà de 550 m/s le plomb encrasse le canon'},
+  monolithique:{name:'Monolithique (cuivre massif)',rho:8.9,expand:[480,900,1.5],frag:Infinity,fr:0,K:7e-4,mono:1,disp:.1,desc:'tout en cuivre : s’ouvre sans se briser, garde sa masse, perce mieux qu’une pointe molle ; plus longue à masse égale, et chère en cuivre'},
+  apt:{name:'Perforante-traçante',rho:8.7,frag:Infinity,fr:0,K:1.3e-3,core:1,tracer:1,disp:.7,desc:'un noyau d’acier et une traçante au culot : on voit où l’on perce'},
+  saphei:{name:'Semi-perforante explosive-incendiaire',rho:8.6,frag:0,fr:.85,K:9e-4,he:1,inc:1,delay:.012,minD:4,disp:.6,desc:'une coiffe dure perce d’abord, la charge éclate un peu plus loin, derrière la plaque ou dans le corps (4 mm et plus)'},
+  duplex:{name:'Duplex (deux balles)',rho:10.6,frag:Infinity,fr:0,K:5e-4,pellets:2,spread:5,fill:.9,disp:.2,desc:'deux balles l’une derrière l’autre : deux trous par coup, la seconde un peu à côté ; chacune plus légère'},
+  slug:{name:'Balle unique lourde (slug)',rho:11.3,expand:[260,600,1.3],frag:Infinity,fr:0,K:3e-4,disp:.6,soft:1,desc:'un gros cylindre de plomb : énorme choc de près, retombe vite, perce peu'},
+  apfsds:{name:'Flèche sous-calibrée empennée',rho:17.5,frag:Infinity,fr:0,K:2.6e-3,core:1,sub:.32,minD:5,disp:.5,ferx:3,desc:'une longue flèche de métal lourd, trois fois plus fine que le canon, stabilisée par ses ailettes : la plus forte perforation par l’énergie (5 mm et plus)'},
+  creuse:{name:'Charge creuse',rho:6.2,frag:0,fr:.5,K:0,he:1,shaped:5,minD:8,disp:.7,desc:'un cône de cuivre qu’une charge écrase en jet : perce cinq calibres d’acier quelle que soit la vitesse ; petit effet autour (8 mm et plus)'},
   flechette:{name:'Fléchettes (20 dards)',rho:7.85,frag:Infinity,fr:0,K:9e-4,core:1,pellets:20,dart:1,spread:16,fill:.45,disp:0,desc:'vingt dards d’acier empennés : ils ne basculent pas, percent un peu, font de petits trous — beaucoup'},
 };
 // La culasse : sa masse (kg par mm³ de cartouche, elle grandit avec la cartouche), sa cadence, ce qu'elle coûte.
@@ -53,13 +61,27 @@ export const ACTIONS={
   semi:{name:'Semi-automatique',k:5e-6,cycle:.35,rpm:40,disp:.4,cost:.8,hours:1.5,desc:'un coup par pression'},
   auto:{name:'Automatique',k:7e-6,cycle:0,rpm:0,disp:1,cost:2,hours:3,desc:'des rafales : suppression, mais munitions, recul, chaleur'},
 };
+// Les modules : ce qu'ils pèsent (kg, selon le tube et l'arme), ce qu'ils changent. Chacun a son prix.
+export const MODS={
+  frein:{name:'Frein de bouche',desc:'des lumières qui renvoient les gaz en arrière : le recul baisse d’un tiers ; le souffle et l’éclair montent, les servants sont assourdis, la poussière trahit la pièce'},
+  cacheflamme:{name:'Cache-flamme',desc:'des becs qui refroidissent le jet : l’éclair de bouche presque éteint — la nuit, on ne voit plus d’où l’on tire'},
+  manchon:{name:'Manchon silencieux',desc:'des chicanes qui détendent les gaz : 25 dB de moins ; avec une balle subsonique, on n’entend presque rien ; plus lourd, plus long, il chauffe'},
+  poignee:{name:'Poignée avant',desc:'une main de plus sur l’arme : épauler plus vite, rafales mieux tenues'},
+  lunette:{name:'Lunette',desc:'une lentille de verre-qui-écoute : on vise loin bien mieux ; de près, le champ étroit ralentit'},
+  bipied:{name:'Bipied',desc:'deux pieds sous le canon : couché, l’arme ne tremble plus et le recul passe dans le sol'},
+  trepied:{name:'Trépied',desc:'un affût à trois pieds : précision de pièce fixe, recul absorbé ; lourd, il faut le porter, le mettre en batterie'},
+  bouclier:{name:'Bouclier',desc:'une plaque d’acier devant les servants : arrête les balles de face ; très lourd, affût obligatoire'},
+};
+export const MOUNTS={epaule:{name:'À l’épaule',rank:0},bipied:{name:'Sur bipied',rank:1},trepied:{name:'Sur trépied',rank:2},fixe:{name:'Pièce fixe',rank:3}};
+export const ROLES=['tireur','chargeur','pourvoyeur','chef de pièce'];
+export const HUMAN=6;             // un Meumeu (30 cm) contre un humain (1,80 m) : à l'échelle humaine, tout ×6
 export const fmt=(v,n=0)=>(+v).toFixed(n).replace('.',',');
 
 // ---------- ce qu'une conception donne ----------
 // p : {d, l, nose, base, cons, c (poudre, g), L (canon, mm), twist (mm par tour), action, rof (coups/min), mag, heavy}
 const cache=new Map();
 export function derive(p){const key=JSON.stringify(p);let D=cache.get(key);if(D)return D;D=compute(p);cache.set(key,D);if(cache.size>500)cache.delete(cache.keys().next().value);return D;}
-function compute(p){const N=NOSES[p.nose],B=BASES[p.base],C=CONSTRUCTIONS[p.cons],A=ACTIONS[p.action];
+function compute(p){const N=NOSES[p.nose],B=BASES[p.base],C=CONSTRUCTIONS[p.cons],A=ACTIONS[p.action];const mods=new Set(p.mods||[]);const zero=p.zero||50;
   const d=p.d,A_mm2=Math.PI*d*d/4;const noseLen=N.len*d;const l=Math.max(p.l,noseLen+.3*d);
   // le projectile : une balle ; un dard sous-calibré (sabot) ; ou une gerbe de plombs, de fléchettes
   const sub=C.sub||1,dp=d*sub,Ap=Math.PI*dp*dp/4;const pel=C.pellets||1;
@@ -67,7 +89,7 @@ function compute(p){const N=NOSES[p.nose],B=BASES[p.base],C=CONSTRUCTIONS[p.cons
   else{const vol=Ap*(l-noseLen*sub+noseLen*sub*N.vf)*B.vol;m=vol*C.rho/1000;if(C.tracer)m*=.93;mp=m;dpr=dp;lpr=l;}
   const mLaunch=m*(sub<1?1.35:1)+(pel>1?m*.08:0);                           // le sabot, la bourre : poussés aussi, puis perdus
   const c=p.c;const L0=3200*c/A_mm2;const eta=.32*(1-Math.exp(-p.L/Math.max(.01,L0)));
-  const v0=Math.sqrt(2*eta*Q_POWDER*c/1000/(mLaunch/1000+c/3000));const E0=.5*m/1000*v0*v0;
+  const v0=Math.sqrt(2*eta*Q_POWDER*c/1000/(mLaunch/1000+c/3000))*(mods.has('manchon')?1.02:1);const E0=.5*m/1000*v0*v0;
   // la pression de pointe (MPa) : elle monte avec la charge rapportée à la balle — 370 MPa pour un fusil ordinaire
   // (poudre ≈ 0,3 × la balle), 200 pour un pistolet, 700 et plus si l'on bourre l'étui
   const P=370*Math.pow(Math.max(.01,c/mLaunch)/.3,.35);
@@ -81,35 +103,58 @@ function compute(p){const N=NOSES[p.nose],B=BASES[p.base],C=CONSTRUCTIONS[p.cons
   const SD=(mp/1000)/((dpr/1000)**2);const BC=SD/((pel>1&&!C.dart?2.6:C.dart?1.3:N.i)*B.i*(C.tracer?1.03:1));
   // l'arme : le tube (plus épais si la pression monte), la culasse, la crosse, le chargeur
   const wall=d*(.35+.00075*P)*(p.heavy?1.5:1);const Dout=d+2*wall;const barrelKg=p.L*Math.PI*((Dout/2)**2-(d/2)**2)*7.85e-6;
-  const actionKg=A.k*COL**3;const stockKg=((p.L+3*COL)/800)**3;const magKg=p.mag*rm/1000*1.25;const massEmpty=stockKg+barrelKg+actionKg;const mass=massEmpty+magKg;
-  const impulse=mLaunch/1000*v0+c/1000*1250;const recoil=impulse*impulse/(2*mass);const rk=recoil/SHOOTER_KG;   // J par kg de tireur (un fusil humain : 0,23)
-  const life=Math.max(50,Math.min(60000,Math.round(9000*(400/Math.max(P,50))**2*(850/Math.max(v0,100))**2.5*(p.heavy?1.5:1))));
+  const actionKg=A.k*COL**3;const stockKg=((p.L+3*COL)/800)**3;const magKg=p.mag*rm/1000*1.25;const gun=stockKg+barrelKg+actionKg;
+  const MK={frein:barrelKg*.06+.0008*d,cacheflamme:barrelKg*.04,manchon:barrelKg*.3+.002*d,poignee:.004+gun*.02,lunette:.008,bipied:.01+gun*.08,trepied:.05+gun*.45,bouclier:.02+d*.012};
+  const modKg={};let modSum=0;for(const k of mods)if(MK[k]!=null){modKg[k]=MK[k];modSum+=MK[k];}
+  const massEmpty=gun+modSum;const mass=massEmpty+magKg;
+  const impulse=mLaunch/1000*v0+c/1000*1250;const recoil=impulse*impulse/(2*mass)*(mods.has('frein')?.62:1)*(mods.has('manchon')?.85:1);const rk0=recoil/SHOOTER_KG;
+  // l'affût qu'il faut : l'épaule tient un recul modéré et une arme légère ; au-delà, bipied, puis trépied — ou une pièce fixe
+  const need=rk0>1.6||mass>SHOOTER_KG*.3||d>8.5?'trepied':rk0>.7||mass>SHOOTER_KG*.16||d>6?'bipied':'epaule';
+  const have=mods.has('trepied')?'trepied':mods.has('bipied')?'bipied':'epaule';const mountOk=MOUNTS[have].rank>=MOUNTS[need].rank;
+  const rk=rk0*(have==='trepied'?.25:have==='bipied'?.55:1);
+  // les servants : l'arme, son affût et ce qu'il faut de munitions pour tenir (quatre chargeurs, ou 200 coups en bande)
+  const supply=(p.action==='auto'&&p.mag>=50?Math.max(200,p.mag*2):Math.max(4*p.mag,20))*rm/1000;const load=mass+supply;const perBearer=SHOOTER_KG*.22;
+  let crew=Math.max(have==='trepied'?2:1,Math.ceil(mass/(perBearer*1.4)))+(supply>perBearer*.5?1:0);if(p.action==='auto'&&p.mag>=50)crew=Math.max(crew,2);const fixed=crew>4;crew=Math.min(4,crew);
+  const roles=ROLES.slice(0,crew);const setup=have==='trepied'?6+2*(crew-1):have==='bipied'?1.5:0;
+  // la signature : l'éclair (d'autant plus qu'il reste de la poudre à brûler à la bouche), le bruit, le claquement supersonique
+  const flash=Math.min(1,(1-eta/.32+.15)*Math.sqrt(c/.032)*.6)*(mods.has('cacheflamme')?.2:1)*(mods.has('frein')?1.3:1)*(mods.has('manchon')?.1:1);
+  const dB=Math.round(150+10*Math.log10(Math.max(1e-4,c)/.032)-(mods.has('manchon')?25:0)+(mods.has('frein')?4:0));   // J par kg de tireur (un fusil humain : 0,23)
+  const life=Math.max(50,Math.min(60000,Math.round(9000*(400/Math.max(P,50))**2*(850/Math.max(v0,100))**2.5*(p.heavy?1.5:1)*(C.soft&&v0>550?.5:1))));
   // la chaleur : un petit tube se refroidit vite ; la cadence qu'il tient sans surchauffer
   const heatShot=c/1000*Q_POWDER*.2;const heatCap=barrelKg*460;const cool=.012*(7.62/d)*(p.heavy?.9:1);const sustain=Math.round(60*cool*300*heatCap/Math.max(1e-6,heatShot));
   const rpm=p.action==='auto'?p.rof:A.rpm;const cyc=p.action==='auto'?60/p.rof:A.cycle;
-  const aim=.45+7*mass/SHOOTER_KG+.3*(p.L/1000)/BODY_H;
-  let moa=1.6+(p.L/d<45?(45-p.L/d)/15:0)+A.disp+C.disp;moa*=p.heavy?.85:1;moa*=stab;
+  const aim=(.45+7*mass/SHOOTER_KG*(have==='epaule'?1:.35)+.3*(p.L/1000)/BODY_H)*(mods.has('poignee')?.85:1)*(mods.has('lunette')?1.1:1);
+  let moa=1.6+(p.L/d<45?(45-p.L/d)/15:0)+A.disp+C.disp;moa*=p.heavy?.85:1;moa*=stab;moa*=have==='trepied'?.55:have==='bipied'?.75:1;if(mods.has('poignee')&&p.action==='auto')moa*=.9;
+  // le plomb nu encrasse le tube au-delà de 550 m/s
+  const lead=C.soft&&v0>550;if(lead)moa+=(v0-550)/100;
   // la trajectoire, tous les mètres jusqu'à 600 m
   const table=[];{let x=0,v=v0,t=0,y=0,vy=0;const dt=.0002;let next=0;
     while(x<=600&&v>60){if(x>=next){table.push({x:next,v,t,drop:-y,E:.5*mp/1000*v*v});next+=1;}
       const a=.5*RHO_AIR*v*v*cdG7(v/C_SOUND)*(Math.PI/4)/BC;const vx=v;v=Math.max(0,v-a*dt);vy-=G*dt;x+=vx*dt;y+=vy*dt;t+=dt;}}
   const at=x=>{if(!table.length)return {x,v:0,t:0,drop:0,E:0,beyond:true};const i=Math.min(table.length-1,Math.max(0,Math.floor(x)));const a=table[i],b=table[Math.min(table.length-1,i+1)];const f=Math.max(0,Math.min(1,x-a.x));
     return {x,v:a.v+(b.v-a.v)*f,t:a.t+(b.t-a.t)*f,drop:a.drop+(b.drop-a.drop)*f,E:a.E+(b.E-a.E)*f,beyond:x>table[table.length-1].x};};
+  // la hausse : on règle la visée pour toucher juste à `zero` m ; la ligne de visée est 1,2 cm au-dessus de l'axe du canon
+  const hs=.012+(mods.has('lunette')?.006:0);const th=(at(zero).drop+hs)/Math.max(1,zero);const los=x=>th*x-at(x).drop-hs;
+  // la charge explosive : sa masse, le souffle (Hopkinson), les éclats (la chemise brisée en éclats de 4 mg)
+  let he=null;if(C.he){const vol=m/C.rho;const g=vol*(C.shaped?.45:.3)*1.6;const W=g/1000;const n=C.shaped?Math.round(m*.2/.004):Math.max(6,Math.min(400,Math.round(m*.7/.004)));
+    he={g,blast:2.2*Math.cbrt(W),n,lethal:Math.sqrt(n*.014/(4*Math.PI*.5)),danger:Math.sqrt(n*.014/(4*Math.PI*.5))*3,shaped:!!C.shaped};}
   // la perforation d'une plaque d'acier (mm), de Marre
-  const pen=v=>C.K*Math.pow(mp,.7)*Math.pow(Math.max(0,v),1.43)/Math.pow(dpr,1.07)*(C.core?1:Math.max(0,Math.min(1,(v-150)/350)));
+  const pen=v=>C.shaped?C.shaped*d:C.K*Math.pow(mp,.7)*Math.pow(Math.max(0,v),1.43)/Math.pow(dpr,1.07)*(C.core?1:Math.max(0,Math.min(1,(v-150)/350)));
   // la portée utile : là où un tireur moyen touche encore un Meumeu debout (7 cm × 20 cm) une fois sur trois
   const erf=z=>{const t=1/(1+.3275911*Math.abs(z));const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-z*z);return z>=0?y:-y;};
-  const hitP=R=>{const r=at(R),r2=at(R+1);const slope=Math.abs(r2.drop-r.drop);const sig=Math.hypot(moa*.291*R/1000,1.8*R/1000,slope*.12*R,.004);const pHit=erf(.035/(sig*Math.SQRT2))*erf(.1/(sig*Math.SQRT2));if(pel<2)return pHit;
+  const sigAt=R=>{const r2=at(R+1),r=at(R);const slope=Math.abs(r2.drop-r.drop);return Math.hypot(moa*.291*R/1000,(mods.has('lunette')?.7:1.8)*(have==='trepied'?.45:have==='bipied'?.65:1)*R/1000*(mods.has('lunette')&&R<15?1.6:1),slope*.12*R,.004);};
+  const hitP=R=>{const sig=sigAt(R);const pHit=erf(.035/(sig*Math.SQRT2))*erf(.1/(sig*Math.SQRT2));if(pel<2)return pHit;
     const cone=(C.spread||20)/1000*R/2;const cover=Math.min(1,(.07*.2)/(Math.PI*cone*cone+1e-9));return Math.min(1,1-Math.pow(1-Math.max(pHit*.6,cover),Math.max(1,pel*.6)));};
   let eff=0;for(let R=2;R<=600;R+=2){if(hitP(R)<.33||at(R).beyond)break;eff=R;}
   // ce que ça coûte (en caisses) : pour mille coups, pour une arme
-  const costK={fer:(m*(C.rare?.45:1)*(C.ferx||1)+caseMass)/CRATE_KG,sels:c/(CRATE_KG*500)*1000+(C.inc?m*.1/CRATE_KG:0)+(C.he?m*.3/CRATE_KG:0)+(C.tracer?.05:0),pieces:.15+(C.tracer?.08:0)+(C.he?.2:0)};
+  // plomb : le noyau ; cuivre : la chemise et l'étui ; fer : le noyau dur des perforantes ; poudre : la charge (et la charge explosive)
+  const core=m*(C.rare?.45:1)*(C.ferx||1);const costK={plomb:C.mono?0:core*(C.ferx>1?.3:C.soft?1:.8)/CRATE_KG,fer:C.ferx>1?core*.7/CRATE_KG:0,cuivre:(core*(C.mono?1:C.soft?0:.2)+caseMass+(C.shaped?m*.3:0))/CRATE_KG,poudre:c/(CRATE_KG*500)*1000+(C.inc?m*.1/CRATE_KG:0)+(C.he?m*.3/CRATE_KG:0)+(C.tracer?.05:0),pieces:.15+(C.tracer?.08:0)+(C.he?.2:0)};
   if(C.rare)costK[C.rare]=m*.55/CRATE_KG;for(const k in costK)costK[k]=+costK[k].toFixed(3);
-  const costW={fer:+(massEmpty*1.6/CRATE_KG).toFixed(2),pieces:+(1+A.cost+(p.L>220?1:0)+(p.heavy?.5:0)).toFixed(2),bois:.15};const hoursW=3+A.hours+(p.L>220?2:0);
+  const costW={fer:+(massEmpty*1.6/CRATE_KG).toFixed(2),pieces:+(1+A.cost+(p.L>220?1:0)+(p.heavy?.5:0)+mods.size*.4+(mods.has('trepied')?1:0)).toFixed(2),bois:.15,...(mods.has('lunette')?{verre:.3}:{})};const hoursW=3+A.hours+(p.L>220?2:0)+mods.size*.5;
   const carry=Math.floor(.13*SHOOTER_KG*1000/rm);
   // ce qui entre dans le corps : pour une gerbe, un plomb (ou une fléchette) ; pour un sabot, le dard
   const proj={p:{...p,d:dpr,l:lpr,nose:pel>1&&!C.dart?'ronde':p.nose},m:mp,l:lpr,Sg:Math.max(Sg,pel>1||sub<1?5:Sg),dart:!!C.dart};
-  const D={p:{...p,l},m,mp,pel,proj,l,noseLen,v0,E0,P,eta,Sg,stab,BC,SD,A_mm2,caseLen,COL,caseMass,rm,perCrate,mass,massEmpty,recoil,rk,life,heatShot,sustain,rpm,cyc,aim,moa,table,at,pen,eff,hitP,costK,costW,hoursW,carry,pistol,name:`${fmt(d,1)} × ${fmt(caseLen,caseLen<10?1:0)}`};
+  const D={p:{...p,l},m,mp,pel,proj,l,noseLen,v0,E0,P,eta,Sg,stab,BC,SD,A_mm2,caseLen,COL,caseMass,rm,perCrate,mass,massEmpty,recoil,rk,life,heatShot,sustain,rpm,cyc,aim,moa,table,at,pen,eff,hitP,costK,costW,hoursW,carry,pistol,sigAt,mods:[...mods],modKg,need,have,mountOk,rk0,crew,fixed,roles,setup,supply,flash,dB,crack:v0>C_SOUND,zero,hs,los,th,he,lead,human:HUMAN,name:`${fmt(d,1)} × ${fmt(caseLen,caseLen<10?1:0)}`};
   D.verdicts=verdicts(D,p,C);return D;}
 // Ce qu'on en dit, en clair : ses forces, ses défauts — chaque avantage a son prix.
 function verdicts(D,p,C){const out=[];const g=t=>out.push({tone:'good',t}),b=t=>out.push({tone:'bad',t}),n=t=>out.push({tone:'',t});
@@ -171,7 +216,7 @@ function track(pr,medium,R,rnd){const ds=Math.max(.0002,pr.d0/10000);let inside=
     if(step%recEvery===0)pts.push({p:pr.p.slice(),v:pr.v,yaw:pr.yaw,d:dEff});
     if(pr.v<25){pr.lodged=true;break;}}
   pts.push({p:pr.p.slice(),v:pr.v,yaw:pr.yaw,d:pr.d});R.maxYaw=Math.max(R.maxYaw||0,pr.yaw);return pts;}
-function neckOf(D,yaw0=0){const N=NOSES[D.p.nose],C=CONSTRUCTIONS[D.p.cons],B=BASES[D.p.base]||BASES.plat;if(C?.dart||D.dart||C?.sub)return Infinity;return N.neck*(D.l/1000)*(C.core?1.5:1)*B.neck*(D.Sg<1?.15:1)*(yaw0>.3?.2:1);}
+function neckOf(D,yaw0=0){const N=NOSES[D.p.nose],C=CONSTRUCTIONS[D.p.cons],B=BASES[D.p.base]||BASES.plat;if(C?.dart||D.dart||C?.sub)return Infinity;return N.neck*(D.l/1000)*(C.core?1.5:1)*B.neck*(D.Sg<1?.15:D.Sg>3?1+Math.min(.6,(D.Sg-3)*.15):1)*(yaw0>.3?.2:1);}
 // Une balle qui entre dans un corps : `start` et `dir` dans le repère du corps (voir body.js), en mètres.
 export function wound(D,v,start,dir,rnd,yaw0=0){const R={dmg:{},tc:[],spawn:[],E:0,E0:.5*D.m/1000*v*v,regions:new Set(),entry:null,exit:null,vIn:v,vOut:0,fragmented:false,expanded:false,frags:[]};
   const bullet={p:start.slice(),dir:norm(dir),v,m:D.m,d:D.p.d,d0:D.p.d,l:D.l,cd:NOSES[D.p.nose].cdT,yaw:yaw0,neck:neckOf(D,yaw0),main:1,D};

@@ -1,8 +1,8 @@
 // La carte d'une partie, tirée au sort : un seul continent, sans mer — des plaines, des prairies, des forêts, des terres sèches,
 // des collines rocheuses. Au milieu, une chaîne de montagnes le traverse en diagonale, percée de trois cols : les passages
 // où la guerre passera. La capitale meumeu est dans un coin, les villes bèè dans le coin opposé : on ne se voit pas au début.
-// Le rare est dispersé pour qu'on progresse : pour chaque rare, un filon de notre côté, un au milieu, un près des Bèè.
-import {MAP_N,T,NODES,RARE,ORE_LEFT} from './data.js';
+// Les gisements sont répartis également entre les deux camps (voir plus bas) : l'armement et le rare demandent le rail.
+import {MAP_N,T,NODES,RARE,ORE_LEFT,COMMON_ORES} from './data.js';
 
 export function rng(seed){let s=(seed>>>0)||1;return ()=>{s^=s<<13;s>>>=0;s^=s>>17;s^=s<<5;s>>>=0;return s/4294967296;};}
 function noise2(r){const P=256,g=new Float32Array(P*P);for(let i=0;i<g.length;i++)g[i]=r();
@@ -54,23 +54,28 @@ export function generate(seed){const N=MAP_N;const r=rng(seed*9973+17);for(let k
       for(let t=0;t<800&&have<min;t++){const a=r()*Math.PI*2,d=r0+r()*(r1-r0);const i=Math.round(ci+Math.cos(a)*d),j=Math.round(cj+Math.sin(a)*d);
         for(let q=0;q<(type==='tree'?8:type==='rock'?5:3)&&have<min;q++){if(add(type,i+Math.round(r()*3-1.5),j+Math.round(r()*3-1.5)))have++;}}};
     ensure('tree',80,9,18);ensure('rock',26,10,19);ensure('bush',14,8,15);}
-  // le rare : pour chaque rare, un filon de notre côté (le premier tout près), un au milieu, un chez les Bèè
-  const deposits=[];const place=(res,ok)=>{for(let t=0;t<6000;t++){const i=4+Math.floor(r()*(N-8)),j=4+Math.floor(r()*(N-8));const k=j*N+i;if(!land(k)||nodeAt[k]>=0||!ok(i,j,k))continue;
-      if(deposits.some(d=>Math.hypot(d.i-i,d.j-j)<14))continue;let free=0;for(let b=-1;b<=2;b++)for(let a=-1;a<=2;a++){const kk=(j+b)*N+i+a;if(land(kk)&&nodeAt[kk]<0)free++;}if(free<14)continue;
-      const nd=add('ore',i,j,{res});deposits.push(nd);return nd;}return null;};
-  const [ci,cj]=capital;const order=RARE.slice().sort(()=>r()-.5);const [bi,bj]=beee[0];
-  const dC=(i,j)=>Math.hypot(i-ci,j-cj),dB=(i,j)=>Math.min(...beee.map(([a,b])=>Math.hypot(a-i,b-j)));
-  place(order[0],(i,j)=>dC(i,j)>16&&dC(i,j)<26);place(order[1],(i,j)=>dC(i,j)>22&&dC(i,j)<40);
-  for(const res of order){if(!deposits.some(d=>d.res===res))place(res,(i,j)=>dC(i,j)>30&&dC(i,j)<70);}
-  for(const res of order)place(res,(i,j)=>Math.abs(dC(i,j)-dB(i,j))<30&&dC(i,j)>60);
-  for(const res of order)place(res,(i,j)=>dB(i,j)>12&&dB(i,j)<34);
-  // le commun : des veines de charbon et des glaisières, plus nombreuses que le rare. Une de chaque près de la capitale,
-  // de quoi faire tourner les premières machines et cuire les premières briques ; les autres plus loin, à relier par le rail.
-  const common=(res,ok,gap=9)=>{for(let t=0;t<6000;t++){const i=4+Math.floor(r()*(N-8)),j=4+Math.floor(r()*(N-8));const k=j*N+i;if(!land(k)||nodeAt[k]>=0||!ok(i,j))continue;
+  // Les gisements, répartis de façon équilibrée et symétrique : chaque camp a les mêmes chances, aux mêmes distances.
+  //  · à pied de la ville (10-18 cases) : pierre, charbon, argile — de quoi démarrer ;
+  //  · à 35-65 cases, en éventail vers le centre : cuivre, plomb, soufre, salpêtre — l'armement demande le rail ;
+  //  · à 50-85 : encore du charbon, de la pierre, de l'argile ; le rare de plus en plus loin ;
+  //  · au milieu, disputés : un peu de tout ; et partout ailleurs, une grille tirée au sort pour qu'aucune région ne soit vide.
+  const deposits=[];const place=(res,ok,gap=12)=>{for(let t=0;t<8000;t++){const i=4+Math.floor(r()*(N-8)),j=4+Math.floor(r()*(N-8));const k=j*N+i;if(!land(k)||nodeAt[k]>=0||!ok(i,j,k))continue;
       if(deposits.some(d=>Math.hypot(d.i-i,d.j-j)<gap))continue;let free=0;for(let b=-1;b<=2;b++)for(let a=-1;a<=2;a++){const kk=(j+b)*N+i+a;if(land(kk)&&nodeAt[kk]<0)free++;}if(free<14)continue;
       const nd=add('ore',i,j,{res});deposits.push(nd);return nd;}return null;};
-  common('charbon',(i,j)=>dC(i,j)>11&&dC(i,j)<20,7);common('argile',(i,j)=>dC(i,j)>11&&dC(i,j)<20,7);
-  for(let n=0;n<3;n++)common('charbon',(i,j)=>dC(i,j)>24&&dC(i,j)<75);for(let n=0;n<2;n++)common('argile',(i,j)=>dC(i,j)>24&&dC(i,j)<75);
-  for(let n=0;n<3;n++)common('charbon',(i,j)=>Math.abs(dC(i,j)-dB(i,j))<40&&dC(i,j)>60);
-  for(const _ of beee){common('charbon',(i,j)=>dB(i,j)>10&&dB(i,j)<30);common('argile',(i,j)=>dB(i,j)>10&&dB(i,j)<30);}
+  const order=RARE.slice().sort(()=>r()-.5);const shuffle=L=>L.slice().sort(()=>r()-.5);
+  const mid=[N/2,N/2];const angDiff=(a,b)=>Math.abs(((a-b+Math.PI*3)%(Math.PI*2))-Math.PI);
+  // autour d'une ville : dans l'anneau [r0, r1], vers l'angle `ang` (± spread)
+  const near=([ci,cj],res,r0,r1,ang,spread=.6,gap=10)=>place(res,(i,j)=>{const d=Math.hypot(i-ci,j-cj);return d>r0&&d<r1&&(ang==null||angDiff(Math.atan2(j-cj,i-ci),ang)<spread);},gap);
+  const arm=['cuivre','plomb','soufre','salpetre'];
+  for(const T0 of [capital,beee[0]]){const toMid=Math.atan2(mid[1]-T0[1],mid[0]-T0[0]);
+    ['pierre','charbon','argile'].forEach((res,n)=>near(T0,res,10,18,toMid+(n-1)*1.4,.9,7)||near(T0,res,9,22,null,1,6)||near(T0,res,8,28,null,1,4));
+    shuffle(arm).forEach((res,n)=>near(T0,res,35,65,toMid+(n-1.5)*.55,.35)||near(T0,res,35,70,toMid,1.2));
+    for(const res of ['charbon','pierre','argile','charbon'])near(T0,res,50,85,null);
+    near(T0,order[0],25,40,toMid,.9);near(T0,order[1],45,70,toMid,.9);for(const res of order.slice(2))near(T0,res,75,110,toMid,.9);}
+  for(const T0 of beee.slice(1))for(const res of ['pierre','charbon','argile'])near(T0,res,10,20,null);
+  const dC=(i,j)=>Math.hypot(i-capital[0],j-capital[1]),dB=(i,j)=>Math.min(...beee.map(([a,b])=>Math.hypot(a-i,b-j)));
+  for(const res of [...COMMON_ORES,...COMMON_ORES,...order])place(res,(i,j)=>Math.abs(dC(i,j)-dB(i,j))<40&&dC(i,j)>70);
+  const G=5,cell=N/G;let cyc=shuffle(COMMON_ORES),ci=0;
+  for(let gy=0;gy<G;gy++)for(let gx=0;gx<G;gx++){const res=cyc[ci++%cyc.length];if(ci%cyc.length===0)cyc=shuffle(COMMON_ORES);
+    place(res,(i,j)=>i>=gx*cell&&i<(gx+1)*cell&&j>=gy*cell&&j<(gy+1)*cell&&dC(i,j)>25&&dB(i,j)>25,14);}
   return {N,terrain,nodes,nodeAt,comp,main,capital,beee,deposits,passes};}

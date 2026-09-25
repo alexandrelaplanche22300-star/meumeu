@@ -2,18 +2,24 @@
 // épaisseur. La balle arrive : sa perforation (de Marre, en mm d'acier) contre l'épaisseur équivalente de la plaque (plus
 // épaisse si elle arrive de biais, moins si la plaque a déjà été frappée). Plus forte, elle passe, ralentie et déjà basculée ;
 // plus faible, elle s'arrête — et le choc passe quand même. Chaque millimètre se paie : le poids ralentit le soldat et le fait
-// viser moins vite. Quatre matériaux, chacun son défaut :
-//  · l'acier : encaisse coup sur coup, mais lourd ;
+// viser moins vite. Huit matériaux, chacun son défaut :
+//  · les tissus (toile, cuir, lin collé en couches, soie de falaise) : légers, souples ; ils arrêtent les balles lentes et
+//    les éclats, mais une balle rapide les tranche (vs : sous cette vitesse ils tiennent ; vcut : au-dessus, ils ne font rien) ;
+//  · la plaque d'acier : encaisse coup sur coup, mais lourde ;
 //  · la céramique : deux fois et demie l'acier à poids égal, mais elle se fissure — chaque balle arrêtée l'use ;
-//  · la soie de falaise tissée : légère, souple, arrête les balles lentes et les éclats, pas les balles de fusil ;
+//  · le composite : une face de céramique collée sur un dos de soie — le meilleur des deux, cher à faire ;
 //  · le verre-qui-écoute : le meilleur, rare, cher.
 import {BODY_KG,regionAt} from './body.js';
 
 export const MATS={
-  acier:{name:'Acier trempé',k:1,rho:7.85,brittle:.04,cost:{fer:1.2},desc:'encaisse coup sur coup ; lourd'},
-  ceramique:{name:'Céramique',k:2.4,rho:3.1,brittle:.34,cost:{pierre:1.5,sels:.3},desc:'arrête bien plus que l’acier à poids égal, mais se fissure à chaque balle'},
-  soie:{name:'Soie de falaise tissée',k:.35,rho:1.35,brittle:0,soft:1,cost:{soie:1},desc:'légère : arrête les balles lentes (sous 520 m/s) et les éclats ; une balle de fusil (au-delà de 650 m/s) la tranche'},
-  verre:{name:'Verre-qui-écoute',k:3.4,rho:2.6,brittle:.18,cost:{verre:1},desc:'le meilleur, et rare'},
+  toile:{name:'Toile épaisse',k:.2,rho:1.1,brittle:0,soft:1,vs:260,vcut:420,cost:{pieces:.4,vivres:.6},col:'#cdbb8f',desc:'des couches de toile piquée : arrête les éclats et les balles de pistolet lentes (sous 260 m/s) ; rien au-delà de 420'},
+  cuir:{name:'Cuir bouilli',k:.3,rho:1.2,brittle:.02,soft:1,vs:300,vcut:460,cost:{vivres:1.5},col:'#7a4a28',desc:'du cuir durci à l’eau bouillante : un peu mieux que la toile, plus raide, plus lourd'},
+  lin:{name:'Lin collé en couches',k:.3,rho:1.3,brittle:.03,soft:1,vs:340,vcut:500,cost:{vivres:1.2,pieces:.2},col:'#e6dcc4',desc:'des feuilles de lin collées en carapace, comme les cuirasses antiques : arrête les éclats et les balles lentes'},
+  acier:{name:'Plaque d’acier trempé',col:'#7c8792',k:1,rho:7.85,brittle:.04,cost:{fer:1.2},desc:'encaisse coup sur coup ; lourd'},
+  ceramique:{name:'Céramique',col:'#e9e6df',k:2.4,rho:3.1,brittle:.34,cost:{pierre:1.5,sels:.3},desc:'arrête bien plus que l’acier à poids égal, mais se fissure à chaque balle'},
+  soie:{name:'Soie de falaise tissée',k:.35,rho:1.35,brittle:0,soft:1,vs:520,vcut:650,col:'#6fb3a8',cost:{soie:1},desc:'légère : arrête les balles lentes (sous 520 m/s) et les éclats ; une balle de fusil (au-delà de 650 m/s) la tranche'},
+  composite:{name:'Composite (céramique sur soie)',k:2.9,rho:2.3,brittle:.2,col:'#4f5f4a',cost:{pierre:1,soie:.4,sels:.2},desc:'une face de céramique qui brise la pointe, un dos de soie qui retient les morceaux : presque le verre-qui-écoute, sans le rare ; long à fabriquer'},
+  verre:{name:'Verre-qui-écoute',col:'#5fd1c1',k:3.4,rho:2.6,brittle:.18,cost:{verre:1},desc:'le meilleur, et rare'},
 };
 export const ZONES={casque:{name:'Casque',area:.0085,max:4},plastron:{name:'Plastron',area:.011,max:8},dos:{name:'Dos',area:.011,max:8},flancs:{name:'Flancs et épaules',area:.008,max:6}};
 export const DEFAULT_ARMORS=[
@@ -34,7 +40,7 @@ export function plateZone(p){const r=regionAt(p);if(!r)return null;const id=r.id
   if(id==='tete'&&p[1]>.25)return 'casque';if(id==='thorax'||id==='abdomen'){if(Math.abs(p[0])>.042&&Math.abs(p[2])<.03)return 'flancs';return p[2]>=0?'plastron':'dos';}
   if(id.startsWith('bras')&&p[1]>.15)return 'flancs';return null;}
 // une fibre tissée arrête bien une balle lente ; une balle rapide la tranche
-export function softK(M,v){if(!M.soft)return 1;return v<520?3.2:v>650?.4:3.2+(v-520)/130*(.4-3.2);}
+export function softK(M,v){if(!M.soft)return 1;const a=M.vs||520,b=M.vcut||650;return v<a?3.2:v>b?.4:3.2+(v-a)/(b-a)*(.4-3.2);}
 // La balle contre la plaque. Renvoie : arrêtée (et le choc transmis), ou passée (et sa vitesse après).
 export function armorHit(D,zone,u,proj,v,pen,rnd){const Z=D.zones[zone];if(!Z||Z.t<=0)return null;const M=MATS[Z.mat];u.plates??={};const integ=u.plates[zone]??1;
   const obl=.72+rnd()*.28;let eq=Z.eq*Math.max(.15,integ)/obl*softK(M,v);

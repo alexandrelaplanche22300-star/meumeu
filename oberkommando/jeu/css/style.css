@@ -1,7 +1,7 @@
 /* Oberkommando der Meumeu — la palette du projet : papier, encre, sarcelle, orange ; la carte en plein cadre. */
 :root{--paper:#f5ecd7;--paper2:#fffaf0;--card:#fffdf6;--ink:#233c43;--muted:#6d7770;--line:#dccdab;--teal:#227b7b;--teal2:#54aaa1;--orange:#ee7d26;--orange2:#b95a14;--red:#bd4b3d;--gold:#e8bf62;--good:#2f7d4f;--shade:#233c4326}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#172a2f;--paper2:#1d3439;--card:#203a40;--ink:#eee4cc;--muted:#a9b3a8;--line:#35545a;--teal:#4fb0a6;--teal2:#6cc3b8;--orange:#f08c3c;--orange2:#e0904a;--red:#e0705f;--gold:#e8bf62;--good:#6cc08a;--shade:#0008}}
-:root[data-theme="dark"]{--paper:#172a2f;--paper2:#1d3439;--card:#203a40;--ink:#eee4cc;--muted:#a9b3a8;--line:#35545a;--teal:#4fb0a6;--teal2:#6cc3b8;--orange:#f08c3c;--orange2:#e0904a;--red:#e0705f;--gold:#e8bf62;--good:#6cc08a;--shade:#0008}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#10171b;--paper2:#151e23;--card:#1a242a;--ink:#e2e8ea;--muted:#8e9ca3;--line:#2b3a42;--teal:#4fb0a6;--teal2:#6cc3b8;--orange:#f08c3c;--orange2:#e8a060;--red:#e0705f;--gold:#e8bf62;--good:#6cc08a;--shade:#000a}}
+:root[data-theme="dark"]{--paper:#10171b;--paper2:#151e23;--card:#1a242a;--ink:#e2e8ea;--muted:#8e9ca3;--line:#2b3a42;--teal:#4fb0a6;--teal2:#6cc3b8;--orange:#f08c3c;--orange2:#e8a060;--red:#e0705f;--gold:#e8bf62;--good:#6cc08a;--shade:#000a}
 *{box-sizing:border-box}[hidden]{display:none!important}
 html,body{height:100%;margin:0;overflow:hidden}
 body{background:var(--paper);color:var(--ink);font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column}
@@ -47,11 +47,11 @@ a{color:var(--teal);cursor:pointer;text-decoration:underline;text-underline-offs
 .sqchip{position:relative;overflow:hidden;background:#173d44e6;color:#fff8e6;border-radius:8px;padding:3px 9px 5px;font-size:12px;font-weight:600;display:flex;gap:6px;align-items:baseline}
 .sqchip b{color:#ffd36a}.sqchip span{opacity:.75;font-variant-numeric:tabular-nums}.sqchip i{position:absolute;left:0;bottom:0;height:2px;width:var(--m);background:#ffd36a}.sqchip.on{outline:2px solid #ffd36a}.sqchip.broken{background:#8a2c22e6}
 .xmode{position:absolute;right:10px;top:10px;z-index:6;background:#173d44d9;color:#fff8e6;font-size:12px;padding:4px 10px;border-radius:8px;font-weight:600}
-.xray{position:absolute;right:10px;top:44px;width:256px;height:320px;z-index:5;pointer-events:none}
-.xcard{position:absolute;top:0;right:0;width:256px;background:#070d14;border:1px solid #2c4a5a;border-radius:10px;box-shadow:0 10px 26px #000a;color:#dfe9f2;transform-origin:top center;transition:transform .25s,opacity .25s;pointer-events:auto;overflow:hidden}
+.xray{position:absolute;right:10px;top:44px;bottom:10px;width:320px;z-index:5;pointer-events:none}
+.xcard{position:absolute;top:0;right:0;width:320px;transition:transform .35s ease,opacity .3s;background:#070d14;border:1px solid #2c4a5a;border-radius:10px;box-shadow:0 10px 26px #000a;color:#dfe9f2;transform-origin:top center;transition:transform .25s,opacity .25s;pointer-events:auto;overflow:hidden}
 .xcard header{display:flex;gap:4px;align-items:center;padding:4px 6px;font-size:11.5px;background:#0e1c26}.xcard header b{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .xcard header button{background:transparent;color:#9fb6c6;padding:0 5px;font-size:13px;border-radius:5px}.xcard header button:hover{color:#fff;background:#ffffff18}.xn{color:#8fa6b8;font-size:10.5px}
-.xcard canvas{display:block;width:256px;height:154px;cursor:pointer}.xcard footer{font-size:11.5px;padding:5px 8px 2px;line-height:1.35}.xcard footer.dead b{color:#ff6b5b}.xcard footer.down b{color:#ffb347}.xcard footer.hurt b{color:#e8bf62}
+.xcard canvas{display:block;width:320px;height:180px;cursor:pointer}.xcard footer{font-size:11.5px;padding:5px 8px 2px;line-height:1.35}.xcard footer.dead b{color:#ff6b5b}.xcard footer.down b{color:#ffb347}.xcard footer.hurt b{color:#e8bf62}
 .xsub{display:block;padding:0 8px 6px;font-size:10.5px;color:#8fa6b8}
 /* le bureau d'études */
 .dzwrap{position:fixed;inset:0;background:#000a;z-index:20;display:grid;place-items:center;padding:16px}
@@ -178,3 +178,19 @@ table.dem td{padding:3px 4px;border-bottom:1px dotted var(--line);vertical-align
 @media (min-width:1700px){.layout{grid-template-columns:1fr 420px}#mini{width:340px;height:170px}.buildbar{left:360px;max-width:calc(100% - 380px)}}
 @media (max-width:1600px){.keys{display:none}.top .brand .title{display:none}}
 @media (max-width:1600px){.top{column-gap:10px;padding:5px 10px}.stocks{gap:3px}.rchip{padding:1px 5px;font-size:12.5px;gap:3px}.rchip i{font-size:10.5px}.rchip.rare small{display:none}.rsep{width:4px}.tb{padding:3px 7px}}
+.menu .zoom{display:flex;gap:1px;margin-left:4px}.menu .zoom button{padding:4px 6px;min-width:0}.menu .zoom [data-act=zoom-auto]{font-variant-numeric:tabular-nums;min-width:46px}
+/* bureau d'études : réglages groupés, plateau et graphiques en direct, explications */
+.dz-cv{width:100%;display:block;border-radius:10px;background:var(--card);border:1px solid var(--line)}
+.dz-ctl details{border:1px solid var(--line);border-radius:10px;padding:4px 10px 8px;margin-bottom:8px;background:var(--card)}
+.dz-ctl summary{cursor:pointer;font-size:11.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--teal);font-weight:700;padding:4px 0}
+.dz-fam{margin:4px 0}.dz-fam>small{display:block;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;margin:4px 0 2px}
+.dz .tip{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle;border:1px solid #0003}
+.dz-mods{display:flex;flex-wrap:wrap;gap:4px;padding-top:4px}.dz-mods .chip{font-size:12px}
+.dz-help{background:var(--card);border:1px solid var(--teal);border-radius:10px;padding:4px 12px 8px;margin-bottom:6px;min-height:120px}.dz-help p{font-size:12.5px;line-height:1.45;margin:0}
+.dz-help .bad,.dz-crew .bad{color:var(--red)}.dz-crew .good{color:var(--good)}.dz-roles{display:flex;gap:4px;flex-wrap:wrap;margin:4px 0}.dz-crew p{margin:4px 0}
+.dz-cal i{display:block;font-style:normal;font-size:11px;color:var(--muted)}
+.dz-mid h3 .small{margin-left:auto}
+.xray.left{right:auto;left:10px}.xray.left .xcard{right:auto;left:0}
+.xray.left{top:64px}
+.xcard footer{max-height:48px;overflow:hidden}
+.dz-shotwrap{position:relative}.dz-shot{height:340px;background:#0c1013}.dz-shotmode{position:absolute;right:8px;top:8px}

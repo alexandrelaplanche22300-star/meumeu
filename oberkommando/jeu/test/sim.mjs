@@ -53,9 +53,8 @@ function play(seed){const W=new World(seed);const cap=W.capital();const [ci,cj]=
     if(done('fer-camp'))railPlan('rail','fer-camp');gares();
     const ga=got('gare-a'),gb=got('gare-b');if(ga?.done&&gb?.done&&!W.s.vehicles.some(v=>v.k==='train')&&!ga.queue.length){const r=W.train(ga,'train');if(r.ok)say('train commandé');}
     if(gb?.done&&got('fer-mine')&&!S.relinked){const m=got('fer-mine');if(W.linkOk(m,gb.id)){W.setLink(m,'out',gb.id);S.relinked=true;say('mine de fer rattachée à la gare');}}
-    // charrettes : une pour deux dépôts, cinq au plus
-    const deps=W.s.buildings.filter(b=>b.f===F&&W.isDepot(b)).length;const carts=W.s.vehicles.filter(v=>v.k==='charrette').length+cap.queue.filter(q=>q.k==='charrette').length;
-    if(carts<Math.min(5,Math.ceil(deps/2)))W.train(cap,'charrette');
+    // porteurs : un par dépôt achevé (deux au centre-ville), pris parmi les oisifs
+    for(const D of W.s.buildings.filter(b=>b.f===F&&b.done&&W.isDepot(b)))if(W.porters(D).length<(D.k==='centre'?2:1)&&W.idle(F).length>2)W.addPorters(D,1);
     // la briqueterie, l'arsenal : leur production
     const ar=got('arsenal');if(ar?.done&&!S.arsSet){S.arsSet=true;}
     // les soldats : une douzaine
@@ -75,7 +74,7 @@ function play(seed){const W=new World(seed);const cap=W.capital();const [ci,cj]=
     // --- le relevé, chaque jour à minuit ---
     if((h+1)%DAY===0){const bs=W.s.buildings.filter(b=>b.f===F);const fac=bs.filter(b=>b.done&&(BUILDINGS[b.k].factory||b.k==='mine'||BUILDINGS[b.k].makes));
       const why={};for(const b of fac){const k=b.working?'au travail':(b.why||'à l’arrêt').replace(/[0-9.,]+/g,'#').slice(0,60);why[k]=(why[k]||0)+1;}
-      const sh=W.shortages(F);const vs=W.s.vehicles.filter(v=>v.f===F&&v.k!=='bombardier');
+      const sh=W.shortages(F);const vs=W.s.vehicles.filter(v=>v.f===F&&v.k!=='porteur'||true);
       const tot={};for(const b of bs)if(b.stock)for(const [k,v] of Object.entries(b.stock))tot[k]=(tot[k]||0)+v;
       M.push({day:W.day-1,pop:W.pop(F),vil:W.s.units.filter(u=>u.f===F&&u.k==='villageois').length,idle:W.idle().length,sold:W.s.units.filter(u=>u.f===F&&u.w).length,
         built:bs.filter(b=>b.done).length,sites:bs.filter(b=>!b.done&&!b.ruin).length,waiting:bs.filter(b=>!b.done&&!b.ruin&&b.why).map(b=>`${BUILDINGS[b.k].name}: ${b.why}`),ruins:bs.filter(b=>b.ruin).length,

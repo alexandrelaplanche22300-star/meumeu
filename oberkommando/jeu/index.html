@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -13,7 +13,7 @@
   <div class="speeds" title="Espace : pause · 1, 2, 3 : vitesses"><button data-speed="0">❚❚</button><button data-speed="1">1×</button><button data-speed="2">2×</button><button data-speed="4">4×</button></div>
   <div class="status" id="status"></div>
   <div class="spacer"></div>
-  <div class="menu"><button class="ghost" data-act="save">Sauver</button><button class="ghost" data-act="load">Charger</button><button class="ghost" data-act="new">Nouvelle partie</button><button class="ghost" data-act="sound" title="Son">🔈</button></div>
+  <div class="menu"><button class="ghost" data-act="save">Sauver</button><button class="ghost" data-act="load">Charger</button><button class="ghost" data-act="new">Nouvelle partie</button><button class="ghost" data-act="demo" title="Une capitale déjà équipée pour la guerre et un avant-poste bèè tout près : pour essayer armes, escouades et combats">Démo guerre</button><button class="ghost" data-act="sound" title="Son">🔈</button><span class="zoom" title="Taille de l’interface (Ctrl + / Ctrl −) — clic sur le chiffre : automatique"><button class="ghost" data-act="zoom-out">A−</button><button class="ghost" data-act="zoom-auto">100 %</button><button class="ghost" data-act="zoom-in">A+</button></span></div>
   <div class="stocks" id="stocks"></div>
 </header>
 <main class="layout">
@@ -22,7 +22,7 @@
     <canvas id="mini" width="300" height="150"></canvas>
     <div class="squads" id="squads"></div>
     <button class="xmode" id="xmode" title="Les radiographies : de la sélection, de tout ce qui est à l’écran, ou coupées">Radios</button>
-    <div class="xray" id="xray" aria-live="polite"></div>
+    <div class="xray" id="xray" aria-live="polite"></div><div class="xray left" id="xrayL" aria-live="polite"></div>
     <div class="alert" id="alert" hidden></div>
     <div class="scenario" id="win" hidden></div>
     <div class="hint" id="hint"></div>
