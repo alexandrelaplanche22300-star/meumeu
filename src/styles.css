@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", system-ui, sans-serif;
+  --font-serif: "Literata", Georgia, serif;
+  --color-bg: #16140f;
+  --color-surface: #221f18;
+  --color-raised: #2c281f;
+  --color-paper: #e7dcc6;
+  --color-ink: #1a1712;
+  --color-brass: #c6a15a;
+  --color-oxide: #9c3a32;
+  --color-fg: #ebe4d4;
+  --color-muted: #9a927f;
+  --color-line: #3a362c;
+}
+
+@layer base {
+  html, body { background: var(--color-bg); color: var(--color-fg); }
+  button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
+  body { font-family: var(--font-sans); overflow-x: hidden; }
+  input[type="range"] { accent-color: var(--color-brass); width: 100%; height: 2.75rem; }
+}
+
+@keyframes trace-in {
+  from { stroke-dashoffset: 120; }
+  to { stroke-dashoffset: 0; }
+}
+
+.trace {
+  stroke-dasharray: 120;
+  animation: trace-in 0.7s ease-out both;
+}
+
+.bob { animation: bob 0.42s ease-in-out infinite; }
+@keyframes bob {
+  0%, 100% { transform: translate(-50%, -100%); }
+  50% { transform: translate(-50%, -112%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trace, .bob { animation: none; }
+}

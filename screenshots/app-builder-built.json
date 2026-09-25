@@ -1,0 +1,38 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "MEUMEU — Fret & Feu",
+      "hasCanvas": false,
+      "bodyTextLen": 5063,
+      "bodyTextHash": "8e710cbf74c4962981a857d8a3370c95efe6b18fd41fafaeb6707a301459efab",
+      "bodyTextPrefix": "MEUMEU Fret & Feu · bovins de peluche, 30 cm · contre les Bê, ch",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "MEUMEU — Fret & Feu",
+      "hasCanvas": false,
+      "bodyTextLen": 5063,
+      "bodyTextHash": "8e710cbf74c4962981a857d8a3370c95efe6b18fd41fafaeb6707a301459efab",
+      "bodyTextPrefix": "MEUMEU Fret & Feu · bovins de peluche, 30 cm · contre les Bê, ch",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": false,
+  "baselineReasons": []
+}

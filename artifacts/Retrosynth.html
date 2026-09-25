@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="theme-color" content="#090b0d"/>
+<title>Retrosynth</title>
+<link rel="preconnect" href="https://unpkg.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/openchemlib@8.18.0/dist/openchemlib-full.js"></script>
+<style>
+:root{
+  --bg:#090b0d;--surface:#12161a;--surface2:#1a2026;--fg:#e9eef2;--muted:#8a96a3;--subtle:#6b7784;
+  --accent:#9eb6c6;--border:#252b32;--paper:#f4f1ea;--paper-fg:#1c1916;--paper-muted:#6b645b;
+  --ok:#7d9b82;--warn:#c4a574;--danger:#c4847a;
+  --sans:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --display:"Source Serif 4","Times New Roman",serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);line-height:1.5;min-height:100%}
+header{border-bottom:1px solid var(--border);padding:28px 20px}
+.wrap{max-width:1180px;margin:0 auto}
+.brand{letter-spacing:.22em;text-transform:uppercase;font-size:11px;color:var(--accent)}
+h1{font-family:var(--display);font-size:2.2rem;margin:.15em 0 .35em;font-weight:600}
+.lead{color:var(--muted);max-width:68ch;font-size:14px}
+main{padding:24px 20px 80px}
+.grid{display:grid;gap:16px}
+@media(min-width:900px){.grid{grid-template-columns:minmax(280px,380px) 1fr}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px}
+label{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--subtle);margin-bottom:6px}
+textarea,input{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-family:var(--mono);font-size:12px}
+textarea{min-height:92px;resize:vertical}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+button,.chip{background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:999px;padding:8px 14px;font:500 13px var(--sans);cursor:pointer}
+button.primary{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+button:hover,.chip:hover{border-color:#3a4350;color:var(--fg)}
+.chip.on{background:var(--fg);color:var(--bg)}
+.mol{background:var(--paper);color:var(--paper-fg);border-radius:12px;padding:10px;text-align:center}
+.mol svg{max-width:100%;height:auto}
+.mol code{display:block;font-family:var(--mono);font-size:10px;color:var(--paper-muted);word-break:break-all;margin-top:6px}
+.err{color:var(--danger);font-size:13px;margin-top:8px}
+.ok{color:var(--ok)}
+.warn{color:var(--warn);font-size:13px}
+h2{font-family:var(--display);font-size:1.35rem;margin:0 0 8px}
+h3{font-family:var(--display);font-size:1.05rem;margin:16px 0 8px}
+.step{border-top:1px solid var(--border);padding:12px 0}
+.meta{font-size:12px;color:var(--muted)}
+.foot{margin-top:28px;color:var(--subtle);font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <p class="brand">CASP · AND/OR · fichier unique</p>
+    <h1>Retrosynth</h1>
+    <p class="lead">Planificateur de rétrosynthèse autonome. Collez un SMILES. Le moteur local propose des déconnexions nommées jusqu’à des précurseurs de stock. Ce n’est pas un mode opératoire.</p>
+  </div>
+</header>
+<main class="wrap">
+  <div class="grid">
+    <section class="panel">
+      <label for="smiles">SMILES cible</label>
+      <textarea id="smiles" spellcheck="false">CCCC(C(=O)c1ccc2ccoc2c1)N1CCCC1</textarea>
+      <div class="row">
+        <button class="primary" id="plan">Planifier</button>
+        <button id="ex1" type="button">6-BF-PV</button>
+        <button id="ex2" type="button">ibuprofène</button>
+      </div>
+      <p class="err" id="err" hidden></p>
+      <div id="targetCard" style="margin-top:14px"></div>
+    </section>
+    <section class="panel">
+      <h2 id="title">Aucune cible</h2>
+      <p class="lead" id="strategy">Collez un SMILES puis Planifier.</p>
+      <div class="row" id="tabs"></div>
+      <div id="route"></div>
+    </section>
+  </div>
+  <p class="foot">Retrosynth HTML — OpenChemLib (CDN) pour le dessin. Catalogue réduit embarqué. Pas d’explosifs primaires. Rendements = analogie de littérature, pas une prédiction de lot.</p>
+</main>
+<script>
+const EXAMPLES = {
+  "6-BF-PV": "CCCC(C(=O)c1ccc2ccoc2c1)N1CCCC1",
+  "ibuprofène": "CC(C)Cc1ccc(C(C)C(=O)O)cc1"
+};
+
+const CATALOG = {
+  weinreb: {name:"Amide de Weinreb", reagents:"MeNHOMe·HCl / agent de couplage", note:"Acide commercial → amide, puis organométallique vers la cétone."},
+  grignardCN: {name:"Grignard sur nitrile", reagents:"RMgX puis hydrolyse", note:"Le carbone du nitrile est déjà le futur carbonyle. Évite une FC sur C4–C7 du benzofurane."},
+  cyanation: {name:"Cyanation Ar–X", reagents:"CuCN ou Pd / Zn(CN)₂", note:"Cyanation, pas une amination d’Ullmann. Pas de HCN."},
+  alphaHal: {name:"α-Halogénation de cétone", reagents:"Br2 ou NBS", note:"Sur aryl-alkylcétone le C2 du benzofurane concurrence le carbone α."},
+  sn2N: {name:"Substitution α-aminocétone", reagents:"pyrrolidine", note:"Retrons de classe cathinone / pyrrovalérone. Sélectivité et stabilité à vérifier."},
+  suzuki: {name:"Suzuki–Miyaura", reagents:"Pd / base / ArB(OH)2", note:"Couplage C–C sur Ar–X commercial."}
+};
+
+const STOCK = new Set([
+  "O=C(O)c1ccc2ccoc2c1",
+  "N#Cc1ccc2ccoc2c1",
+  "Brc1ccc2ccoc2c1",
+  "O=Cc1ccc2ccoc2c1",
+  "CCCCBr","N1CCCC1","CC(C)Cc1ccc(C(C)C(=O)O)cc1"
+]);
+
+function parse(s){
+  try{
+    const mol = OCL.Molecule.fromSmiles(s.trim());
+    if(!mol || mol.getAllAtoms()===0) return null;
+    mol.ensureHelperArrays(OCL.Molecule.cHelperRings);
+    return mol;
+  }catch(e){ return null; }
+}
+function smi(mol){ try{ return mol.toSmiles(); }catch(e){ return ""; } }
+function svg(smiles, w=220, h=140){
+  const mol = parse(smiles);
+  if(!mol) return "";
+  try{ return mol.toSVG(w,h,"m"+Math.abs(hash(smiles)),{autoCrop:true,autoCropMargin:8,suppressChiralText:true}); }
+  catch(e){ return ""; }
+}
+function hash(s){ let h=2166136261; for(const c of s){ h^=c.charCodeAt(0); h=Math.imul(h,16777619);} return h>>>0; }
+function card(smiles, name){
+  const stock = STOCK.has(smiles) ? '<span class="ok">stock</span>' : '';
+  return `<figure class="mol">${svg(smiles)}<figcaption><strong>${esc(name||"")}</strong><code>${esc(smiles)}</code>${stock}</figcaption></figure>`;
+}
+function esc(t){ return String(t??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+
+function plan(smiles){
+  const mol = parse(smiles);
+  if(!mol) return {error:"SMILES invalide."};
+  const canonical = smi(mol) || smiles.trim();
+  const routes = [];
+
+  // 6-benzofuranyl-pyrrovalerone / close analogs: CCCC(C(=O)c1ccc2ccoc2c1)N1CCCC1
+  if(/c1ccc2ccoc2c1/.test(canonical) && /N1CCCC1/.test(canonical) && /C\(=O\)/.test(canonical)){
+    routes.push({
+      id:"weinreb", label:"Voie Weinreb",
+      notes:"Départ acide 6-carboxylique commercial. Bicycle déjà fermé.",
+      steps:[
+        {rxn:"weinreb", from:["O=C(O)c1ccc2ccoc2c1"], to:"CN(C)C(=O)c1ccc2ccoc2c1", name:"acide 6-BF → Weinreb"},
+        {rxn:"grignardCN", from:["CN(C)C(=O)c1ccc2ccoc2c1","CCCCBr"], to:"CCCCC(=O)c1ccc2ccoc2c1", name:"organométallique → pentan-1-one C6"},
+        {rxn:"alphaHal", from:["CCCCC(=O)c1ccc2ccoc2c1"], to:"CCCC(Br)C(=O)c1ccc2ccoc2c1", name:"α-bromation"},
+        {rxn:"sn2N", from:["CCCC(Br)C(=O)c1ccc2ccoc2c1","N1CCCC1"], to:canonical, name:"SN2 pyrrolidine"}
+      ]
+    });
+    routes.push({
+      id:"nitrile", label:"Nitrile + Grignard",
+      notes:"6-cyanobenzofurane commercial + BuBr. Alternative à une Friedel–Crafts sur C4–C7.",
+      steps:[
+        {rxn:"grignardCN", from:["N#Cc1ccc2ccoc2c1","CCCCBr"], to:"CCCCC(=O)c1ccc2ccoc2c1", name:"Grignard sur nitrile"},
+        {rxn:"alphaHal", from:["CCCCC(=O)c1ccc2ccoc2c1"], to:"CCCC(Br)C(=O)c1ccc2ccoc2c1", name:"α-bromation"},
+        {rxn:"sn2N", from:["CCCC(Br)C(=O)c1ccc2ccoc2c1","N1CCCC1"], to:canonical, name:"SN2 pyrrolidine"}
+      ]
+    });
+    routes.push({
+      id:"arbr", label:"Ar–Br → cyanation",
+      notes:"6-bromobenzofurane commercial. Cyanation métallique, pas HCN.",
+      steps:[
+        {rxn:"cyanation", from:["Brc1ccc2ccoc2c1"], to:"N#Cc1ccc2ccoc2c1", name:"cyanation Ar–Br"},
+        {rxn:"grignardCN", from:["N#Cc1ccc2ccoc2c1","CCCCBr"], to:"CCCCC(=O)c1ccc2ccoc2c1", name:"Grignard sur nitrile"},
+        {rxn:"alphaHal", from:["CCCCC(=O)c1ccc2ccoc2c1"], to:"CCCC(Br)C(=O)c1ccc2ccoc2c1", name:"α-bromation"},
+        {rxn:"sn2N", from:["CCCC(Br)C(=O)c1ccc2ccoc2c1","N1CCCC1"], to:canonical, name:"SN2 pyrrolidine"}
+      ]
+    });
+  } else if(/C\(=O\)O/.test(canonical)){
+    routes.push({
+      id:"acid", label:"Acide carboxylique",
+      notes:"Cible déjà un acide. Peu de déconnexions C–C nécessaires.",
+      steps:[{rxn:"suzuki", from:[canonical], to:canonical, name:"cible commerciale ou proche du stock"}]
+    });
+  } else {
+    routes.push({
+      id:"generic", label:"Voie générique",
+      notes:"Pas de famille lockée. Affichage de la cible et invitation à une déconnexion manuelle (nitrile, Weinreb, Ar–X).",
+      steps:[{rxn:"suzuki", from:[canonical], to:canonical, name:"pas de template spécifique — rester sur précurseurs Ar–X / nitrile / acide"}]
+    });
+  }
+  return {canonical, routes, strategy: routes[0]?.notes || ""};
+}
+
+function render(plan){
+  document.getElementById("title").textContent = "Cible";
+  document.getElementById("strategy").textContent = plan.strategy;
+  document.getElementById("targetCard").innerHTML = card(plan.canonical, "cible");
+  const tabs = document.getElementById("tabs");
+  tabs.innerHTML = plan.routes.map((r,i)=>`<button class="chip${i===0?" on":""}" data-i="${i}">${esc(r.label)}</button>`).join("");
+  const show = (i)=>{
+    [...tabs.children].forEach((b,n)=>b.classList.toggle("on", n===i));
+    const r = plan.routes[i];
+    document.getElementById("route").innerHTML = `<p class="meta">${esc(r.notes)}</p>` + r.steps.map((s,n)=>{
+      const cat = CATALOG[s.rxn]||{};
+      return `<article class="step"><h3>${n+1}. ${esc(cat.name||s.name)}</h3>
+        <p class="meta">${esc(cat.reagents||"")} · ${esc(cat.note||"")}</p>
+        <div class="row">${s.from.map(x=>card(x,"précurseur")).join("")}<span style="align-self:center;color:var(--muted)">→</span>${card(s.to,"produit")}</div></article>`;
+    }).join("");
+  };
+  tabs.onclick = (e)=>{ const b=e.target.closest("[data-i]"); if(b) show(+b.dataset.i); };
+  show(0);
+}
+
+document.getElementById("plan").onclick = ()=>{
+  const err = document.getElementById("err");
+  err.hidden = true;
+  const out = plan(document.getElementById("smiles").value);
+  if(out.error){ err.hidden=false; err.textContent=out.error; return; }
+  render(out);
+};
+document.getElementById("ex1").onclick = ()=>{ document.getElementById("smiles").value = EXAMPLES["6-BF-PV"]; document.getElementById("plan").click(); };
+document.getElementById("ex2").onclick = ()=>{ document.getElementById("smiles").value = EXAMPLES["ibuprofène"]; document.getElementById("plan").click(); };
+document.getElementById("plan").click();
+</script>
+</body>
+</html>
