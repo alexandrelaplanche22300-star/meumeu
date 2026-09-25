@@ -8,6 +8,7 @@ import {Audio} from './audio.js';
 import {XRay,XRoom,BodyView} from './xray.js';
 import {warm as warm3d} from './gl3d.js';
 import {Designer} from './designer.js';
+import {setupDemo} from './demo.js';
 import {Armorer} from './armorer.js';
 import {deriveArmor,ZONES,MATS} from './armor.js';
 import {REGIONS,PARTS,BLOOD,setSpecies} from './body.js';
@@ -508,6 +509,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   else if(a==='save'){localStorage.setItem('okm-save',world.save());say('Partie sauvée.','good');}
   else if(a==='load'){const j=localStorage.getItem('okm-save');if(!j){say('Aucune sauvegarde.','bad');return;}try{const w=new World(1);w.load(j);setWorld(w);say('Partie reprise.','good');}catch(err){console.error(err);say('Sauvegarde illisible (d’une version plus ancienne).','bad');}}
   else if(a==='new'){if(confirm('Nouvelle partie : une nouvelle carte. La partie en cours sera perdue si elle n’est pas sauvée.')){setWorld(new World());say('Une nouvelle carte.','good');}}
+  else if(a==='demo'){if(confirm('Démo de guerre : une capitale équipée, deux escouades, un avant-poste bèè à 40 cases. La partie en cours sera perdue si elle n’est pas sauvée.')){const w=new World();const r=setupDemo(w);setWorld(w);if(r.post)alertBox('La guerre est déclarée : un avant-poste bèè vous attend.',r.post[0],r.post[1],'bad');say('Démo de guerre : escouades sur les touches 1 et 2.','good');}}
   else if(a==='win-off'){$('#win').hidden=true;}
   renderPanel(true);});
 document.addEventListener('change',e=>{const s=e.target.closest('[data-trainw]');if(s){ui.trainW[+s.dataset.trainw]=s.value;renderPanel(true);}const a=e.target.closest('[data-traina]');if(a){ui.trainA[+a.dataset.traina]=a.value;renderPanel(true);}
@@ -589,7 +591,7 @@ function frame(now){const dt=Math.min(.1,(now-last)/1000);last=now;
 $('#xmode').addEventListener('click',()=>{xray.setMode({sel:'ecran',ecran:'off',off:'sel'}[xray.mode]);topbar();});
 $('#squads').addEventListener('click',e=>{const b=e.target.closest('[data-squad]');if(b)selectSquad(+b.dataset.squad,e.detail>=2);});
 await loadManifest();
-{const j=localStorage.getItem('okm-auto');const P=new URLSearchParams(location.search);if(j&&!P.has('new')){try{const w=new World(1);w.load(j);world=w;view.world=w;}catch(e){console.warn('sauvegarde ancienne ignorée',e.message);}}
+{const j=localStorage.getItem('okm-auto');const P=new URLSearchParams(location.search);if(P.has('demo')){const w=new World();setupDemo(w);world=w;view.world=w;}else if(j&&!P.has('new')){try{const w=new World(1);w.load(j);world=w;view.world=w;}catch(e){console.warn('sauvegarde ancienne ignorée',e.message);}}
   const c=world.capital();if(c)view.lookAt(c.i+2,c.j+2);if(P.get('speed'))setSpeed(+P.get('speed'));if(P.get('at')){const [x,y,z]=P.get('at').split(',').map(Number);view.lookAt(x,y);if(z)view.zoom=z;}}
 setSpeed(ui.speed);renderPanel(true);requestAnimationFrame(frame);
 window.world=()=>world;window.view=view;window.ui=ui;window.audio=audio;window.xray=xray;window.designer=designer;window.room=room;window.openModal=openModal;window.openFiche=id=>openFiche(id);
