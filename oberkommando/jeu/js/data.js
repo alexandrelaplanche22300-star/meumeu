@@ -40,6 +40,13 @@ export const RES={
   sante:{name:'Fournitures médicales',icon:['r','soie-de-falaise_fabric-roll']},
   charbon:{name:'Charbon',icon:['r','chem_charbon']},
   argile:{name:'Argile',icon:['r','chem_argile']},
+  // l'industrie de l'armement : le plomb fait le noyau des balles, le cuivre la chemise et l'étui, le salpêtre et le soufre
+  // (avec du charbon) la poudre
+  cuivre:{name:'Cuivre',icon:['r','fer-de-cendre_ingots']},
+  plomb:{name:'Plomb',icon:['r','chem_residu']},
+  soufre:{name:'Soufre',icon:['r','chem_engrais']},
+  salpetre:{name:'Salpêtre',icon:['r','chem_divers']},
+  poudre:{name:'Poudre',icon:['r','chem_explosif']},
   briques:{name:'Briques',icon:['r','common_bricks']},
   fer:{name:'Fer-de-Cendre',icon:['r','fer-de-cendre_raw'],rare:true},
   sels:{name:'Sels de Brûle',icon:['r','sels-de-brule_raw'],rare:true},
@@ -48,9 +55,11 @@ export const RES={
 };
 export const RARE=['fer','sels','soie','verre'];
 export const GOODS=Object.keys(RES);
-export const OUTCROP={fer:'outcrop_fer',sels:'outcrop_sel',verre:'outcrop_verre',soie:'outcrop_teal',charbon:'outcrop_charbon',argile:'outcrop_argile'};
+export const OUTCROP={fer:'outcrop_fer',sels:'outcrop_sel',verre:'outcrop_verre',soie:'outcrop_teal',charbon:'outcrop_charbon',argile:'outcrop_argile',pierre:'outcrop_pale',cuivre:'outcrop_purple',plomb:'outcrop_goudron',soufre:'outcrop_green',salpetre:'outcrop_rock'};
 // les filons communs (charbon, argile) : plus riches que le rare
-export const ORE_LEFT={charbon:2400,argile:1800};
+export const ORE_LEFT={charbon:2400,argile:1800,pierre:4000,cuivre:1600,plomb:1600,soufre:1200,salpetre:1400};
+// les gisements du commun, et où les chercher (près de la capitale : de quoi démarrer ; loin : à relier par le rail)
+export const COMMON_ORES=['pierre','charbon','argile','cuivre','plomb','soufre','salpetre'];   // la pierre : de gros gisements, une mine dessus
 // Les familles de fret : un véhicule peut n'en porter que certaines (un train de charbon, une charrette de munitions).
 export const FAMILIES={
   materiaux:{name:'Matériaux',goods:['bois','pierre','argile','briques']},
@@ -101,8 +110,10 @@ export const BUILDINGS={
     why:'Les idées des Meumeu y deviennent des innovations : chaque idée se développe ici, contre des ressources et du temps.'},
   caserne:{name:'Caserne',sprite:'school',size:[3,3],cost:{bois:60,pierre:40,briques:20},stock0:{'a:mle1':4,vivres:60,pieces:8},hours:12,hp:800,trains:['soldat','commando'],
     why:'On y forme soldats et commandos, armés d’une conception adoptée : il faut l’arme et ses munitions dans un dépôt proche. Ils rechargent dans les dépôts : une armée loin de ses dépôts finit à sec.'},
+  poudrerie:{name:'Poudrerie',sprite:'motor',size:[2,2],cost:{bois:40,pierre:40,briques:20,pieces:6},hours:10,workers:3,hp:350,factory:{coal:.15,mod:'armement'},
+    why:'Salpêtre, soufre et charbon broyés ensemble : la poudre des cartouches, ou des explosifs. Une seule production à la fois. Loin des maisons : ça saute.'},
   arsenal:{name:'Arsenal',sprite:'chem',size:[2,2],cost:{bois:40,pierre:40,pieces:10,briques:20},hours:10,workers:2,hp:500,arsenal:true,factory:{coal:.25,mod:'armement'},
-    why:'Les munitions d’une conception adoptée (fer, sels, pièces), ou des explosifs : une seule production par arsenal. Tout part en caisses au dépôt de sortie.'},
+    why:'Les munitions d’une conception adoptée — plomb pour les balles, cuivre pour les étuis, poudre, pièces : une seule production par arsenal. Tout part en caisses au dépôt de sortie.'},
   armurerie:{name:'Bureau d’études',sprite:'research',size:[2,2],cost:{bois:40,pierre:30,pieces:10},hours:12,hp:400,design:true,
     why:'On y conçoit les armes : le calibre, l’ogive, la poudre, le canon, la culasse. Un prototype coûte des ressources et du temps ; adopté, il se fabrique.'},
   manufacture:{name:'Manufacture d’armes',sprite:'foundry',size:[3,3],cost:{pierre:80,bois:40,pieces:30,fer:10,briques:40},hours:20,workers:4,hp:900,manufacture:true,factory:{coal:.3,mod:'armement'},
@@ -120,11 +131,11 @@ export const BUILDINGS={
   dca:{name:'DCA',sprite:'radio',size:[2,2],cost:{pierre:40,pieces:20},hours:10,hp:600,flak:{range:13,cd:.06},
     why:'Tire sur les avions bèè qui passent. Les obus éclatent là où l’avion sera.'},
 };
-export const BUILD_ORDER=['camp','maison','ferme','atelier','four','briqueterie','mine','gare','entrepot','aerodrome','centre','caserne','arsenal','armurerie','manufacture','hopital','tente','archives','fonderie','tour','dca'];
+export const BUILD_ORDER=['camp','maison','ferme','atelier','four','briqueterie','mine','poudrerie','gare','entrepot','aerodrome','centre','caserne','arsenal','armurerie','manufacture','hopital','tente','archives','fonderie','tour','dca'];
 // le menu de construction, par familles : ce qui fait vivre, ce qui relie, ce qui arme, ce qui soigne, ce qui défend
 export const BUILD_CATS=[
   {k:'vivre',name:'Vivre',hint:'ramasser, loger, nourrir',items:['camp','maison','ferme','centre']},
-  {k:'produire',name:'Produire',hint:'extraire, transformer : une usine, une production',items:['mine','four','briqueterie','atelier','labo']},
+  {k:'produire',name:'Produire',hint:'extraire, transformer : une usine, une production',items:['mine','four','briqueterie','atelier','poudrerie','labo']},
   {k:'relier',name:'Relier',hint:'dépôts et fret : rails, gares, entrepôts, pistes',items:['gare','entrepot','aerodrome'],lines:['rail']},
   {k:'armer',name:'Armer',hint:'concevoir, fabriquer, former',items:['armurerie','manufacture','arsenal','caserne','fonderie','archives']},
   {k:'soigner',name:'Soigner',hint:'la chaîne des soins',items:['hopital','tente']},
@@ -227,10 +238,11 @@ export const VEHICLES={
 // limit : le plafond par défaut — l'usine s'arrête quand son dépôt de sortie en a autant.
 export const PRODUCTS={
   pieces:{name:'Pièces',at:'atelier',in:{bois:2,pierre:1},out:{pieces:2},hours:1.5,limit:80},
-  carburant:{name:'Carburant',at:'atelier',in:{bois:3},out:{carburant:2},hours:1.5,limit:60},
+  carburant:{name:'Carburant de bois (gazogène)',at:'atelier',in:{bois:3},out:{carburant:2},hours:1.5,limit:60},
   charbon:{name:'Charbon de bois',at:'four',in:{bois:4},out:{charbon:1},hours:2,limit:80},
   briques:{name:'Briques',at:'briqueterie',in:{argile:3,charbon:1},out:{briques:4},hours:2,limit:160},
-  explosifs:{name:'Explosifs',at:'arsenal',in:{fer:1,sels:1},out:{explosifs:2},hours:2,limit:12},
+  poudre:{name:'Poudre',at:'poudrerie',in:{salpetre:3,soufre:1,charbon:1},out:{poudre:4},hours:2,limit:60},
+  explosifs:{name:'Explosifs',at:'poudrerie',in:{salpetre:2,soufre:1,charbon:1},out:{explosifs:2},hours:2,limit:20},
   sante:{name:'Fournitures médicales',at:'hopital',in:{soie:1},out:{sante:4},hours:3,limit:12},
 };
 export const RECIPES=PRODUCTS;
@@ -250,7 +262,7 @@ export const BEEE={cities:2,peace:[14,18],every:2.2,wave:3,grow:2,air:5,airEvery
     canon:{name:'Canon bèè',img:'canon',speed:4.5,range:13,cd:10,vsB:3,dmg:40,hp:150,shell:true},
   }};
 
-export const START={villagers:8,stock:{bois:200,pierre:80,vivres:250,pieces:30,carburant:20,explosifs:6,sante:8,charbon:60,briques:40,'a:mle1':10,'m:mle1':8,'p:casque':10,'p:gilet':2}};
+export const START={villagers:8,stock:{bois:200,pierre:80,vivres:250,pieces:30,carburant:20,explosifs:6,sante:8,charbon:60,briques:40,plomb:20,cuivre:20,poudre:20,'a:mle1':10,'m:mle1':8,'p:casque':10,'p:gilet':2}};
 export const GOAL=100;
 export const NAMES=['Biscotte','Praline','Nougat','Réglisse','Cannelle','Muscade','Pistache','Cachou','Grelot','Clochette','Berlingot','Roudoudou','Cardamome','Guimauve','Chicorée','Pâquerette','Tilleul','Semoule','Griotte','Amandine','Fleurette','Noisette','Caramel','Violette','Bergamote','Sucre','Mirabelle','Câpre','Marelle','Galette','Brioche','Dragée','Vanille','Sésame','Cerise','Myrtille'];
 export const CITY_NAMES=['Meumeuville','Port-Biscotte','Praline-sur-Mer','Val-Nougat','Cannelle-les-Mines','Fort-Réglisse','Grelotin'];

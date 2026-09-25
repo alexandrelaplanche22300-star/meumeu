@@ -47,7 +47,7 @@ export const ECO={
   // un lot : ce qu'il prend, ce qu'il donne, ses heures de travail ; tool : l'outillage à faire d'abord
   recipe(b,key){const P=PRODUCTS[key];
     if(P){const r={key,in:{...P.in},out:{...P.out},hours:P.hours};if(key==='carburant')r.in.bois=+(r.in.bois*this.mod('carburant_bois')).toFixed(2);return r;}
-    if(key.startsWith('m:')){const d=this.design(key.slice(2));if(!d||d.status!=='adopte')return null;const c=crateCost(d.p);if(c.fer)c.fer=+(c.fer*this.mod('fer_munitions')).toFixed(2);return {key,in:c,out:{[key]:1},hours:1.2};}
+    if(key.startsWith('m:')){const d=this.design(key.slice(2));if(!d||d.status!=='adopte')return null;const c=crateCost(d.p);for(const k of ['fer','plomb','cuivre'])if(c[k])c[k]=+(c[k]*this.mod('fer_munitions')).toFixed(2);return {key,in:c,out:{[key]:1},hours:1.2};}
     if(key.startsWith('a:')){const d=this.design(key.slice(2));if(!d||d.status!=='adopte')return null;if(!b.tooled?.[d.id])return {key,tool:d.id,in:{pieces:4,fer:1},out:{},hours:6};
       return {key,in:weaponCost(d.p),out:{[key]:1},hours:derive(d.p).hoursW/2};}
     if(key.startsWith('p:')){const a=this.s.armors[key.slice(2)];if(!a||a.status!=='adopte')return null;const D=deriveArmor(a.a);return {key,in:{...D.cost},out:{[key]:1},hours:D.hours/2};}

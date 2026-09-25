@@ -103,7 +103,8 @@ function compute(p){const N=NOSES[p.nose],B=BASES[p.base],C=CONSTRUCTIONS[p.cons
     const cone=(C.spread||20)/1000*R/2;const cover=Math.min(1,(.07*.2)/(Math.PI*cone*cone+1e-9));return Math.min(1,1-Math.pow(1-Math.max(pHit*.6,cover),Math.max(1,pel*.6)));};
   let eff=0;for(let R=2;R<=600;R+=2){if(hitP(R)<.33||at(R).beyond)break;eff=R;}
   // ce que ça coûte (en caisses) : pour mille coups, pour une arme
-  const costK={fer:(m*(C.rare?.45:1)*(C.ferx||1)+caseMass)/CRATE_KG,sels:c/(CRATE_KG*500)*1000+(C.inc?m*.1/CRATE_KG:0)+(C.he?m*.3/CRATE_KG:0)+(C.tracer?.05:0),pieces:.15+(C.tracer?.08:0)+(C.he?.2:0)};
+  // plomb : le noyau ; cuivre : la chemise et l'étui ; fer : le noyau dur des perforantes ; poudre : la charge (et la charge explosive)
+  const core=m*(C.rare?.45:1)*(C.ferx||1);const costK={plomb:core*(C.ferx>1?.3:.8)/CRATE_KG,fer:C.ferx>1?core*.7/CRATE_KG:0,cuivre:(core*.2+caseMass)/CRATE_KG,poudre:c/(CRATE_KG*500)*1000+(C.inc?m*.1/CRATE_KG:0)+(C.he?m*.3/CRATE_KG:0)+(C.tracer?.05:0),pieces:.15+(C.tracer?.08:0)+(C.he?.2:0)};
   if(C.rare)costK[C.rare]=m*.55/CRATE_KG;for(const k in costK)costK[k]=+costK[k].toFixed(3);
   const costW={fer:+(massEmpty*1.6/CRATE_KG).toFixed(2),pieces:+(1+A.cost+(p.L>220?1:0)+(p.heavy?.5:0)).toFixed(2),bois:.15};const hoursW=3+A.hours+(p.L>220?2:0);
   const carry=Math.floor(.13*SHOOTER_KG*1000/rm);

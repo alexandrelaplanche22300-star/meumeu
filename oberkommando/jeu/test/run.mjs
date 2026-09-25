@@ -123,17 +123,17 @@ if(on(7)){say('\n=== banc 7 : les soins — un infirmier, un hôpital ===');
   run(W,72);say(`  trois jours plus tard : ${vic.map(where).join(' · ')}`);}
 
 if(on(8)){say('\n=== banc 8 : les munitions — arsenal, manufacture, caserne ===');
-  const W=new World(4);const cap=W.capital();Object.assign(cap.stock,{fer:60,sels:30,pieces:80,bois:300,pierre:200,vivres:300,charbon:80,'m:mle1':0,'a:mle1':0});
-  const ars=put(W,'meumeu','arsenal',...free(W,'arsenal',cap.i+2,cap.j+2,6,14));const ars2=put(W,'meumeu','arsenal',...free(W,'arsenal',cap.i+2,cap.j+2,6,14));const man=put(W,'meumeu','manufacture',...free(W,'manufacture',cap.i+2,cap.j+2,6,15));const cas=put(W,'meumeu','caserne',...free(W,'caserne',cap.i+2,cap.j+2,6,16));
+  const W=new World(4);const cap=W.capital();Object.assign(cap.stock,{fer:60,sels:30,plomb:60,cuivre:40,poudre:40,salpetre:30,soufre:12,pieces:80,bois:300,pierre:200,vivres:300,charbon:80,'m:mle1':0,'a:mle1':0});
+  const ars=put(W,'meumeu','arsenal',...free(W,'arsenal',cap.i+2,cap.j+2,6,14));const ars2=put(W,'meumeu','poudrerie',...free(W,'poudrerie',cap.i+2,cap.j+2,6,14));const man=put(W,'meumeu','manufacture',...free(W,'manufacture',cap.i+2,cap.j+2,6,15));const cas=put(W,'meumeu','caserne',...free(W,'caserne',cap.i+2,cap.j+2,6,16));
   W.setProduct(ars2,'explosifs');
   const vil=W.s.units.filter(u=>u.f==='meumeu');W.order(vil.slice(0,2).map(u=>u.id),{type:'building',id:ars.id});W.order(vil.slice(2,4).map(u=>u.id),{type:'building',id:ars2.id});W.order(vil.slice(4,8).map(u=>u.id),{type:'building',id:man.id});
-  const f0=cap.stock.fer,c0=cap.stock.charbon;run(W,24);const have=W.have('meumeu',cap.i+2,cap.j+2);
-  say(`  un jour : ${fmt(have['m:mle1']||0,1)} caisses de munitions Mle 1 (plafond ${ars.limit}), ${fmt(have.explosifs||0,1)} explosifs (plafond ${ars2.limit}), ${fmt(have['a:mle1']||0)} fusils (plafond ${man.limit}) · fer consommé ${fmt(f0-cap.stock.fer,1)} · charbon brûlé ${fmt(c0-cap.stock.charbon,1)} · arsenal : ${ars.why||'au travail'} · manufacture : ${man.why||'au travail'}`);
+  const f0=cap.stock.fer,p0=cap.stock.plomb,c0=cap.stock.charbon;run(W,24);const have=W.have('meumeu',cap.i+2,cap.j+2);
+  say(`  un jour : ${fmt(have['m:mle1']||0,1)} caisses de munitions Mle 1 (plafond ${ars.limit}), ${fmt(have.explosifs||0,1)} explosifs (plafond ${ars2.limit}), ${fmt(have['a:mle1']||0)} fusils (plafond ${man.limit}) · plomb consommé ${fmt(p0-cap.stock.plomb,1)} · charbon brûlé ${fmt(c0-cap.stock.charbon,1)} · arsenal : ${ars.why||'au travail'} · manufacture : ${man.why||'au travail'}`);
   const q=[];for(let n=0;n<4;n++)q.push(W.train(cas,'soldat','mle1'));run(W,14);const sol=W.s.units.filter(u=>u.k==='soldat');
   say(`  former quatre soldats : ${q.map(r=>r.ok?'ok':r.why[0]).join(', ')} · ${sol.length} soldats, ${sol.map(u=>u.pouch+u.mag).join('/')} coups chacun`);
   // une nouvelle arme : prototype, outillage de la manufacture (elle change de modèle), fabrication
   const bur=put(W,'meumeu','armurerie',...free(W,'armurerie',cap.i+2,cap.j+2,6,18));const p={d:2.2,l:8,nose:'pointue',base:'bt',cons:'fmj',c:.05,L:180,twist:60,action:'semi',rof:600,mag:10,heavy:false};
-  Object.assign(cap.stock,{fer:80,sels:30,pieces:80,charbon:80});
+  Object.assign(cap.stock,{fer:80,sels:30,plomb:60,cuivre:40,poudre:40,pieces:80,charbon:80});
   const pr=W.propose(bur,'Fusil Mle 2',p);run(W,16);const d=W.design(pr.id);const r1=W.setProduct(man,'a:'+pr.id);const r2=W.setProduct(ars,'m:'+pr.id);run(W,30);const h2=W.have('meumeu',cap.i+2,cap.j+2);
   say(`  prototype Mle 2 : ${pr.ok?'lancé':pr.why} · ${d?.status} · ${r1.text} · outillé ${!!man.tooled[pr.id]} · ${fmt(h2['a:'+pr.id]||0)} fusils, ${fmt(h2['m:'+pr.id]||0,1)} caisses de munitions`);
   // sans charbon, les machines s'arrêtent
@@ -217,9 +217,9 @@ if(on(15)){say('\n=== banc 15 : la chaîne complète — filons, mines, briquete
   let row=null;for(let dj=-6;dj<=8&&row==null;dj++){const j=g.j+dj;let ok=true;for(let i=g.i+6;i<g.i+44;i++){const k=j*MAP_N+i;if(!(W2.G.terrain[k]>=T.sand&&W2.G.terrain[k]<=T.scrub)||W2.occ[k]>=0){ok=false;break;}}if(ok)row=j;}
   if(row==null){say('  pas de rangée libre pour la voie de test');}else{
     const cells=W2.lineCells(g.i+6,row,g.i+43,row);W2.planLine('meumeu','rail',cells);for(const k of Object.keys(W2.s.rails))W2.lineBuilt('rail',+k);
-    const g1=put(W2,'meumeu','gare',g.i+7,row-2),g2=put(W2,'meumeu','gare',g.i+38,row-2);Object.assign(g1.stock,{fer:40,sels:20,pieces:30,charbon:30});
+    const g1=put(W2,'meumeu','gare',g.i+7,row-2),g2=put(W2,'meumeu','gare',g.i+38,row-2);Object.assign(g1.stock,{fer:40,plomb:40,cuivre:30,poudre:30,pieces:30,charbon:30});
     const ars=put(W2,'meumeu','arsenal',g.i+39,row-7);W2.setLink(ars,'sup',g2.id);W2.setLink(ars,'out',g2.id);const vs=W2.s.units.filter(u=>u.f==='meumeu');W2.order(vs.slice(0,2).map(u=>u.id),{type:'building',id:ars.id});
     const tq=W2.train(g1,'train');run(W2,40);const tr=W2.s.vehicles.find(v=>v.k==='train');
-    say(`  train à la demande sur ${cells.length} cases : ${tq.ok?'construit':tq.why[0]} · ${tr?.trips||0} voyages · fer au bout ${fmt(g2.stock.fer||0,1)} · munitions faites ${fmt(g2.stock['m:mle1']||0,1)} · tender ${fmt(tr?.coal||0,1)} · arsenal ${ars.why||'au travail'}`);}}
+    say(`  train à la demande sur ${cells.length} cases : ${tq.ok?'construit':tq.why[0]} · ${tr?.trips||0} voyages · plomb au bout ${fmt(g2.stock.plomb||0,1)} · munitions faites ${fmt(g2.stock['m:mle1']||0,1)} · tender ${fmt(tr?.coal||0,1)} · arsenal ${ars.why||'au travail'}`);}}
 
 say(`\n(${Math.round(performance.now()-T0)} ms)`);

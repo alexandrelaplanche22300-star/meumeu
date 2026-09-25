@@ -12,7 +12,7 @@ import {newHealth,applyWound,tickHealth,malus,firstAid,doctorCare,heal,needsCare
 import {DEFAULT_DESIGNS,weightOf,crateCost,weaponCost,protoCost,PROTO_HOURS,fragDesign} from './designs.js';
 import {DEFAULT_ARMORS,deriveArmor,plateZone,armorHit} from './armor.js';
 
-export const SAVE_VERSION=5;
+export const SAVE_VERSION=6;
 const sum=o=>Object.values(o||{}).reduce((a,b)=>a+b,0);
 const d2=(ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));

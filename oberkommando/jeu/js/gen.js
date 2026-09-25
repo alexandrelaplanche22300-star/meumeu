@@ -2,7 +2,7 @@
 // des collines rocheuses. Au milieu, une chaîne de montagnes le traverse en diagonale, percée de trois cols : les passages
 // où la guerre passera. La capitale meumeu est dans un coin, les villes bèè dans le coin opposé : on ne se voit pas au début.
 // Le rare est dispersé pour qu'on progresse : pour chaque rare, un filon de notre côté, un au milieu, un près des Bèè.
-import {MAP_N,T,NODES,RARE,ORE_LEFT} from './data.js';
+import {MAP_N,T,NODES,RARE,ORE_LEFT,COMMON_ORES} from './data.js';
 
 export function rng(seed){let s=(seed>>>0)||1;return ()=>{s^=s<<13;s>>>=0;s^=s>>17;s^=s<<5;s>>>=0;return s/4294967296;};}
 function noise2(r){const P=256,g=new Float32Array(P*P);for(let i=0;i<g.length;i++)g[i]=r();
@@ -64,13 +64,13 @@ export function generate(seed){const N=MAP_N;const r=rng(seed*9973+17);for(let k
   for(const res of order){if(!deposits.some(d=>d.res===res))place(res,(i,j)=>dC(i,j)>30&&dC(i,j)<70);}
   for(const res of order)place(res,(i,j)=>Math.abs(dC(i,j)-dB(i,j))<30&&dC(i,j)>60);
   for(const res of order)place(res,(i,j)=>dB(i,j)>12&&dB(i,j)<34);
-  // le commun : des veines de charbon et des glaisières, plus nombreuses que le rare. Une de chaque près de la capitale,
-  // de quoi faire tourner les premières machines et cuire les premières briques ; les autres plus loin, à relier par le rail.
+  // le commun (pierre, charbon, argile, et ce que demande l'armement) : plus de gisements que de rare.
   const common=(res,ok,gap=9)=>{for(let t=0;t<6000;t++){const i=4+Math.floor(r()*(N-8)),j=4+Math.floor(r()*(N-8));const k=j*N+i;if(!land(k)||nodeAt[k]>=0||!ok(i,j))continue;
       if(deposits.some(d=>Math.hypot(d.i-i,d.j-j)<gap))continue;let free=0;for(let b=-1;b<=2;b++)for(let a=-1;a<=2;a++){const kk=(j+b)*N+i+a;if(land(kk)&&nodeAt[kk]<0)free++;}if(free<14)continue;
       const nd=add('ore',i,j,{res});deposits.push(nd);return nd;}return null;};
-  common('charbon',(i,j)=>dC(i,j)>11&&dC(i,j)<20,7);common('argile',(i,j)=>dC(i,j)>11&&dC(i,j)<20,7);
-  for(let n=0;n<3;n++)common('charbon',(i,j)=>dC(i,j)>24&&dC(i,j)<75);for(let n=0;n<2;n++)common('argile',(i,j)=>dC(i,j)>24&&dC(i,j)<75);
+  // une de chaque près de la capitale (la pierre, le charbon et l'argile d'abord), d'autres plus loin, et chez les Bèè
+  for(const res of COMMON_ORES)common(res,(i,j)=>dC(i,j)>9&&dC(i,j)<(res==='pierre'?18:24),7);
+  for(const res of COMMON_ORES)for(let n=0;n<(res==='charbon'||res==='pierre'?3:2);n++)common(res,(i,j)=>dC(i,j)>26&&dC(i,j)<80);
   for(let n=0;n<3;n++)common('charbon',(i,j)=>Math.abs(dC(i,j)-dB(i,j))<40&&dC(i,j)>60);
-  for(const _ of beee){common('charbon',(i,j)=>dB(i,j)>10&&dB(i,j)<30);common('argile',(i,j)=>dB(i,j)>10&&dB(i,j)<30);}
+  for(const _ of beee)for(const res of COMMON_ORES)common(res,(i,j)=>dB(i,j)>9&&dB(i,j)<32);
   return {N,terrain,nodes,nodeAt,comp,main,capital,beee,deposits,passes};}
