@@ -24,7 +24,7 @@ fret, conception d'armes). La gestion doit être solide d'abord ; chaque étape 
 9. **Statistiques** : courbes de production, stocks, consommation, sur 7 et 30 jours.
 
 ## Étape 3 — L'armée branchée sur l'économie
-10. **Ravitaillement du front** : les unités consomment munitions, vivres, carburant, pièces ; un dépôt de front ravitaillé
+10. **Ravitaillement du front** : les unités consomment munitions, vivres, pièces ; un dépôt de front ravitaillé
     par le rail ; une unité coupée de son dépôt s'use et perd le moral.
 11. **Équilibrage** : aujourd'hui les vagues Bèè submergent la capitale vers le jour 23-30 ; on règle le rythme sur ce que
     l'économie peut réellement fournir.
