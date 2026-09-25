@@ -189,7 +189,12 @@ function unitsPane(sel){const by={};for(const u of sel)by[u.k]=(by[u.k]||0)+1;co
   const sqs=new Set(sel.map(u=>u.sq));const sq=sqs.size===1&&sel[0].sq?world.squad(sel[0].sq):null;const whole=sq&&world.members(sq).every(u=>view.sel.has(u.id));
   let h=`<section class="pane"><h2>${sel.length>1?(whole?esc(sq.name):`${sel.length} choisis`):esc(unitName(one))} <small>${Object.entries(by).map(([k,n])=>`${n} ${UNITS[k].name.toLowerCase()}${n>1?'s':''}`).join(' · ')}${one?.sq&&world.squad(one.sq)?' · '+esc(world.squad(one.sq).name):''}</small></h2>`;
   if(one){if(one.h)h+=healthHtml(one);else h+=`<div class="kv"><span>Solidité</span><b>${n0(one.hp)}/${one.max}</b></div><div class="kv"><span>Obus</span><b>${one.shells}</b></div>`;
-    h+=weaponHtml(one)+armorHtml(one);if(one.smoke)h+=`<div class="kv"><span>Fumigènes</span><b>${one.smoke}</b></div>`;if(UNITS[one.k].medic)h+=`<div class="kv"><span>Trousses</span><b class="${one.kits<=0?'bad':''}">${one.kits}/${UNITS[one.k].kits}</b></div>`;
+    h+=weaponHtml(one)+armorHtml(one);
+    // rééquiper un soldat déjà formé : une autre arme (prise au dépôt proche), un autre rôle
+    if(UNITS[one.k].arm&&one.h){const dep=world.depots('meumeu',one.x,one.y)[0];const have=dep?dep.stock:{};const guns=world.designsOf('meumeu');const arms=world.armorsOf('meumeu');
+      h+=`<div class="kv"><span>Arme</span><b><select data-sqw="${one.id}">${guns.map(d=>`<option value="${d.id}" ${d.id===one.w?'selected':''}>${esc(d.name)}${d.id!==one.w?` (${n0(have['a:'+d.id]||0)} au dépôt)`:''}</option>`).join('')}</select></b></div>
+        <div class="kv"><span>Protection</span><b><select data-sqa="${one.id}"><option value="">aucune</option>${arms.map(a=>`<option value="${a.id}" ${a.id===one.armor?'selected':''}>${esc(a.name)}</option>`).join('')}</select></b></div>
+        <div class="kv"><span>Rôle</span><b><select data-sqr="${one.id}">${[['tireur','Tireur'],['munitions','Porteur de munitions (2 caisses)']].map(([v,n])=>`<option value="${v}" ${(one.role==='munitions'?'munitions':'tireur')===v?'selected':''}>${n}</option>`).join('')}</select></b></div>`;}if(one.smoke)h+=`<div class="kv"><span>Fumigènes</span><b>${one.smoke}</b></div>`;if(UNITS[one.k].medic)h+=`<div class="kv"><span>Trousses</span><b class="${one.kits<=0?'bad':''}">${one.kits}/${UNITS[one.k].kits}</b></div>`;
     if(UNITS[one.k].doctor)h+=`<div class="kv"><span>Tente pliée</span><b>${one.tents?'oui':'non — il en reprend une au dépôt'}</b></div><div class="row"><button class="small" data-act="tent" ${one.tents?'':'disabled'}>Planter une tente médicale ici (T)</button></div>`;
     h+=`<div class="kv"><span>Fait</span><b>${esc(doing(one))}</b></div>${one.why?`<p class="small warn">${esc(one.why)}</p>`:''}`;
     if(one.h?.state==='blesse')h+=`<div class="row"><button class="small warn" data-act="to-hosp">Envoyer se faire soigner</button></div>`;}
@@ -215,6 +220,7 @@ function unitsPane(sel){const by={};for(const u of sel)by[u.k]=(by[u.k]||0)+1;co
     h+=`<section class="pane"><h2>Rattachement <small>où ils rapportent ce qu’ils ramassent</small></h2><label class="row small">Livrent à <select data-udep><option value="" ${cur==null?'selected':''}>le dépôt le plus proche</option>${deps.map(d=>`<option value="${d.id}" ${cur===d.id?'selected':''}>${esc(BUILDINGS[d.k].name)} · ${esc(world.cityName(d))} — ${Math.round(world.distB(d,cx,cy))} cases</option>`).join('')}</select></label><p class="quiet small">Des mineurs à la main, des bûcherons : rattachez-les au dépôt du filon, de la gare, pour que le fret l’emporte.</p></section>`;}
   if(vil.length)h+=`<section class="pane"><h2>Bâtir <small>la barre en bas de la carte (B)</small></h2><p class="small">Choisissez un bâtiment en bas, cliquez sa place : ces ${vil.length} villageois y iront. Clic droit sur un arbre, un rocher, un buisson : ils ramassent et rapportent au dépôt le plus proche — ou envoyez-les à un camp, ils récoltent tout autour.</p></section>`;
   return h;}
+function togglePanel(){document.body.classList.toggle('nopanel');dispatchEvent(new Event('resize'));say(document.body.classList.contains('nopanel')?'Interface masquée : Tab pour la remettre.':'Interface affichée.');}
 function doing(u){const T=u.task;if(u.h?.state==='hors')return u.carriedBy?'on le porte vers les soins':'à terre';if(!T)return u.carry?'rapporte au dépôt':u.anim==='aim'?'tire':'rien';const b=T.b!=null?world.building(T.b):null;
   return {gather:'ramasse',build:`bâtit ${b?BUILDINGS[b.k].name.toLowerCase():''}`,repair:'répare',work:b&&BUILDINGS[b.k].hub?'récolte autour du camp':`travaille : ${b?BUILDINGS[b.k].name.toLowerCase():''}`,move:'marche',guard:'en position',assault:'attaque en avançant',attack:'attaque',line:'pose une voie, un mur',deposit:'dépose',board:'embarque',
     zone:`tir sur zone${T.n<1e9?` : ${T.fired}/${T.n} coups`:` : ${T.fired} coups`}`,evac:'porte un blessé',soigne:'soigne un blessé',operer:'opère sous la tente',hosp:'va se faire soigner',shelter:'court aux abris'}[T.kind]||T.kind;}
@@ -547,6 +553,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   else if(a==='save'){localStorage.setItem('okm-save',world.save());say('Partie sauvée.','good');}
   else if(a==='load'){const j=localStorage.getItem('okm-save');if(!j){say('Aucune sauvegarde.','bad');return;}try{const w=new World(1);w.load(j);setWorld(w);say('Partie reprise.','good');}catch(err){console.error(err);say('Sauvegarde illisible (d’une version plus ancienne).','bad');}}
   else if(a==='new'){if(confirm('Nouvelle partie : une nouvelle carte. La partie en cours sera perdue si elle n’est pas sauvée.')){setWorld(new World());say('Une nouvelle carte.','good');}}
+  else if(a==='panel'){togglePanel();}
   else if(a==='demo'){if(confirm('Démo de guerre : une capitale équipée, deux escouades, un avant-poste bèè à 40 cases. La partie en cours sera perdue si elle n’est pas sauvée.')){const w=new World();const r=setupDemo(w);setWorld(w);if(r.post)alertBox('La guerre est déclarée : un avant-poste bèè vous attend.',r.post[0],r.post[1],'bad');say('Démo de guerre : escouades sur les touches 1 et 2.','good');}}
   else if(a==='win-off'){$('#win').hidden=true;}
   renderPanel(true);});
@@ -569,6 +576,7 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','=','-',
   else if(k===' '){e.preventDefault();setSpeed(ui.speed?0:(ui.lastSpeed||1));if(ui.speed)ui.lastSpeed=ui.speed;}
   else if(k==='1'||k==='2'||k==='3'){if(ui.bb&&view.placing==null&&!view.sel.size&&view.selB==null){}setSpeed({1:1,2:2,3:4}[k]);ui.lastSpeed=ui.speed;}
   else if(k==='g'||k==='G'){if(view.sel.size)formSquad();}
+  else if(k==='Tab'){e.preventDefault();togglePanel();}
   else if(k==='x'||k==='X'){view.zoning=!view.zoning;renderPanel(true);}
   else if(k==='b'||k==='B'){ui.bb=!ui.bb;ui.bbHtml='';$('#buildbar').innerHTML='';buildBar();}
   else if(k==='t'||k==='T'){pitchTent();}
