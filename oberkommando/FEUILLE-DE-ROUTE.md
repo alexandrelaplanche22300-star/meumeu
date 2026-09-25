@@ -31,6 +31,18 @@ fret, conception d'armes). La gestion doit être solide d'abord ; chaque étape 
 12. **Balistique (pistes du dossier)** : recul calculé depuis la masse de l'arme et la charge, surstabilisation des balles
     longues, dispersion réelle ; conventions de guerre (brancardiers, prisonniers, trêves pour les blessés).
 
+## Étape 3 bis — La guerre totale, côté joueur
+- ~~Bureau d'études~~ (fait) : modules, affût et servants, 24 munitions, charge explosive, hausse, visuel en direct, explications.
+- ~~Radiographies~~ (fait) : deux piles simultanées (reçu à gauche, envoyé à droite), protections visibles, sang, balles arrêtées.
+- **Protections** : huit matériaux de la toile au verre-qui-écoute, du bon marché au très cher ; chaque choix (armes,
+  munitions, protections, formation, ressources) se paie ailleurs.
+- **Médecine** : brancardiers, tente, hôpital, triage, garrots, chirurgie, convalescence ; les fournitures médicales par le fret.
+- **Compétences** : chaque unité gagne en expérience (tir, sang-froid, vitesse de rechargement, premiers soins) ; les vétérans
+  comptent, leur perte aussi.
+- **Opérations** : sabotage des voies ennemies (charges d'explosifs posées par des commandos), embuscades (couvert, feu croisé,
+  surprise), assauts, offensives préparées (stocks au front, artillerie, vagues), retraites.
+- **Sprites** en 8 directions rendus du modèle 3D (repos, course, arme en main, servants, chargeurs).
+
 ## Étape 4 — L'IA Bèè, un vrai état-major
 13. **Plus de triche** : l'IA Bèè n'a plus de ravitaillement gratuit ; elle a sa capitale, ses dépôts, ses mines, son fret —
     le même moteur que le joueur.
@@ -39,7 +51,8 @@ fret, conception d'armes). La gestion doit être solide d'abord ; chaque étape 
 15. **Bureau d'études** : elle conçoit ses propres armes avec le même atelier de conception, selon ce qu'elle observe du
     joueur (blindage vu → calibre plus gros) et ce que son économie peut produire.
 16. **Stratégie** : reconnaissance, choix d'objectifs (couper une voie, raser un dépôt, prendre un filon), offensives
-    préparées par des stocks au front, repli quand le ravitaillement lâche.
+    préparées par des stocks au front, repli quand le ravitaillement lâche ; en défense : lignes, réserves, contre-attaques,
+    réparations des voies ; elle sabote nos rails, tend des embuscades, frappe là où nous sommes faibles.
 17. **Brouillard de guerre** et renseignement : on ne voit l'ennemi que par ses éclaireurs, ses postes d'observation, ses espions.
 
 ## Étape 5 — Finition
