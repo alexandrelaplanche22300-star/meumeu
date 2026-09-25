@@ -63,7 +63,9 @@ export class World{
   goodName(k){if(k.startsWith('p:')){const a=this.s.armors[k.slice(2)];return a?a.name:'Protection';}if(k.startsWith('m:')){const d=this.design(k.slice(2));return `Munitions ${d?d.name:'?'}`;}if(k.startsWith('a:')){const d=this.design(k.slice(2));return d?d.name:'Arme';}return RES[k]?.name||k;}
   // proposer un prototype au bureau d'études : il se paie, il prend du temps, puis il est adopté
   canPropose(b,p){const why=[];if(!b||b.k!=='armurerie'||!b.done)why.push('un bureau d’études');else if(b.proto)why.push('un prototype est déjà en cours');const D=derive(p);
-    if(CONSTRUCTIONS[p.cons].minD&&p.d<CONSTRUCTIONS[p.cons].minD)why.push(`une balle explosive demande ${CONSTRUCTIONS[p.cons].minD} mm au moins`);
+    if(CONSTRUCTIONS[p.cons].minD&&p.d<CONSTRUCTIONS[p.cons].minD)why.push(`${CONSTRUCTIONS[p.cons].name.toLowerCase()} : ${CONSTRUCTIONS[p.cons].minD} mm de calibre au moins`);
+    if(!D.mountOk)why.push(`l’épaule ne tient pas cette arme : ${D.need==='trepied'?'un trépied':'un bipied'} au moins`);
+    if((p.mods||[]).includes('bouclier')&&D.have==='epaule')why.push('un bouclier demande un affût');
     if(b){const pay=this.canPay(b.f,b.i+1,b.j+1,protoCost(p));if(!pay.ok)why.push(`il manque : ${pay.miss.join(', ')}`);}return {ok:!why.length,why,D};}
   propose(b,name,p){const r=this.canPropose(b,p);if(!r.ok)return r;this.pay(b.f,b.i+1,b.j+1,protoCost(p));const id='d'+this.id();
     this.s.designs[id]={id,f:b.f,name:name||`Modèle ${Object.keys(this.s.designs).length}`,status:'prototype',p:JSON.parse(JSON.stringify(p)),origin:b.id};b.proto={id,left:PROTO_HOURS};

@@ -14,7 +14,7 @@ export const DEFAULT_DESIGNS=[
     p:{d:2.0,l:3.8,nose:'ronde',base:'plat',cons:'fmj',c:.006,L:55,twist:60,action:'auto',rof:550,mag:30,heavy:false}},
 ];
 // Les bornes du bureau d'études : larges, pour inventer — la physique se charge du reste.
-export const LIMITS={d:[.8,8,.1],l:[1,40,.1],c:[.002,2,.001],L:[20,600,1],twist:[10,400,1],rof:[200,1400,10],mag:[1,200,1]};
+export const LIMITS={d:[.5,14,.1],l:[.8,70,.1],c:[.001,30,.001],L:[15,480,1],twist:[5,800,1],rof:[60,1400,10],mag:[1,250,1],zero:[10,200,5]};
 export const ammoKey=id=>'m:'+id,armKey=id=>'a:'+id;
 // ce que pèse un bien, en caisses (les armes pèsent leur masse ; tout le reste compte une caisse)
 export function weightOf(k,designs,armors){if(k.startsWith('a:')){const d=designs?.[k.slice(2)];return d?Math.max(.02,derive(d.p).massEmpty/CRATE_KG):.2;}if(k.startsWith('p:')){const a=armors?.[k.slice(2)];return a?Math.max(.05,deriveArmor(a.a).mass/CRATE_KG):.4;}return 1;}
