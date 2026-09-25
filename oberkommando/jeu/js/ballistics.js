@@ -35,7 +35,6 @@ export const CONSTRUCTIONS={
   sp:{name:'Pointe molle',rho:10.8,expand:[430,820,1.55],frag:780,fr:.3,K:3.5e-4,disp:0,desc:'s’expanse : grosse blessure, perce mal'},
   hp:{name:'Pointe creuse',rho:10.2,expand:[280,650,1.75],frag:640,fr:.35,K:2.5e-4,disp:0,desc:'s’ouvre en corolle : arrête tout, ne perce rien'},
   ap:{name:'Perforante (noyau acier)',rho:8.9,frag:Infinity,fr:0,K:1.37e-3,core:1,disp:.4,desc:'traverse tôles et murs, et le corps sans y laisser grand-chose'},
-  apv:{name:'Perforante (noyau de verre-qui-écoute)',rho:12.8,frag:Infinity,fr:0,K:2.3e-3,core:1,disp:.4,rare:'verre',desc:'le cristal rare : perce le blindage lourd ; très cher'},
   inc:{name:'Incendiaire',rho:9.6,frag:850,fr:.35,K:6.5e-4,inc:1,disp:.6,desc:'met le feu à ce qu’elle touche de dur : dépôts, réservoirs, maisons'},
   trc:{name:'Traçante',rho:9.7,frag:900,fr:.35,K:5e-4,tracer:1,disp:.8,desc:'on voit où elle va : le tireur corrige, l’ennemi voit d’où elle vient'},
   he:{name:'Explosive',rho:9.2,frag:0,fr:.9,K:4e-4,he:1,minD:3,disp:.5,desc:'éclate au contact (3 mm et plus) : des éclats autour du point d’impact'},
@@ -67,7 +66,7 @@ export const MODS={
   cacheflamme:{name:'Cache-flamme',desc:'des becs qui refroidissent le jet : l’éclair de bouche presque éteint — la nuit, on ne voit plus d’où l’on tire'},
   manchon:{name:'Manchon silencieux',desc:'des chicanes qui détendent les gaz : 25 dB de moins ; avec une balle subsonique, on n’entend presque rien ; plus lourd, plus long, il chauffe'},
   poignee:{name:'Poignée avant',desc:'une main de plus sur l’arme : épauler plus vite, rafales mieux tenues'},
-  lunette:{name:'Lunette',desc:'une lentille de verre-qui-écoute : on vise loin bien mieux ; de près, le champ étroit ralentit'},
+  lunette:{name:'Lunette',desc:'des lentilles polies : on vise loin bien mieux ; de près, le champ étroit ralentit'},
   bipied:{name:'Bipied',desc:'deux pieds sous le canon : couché, l’arme ne tremble plus et le recul passe dans le sol'},
   trepied:{name:'Trépied',desc:'un affût à trois pieds : précision de pièce fixe, recul absorbé ; lourd, il faut le porter, le mettre en batterie'},
   bouclier:{name:'Bouclier',desc:'une plaque d’acier devant les servants : arrête les balles de face ; très lourd, affût obligatoire'},
@@ -150,7 +149,7 @@ function compute(p){const N=NOSES[p.nose],B=BASES[p.base],C=CONSTRUCTIONS[p.cons
   // plomb : le noyau ; cuivre : la chemise et l'étui ; fer : le noyau dur des perforantes ; poudre : la charge (et la charge explosive)
   const core=m*(C.rare?.45:1)*(C.ferx||1);const costK={plomb:C.mono?0:core*(C.ferx>1?.3:C.soft?1:.8)/CRATE_KG,fer:C.ferx>1?core*.7/CRATE_KG:0,cuivre:(core*(C.mono?1:C.soft?0:.2)+caseMass+(C.shaped?m*.3:0))/CRATE_KG,poudre:c/(CRATE_KG*500)*1000+(C.inc?m*.1/CRATE_KG:0)+(C.he?m*.3/CRATE_KG:0)+(C.tracer?.05:0),pieces:.15+(C.tracer?.08:0)+(C.he?.2:0)};
   if(C.rare)costK[C.rare]=m*.55/CRATE_KG;for(const k in costK)costK[k]=+costK[k].toFixed(3);
-  const costW={fer:+(massEmpty*1.6/CRATE_KG).toFixed(2),pieces:+(1+A.cost+(p.L>220?1:0)+(p.heavy?.5:0)+mods.size*.4+(mods.has('trepied')?1:0)).toFixed(2),bois:.15,...(mods.has('lunette')?{verre:.3}:{})};const hoursW=3+A.hours+(p.L>220?2:0)+mods.size*.5;
+  const costW={fer:+(massEmpty*1.6/CRATE_KG).toFixed(2),pieces:+(1+A.cost+(p.L>220?1:0)+(p.heavy?.5:0)+mods.size*.4+(mods.has('trepied')?1:0)).toFixed(2),bois:.15,...(mods.has('lunette')?{cuivre:.3}:{})};const hoursW=3+A.hours+(p.L>220?2:0)+mods.size*.5;
   const carry=Math.floor(.13*SHOOTER_KG*1000/rm);
   // ce qui entre dans le corps : pour une gerbe, un plomb (ou une fléchette) ; pour un sabot, le dard
   const proj={p:{...p,d:dpr,l:lpr,nose:pel>1&&!C.dart?'ronde':p.nose},m:mp,l:lpr,Sg:Math.max(Sg,pel>1||sub<1?5:Sg),dart:!!C.dart};
@@ -167,7 +166,6 @@ function verdicts(D,p,C){const out=[];const g=t=>out.push({tone:'good',t}),b=t=>
   if(C.frag<Infinity&&D.v0>C.frag){let r=0;for(let x=0;x<=600;x+=2){if(D.at(x).v>C.frag)r=x;}g(`Se fragmente dans le corps jusqu’à ${r} m`);}
   if(D.carry<120)b(`Munition lourde (${fmt(D.rm,2)} g le coup) : un soldat n’en porte que ${D.carry}, une caisse ${D.perCrate}`);else if(D.carry>450)g(`Munition légère : ${D.carry} coups par soldat, ${D.perCrate} par caisse`);
   if(p.action==='auto'&&D.sustain<p.rof)b(`Surchauffe : tient ${D.sustain} coups/min en continu (cadence ${p.rof})`);
-  if(C.rare)b('Noyau de verre-qui-écoute : du rare à chaque caisse');
   if(C.inc)n('Incendiaire : les dépôts qui la stockent brûlent s’ils sont touchés');
   if(D.pel>1)n(`${D.pel} ${C.dart?'fléchettes':'plombs'} de ${fmt(D.mp*1000,0)} mg par coup : la gerbe s’ouvre de ${C.spread} cm tous les 10 m`);
   if(C.sub)g(`Dard de ${fmt(D.proj.p.d,1)} mm lancé à ${Math.round(D.v0)} m/s : la perforation d’une arme bien plus grosse`);

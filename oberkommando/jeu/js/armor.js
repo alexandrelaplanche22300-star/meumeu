@@ -8,7 +8,7 @@
 //  · la plaque d'acier : encaisse coup sur coup, mais lourde ;
 //  · la céramique : deux fois et demie l'acier à poids égal, mais elle se fissure — chaque balle arrêtée l'use ;
 //  · le composite : une face de céramique collée sur un dos de soie — le meilleur des deux, cher à faire ;
-//  · le verre-qui-écoute : le meilleur, rare, cher.
+//  (le composite est le meilleur)
 import {BODY_KG,regionAt} from './body.js';
 
 export const MATS={
@@ -16,10 +16,9 @@ export const MATS={
   cuir:{name:'Cuir bouilli',k:.3,rho:1.2,brittle:.02,soft:1,vs:300,vcut:460,cost:{vivres:1.5},col:'#7a4a28',desc:'du cuir durci à l’eau bouillante : un peu mieux que la toile, plus raide, plus lourd'},
   lin:{name:'Lin collé en couches',k:.3,rho:1.3,brittle:.03,soft:1,vs:340,vcut:500,cost:{vivres:1.2,pieces:.2},col:'#e6dcc4',desc:'des feuilles de lin collées en carapace, comme les cuirasses antiques : arrête les éclats et les balles lentes'},
   acier:{name:'Plaque d’acier trempé',col:'#7c8792',k:1,rho:7.85,brittle:.04,cost:{fer:1.2},desc:'encaisse coup sur coup ; lourd'},
-  ceramique:{name:'Céramique',col:'#e9e6df',k:2.4,rho:3.1,brittle:.34,cost:{pierre:1.5,sels:.3},desc:'arrête bien plus que l’acier à poids égal, mais se fissure à chaque balle'},
+  ceramique:{name:'Céramique',col:'#e9e6df',k:2.4,rho:3.1,brittle:.34,cost:{pierre:2},desc:'arrête bien plus que l’acier à poids égal, mais se fissure à chaque balle'},
   soie:{name:'Soie de falaise tissée',k:.35,rho:1.35,brittle:0,soft:1,vs:520,vcut:650,col:'#6fb3a8',cost:{soie:1},desc:'légère : arrête les balles lentes (sous 520 m/s) et les éclats ; une balle de fusil (au-delà de 650 m/s) la tranche'},
-  composite:{name:'Composite (céramique sur soie)',k:2.9,rho:2.3,brittle:.2,col:'#4f5f4a',cost:{pierre:1,soie:.4,sels:.2},desc:'une face de céramique qui brise la pointe, un dos de soie qui retient les morceaux : presque le verre-qui-écoute, sans le rare ; long à fabriquer'},
-  verre:{name:'Verre-qui-écoute',col:'#5fd1c1',k:3.4,rho:2.6,brittle:.18,cost:{verre:1},desc:'le meilleur, et rare'},
+  composite:{name:'Composite (céramique sur soie)',k:2.9,rho:2.3,brittle:.2,col:'#4f5f4a',cost:{pierre:1.2,soie:.4},desc:'une face de céramique qui brise la pointe, un dos de soie qui retient les morceaux : la meilleure protection, chère en soie ; longue à fabriquer'},
 };
 export const ZONES={casque:{name:'Casque',area:.0085,max:4},plastron:{name:'Plastron',area:.011,max:8},dos:{name:'Dos',area:.011,max:8},flancs:{name:'Flancs et épaules',area:.008,max:6}};
 export const DEFAULT_ARMORS=[

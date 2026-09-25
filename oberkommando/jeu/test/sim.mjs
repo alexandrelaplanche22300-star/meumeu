@@ -39,23 +39,23 @@ function play(seed){const W=new World(seed);const cap=W.capital();const [ci,cj]=
     const steps=[()=>got('maison1')||place('maison',spot('maison',ci,cj,5,14),'maison1'),()=>got('maison2')||place('maison',spot('maison',ci,cj,5,16),'maison2'),
       ()=>{if(got('camp-bois'))return true;const tr=W.s.nodes.filter(n=>n.type==='tree'&&n.left>1).sort((a,b)=>d2(a.i,a.j,ci,cj)-d2(b.i,b.j,ci,cj))[20];return place('camp',tr&&spot('camp',tr.i,tr.j,2,8),'camp-bois');},
       ()=>got('ferme')||place('ferme',spot('ferme',ci,cj,6,20),'ferme'),
-      ()=>minePlan('charbon','charbon'),()=>minePlan('argile','argile'),
-      ()=>got('briqueterie')||place('briqueterie',spot('briqueterie',ci,cj,6,20),'briqueterie'),
+      ()=>minePlan('charbon','charbon'),()=>minePlan('fer','fer'),
+      ()=>got('poudrerie')||place('poudrerie',spot('poudrerie',ci,cj,8,24),'poudrerie'),
       ()=>got('atelier')||place('atelier',spot('atelier',ci,cj,6,22),'atelier'),
       ()=>got('caserne')||place('caserne',spot('caserne',ci,cj,7,24),'caserne'),
-      ()=>minePlan('fer','fer'),()=>minePlan('sels','sels'),
+      ()=>minePlan('salpetre','salpetre'),()=>minePlan('pierre','pierre'),
       ()=>got('arsenal')||place('arsenal',spot('arsenal',ci,cj,7,24),'arsenal'),
       ()=>got('manufacture')||place('manufacture',spot('manufacture',ci,cj,7,26),'manufacture'),
       ()=>got('hopital')||place('hopital',spot('hopital',ci,cj,7,26),'hopital'),
       ()=>got('tour1')||place('tour',spot('tour',ci+8,cj-8,2,10),'tour1'),()=>got('tour2')||place('tour',spot('tour',ci+10,cj,2,10),'tour2')];
     // on n'ouvre pas plus de trois chantiers à la fois
     const sites=W.s.buildings.filter(b=>b.f===F&&!b.done&&!b.ruin);if(sites.length<3)for(const st of steps){st();if(W.s.buildings.filter(b=>b.f===F&&!b.done&&!b.ruin).length>=3)break;}
-    if(done('fer-camp'))railPlan('rail','fer-camp');gares();
+    if(done('salpetre-camp'))railPlan('rail','salpetre-camp');gares();
     const ga=got('gare-a'),gb=got('gare-b');if(ga?.done&&gb?.done&&!W.s.vehicles.some(v=>v.k==='train')&&!ga.queue.length){const r=W.train(ga,'train');if(r.ok)say('train commandé');}
-    if(gb?.done&&got('fer-mine')&&!S.relinked){const m=got('fer-mine');if(W.linkOk(m,gb.id)){W.setLink(m,'out',gb.id);S.relinked=true;say('mine de fer rattachée à la gare');}}
+    if(gb?.done&&got('salpetre-mine')&&!S.relinked){const m=got('salpetre-mine');if(W.linkOk(m,gb.id)){W.setLink(m,'out',gb.id);S.relinked=true;say('mine de salpêtre rattachée à la gare');}}
     // porteurs : un par dépôt achevé (deux au centre-ville), pris parmi les oisifs
     for(const D of W.s.buildings.filter(b=>b.f===F&&b.done&&W.isDepot(b)))if(W.porters(D).length<(D.k==='centre'?2:1)&&W.idle(F).length>2)W.addPorters(D,1);
-    // la briqueterie, l'arsenal : leur production
+    // l'arsenal : sa production
     const ar=got('arsenal');if(ar?.done&&!S.arsSet){S.arsSet=true;}
     // les soldats : une douzaine
     const cas=got('caserne');if(cas?.done&&!cas.queue.length&&W.s.units.filter(u=>u.f===F&&u.w).length<12){const r=W.train(cas,'soldat','mle1');if(!r.ok)S.soldierWhy=r.why.join(', ');}
@@ -80,7 +80,7 @@ function play(seed){const W=new World(seed);const cap=W.capital();const [ci,cj]=
         built:bs.filter(b=>b.done).length,sites:bs.filter(b=>!b.done&&!b.ruin).length,waiting:bs.filter(b=>!b.done&&!b.ruin&&b.why).map(b=>`${BUILDINGS[b.k].name}: ${b.why}`),ruins:bs.filter(b=>b.ruin).length,
         why,short:sh.length,shortTop:sh.slice(0,4).map(s=>`${BUILDINGS[s.D.k].name}/${s.k} ${r1(s.n)}${s.inb>0?' (en route)':s.src<1?' (sans source)':''}`),
         veh:vs.map(v=>`${v.k[0]}${v.trips||0}${v.why?'!':''}`).join(' '),vehWhy:vs.filter(v=>v.why).map(v=>`${v.name}: ${v.why}`),
-        stock:Object.fromEntries(['bois','pierre','vivres','charbon','argile','briques','pieces','fer','sels','m:mle1','a:mle1'].map(k=>[k,Math.round(tot[k]||0)])),
+        stock:Object.fromEntries(['bois','pierre','vivres','charbon','fer','pieces','sels','m:mle1','a:mle1'].map(k=>[k,Math.round(tot[k]||0)])),
         war:W.atWar,waves:W.s.beee.waves,deadM:W.s.corpses.filter(c=>c.f===F).length,deadB:W.s.corpses.filter(c=>c.f==='beee').length,beee:W.s.units.filter(u=>u.f==='beee').length});}}
   if(process.env.DBG){const bs=W.s.buildings.filter(b=>b.f===F);
     console.log('SITES',bs.filter(b=>!b.done&&!b.ruin).map(b=>({k:b.k,prog:+b.progress.toFixed(2),why:b.why,site:b.site&&W.depotName(W.building(b.site)),paid:b.paid,builders:W.s.units.filter(u=>u.task?.b===b.id).length})));

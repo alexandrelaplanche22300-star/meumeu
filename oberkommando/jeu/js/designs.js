@@ -21,7 +21,7 @@ export function weightOf(k,designs,armors){if(k.startsWith('a:')){const d=design
 // Ce que coûte une caisse de munitions, une arme, un prototype
 export function crateCost(p){const D=derive(p);const k=D.perCrate/1000;return Object.fromEntries(Object.entries(D.costK).map(([r,v])=>[r,+(v*k).toFixed(2)]).filter(([,v])=>v>0));}
 export function weaponCost(p){return {...derive(p).costW};}
-export function protoCost(p){const D=derive(p);const w=D.costW;return {pieces:+(4+w.pieces*2).toFixed(1),fer:+(w.fer*4+1).toFixed(1),sels:1,...(CONSTRUCTIONS[p.cons].rare?{[CONSTRUCTIONS[p.cons].rare]:2}:{})};}
+export function protoCost(p){const D=derive(p);const w=D.costW;return {pieces:+(5+w.pieces*2).toFixed(1),fer:+(w.fer*4+1).toFixed(1),cuivre:1};}
 export const PROTO_HOURS=14;
 // un éclat (de grenade, d'obus, de bombe) : un petit bout de métal irrégulier qui ne bascule pas
 export function fragDesign(mass,d){return {p:{d,nose:'plate',base:'plat',cons:'ap'},m:mass,l:d,Sg:5};}

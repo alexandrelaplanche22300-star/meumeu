@@ -104,7 +104,7 @@ export const ECO={
     const add=(D,k,n,p,src,by)=>{if(!(n>1e-6))return;let m=M.dem.get(D.id);if(!m)M.dem.set(D.id,m={});(m[k]??=[]).push({p,n,src,by});};
     for(const D of deps){const p=D.prio??3;for(const [k,n] of Object.entries(D.want||{}))add(D,k,n,p,'want',null);}
     // l'objectif : le rare à la capitale, en toute dernière priorité — n'importe quelle autre demande passe avant
-    const cap=this.s.buildings.find(b=>b.capital&&b.f===f);if(cap&&this.isDepot(cap)&&cap.goal!==false)for(const k of RARE)add(cap,k,GOAL,.5,'objectif',null);
+    const cap=null;if(cap)for(const k of RARE)add(cap,k,GOAL,.5,'objectif',null);
     for(const b of this.s.buildings){if(b.f!==f)continue;
       if(b.done&&BUILDINGS[b.k].factory){const need=this.factoryNeed(b);const D=need&&this.building(b.sup);if(D&&this.isDepot(D))for(const [k,n] of Object.entries(need))add(D,k,n,D.prio??3,'usine',b.id);}
       if(b.done&&b.need&&Object.keys(b.need).length){this.autoLink(b);const D=this.building(b.sup);if(D&&this.isDepot(D))for(const [k,n] of Object.entries(b.need))add(D,k,n,D.prio??3,'reserve',b.id);}

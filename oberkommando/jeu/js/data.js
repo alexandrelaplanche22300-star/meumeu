@@ -33,41 +33,39 @@ export const T={deep:0,shallow:1,sand:2,grass:3,meadow:4,dirt:5,scrub:6,rock:7,s
 
 export const RES={
   bois:{name:'Bois',icon:['p','tree_fir']},
-  pierre:{name:'Pierre',icon:['p','outcrop_rock']},
+  pierre:{name:'Pierre',icon:['p','outcrop_pale']},
   vivres:{name:'Vivres',icon:['r','common_food']},
   pieces:{name:'Pièces',icon:['r','common_mechanical-parts']},
   carburant:{name:'Carburant',icon:['r','sels-de-brule_fuel-canister']},
   explosifs:{name:'Explosifs',icon:['r','chem_explosif']},
   sante:{name:'Fournitures médicales',icon:['r','soie-de-falaise_fabric-roll']},
   charbon:{name:'Charbon',icon:['r','chem_charbon']},
-  argile:{name:'Argile',icon:['r','chem_argile']},
-  // l'industrie de l'armement : le plomb fait le noyau des balles, le cuivre la chemise et l'étui, le salpêtre et le soufre
-  // (avec du charbon) la poudre
+  // l'industrie : le fer fait les armes, les pièces, les plaques ; le plomb le noyau des balles, le cuivre la chemise et
+  // l'étui ; le salpêtre (avec du charbon), à l'usine chimique, la poudre et les explosifs
+  fer:{name:'Fer',icon:['r','fer-de-cendre_raw']},
   cuivre:{name:'Cuivre',icon:['r','fer-de-cendre_ingots']},
   plomb:{name:'Plomb',icon:['r','chem_residu']},
-  soufre:{name:'Soufre',icon:['r','chem_engrais']},
   salpetre:{name:'Salpêtre',icon:['r','chem_divers']},
   poudre:{name:'Poudre',icon:['r','chem_explosif']},
-  briques:{name:'Briques',icon:['r','common_bricks']},
-  fer:{name:'Fer-de-Cendre',icon:['r','fer-de-cendre_raw'],rare:true},
-  sels:{name:'Sels de Brûle',icon:['r','sels-de-brule_raw'],rare:true},
   soie:{name:'Soie de Falaise',icon:['r','soie-de-falaise_fiber'],rare:true},
-  verre:{name:'Verre-Qui-Écoute',icon:['r','verre-qui-ecoute_raw'],rare:true},
 };
-export const RARE=['fer','sels','soie','verre'];
+export const RARE=['soie'];   // le seul rare : la soie de falaise (soins, gilets), loin, à aller chercher
 export const GOODS=Object.keys(RES);
-export const OUTCROP={fer:'outcrop_fer',sels:'outcrop_sel',verre:'outcrop_verre',soie:'outcrop_teal',charbon:'outcrop_charbon',argile:'outcrop_argile',pierre:'outcrop_pale',cuivre:'outcrop_purple',plomb:'outcrop_goudron',soufre:'outcrop_green',salpetre:'outcrop_rock'};
-// les filons communs (charbon, argile) : plus riches que le rare
-export const ORE_LEFT={charbon:2400,argile:1800,pierre:4000,cuivre:1600,plomb:1600,soufre:1200,salpetre:1400};
+export const OUTCROP={fer:'outcrop_fer',soie:'outcrop_teal',charbon:'outcrop_charbon',pierre:'outcrop_pale',cuivre:'outcrop_green',plomb:'outcrop_goudron',salpetre:'outcrop_rock'};
+// la couleur de chaque gisement sur la carte et la mini-carte
+export const ORE_COL={fer:'#ff6a2a',charbon:'#2a2d31',pierre:'#d8d2c4',cuivre:'#8ccf4a',plomb:'#5d6b7c',salpetre:'#f4f1e6',soie:'#3fc2b0'};
+// les filons communs : plus riches que le rare
+export const ORE_LEFT={charbon:2400,fer:2400,pierre:4000,cuivre:1600,plomb:1600,salpetre:1600};
 // les gisements du commun, et où les chercher (près de la capitale : de quoi démarrer ; loin : à relier par le rail)
-export const COMMON_ORES=['pierre','charbon','argile','cuivre','plomb','soufre','salpetre'];   // la pierre : de gros gisements, une mine dessus
+export const COMMON_ORES=['pierre','charbon','fer','cuivre','plomb','salpetre'];   // la pierre : de gros gisements, une mine dessus
 // Les familles de fret : un véhicule peut n'en porter que certaines (un train de charbon, un porteur de munitions).
 export const FAMILIES={
-  materiaux:{name:'Matériaux',goods:['bois','pierre','argile','briques']},
+  materiaux:{name:'Matériaux',goods:['bois','pierre']},
+  minerais:{name:'Minerais',goods:['fer','cuivre','plomb','salpetre']},
   energie:{name:'Charbon',goods:['charbon']},
   industrie:{name:'Pièces',goods:['pieces']},
   vivres:{name:'Vivres',goods:['vivres']},
-  rare:{name:'Le rare',goods:['fer','sels','soie','verre']},
+  rare:{name:'Le rare',goods:['soie']},
   guerre:{name:'Guerre',goods:['explosifs','sante'],prefix:['m:','a:','p:']},
 };
 export const familyOf=k=>{for(const [f,F] of Object.entries(FAMILIES))if(F.goods.includes(k)||(F.prefix||[]).some(p=>k.startsWith(p)))return f;return 'materiaux';};
@@ -87,7 +85,7 @@ export const NODES={
 // Les bâtiments. size : [i, j] en cases. store : un dépôt, et combien il tient. pop : places de vie. hp : ce qu'il encaisse.
 // Un bâtiment à zéro s'effondre : il reste une ruine qu'on rebâtit (sans repayer), ou qu'on déblaie.
 export const BUILDINGS={
-  centre:{name:'Centre-ville',sprite:'command',big:true,size:[4,4],cost:{bois:200,pierre:120,pieces:20,briques:60},hours:30,store:4000,pop:10,hp:1600,trains:['villageois'],defense:{range:9,shooters:2},shelter:20,ward:4,
+  centre:{name:'Centre-ville',sprite:'command',big:true,size:[4,4],cost:{bois:200,pierre:150,pieces:20},hours:30,store:4000,pop:10,hp:1600,trains:['villageois'],defense:{range:9,shooters:2},shelter:20,ward:4,
     why:'Le cœur d’une ville : un grand dépôt, dix places de vie, on y forme des Meumeu. Le premier est la capitale : le rare doit y arriver. Tombé, la ville est perdue.'},
   camp:{name:'Camp',sprite:'shelter',size:[2,2],cost:{bois:15},hours:5,store:500,hp:300,workers:6,hub:true,
     why:'Un dépôt de poche au bord d’une forêt, de rochers, de buissons : envoyez-y des villageois, ils ramassent tout autour (10 cases) et y rapportent. Ce qui est au camp y reste : les porteurs et les trains le font circuler.'},
@@ -97,42 +95,40 @@ export const BUILDINGS={
     why:'Des pièces : une production à la fois. Il prend ses matières à son dépôt d’approvisionnement, livre à son dépôt de sortie, et ses tours brûlent du charbon.'},
   four:{name:'Four à charbon de bois',sprite:'charcoal',size:[2,2],cost:{bois:20,pierre:20},hours:6,workers:2,hp:300,factory:{coal:0,mod:'atelier'},
     why:'Une meule de bois qui couve : quatre caisses de bois donnent une caisse de charbon. Lent, mais partout — en attendant un vrai filon.'},
-  briqueterie:{name:'Briqueterie',sprite:'bricks',size:[2,2],cost:{bois:40,pierre:30},hours:8,workers:3,hp:450,factory:{coal:0,mod:'briques'},
-    why:'Argile et charbon : le four cuit des briques. Sans briques, pas de gare, pas d’arsenal, pas de ville nouvelle.'},
   mine:{name:'Mine',sprite:'kiln',size:[2,2],cost:{bois:40,pierre:30,pieces:6},hours:10,workers:4,onOre:true,rate:4,hp:500,
     why:'Sur un filon. Quatre Meumeu en sortent le rare quatre fois plus vite qu’à la main. Il faut un dépôt tout près.'},
   gare:{name:'Gare',sprite:'depot',size:[3,2],cost:{bois:70},hours:10,store:1500,station:true,hp:600,trains:['train'],
     why:'Un dépôt au bord de la voie. Les trains y chargent et y déchargent ; on y construit les locomotives. Une mine, une usine qui y sont rattachées sont reliées au réseau.'},
   entrepot:{name:'Entrepôt',sprite:'warehouse',big:true,size:[3,3],cost:{bois:80},hours:10,store:2500,hp:700,
     why:'Un grand dépôt, sans voie : au cœur d’un quartier d’usines, au pied d’une mine. Réglez sa priorité et ses demandes : le fret le remplit.'},
-  labo:{name:'Laboratoire',sprite:'still',size:[3,3],cost:{bois:80,pierre:60,briques:20},hours:14,unique:true,hp:500,lab:true,
+  labo:{name:'Laboratoire',sprite:'still',size:[3,3],cost:{bois:80,pierre:70},hours:14,unique:true,hp:500,lab:true,
     why:'Les idées des Meumeu y deviennent des innovations : chaque idée se développe ici, contre des ressources et du temps.'},
-  caserne:{name:'Caserne',sprite:'school',size:[3,3],cost:{bois:60,pierre:40,briques:20},stock0:{'a:mle1':4,vivres:60,pieces:8},hours:12,hp:800,trains:['soldat','commando'],
+  caserne:{name:'Caserne',sprite:'school',size:[3,3],cost:{bois:60,pierre:50},stock0:{'a:mle1':4,vivres:60,pieces:8},hours:12,hp:800,trains:['soldat','commando'],
     why:'On y forme soldats et commandos, armés d’une conception adoptée : il faut l’arme et ses munitions dans un dépôt proche. Ils rechargent dans les dépôts : une armée loin de ses dépôts finit à sec.'},
-  poudrerie:{name:'Poudrerie',sprite:'motor',size:[2,2],cost:{bois:40,pierre:40,briques:20,pieces:6},hours:10,workers:3,hp:350,factory:{coal:.15,mod:'armement'},
-    why:'Salpêtre, soufre et charbon broyés ensemble : la poudre des cartouches, ou des explosifs. Une seule production à la fois. Loin des maisons : ça saute.'},
-  arsenal:{name:'Arsenal',sprite:'chem',size:[2,2],cost:{bois:40,pierre:40,pieces:10,briques:20},hours:10,workers:2,hp:500,arsenal:true,factory:{coal:.25,mod:'armement'},
+  poudrerie:{name:'Usine chimique',sprite:'motor',size:[2,2],cost:{bois:40,pierre:50,pieces:6},hours:10,workers:3,hp:350,factory:{coal:.15,mod:'armement'},
+    why:'Le salpêtre et le charbon, traités, broyés, mêlés : la poudre des cartouches, ou des explosifs (obus, grenades, charges). Une seule production à la fois. Loin des maisons : ça saute.'},
+  arsenal:{name:'Arsenal',sprite:'chem',size:[2,2],cost:{bois:40,pierre:50,pieces:10},hours:10,workers:2,hp:500,arsenal:true,factory:{coal:.25,mod:'armement'},
     why:'Les munitions d’une conception adoptée — plomb pour les balles, cuivre pour les étuis, poudre, pièces : une seule production par arsenal. Tout part en caisses au dépôt de sortie.'},
   armurerie:{name:'Bureau d’études',sprite:'research',size:[2,2],cost:{bois:40,pierre:30,pieces:10},hours:12,hp:400,design:true,
     why:'On y conçoit les armes : le calibre, l’ogive, la poudre, le canon, la culasse. Un prototype coûte des ressources et du temps ; adopté, il se fabrique.'},
-  manufacture:{name:'Manufacture d’armes',sprite:'foundry',size:[3,3],cost:{pierre:80,bois:40,pieces:30,fer:10,briques:40},hours:20,workers:4,hp:900,manufacture:true,factory:{coal:.3,mod:'armement'},
+  manufacture:{name:'Manufacture d’armes',sprite:'foundry',size:[3,3],cost:{pierre:100,bois:40,pieces:30,fer:10},hours:20,workers:4,hp:900,manufacture:true,factory:{coal:.3,mod:'armement'},
     why:'Une usine d’armes, outillée pour un seul modèle (fusil ou protection) : changer de modèle, c’est refaire l’outillage (6 h). Quand la dernière tombe, les plans sont perdus — sauf des archives dans une autre ville.'},
-  hopital:{name:'Hôpital',sprite:'lab',stock0:{vivres:40,sante:8},size:[3,3],cost:{bois:60,pierre:40,pieces:10,briques:20},hours:14,hp:600,ward:12,workers:2,trains:['infirmier','medecin'],makesMed:true,factory:{coal:0,mod:'soins'},
+  hopital:{name:'Hôpital',sprite:'lab',stock0:{vivres:40,sante:8},size:[3,3],cost:{bois:60,pierre:50,pieces:10},hours:14,hp:600,ward:12,workers:2,trains:['infirmier','medecin'],makesMed:true,factory:{coal:0,mod:'soins'},
     why:'On y opère et on y guérit tout à fait : le sang revient, les os se ressoudent en trois jours. On y forme infirmiers et médecins, on y fait les fournitures médicales avec de la soie.'},
   tente:{name:'Tente médicale',sprite:'tent',size:[2,2],cost:{bois:5,sante:1},hours:1.5,hp:120,ward:6,store:30,tent:true,
     why:'Le poste de secours avancé : un médecin la plante près du front et y opère — hémostase, ligatures, sutures. On y stabilise, puis on évacue vers l’hôpital. Un petit dépôt : ravitaillez-la en fournitures médicales.'},
   archives:{name:'Archives techniques',sprite:'loom',size:[2,2],cost:{pierre:40,bois:20},hours:10,hp:500,archives:true,
     why:'Une copie des plans d’armes. Si la manufacture tombe, les conceptions survivent — à condition que les archives soient loin d’elle (20 cases).'},
-  fonderie:{name:'Fonderie',sprite:'boiler',size:[3,2],cost:{pierre:60,pieces:20,briques:40},stock0:{pieces:40,fer:30,bois:30,charbon:10},hours:14,hp:700,trains:['canon'],
+  fonderie:{name:'Fonderie',sprite:'boiler',size:[3,2],cost:{pierre:80,pieces:20},stock0:{pieces:40,fer:30,bois:30,charbon:10},hours:14,hp:700,trains:['canon'],
     why:'Des canons, avec du fer. Ils portent loin et abattent les murs, les tours, les maisons.'},
   tour:{name:'Tour',sprite:'turret',size:[2,2],cost:{pierre:50,bois:20},hours:10,hp:1000,defense:{range:11,shooters:3},
     why:'Elle tire seule sur tout Bèè à portée. Plusieurs lignes de tours derrière un mur : la défense en profondeur.'},
 };
-export const BUILD_ORDER=['camp','maison','ferme','atelier','four','briqueterie','mine','poudrerie','gare','entrepot','centre','caserne','arsenal','armurerie','manufacture','hopital','tente','archives','fonderie','tour'];
+export const BUILD_ORDER=['camp','maison','ferme','atelier','four','mine','poudrerie','gare','entrepot','centre','caserne','arsenal','armurerie','manufacture','hopital','tente','archives','fonderie','tour'];
 // le menu de construction, par familles : ce qui fait vivre, ce qui relie, ce qui arme, ce qui soigne, ce qui défend
 export const BUILD_CATS=[
   {k:'vivre',name:'Vivre',hint:'ramasser, loger, nourrir',items:['camp','maison','ferme','centre']},
-  {k:'produire',name:'Produire',hint:'extraire, transformer : une usine, une production',items:['mine','four','briqueterie','atelier','poudrerie','labo']},
+  {k:'produire',name:'Produire',hint:'extraire, transformer : une usine, une production',items:['mine','four','atelier','poudrerie','labo']},
   {k:'relier',name:'Relier',hint:'dépôts et fret : rails, gares, entrepôts',items:['gare','entrepot'],lines:['rail']},
   {k:'armer',name:'Armer',hint:'concevoir, fabriquer, former',items:['armurerie','manufacture','arsenal','caserne','fonderie','archives']},
   {k:'soigner',name:'Soigner',hint:'la chaîne des soins',items:['hopital','tente']},
@@ -188,16 +184,15 @@ export const INNOV=[
   {id:'tender',dom:'logistique',name:'Le tender allongé',text:'Un wagon à charbon plus grand derrière la locomotive : elle va moitié plus loin sans refaire le plein.',mod:{tender:1.5},cost:{pieces:10,fer:4},hours:6},
   {id:'aiguillages',dom:'logistique',name:'Les aiguillages à levier',text:'Moins d’arrêts, des trains qui roulent plus vite.',mod:{vit_train:1.25},cost:{fer:6,pieces:10},hours:10},
   {id:'echafaudages',dom:'construction',name:'Les échafaudages',text:'On bâtit à plusieurs étages en même temps.',mod:{construction:1.35},cost:{bois:40},hours:6},
-  {id:'hoffmann',dom:'construction',name:'Le four annulaire',text:'Un four en anneau qui ne s’éteint jamais : les briques cuisent en continu.',mod:{briques:1.4},cost:{briques:30,pierre:20},hours:8},
-  {id:'mortier',dom:'construction',name:'Le mortier de cendre',text:'Des murs qui tiennent sous les obus.',mod:{mur:1.5},cost:{pierre:30,sels:2},hours:8},
+  {id:'mortier',dom:'construction',name:'Le mortier de cendre',text:'Des murs qui tiennent sous les obus.',mod:{mur:1.5},cost:{pierre:30,salpetre:2},hours:8},
   {id:'presse',dom:'armement',name:'La presse à étuis',text:'Des étuis emboutis au lieu de tournés : moins de fer par caisse.',mod:{fer_munitions:.75},cost:{fer:8,pieces:12},hours:12},
   {id:'chaine',dom:'armement',name:'La chaîne de montage',text:'Chaque Meumeu ne fait qu’une pièce : les fusils sortent plus vite.',mod:{armement:1.4},cost:{pieces:20,bois:20},hours:12},
   {id:'hausse',dom:'tir',name:'La hausse graduée',text:'Une mire qu’on règle à la distance : on corrige la chute de la balle.',mod:{tir:1.2},cost:{pieces:6,fer:2},hours:8},
   {id:'appui',dom:'tir',name:'Le tir appuyé',text:'On pose l’arme sur un sac, un mur, une pierre : la main ne tremble plus.',mod:{tir:1.12},cost:{soie:2,vivres:20},hours:4},
   {id:'tourniquet',dom:'soins',name:'Le garrot à tourniquet',text:'Un garrot qu’on desserre un peu par heure : le membre tient bien plus longtemps.',mod:{garrot:1.8},cost:{soie:2,sante:2},hours:5},
-  {id:'plasma_sec',dom:'soins',name:'Le plasma séché',text:'Une poudre qu’on délaye sur place : deux fois plus de plasma par trousse.',mod:{plasma:2},cost:{sante:4,sels:2},hours:8},
+  {id:'plasma_sec',dom:'soins',name:'Le plasma séché',text:'Une poudre qu’on délaye sur place : deux fois plus de plasma par trousse.',mod:{plasma:2},cost:{sante:4,salpetre:1},hours:8},
   {id:'brancard',dom:'soins',name:'Le brancard à roues',text:'On évacue un blessé presque au pas de course.',mod:{brancard:1.5},cost:{bois:15,pieces:4},hours:4},
-  {id:'antiseptique',dom:'soins',name:'L’antiseptique de sels',text:'On lave les plaies : l’infection d’une panse percée va trois fois moins vite.',mod:{antiseptique:.33},cost:{sels:4,sante:2},hours:8},
+  {id:'antiseptique',dom:'soins',name:'L’antiseptique',text:'On lave les plaies : l’infection d’une panse percée va trois fois moins vite.',mod:{antiseptique:.33},cost:{salpetre:3,sante:2},hours:8},
   {id:'suture',dom:'soins',name:'La suture rapide',text:'Un fil et une aiguille courbe : on opère en deux fois moins de temps.',mod:{chirurgie:2},cost:{soie:3,sante:2},hours:6},
   {id:'creneaux',dom:'defense',name:'Les créneaux',text:'Des ouvertures étroites dans les tours : un tireur de plus, mieux protégé.',mod:{creneaux:1.34},cost:{pierre:30},hours:6},
   {id:'sacs',dom:'defense',name:'Les sacs de terre',text:'Derrière un mur doublé de sacs, les balles s’arrêtent.',mod:{couvert:1.6},cost:{soie:3,bois:10},hours:5},
@@ -209,12 +204,11 @@ export const STEPS=[
   {k:'camp',name:'Un camp au bord de la forêt',hint:'Bâtir → Vivre → Camp près des arbres, puis clic droit des villageois sur le camp : ils récoltent autour.'},
   {k:'charbon',name:'Une mine de charbon',hint:'Un filon noir brille près de la capitale : un camp à côté (un dépôt), puis Bâtir → Produire → Mine dessus. Le chantier commande ses matériaux au camp.'},
   {k:'charrette',name:'Des porteurs',hint:'Sur un dépôt : Affecter des porteurs. À pied, ils servent les commandes des dépôts voisins (22 cases) — la gare, le camp, l’usine.'},
-  {k:'briques',name:'Une briqueterie qui tourne',hint:'Une mine d’argile, puis Bâtir → Produire → Briqueterie : elle commande argile et charbon à son dépôt, le fret les amène.'},
   {k:'atelier',name:'Un atelier',hint:'Bâtir → Produire → Atelier : des pièces (choisissez sa production), du charbon pour ses machines.'},
   {k:'labo',name:'Un laboratoire',hint:'Bâtir → Produire → Laboratoire : les idées des Meumeu y deviennent des innovations.'},
   {k:'hopital',name:'Un hôpital',hint:'Bâtir → Soigner → Hôpital : on y forme infirmiers et médecins.'},
   {k:'caserne',name:'Une caserne et six soldats',hint:'Bâtir → Armer → Caserne, puis Former des soldats (il faut des fusils au dépôt).'},
-  {k:'arsenal',name:'Un arsenal qui tourne',hint:'Bâtir → Armer → Arsenal, deux villageois dedans : des munitions, avec du fer, des sels et du charbon.'},
+  {k:'arsenal',name:'Un arsenal qui tourne',hint:'Bâtir → Armer → Arsenal, deux villageois dedans : des munitions (plomb, cuivre, poudre, pièces), qu’on commande à son dépôt.'},
   {k:'rail',name:'Une voie ferrée, deux gares, un train',hint:'Bâtir → Relier : tracez une voie, une gare à chaque bout, un train à la gare. Rattachez une mine lointaine à sa gare : le rail la relie.'},
   {k:'defense',name:'Deux tours et un mur',hint:'Bâtir → Défendre : des tours, un mur tracé devant la ville. La guerre vient.'},
   {k:'escouade',name:'Une escouade avec un médecin',hint:'Choisissez des soldats et un médecin, touche G.'}];
@@ -232,11 +226,10 @@ export const VEHICLES={
 // Les munitions (m:), les armes (a:) et les protections (p:) se calculent d'après la conception (world.recipe).
 // limit : le plafond par défaut — l'usine s'arrête quand son dépôt de sortie en a autant.
 export const PRODUCTS={
-  pieces:{name:'Pièces',at:'atelier',in:{bois:2,pierre:1},out:{pieces:2},hours:1.5,limit:80},
+  pieces:{name:'Pièces',at:'atelier',in:{fer:1,bois:1},out:{pieces:2},hours:1.5,limit:80},
   charbon:{name:'Charbon de bois',at:'four',in:{bois:4},out:{charbon:1},hours:2,limit:80},
-  briques:{name:'Briques',at:'briqueterie',in:{argile:3,charbon:1},out:{briques:4},hours:2,limit:160},
-  poudre:{name:'Poudre',at:'poudrerie',in:{salpetre:3,soufre:1,charbon:1},out:{poudre:4},hours:2,limit:60},
-  explosifs:{name:'Explosifs',at:'poudrerie',in:{salpetre:2,soufre:1,charbon:1},out:{explosifs:2},hours:2,limit:20},
+  poudre:{name:'Poudre',at:'poudrerie',in:{salpetre:3,charbon:1},out:{poudre:4},hours:2,limit:60},
+  explosifs:{name:'Explosifs',at:'poudrerie',in:{salpetre:3,charbon:2},out:{explosifs:2},hours:3,limit:30},
   sante:{name:'Fournitures médicales',at:'hopital',in:{soie:1},out:{sante:4},hours:3,limit:12},
 };
 export const RECIPES=PRODUCTS;
@@ -256,7 +249,7 @@ export const BEEE={cities:2,peace:[14,18],every:2.2,wave:3,grow:2,air:5,airEvery
     canon:{name:'Canon bèè',img:'canon',speed:4.5,range:13,cd:10,vsB:3,dmg:40,hp:150,shell:true},
   }};
 
-export const START={villagers:8,stock:{bois:200,pierre:80,vivres:250,pieces:30,explosifs:6,sante:8,charbon:60,briques:40,plomb:20,cuivre:20,poudre:20,'a:mle1':10,'m:mle1':8,'p:casque':10,'p:gilet':2}};
+export const START={villagers:8,stock:{bois:200,pierre:80,vivres:250,pieces:30,explosifs:6,sante:8,charbon:60,fer:40,plomb:20,cuivre:20,poudre:20,'a:mle1':10,'m:mle1':8,'p:casque':10,'p:gilet':2}};
 export const GOAL=100;
 export const NAMES=['Biscotte','Praline','Nougat','Réglisse','Cannelle','Muscade','Pistache','Cachou','Grelot','Clochette','Berlingot','Roudoudou','Cardamome','Guimauve','Chicorée','Pâquerette','Tilleul','Semoule','Griotte','Amandine','Fleurette','Noisette','Caramel','Violette','Bergamote','Sucre','Mirabelle','Câpre','Marelle','Galette','Brioche','Dragée','Vanille','Sésame','Cerise','Myrtille'];
 export const CITY_NAMES=['Meumeuville','Port-Biscotte','Praline-sur-Mer','Val-Nougat','Cannelle-les-Mines','Fort-Réglisse','Grelotin'];

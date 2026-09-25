@@ -24,7 +24,7 @@ const cm=m=>Math.abs(m)<.1?`${fmt(m*100,1)} cm`:`${fmt(m*100,0)} cm`;
 
 // Les munitions, par famille : ce qui sert à quoi
 const FAMS=[['Ordinaires',['fmj','fmjm','plombnu','duplex','trc']],['Expansives',['sp','hp','monolithique','frangible','slug']],
-  ['Perforantes',['ap','apt','tungstene','apv','sabot','apfsds']],['Incendiaires, explosives',['inc','api','he','hei','saphei','creuse']],['Gerbes',['chevrotine','flechette']]];
+  ['Perforantes',['ap','apt','tungstene','sabot','apfsds']],['Incendiaires, explosives',['inc','api','he','hei','saphei','creuse']],['Gerbes',['chevrotine','flechette']]];
 // La couleur de pointe (le code des arsenaux) : on reconnaît la munition à l'œil
 const TIPC={ap:'#15181b',apt:'#15181b',apv:'#6a4bc4',tungstene:'#9aa4ad',inc:'#2d6fd6',api:'#2d6fd6',trc:'#d23a2e',he:'#f0c419',hei:'#e0801f',saphei:'#e0801f',creuse:'#f0c419',sp:'#8d9196',frangible:'#58a55c',apfsds:'#15181b',sabot:'#15181b'};
 

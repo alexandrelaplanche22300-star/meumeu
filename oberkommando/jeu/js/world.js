@@ -12,7 +12,7 @@ import {newHealth,applyWound,tickHealth,malus,firstAid,doctorCare,heal,needsCare
 import {DEFAULT_DESIGNS,weightOf,crateCost,weaponCost,protoCost,PROTO_HOURS,fragDesign} from './designs.js';
 import {DEFAULT_ARMORS,deriveArmor,plateZone,armorHit} from './armor.js';
 
-export const SAVE_VERSION=6;
+export const SAVE_VERSION=7;
 const sum=o=>Object.values(o||{}).reduce((a,b)=>a+b,0);
 const d2=(ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -36,7 +36,7 @@ export class World{
     const [ci,cj]=G.capital;const cap=this.addBuilding('meumeu','centre',ci-2,cj-2,true);cap.capital=true;cap.goal=true;cap.city=CITY_NAMES[0];s.cityN=1;Object.assign(cap.stock,START.stock);
     for(let n=0;n<START.villagers;n++){const a=n/START.villagers*Math.PI*2;this.addUnit('meumeu','villageois',ci+Math.cos(a)*3.2,cj+Math.sin(a)*3.2);}
     G.beee.forEach(([bi,bj],n)=>this.makeBeeeCity(bi,bj,BEEE_CITIES[n]));
-    this.log(CITY_NAMES[0],'La capitale est fondée. Le rare est loin : il faudra des rails. Les Bèè tiennent l’autre bout du continent — pour l’instant, ils nous observent.');}
+    this.log(CITY_NAMES[0],'La capitale est fondée. Les bons filons sont loin : il faudra des rails. Les Bèè tiennent l’autre bout du continent — pour l’instant, ils nous observent.');}
   grids(){const N=this.N,M=N*N;this.occ=new Int32Array(M).fill(-1);this.rail=new Uint8Array(M);this.wall=new Int8Array(M);this.nodeAt=new Int32Array(M).fill(-1);
     for(const nd of this.s.nodes)if(nd.left>0||nd.type==='bush'||nd.type==='ore')this.nodeAt[nd.j*N+nd.i]=nd.id;
     for(const b of this.s.buildings)this.stamp(b,b.id);
@@ -259,7 +259,7 @@ export class World{
   setRoute(vid,a,b){const v=this.s.vehicles.find(x=>x.id===vid);const A=this.building(a),B=this.building(b);if(!v||!A||!B||a===b)return {ok:false,why:['deux arrêts différents']};
     const need=v.k==='train'?'station':v.k==='avion'?'airfield':'store';if(!BUILDINGS[A.k][need]||!BUILDINGS[B.k][need])return {ok:false,why:[v.k==='train'?'deux gares':v.k==='avion'?'deux aérodromes':'deux dépôts']};
     v.route={a,b,out:['guerre','vivres','industrie','materiaux'],back:['rare']};v.mode='ligne';v.job=null;v.state='go';v.leg=0;v.path=null;return {ok:true,text:`${v.name} : ligne ${this.cityName(A)} ↔ ${this.cityName(B)}`};}
-  goodsOf(sets,at){const map={rare:RARE,materiaux:['bois','pierre','argile','briques','charbon'],vivres:['vivres'],industrie:['pieces','carburant'],guerre:['explosifs','sante',...Object.keys(at?.stock||{}).filter(k=>k.startsWith('m:')||k.startsWith('a:'))]};return sets.flatMap(s=>map[s]||[]);}
+  goodsOf(sets,at){const map={rare:RARE,materiaux:['bois','pierre','charbon'],minerais:['fer','cuivre','plomb','salpetre'],vivres:['vivres'],industrie:['pieces','carburant'],guerre:['explosifs','sante',...Object.keys(at?.stock||{}).filter(k=>k.startsWith('m:')||k.startsWith('a:'))]};return sets.flatMap(s=>map[s]||[]);}
   // Charger : dans l'ordre des familles choisies, mais sans qu'un seul bien prenne tout — au plus 40 % de la place au premier tour,
   // puis ce qui reste. Un convoi part mêlé : des munitions, des vivres, des pièces, du bois.
   capOf(v){return VEHICLES[v.k].cap*(v.k==='porteur'?this.mod('cap_porteur'):v.k==='train'?this.mod('cap_train'):1);}
@@ -807,7 +807,7 @@ B.nextAir=this.s.t+BEEE.airEvery*DAY*(.7+this.rand()*.6);const af=this.s.buildin
   develop(id){const r=this.canDevelop(id);if(!r.ok)return r;const I=INNOV.find(x=>x.id===id);this.pay('meumeu',r.lab.i+1,r.lab.j+1,I.cost);r.lab.dev={id,left:I.hours,total:I.hours};
     this.s.innov.ideas=this.s.innov.ideas.filter(x=>x.id!==id);this.log(this.cityName(r.lab),`Le laboratoire développe : ${I.name}.`,'good');return {ok:true,text:`Au laboratoire : ${I.name} (${I.hours} h)`};}
   dropIdea(id){this.s.innov.ideas=this.s.innov.ideas.filter(x=>x.id!==id);}
-  checkEnd(){const s=this.s;if(!s.won){const cap=this.capital();if(cap&&!cap.ruin&&RARE.every(k=>(cap.stock[k]||0)>=GOAL)){s.won={day:this.day,how:'rare'};this.log(cap.city,'Cent caisses de chaque rare à la capitale : la civilisation meumeu a ce qu’il lui faut.','good');this.emit({type:'won'});}
+  checkEnd(){const s=this.s;if(!s.won){const cap=this.capital();
       if(s.beee.cities.length&&s.beee.cities.every(c=>c.fallen)){s.won={day:this.day,how:'guerre'};this.log('Front','Toutes les villes bèè sont tombées. La guerre est gagnée.','good');this.emit({type:'won'});}}
     if(!s.lost&&!s.buildings.some(b=>b.f==='meumeu'&&b.k==='centre'&&!b.ruin)){s.lost={day:this.day};this.log('Front','Le dernier centre-ville est tombé.','bad');this.emit({type:'lost'});}}
 

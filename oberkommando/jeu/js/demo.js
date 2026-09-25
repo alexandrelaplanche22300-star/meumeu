@@ -5,8 +5,8 @@
 import {BUILDINGS,DAY,RARE} from './data.js';
 
 const MEUMEU=['caserne','armurerie','manufacture','arsenal','arsenal','poudrerie','hopital','entrepot','atelier','maison','maison','maison','maison','maison','maison'];
-const STOCK={bois:700,pierre:350,briques:200,charbon:300,pieces:300,fer:150,plomb:220,cuivre:200,poudre:160,salpetre:80,soufre:40,sels:60,soie:60,verre:20,
-  vivres:900,explosifs:40,sante:60,'a:mle1':30,'m:mle1':60,'p:casque':20,'p:gilet':12};
+const STOCK={bois:700,pierre:400,charbon:300,fer:260,cuivre:200,plomb:220,salpetre:160,pieces:300,poudre:160,explosifs:40,soie:60,
+  vivres:900,sante:60,'a:mle1':30,'m:mle1':60,'p:casque':20,'p:gilet':12};
 
 // un emplacement libre pour un bâtiment, en anneaux autour de (cx, cy) : le terrain, l'écart, la place (le dépôt, on s'en passe)
 function spot(W,f,k,cx,cy,r0=6,r1=30){for(let r=r0;r<=r1;r++)for(let a=0;a<24;a++){const an=a/24*Math.PI*2+r*.37;const i=Math.round(cx+Math.cos(an)*r),j=Math.round(cy+Math.sin(an)*r);

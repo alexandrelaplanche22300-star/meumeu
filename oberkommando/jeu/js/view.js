@@ -1,7 +1,7 @@
 // La vue : la carte entière en isométrique, qu'on parcourt comme dans Age of Empires. Elle lit le monde, ne le modifie jamais ;
 // les clics deviennent des demandes à l'interface. Deux niveaux de détail pour le sol : de près, une texture par case ;
 // de loin, une image de toute la carte, calculée une fois (c'est aussi la minicarte).
-import {MAP_N,TERRAIN,T,BUILDINGS,UNITS,VEHICLES,BEEE,RES,OUTCROP,NODES,LINES,DAY} from './data.js';
+import {MAP_N,TERRAIN,T,BUILDINGS,UNITS,VEHICLES,BEEE,RES,OUTCROP,ORE_COL,NODES,LINES,DAY} from './data.js';
 import {building,vehicle,resource,terrain,prop,sheet,drawFrame,fx,img} from './sprites.js';
 import {BLOOD,BODY_H} from './body.js';
 import {bleedRate,triage} from './health.js';
@@ -199,7 +199,8 @@ export class View{
       ctx.fillStyle=top;ctx.beginPath();ctx.moveTo(a.x,a.y-hgt);ctx.lineTo(b.x,b.y-hgt);ctx.lineTo(cc.x,cc.y-hgt);ctx.lineTo(d.x,d.y-hgt);ctx.fill();
       if(built){ctx.fillStyle=side;for(const t of [.25,.75]){const q=this.toScreen(i+t,j+t);ctx.fillRect(q.x-3*z,q.y-hgt-5*z,6*z,5*z);}const wo=W.s.walls[k];if(wo&&wo.hp<LINES.mur.hp*.99)this.bar(c.x,c.y-hgt-10*z,22*z,wo.hp/LINES.mur.hp,'#bd4b3d');}ctx.restore();}}
   drawNode(n){const ctx=this.ctx,z=this.z();const q=this.toScreen(n.i+.5,n.j+.5);const W=this.world;
-    if(n.type==='ore'){const im=prop(OUTCROP[n.res]);const w=TW*1.3*z;const pulse=.5+.5*Math.sin(this.frame/3);ctx.save();ctx.globalAlpha=.2+.2*pulse;ctx.fillStyle='#ffd36a';ctx.beginPath();ctx.ellipse(q.x,q.y,w*.5,w*.22,0,0,7);ctx.fill();ctx.restore();
+    if(n.type==='ore'){const im=prop(OUTCROP[n.res]);const w=TW*1.7*z;const pulse=.5+.5*Math.sin(this.frame/3);const col=ORE_COL[n.res]||'#ffd36a';ctx.save();const g=ctx.createRadialGradient(q.x,q.y,0,q.x,q.y,w*.75);g.addColorStop(0,col);g.addColorStop(1,col+'00');ctx.globalAlpha=(.35+.25*pulse)*(n.left>0?1:.3);ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(q.x,q.y,w*.75,w*.34,0,0,7);ctx.fill();ctx.restore();
+      if(this.zoom>.45){const t=`${RES[n.res]?.name||n.res} · ${Math.round(n.left)}`;ctx.font=`600 ${Math.round(11*Math.min(1.6,Math.max(.8,z)))}px system-ui`;const tw=ctx.measureText(t).width;const ly=q.y-w*.62;ctx.fillStyle='rgba(12,18,22,.78)';ctx.fillRect(q.x-tw/2-5,ly-12,tw+10,16);ctx.fillStyle=col;ctx.fillRect(q.x-tw/2-5,ly-12,3,16);ctx.fillStyle='#e8eef0';ctx.textAlign='center';ctx.fillText(t,q.x+1,ly);ctx.textAlign='left';}
       if(im&&!W.s.buildings.some(b=>b.ore===n.id))ctx.drawImage(im,q.x-w/2,q.y-w*.75,w,w);const ic=icon(n.res);if(ic&&this.zoom>.5)ctx.drawImage(ic,q.x-9*z,q.y-w*.9,18*z,18*z);return;}
     if(n.left<1&&n.type!=='bush')return;let name,w,lift=.9;const f=Math.min(1,n.left/n.max);
     if(n.type==='tree'){const ks=TREES[W.G.terrain[n.j*W.N+n.i]]||TREES[T.grass];name=f<.25?'tree_sapling':ks[(n.id*7+n.i)%ks.length];w=TW*(f<.25?.7:1+.25*f)*z;}
@@ -405,6 +406,7 @@ export class View{
   drawMini(mc){const x=mc.getContext('2d');const W=this.world,N=W.N;if(!this.overview)return;const w=mc.width,h=mc.height;x.setTransform(1,0,0,1,0,0);x.fillStyle='#0d2233';x.fillRect(0,0,w,h);
     x.drawImage(this.overview,0,0,w,h);const P=(i,j)=>[(i-j+N)/(2*N)*w,(i+j)/(2*N)*h];
     for(const b of W.s.buildings){const [px,py]=P(b.i+1,b.j+1);x.fillStyle=b.f==='beee'?(b.ruin?'#6a3a30':'#e0503a'):(b.ruin?'#555':'#ffd36a');x.fillRect(px-2,py-1.5,b.k==='centre'?5:3,b.k==='centre'?4:3);}
+    for(const n of W.s.nodes){if(n.type!=='ore'||n.left<=0)continue;const [px,py]=P(n.i+.5,n.j+.5);x.fillStyle='#000a';x.fillRect(px-2.5,py-2.5,5,5);x.fillStyle=ORE_COL[n.res]||'#ffd36a';x.fillRect(px-1.8,py-1.8,3.6,3.6);}
     for(const [k,r] of Object.entries(W.s.rails)){if(!r.b)continue;const [px,py]=P(+k%N,(+k/N)|0);x.fillStyle='#cfd3d6';x.fillRect(px,py,1,1);}
     for(const u of W.s.units){const [px,py]=P(u.x,u.y);x.fillStyle=u.f==='beee'?'#ff3b2f':u.k==='villageois'?'#fff':'#7fd3f0';x.fillRect(px-1,py-1,2,2);}
     for(const v of W.s.vehicles){const [px,py]=P(v.x,v.y);x.fillStyle=v.f==='beee'?'#ff3b2f':'#9fe8ff';x.beginPath();x.arc(px,py,2.5,0,7);x.fill();}
