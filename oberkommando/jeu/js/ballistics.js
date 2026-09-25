@@ -1,0 +1,189 @@
+// La balistique, de la poudre à l'organe. Unités : mm pour les dimensions d'une munition, g pour les masses, m/s, joules.
+// Les Meumeu et les Bèè mesurent 30 cm : leurs armes sont à leur taille (un fusil de base tire une balle de 1,8 mm, 0,1 g, à 800 m/s).
+// Rien ici ne dépend de l'échelle : les mêmes formules donnent la vraie 7,62×51 humaine, qui sert de calibration aux bancs.
+//
+//  intérieure : l'énergie de la poudre, un rendement qui plafonne avec la longueur du canon, la masse de gaz qu'il faut aussi pousser
+//               (calé sur 7,62×51, 5,56×45, 9×19, 7,62×39, 12,7×99 : à ±6 %) ; la pression, la paroi du tube, l'usure ;
+//  extérieure : le coefficient balistique (masse / section / forme), la traînée G7 selon le nombre de Mach, la gravité ;
+//               la stabilité gyroscopique (règle de Miller) : une balle trop longue pour son pas de rayure bascule en vol ;
+//  terminale  : pas à pas dans le corps : traînée et résistance des tissus, basculement après un « cou » (quelques longueurs de balle),
+//               fragmentation au-dessus d'une vitesse seuil, expansion, os qui cassent, dévient et projettent des éclats ;
+//               cavité permanente (ce qui est écrasé) et cavité temporaire (ce qui est étiré : foie, rate, reins, cerveau).
+import {PARTS,TISSUE,partAt,regionAt,distTo,BODY_KG,BODY_H,INELASTIC,VESSELS} from './body.js';
+
+export const TILE_M=4;            // une case de carte : 4 m à l'échelle des Meumeu
+export const CRATE_KG=.25;        // une caisse : ce qu'un Meumeu porte à deux mains
+export const SHOOTER_KG=BODY_KG;
+export const Q_POWDER=4.0e6,RHO_AIR=1.225,G=9.81,C_SOUND=340;
+const G7=[[0,.120],[.8,.122],[.9,.146],[.95,.204],[1,.38],[1.05,.404],[1.1,.401],[1.2,.39],[1.4,.362],[1.6,.336],[1.8,.314],[2,.297],[2.5,.266],[3,.24],[4,.215]];
+function cdG7(M){if(M<=0)return G7[0][1];for(let i=1;i<G7.length;i++)if(M<=G7[i][0]){const [a,ca]=G7[i-1],[b,cb]=G7[i];return ca+(cb-ca)*(M-a)/(b-a);}return G7[G7.length-1][1];}
+
+// Le nez : sa longueur (en calibres), la part de volume qu'il garde, sa forme dans l'air (i), dans les tissus (cdT),
+// et le « cou » : combien de longueurs de balle elle parcourt dans le corps avant de basculer.
+export const NOSES={
+  pointue:{name:'Pointue',len:2.3,vf:.45,i:1.08,cdT:.26,neck:6,desc:'file dans l’air ; dans le corps, elle bascule tôt'},
+  ogive:{name:'Ogive ronde',len:1.4,vf:.6,i:1.45,cdT:.34,neck:12,desc:'un compromis'},
+  ronde:{name:'Ronde',len:.8,vf:.72,i:1.9,cdT:.45,neck:36,desc:'freine dans l’air, reste droite dans le corps'},
+  plate:{name:'Plate',len:.45,vf:.88,i:2.3,cdT:.85,neck:Infinity,desc:'coupe net, ne bascule jamais, perd vite sa vitesse'},
+};
+export const BASES={plat:{name:'Culot plat',i:1,vol:1,neck:1},bt:{name:'Culot en dépouille',i:.9,vol:.96,neck:.9}};
+// La construction : densité (g/cm³), vitesse de fragmentation (m/s) et part qui se brise, expansion [vmin, vmax, facteur],
+// perforation (constante de de Marre), dispersion en plus. `core` : un noyau dur ne se brise pas.
+export const CONSTRUCTIONS={
+  fmj:{name:'Blindée',rho:10.4,frag:900,fr:.35,K:5.5e-4,disp:.2,desc:'la balle de guerre : chemise de métal sur un noyau de plomb'},
+  fmjm:{name:'Blindée à chemise mince',rho:10.5,frag:760,fr:.45,K:5e-4,disp:.25,desc:'se fragmente au-dessus de 760 m/s : terrible de près, ordinaire plus loin'},
+  sp:{name:'Pointe molle',rho:10.8,expand:[430,820,1.55],frag:780,fr:.3,K:3.5e-4,disp:0,desc:'s’expanse : grosse blessure, perce mal'},
+  hp:{name:'Pointe creuse',rho:10.2,expand:[280,650,1.75],frag:640,fr:.35,K:2.5e-4,disp:0,desc:'s’ouvre en corolle : arrête tout, ne perce rien'},
+  ap:{name:'Perforante (noyau acier)',rho:8.9,frag:Infinity,fr:0,K:1.37e-3,core:1,disp:.4,desc:'traverse tôles et murs, et le corps sans y laisser grand-chose'},
+  apv:{name:'Perforante (noyau de verre-qui-écoute)',rho:12.8,frag:Infinity,fr:0,K:2.3e-3,core:1,disp:.4,rare:'verre',desc:'le cristal rare : perce le blindage lourd ; très cher'},
+  inc:{name:'Incendiaire',rho:9.6,frag:850,fr:.35,K:6.5e-4,inc:1,disp:.6,desc:'met le feu à ce qu’elle touche de dur : dépôts, réservoirs, maisons'},
+  trc:{name:'Traçante',rho:9.7,frag:900,fr:.35,K:5e-4,tracer:1,disp:.8,desc:'on voit où elle va : le tireur corrige, l’ennemi voit d’où elle vient'},
+  he:{name:'Explosive',rho:9.2,frag:0,fr:.9,K:4e-4,he:1,minD:3,disp:.5,desc:'éclate au contact (3 mm et plus) : des éclats autour du point d’impact'},
+  sabot:{name:'Sous-calibre (sabot)',rho:17,frag:Infinity,fr:0,K:1.9e-3,core:1,sub:.5,disp:.7,ferx:2,desc:'un dard de métal lourd moitié moins large que le canon, lancé dans un sabot qui tombe à la bouche : très vite, perce tout, blessure fine'},
+  tungstene:{name:'Noyau de tungstène',rho:16,frag:Infinity,fr:0,K:1.8e-3,core:1,disp:.4,ferx:3,desc:'le plus dense des métaux : lourde, perce les plaques ; trois fois plus de fer par caisse'},
+  frangible:{name:'Frangible',rho:7.2,frag:220,fr:.9,K:1.2e-4,fragile:1,disp:.3,desc:'du métal fritté qui éclate au premier choc : terrible dans le corps, ne traverse ni un mur ni une plaque, ne ricoche pas'},
+  api:{name:'Perforante-incendiaire',rho:9,frag:Infinity,fr:0,K:1.25e-3,core:1,inc:1,disp:.5,desc:'un noyau dur et une charge incendiaire : perce la tôle et met le feu derrière'},
+  hei:{name:'Explosive-incendiaire',rho:8.8,frag:0,fr:.9,K:3.5e-4,he:1,inc:1,minD:3,disp:.6,desc:'éclate et enflamme (3 mm et plus) : contre les dépôts, les réservoirs, les trains'},
+  chevrotine:{name:'Chevrotine (9 plombs)',rho:11.3,frag:Infinity,fr:0,K:3e-4,pellets:9,spread:28,fill:.5,disp:0,desc:'neuf plombs ronds par coup : de près, rien ne résiste à la gerbe ; à 30 m, elle s’est ouverte et ne touche plus'},
+  flechette:{name:'Fléchettes (20 dards)',rho:7.85,frag:Infinity,fr:0,K:9e-4,core:1,pellets:20,dart:1,spread:16,fill:.45,disp:0,desc:'vingt dards d’acier empennés : ils ne basculent pas, percent un peu, font de petits trous — beaucoup'},
+};
+// La culasse : sa masse (kg par mm³ de cartouche, elle grandit avec la cartouche), sa cadence, ce qu'elle coûte.
+export const ACTIONS={
+  verrou:{name:'À verrou',k:3.2e-6,cycle:1.6,rpm:15,disp:0,cost:0,hours:0,desc:'précis, simple, lent'},
+  semi:{name:'Semi-automatique',k:5e-6,cycle:.35,rpm:40,disp:.4,cost:.8,hours:1.5,desc:'un coup par pression'},
+  auto:{name:'Automatique',k:7e-6,cycle:0,rpm:0,disp:1,cost:2,hours:3,desc:'des rafales : suppression, mais munitions, recul, chaleur'},
+};
+export const fmt=(v,n=0)=>(+v).toFixed(n).replace('.',',');
+
+// ---------- ce qu'une conception donne ----------
+// p : {d, l, nose, base, cons, c (poudre, g), L (canon, mm), twist (mm par tour), action, rof (coups/min), mag, heavy}
+const cache=new Map();
+export function derive(p){const key=JSON.stringify(p);let D=cache.get(key);if(D)return D;D=compute(p);cache.set(key,D);if(cache.size>500)cache.delete(cache.keys().next().value);return D;}
+function compute(p){const N=NOSES[p.nose],B=BASES[p.base],C=CONSTRUCTIONS[p.cons],A=ACTIONS[p.action];
+  const d=p.d,A_mm2=Math.PI*d*d/4;const noseLen=N.len*d;const l=Math.max(p.l,noseLen+.3*d);
+  // le projectile : une balle ; un dard sous-calibré (sabot) ; ou une gerbe de plombs, de fléchettes
+  const sub=C.sub||1,dp=d*sub,Ap=Math.PI*dp*dp/4;const pel=C.pellets||1;
+  let m,mp,dpr,lpr;if(pel>1){m=A_mm2*l*(C.fill||.5)*C.rho/1000;mp=m/pel;if(C.dart){dpr=d*.16;lpr=mp*1000/C.rho/(Math.PI*dpr*dpr/4);}else{dpr=Math.cbrt(6*mp*1000/C.rho/Math.PI);lpr=dpr;}}
+  else{const vol=Ap*(l-noseLen*sub+noseLen*sub*N.vf)*B.vol;m=vol*C.rho/1000;if(C.tracer)m*=.93;mp=m;dpr=dp;lpr=l;}
+  const mLaunch=m*(sub<1?1.35:1)+(pel>1?m*.08:0);                           // le sabot, la bourre : poussés aussi, puis perdus
+  const c=p.c;const L0=3200*c/A_mm2;const eta=.32*(1-Math.exp(-p.L/Math.max(.01,L0)));
+  const v0=Math.sqrt(2*eta*Q_POWDER*c/1000/(mLaunch/1000+c/3000));const E0=.5*m/1000*v0*v0;
+  // la pression de pointe (MPa) : elle monte avec la charge rapportée à la balle — 370 MPa pour un fusil ordinaire
+  // (poudre ≈ 0,3 × la balle), 200 pour un pistolet, 700 et plus si l'on bourre l'étui
+  const P=370*Math.pow(Math.max(.01,c/mLaunch)/.3,.35);
+  // l'étui qu'il faut pour cette charge, la cartouche entière, ce qu'elle pèse
+  const pistol=c/(A_mm2*d)<.002;const Dc=d*(pistol?1.25:1.45);const caseLen=(c/.85*1000)/(Math.PI*(Dc/2)**2*.8)+d;const caseMass=4.2*c+.0012*Dc**3;const COL=caseLen+l*.7;
+  const rm=mLaunch+c+caseMass;const perCrate=Math.floor(CRATE_KG*1000/rm);
+  // la stabilité (Miller) : m en grains, d en pouces, longueur et pas en calibres, v en pieds/s
+  // la stabilité : une balle doit être tenue par la rayure ; un dard sous-calibré et une fléchette sont empennés, un plomb est rond
+  const t_cal=p.twist/d,l_cal=l/d,d_in=d/25.4;const Sg=pel>1||sub<1?5:30*(m*15.432)/(t_cal*t_cal*d_in**3*l_cal*(1+l_cal*l_cal))*Math.cbrt(Math.max(1,v0*3.281)/2800);
+  const stab=Sg<1?6:Sg<1.3?1.4:1;
+  const SD=(mp/1000)/((dpr/1000)**2);const BC=SD/((pel>1&&!C.dart?2.6:C.dart?1.3:N.i)*B.i*(C.tracer?1.03:1));
+  // l'arme : le tube (plus épais si la pression monte), la culasse, la crosse, le chargeur
+  const wall=d*(.35+.00075*P)*(p.heavy?1.5:1);const Dout=d+2*wall;const barrelKg=p.L*Math.PI*((Dout/2)**2-(d/2)**2)*7.85e-6;
+  const actionKg=A.k*COL**3;const stockKg=((p.L+3*COL)/800)**3;const magKg=p.mag*rm/1000*1.25;const massEmpty=stockKg+barrelKg+actionKg;const mass=massEmpty+magKg;
+  const impulse=mLaunch/1000*v0+c/1000*1250;const recoil=impulse*impulse/(2*mass);const rk=recoil/SHOOTER_KG;   // J par kg de tireur (un fusil humain : 0,23)
+  const life=Math.max(50,Math.min(60000,Math.round(9000*(400/Math.max(P,50))**2*(850/Math.max(v0,100))**2.5*(p.heavy?1.5:1))));
+  // la chaleur : un petit tube se refroidit vite ; la cadence qu'il tient sans surchauffer
+  const heatShot=c/1000*Q_POWDER*.2;const heatCap=barrelKg*460;const cool=.012*(7.62/d)*(p.heavy?.9:1);const sustain=Math.round(60*cool*300*heatCap/Math.max(1e-6,heatShot));
+  const rpm=p.action==='auto'?p.rof:A.rpm;const cyc=p.action==='auto'?60/p.rof:A.cycle;
+  const aim=.45+7*mass/SHOOTER_KG+.3*(p.L/1000)/BODY_H;
+  let moa=1.6+(p.L/d<45?(45-p.L/d)/15:0)+A.disp+C.disp;moa*=p.heavy?.85:1;moa*=stab;
+  // la trajectoire, tous les mètres jusqu'à 600 m
+  const table=[];{let x=0,v=v0,t=0,y=0,vy=0;const dt=.0002;let next=0;
+    while(x<=600&&v>60){if(x>=next){table.push({x:next,v,t,drop:-y,E:.5*mp/1000*v*v});next+=1;}
+      const a=.5*RHO_AIR*v*v*cdG7(v/C_SOUND)*(Math.PI/4)/BC;const vx=v;v=Math.max(0,v-a*dt);vy-=G*dt;x+=vx*dt;y+=vy*dt;t+=dt;}}
+  const at=x=>{if(!table.length)return {x,v:0,t:0,drop:0,E:0,beyond:true};const i=Math.min(table.length-1,Math.max(0,Math.floor(x)));const a=table[i],b=table[Math.min(table.length-1,i+1)];const f=Math.max(0,Math.min(1,x-a.x));
+    return {x,v:a.v+(b.v-a.v)*f,t:a.t+(b.t-a.t)*f,drop:a.drop+(b.drop-a.drop)*f,E:a.E+(b.E-a.E)*f,beyond:x>table[table.length-1].x};};
+  // la perforation d'une plaque d'acier (mm), de Marre
+  const pen=v=>C.K*Math.pow(mp,.7)*Math.pow(Math.max(0,v),1.43)/Math.pow(dpr,1.07)*(C.core?1:Math.max(0,Math.min(1,(v-150)/350)));
+  // la portée utile : là où un tireur moyen touche encore un Meumeu debout (7 cm × 20 cm) une fois sur trois
+  const erf=z=>{const t=1/(1+.3275911*Math.abs(z));const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-z*z);return z>=0?y:-y;};
+  const hitP=R=>{const r=at(R),r2=at(R+1);const slope=Math.abs(r2.drop-r.drop);const sig=Math.hypot(moa*.291*R/1000,1.8*R/1000,slope*.12*R,.004);const pHit=erf(.035/(sig*Math.SQRT2))*erf(.1/(sig*Math.SQRT2));if(pel<2)return pHit;
+    const cone=(C.spread||20)/1000*R/2;const cover=Math.min(1,(.07*.2)/(Math.PI*cone*cone+1e-9));return Math.min(1,1-Math.pow(1-Math.max(pHit*.6,cover),Math.max(1,pel*.6)));};
+  let eff=0;for(let R=2;R<=600;R+=2){if(hitP(R)<.33||at(R).beyond)break;eff=R;}
+  // ce que ça coûte (en caisses) : pour mille coups, pour une arme
+  const costK={fer:(m*(C.rare?.45:1)*(C.ferx||1)+caseMass)/CRATE_KG,sels:c/(CRATE_KG*500)*1000+(C.inc?m*.1/CRATE_KG:0)+(C.he?m*.3/CRATE_KG:0)+(C.tracer?.05:0),pieces:.15+(C.tracer?.08:0)+(C.he?.2:0)};
+  if(C.rare)costK[C.rare]=m*.55/CRATE_KG;for(const k in costK)costK[k]=+costK[k].toFixed(3);
+  const costW={fer:+(massEmpty*1.6/CRATE_KG).toFixed(2),pieces:+(1+A.cost+(p.L>220?1:0)+(p.heavy?.5:0)).toFixed(2),bois:.15};const hoursW=3+A.hours+(p.L>220?2:0);
+  const carry=Math.floor(.13*SHOOTER_KG*1000/rm);
+  // ce qui entre dans le corps : pour une gerbe, un plomb (ou une fléchette) ; pour un sabot, le dard
+  const proj={p:{...p,d:dpr,l:lpr,nose:pel>1&&!C.dart?'ronde':p.nose},m:mp,l:lpr,Sg:Math.max(Sg,pel>1||sub<1?5:Sg),dart:!!C.dart};
+  const D={p:{...p,l},m,mp,pel,proj,l,noseLen,v0,E0,P,eta,Sg,stab,BC,SD,A_mm2,caseLen,COL,caseMass,rm,perCrate,mass,massEmpty,recoil,rk,life,heatShot,sustain,rpm,cyc,aim,moa,table,at,pen,eff,hitP,costK,costW,hoursW,carry,pistol,name:`${fmt(d,1)} × ${fmt(caseLen,caseLen<10?1:0)}`};
+  D.verdicts=verdicts(D,p,C);return D;}
+// Ce qu'on en dit, en clair : ses forces, ses défauts — chaque avantage a son prix.
+function verdicts(D,p,C){const out=[];const g=t=>out.push({tone:'good',t}),b=t=>out.push({tone:'bad',t}),n=t=>out.push({tone:'',t});
+  if(D.Sg<1)b(`Instable en vol (Sg ${fmt(D.Sg,2)}) : la balle bascule, précision catastrophique — raccourcir le pas de rayure`);else if(D.Sg<1.3)b(`Stabilité juste (Sg ${fmt(D.Sg,2)}) : dispersion accrue`);
+  if(D.P>620)b(`Pression hors limites (${Math.round(D.P)} MPa) : le tube peut éclater et blesser le tireur`);else if(D.P>460)b(`Pression élevée (${Math.round(D.P)} MPa) : canon usé en ${D.life} coups`);
+  if(D.rk>.7)b(`Recul intenable (${fmt(D.recoil,2)} J pour un tireur de ${fmt(SHOOTER_KG,1)} kg) : il faut un affût`);else if(D.rk>.35)b(`Recul violent (${fmt(D.recoil,2)} J) : tir lent, rafales dispersées`);else if(D.rk<.1)g(`Recul doux (${fmt(D.recoil,2)} J)`);
+  if(D.mass>SHOOTER_KG*.08)b(`Arme lourde (${Math.round(D.mass*1000)} g chargée) : le soldat marche moins vite, vise plus lentement`);
+  if(D.eff>=90)g(`Portée utile ${D.eff} m`);else if(D.eff<35)b(`Portée utile ${D.eff} m seulement`);else n(`Portée utile ${D.eff} m`);
+  const p30=D.pen(D.at(30).v);if(p30>=2)g(`Perce ${fmt(p30,1)} mm d’acier à 30 m : murs, tôles, casques`);else if(p30<.6)b(`Perce ${fmt(p30,2)} mm d’acier à 30 m : un mur de brique l’arrête`);else n(`Perce ${fmt(p30,1)} mm d’acier à 30 m`);
+  if(C.frag<Infinity&&D.v0>C.frag){let r=0;for(let x=0;x<=600;x+=2){if(D.at(x).v>C.frag)r=x;}g(`Se fragmente dans le corps jusqu’à ${r} m`);}
+  if(D.carry<120)b(`Munition lourde (${fmt(D.rm,2)} g le coup) : un soldat n’en porte que ${D.carry}, une caisse ${D.perCrate}`);else if(D.carry>450)g(`Munition légère : ${D.carry} coups par soldat, ${D.perCrate} par caisse`);
+  if(p.action==='auto'&&D.sustain<p.rof)b(`Surchauffe : tient ${D.sustain} coups/min en continu (cadence ${p.rof})`);
+  if(C.rare)b('Noyau de verre-qui-écoute : du rare à chaque caisse');
+  if(C.inc)n('Incendiaire : les dépôts qui la stockent brûlent s’ils sont touchés');
+  if(D.pel>1)n(`${D.pel} ${C.dart?'fléchettes':'plombs'} de ${fmt(D.mp*1000,0)} mg par coup : la gerbe s’ouvre de ${C.spread} cm tous les 10 m`);
+  if(C.sub)g(`Dard de ${fmt(D.proj.p.d,1)} mm lancé à ${Math.round(D.v0)} m/s : la perforation d’une arme bien plus grosse`);
+  if(D.v0<340)n('Subsonique : pas de claquement dans l’air — on l’entend à peine');
+  return out;}
+
+// ---------- la balle dans la matière ----------
+const add=(a,b,k=1)=>[a[0]+b[0]*k,a[1]+b[1]*k,a[2]+b[2]*k];
+const norm=a=>{const n=Math.hypot(a[0],a[1],a[2])||1;return [a[0]/n,a[1]/n,a[2]/n];};
+function cone(dir,ang,rnd){const up=Math.abs(dir[1])<.9?[0,1,0]:[1,0,0];const u=norm([dir[1]*up[2]-dir[2]*up[1],dir[2]*up[0]-dir[0]*up[2],dir[0]*up[1]-dir[1]*up[0]]);const w=[dir[1]*u[2]-dir[2]*u[1],dir[2]*u[0]-dir[0]*u[2],dir[0]*u[1]-dir[1]*u[0]];
+  const a=rnd()*Math.PI*2,t=Math.tan(ang*Math.sqrt(rnd()));return norm(add(add(dir,u,Math.cos(a)*t),w,Math.sin(a)*t));}
+// Un projectile (balle, fragment, éclat d'os) avance pas à pas. `medium(p)` : ce qu'il y a au point, ou null (l'air).
+// Le pas est un dixième du calibre (au moins 0,2 mm) : une balle de 1,8 mm avance de 0,2 mm à la fois.
+function track(pr,medium,R,rnd){const ds=Math.max(.0002,pr.d0/10000);let inside=false,outFor=0,sIn=0;const pts=[];let vIn=pr.v;const recEvery=Math.max(1,Math.round(.002/ds));
+  const C=pr.D?CONSTRUCTIONS[pr.D.p.cons]:null;const maxSteps=Math.ceil(1.5/ds);
+  for(let step=0;step<maxSteps;step++){const med=medium(pr.p);
+    if(!med){if(inside){outFor+=ds;if(outFor>pr.d0/1000*3+.004){pr.exit=pr.p.slice();break;}}pr.p=add(pr.p,pr.dir,ds);continue;}
+    if(!inside){inside=true;vIn=pr.v;if(pr.main&&!R.entry){R.entry=pr.p.slice();R.vIn=pr.v;}}outFor=0;
+    const T=TISSUE[med.kind]||TISSUE.muscle;const m=pr.m/1000;
+    let dEff=pr.d,cd=pr.cd;
+    if(pr.main&&C){if(C.expand&&!pr.expanded&&vIn>=C.expand[0]){const f=Math.max(.2,Math.min(1,(vIn-C.expand[0])/(C.expand[1]-C.expand[0])));const L=pr.d0/1000*3;pr.dExp=pr.d0*(1+(C.expand[2]-1)*f*Math.min(1,sIn/L));dEff=pr.dExp;cd=.95;if(sIn>=L){pr.expanded=true;R.expanded=true;}}
+      else if(pr.expanded){dEff=pr.dExp;cd=.95;}
+      else if(isFinite(pr.neck)&&sIn>pr.neck){const k=(sIn-pr.neck)/(pr.l/1000);pr.yaw=Math.min(Math.PI,k<1.2?k/1.2*Math.PI/2:Math.PI/2+(k-1.2)/2*Math.PI/2);}}
+    const sy=Math.abs(Math.sin(pr.yaw)),cy=Math.abs(Math.cos(pr.yaw));
+    const area=(Math.PI*(dEff/2)**2*cy+dEff*pr.l*sy)*1e-6;if(pr.yaw>0&&!pr.expanded)cd=pr.yaw<=Math.PI/2?cd+(1.2-cd)*sy:.55+.65*sy;
+    // freinage : la traînée du tissu, et sa résistance (qui finit par arrêter une balle lente)
+    const v0=pr.v;const drag=T.rho*1000*cd*area*ds*T.k/(2*m);let v=v0*Math.exp(-drag);const resist=(med.kind==='bone'?2.5e7:2e6)*area*ds;
+    const E=.5*m*v*v-resist;v=E>0?Math.sqrt(2*E/m):0;const dE=.5*m*(v0*v0-v*v);pr.v=v;
+    // ce qui est écrasé ; les vaisseaux coupés ; les os cassés
+    const part=med.part;const key=part?part.id:med.region?.id||'?';const rec=R.dmg[key]??={crush:0,stretch:0,cut:0,frac:0,E:0,at:pr.p.slice()};rec.crush+=area*ds*1e6;rec.E+=dE;
+    if(part&&part.kind==='heart')rec.cut=Math.max(rec.cut,Math.min(1,.3+(dEff/1000)/(2*part.shape.r[0])));
+    for(const q of VESSELS){const dd=distTo(q,pr.p);if(dd<dEff/2000){const rv=R.dmg[q.id]??={crush:0,stretch:0,cut:0,frac:0,E:0,at:pr.p.slice()};rv.cut=Math.max(rv.cut,Math.min(1,.3+(dEff/1000)/(2*q.shape.r)*(1-dd/(dEff/2000))));}}
+    if(part&&part.kind==='bone'&&dE>.004*R.E0&&pr.v>120&&!pr.bones?.has(part.id)){(pr.bones??=new Set()).add(part.id);rec.frac=1;
+      if(pr.main){// l'os casse, dévie la balle, et projette ses propres éclats
+        pr.dir=cone(pr.dir,(C?.core?.03:.1)*(pr.v<500?1.6:1),rnd);const n=2+Math.floor(rnd()*4);const mb=pr.m*.03;for(let k=0;k<n;k++)R.spawn.push({p:pr.p.slice(),dir:cone(pr.dir,.8,rnd),v:pr.v*.35,m:mb,d:pr.d0*.5,d0:pr.d0*.5,l:pr.d0*.5,cd:1,yaw:0,neck:Infinity,bone:1});}}
+    // la cavité temporaire : l'énergie cédée par centimètre étire autour du trajet
+    const eCm=dE/(ds*100);const rtc=.0055*Math.sqrt(Math.max(0,eCm));
+    if(rtc>dEff/1000){for(const q of INELASTIC){const dd=distTo(q,pr.p);if(dd<rtc){const r2=R.dmg[q.id]??={crush:0,stretch:0,cut:0,frac:0,E:0,at:pr.p.slice()};r2.stretch+=(1-dd/rtc)*ds/q.size*(q.kind==='heart'?.5:1);}}
+      if(pr.main&&step%recEvery===0)R.tc.push({p:pr.p.slice(),r:rtc});}
+    R.E+=dE;if(med.region)R.regions.add(med.region.id);
+    // la fragmentation : une balle qui bascule (ou s'expanse) trop vite se brise
+    if(pr.main&&C&&!pr.fragmented&&C.frag<Infinity&&pr.v>=C.frag&&(pr.yaw>.9||pr.expanded||C.he||(C.fragile&&(med.kind==='bone'||sIn>pr.d0/1000*4)))){pr.fragmented=true;R.fragmented=true;R.fragAt=pr.p.slice();const mf=pr.m*C.fr;pr.m-=mf;const n=C.he?24:7+Math.floor(rnd()*11);
+      for(let k=0;k<n;k++){const mk=mf/n*(.3+rnd()*1.4);const df=pr.d0*1.3*Math.cbrt(mk/(pr.m+mf));R.spawn.push({p:pr.p.slice(),dir:cone(pr.dir,C.he?1.2:.5,rnd),v:pr.v*(.75+rnd()*.25),m:mk,d:df,d0:df,l:df,cd:.95,yaw:0,neck:Infinity,frag:1});}
+      if(C.he)R.he=true;}
+    pr.p=add(pr.p,pr.dir,ds);sIn+=ds;
+    if(step%recEvery===0)pts.push({p:pr.p.slice(),v:pr.v,yaw:pr.yaw,d:dEff});
+    if(pr.v<25){pr.lodged=true;break;}}
+  pts.push({p:pr.p.slice(),v:pr.v,yaw:pr.yaw,d:pr.d});R.maxYaw=Math.max(R.maxYaw||0,pr.yaw);return pts;}
+function neckOf(D,yaw0=0){const N=NOSES[D.p.nose],C=CONSTRUCTIONS[D.p.cons],B=BASES[D.p.base]||BASES.plat;if(C?.dart||D.dart||C?.sub)return Infinity;return N.neck*(D.l/1000)*(C.core?1.5:1)*B.neck*(D.Sg<1?.15:1)*(yaw0>.3?.2:1);}
+// Une balle qui entre dans un corps : `start` et `dir` dans le repère du corps (voir body.js), en mètres.
+export function wound(D,v,start,dir,rnd,yaw0=0){const R={dmg:{},tc:[],spawn:[],E:0,E0:.5*D.m/1000*v*v,regions:new Set(),entry:null,exit:null,vIn:v,vOut:0,fragmented:false,expanded:false,frags:[]};
+  const bullet={p:start.slice(),dir:norm(dir),v,m:D.m,d:D.p.d,d0:D.p.d,l:D.l,cd:NOSES[D.p.nose].cdT,yaw:yaw0,neck:neckOf(D,yaw0),main:1,D};
+  const medium=p=>{const reg=regionAt(p);if(!reg)return null;const part=partAt(p);return {kind:part?part.kind:'muscle',part,region:reg};};
+  R.path=track(bullet,medium,R,rnd);R.exit=bullet.exit||null;R.vOut=bullet.exit?bullet.v:0;R.lodged=!!bullet.lodged;
+  for(let k=0;k<R.spawn.length&&k<40;k++){const f=R.spawn[k];R.frags.push({pts:track(f,medium,R,rnd),bone:!!f.bone});}
+  R.spawn=null;return R;}
+// Le banc d'essai : un bloc de gélatine à 10 % (comme le tissu). `len` : sa longueur en mètres (16 cm à l'échelle d'un Meumeu).
+export function gel(D0,v,rnd=Math.random,len=.16){const D=D0.proj||D0;const R={dmg:{},tc:[],spawn:[],E:0,E0:.5*D.m/1000*v*v,regions:new Set(),frags:[]};
+  const bullet={p:[0,0,-.0005],dir:[0,0,1],v,m:D.m,d:D.p.d,d0:D.p.d,l:D.l,cd:NOSES[D.p.nose].cdT,yaw:0,neck:neckOf(D),main:1,D};const half=len*.25;
+  const medium=p=>p[2]>=0&&p[2]<=len&&Math.abs(p[0])<half&&Math.abs(p[1])<half?{kind:'muscle',part:null,region:null}:null;
+  R.path=track(bullet,medium,R,rnd);for(let k=0;k<R.spawn.length&&k<40;k++)R.frags.push({pts:track(R.spawn[k],medium,R,rnd)});
+  const last=R.path[R.path.length-1];const depth=Math.min(len,last?Math.max(0,last.p[2]):0);let yawAt=null,maxTc=0,tcAt=0;
+  for(const q of R.path)if(yawAt==null&&q.yaw>.35&&q.p[2]>=0)yawAt=q.p[2];for(const t of R.tc)if(t.r>maxTc){maxTc=t.r;tcAt=t.p[2];}
+  return {R,len,depth,exit:!!bullet.exit,yawAt,fragAt:R.fragAt?R.fragAt[2]:null,maxTc,tcAt,fragmented:R.fragmented,expanded:R.expanded,E:R.E,vOut:bullet.exit?bullet.v:0,neck:neckOf(D)};}

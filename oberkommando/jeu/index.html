@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Oberkommando der Meumeu</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><div class="mark">OK</div><div><div class="title">Oberkommando der Meumeu</div><div class="eyebrow">Bâtir · Relier · Tenir</div></div></div>
+  <div class="clock" id="clock">Jour 1</div>
+  <div class="speeds" title="Espace : pause · 1, 2, 3 : vitesses"><button data-speed="0">❚❚</button><button data-speed="1">1×</button><button data-speed="2">2×</button><button data-speed="4">4×</button></div>
+  <div class="stocks" id="stocks"></div>
+  <div class="spacer"></div>
+  <div class="menu"><button class="ghost" data-act="save">Sauver</button><button class="ghost" data-act="load">Charger</button><button class="ghost" data-act="new">Nouvelle partie</button><button class="ghost" data-act="sound" title="Son">🔈</button></div>
+</header>
+<main class="layout">
+  <section class="stage">
+    <canvas id="view"></canvas>
+    <canvas id="mini" width="300" height="150"></canvas>
+    <div class="squads" id="squads"></div>
+    <button class="xmode" id="xmode" title="Les radiographies : de la sélection, de tout ce qui est à l’écran, ou coupées">Radios</button>
+    <div class="xray" id="xray" aria-live="polite"></div>
+    <div class="alert" id="alert" hidden></div>
+    <div class="scenario" id="win" hidden></div>
+    <div class="hint" id="hint"></div>
+    <div class="buildbar" id="buildbar"></div>
+    <div class="keys">Clic : choisir · glisser : un groupe · clic droit : ordonner · B : bâtir · G : escouade · T : tente · M : santé · I : idées · E : économie · H : capitale</div>
+  </section>
+  <aside class="panel" id="panel"></aside>
+</main>
+<div class="dzwrap" id="dz" hidden></div>
+<div class="mwrap" id="modal" hidden></div>
+<div class="xroomwrap" id="xroom" hidden></div>
+<script type="module" src="js/ui.js"></script>
+</body>
+</html>
