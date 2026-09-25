@@ -1,0 +1,15 @@
+<!doctype html><meta charset="utf-8"><title>Aller 3 — les corps en 3D</title>
+<style>body{margin:0;background:#111;color:#ddd;font:13px system-ui}#g{display:grid;grid-template-columns:repeat(3,300px);gap:6px;padding:6px}canvas{width:300px;height:400px;display:block}p{margin:4px 6px}</style>
+<p id="s">…</p><div id="g"></div>
+<script type="module">
+import {has3d,render3d,Fiche3D} from '../js/gl3d.js';
+const q=new URLSearchParams(location.search);const th=+(q.get('th')??.5),ph=+(q.get('ph')??.12),dist=+(q.get('d')??.6),fy=+(q.get('fy')??.15);
+const views=[['meumeu','peluche'],['meumeu','anat'],['meumeu','xray'],['beee','peluche'],['beee','anat'],['beee','xray']];
+const t0=performance.now();const ok=has3d();
+const hurt={wounds:[{entry:[.02,.15,.043],exit:[-.03,.14,-.04],sev:5,parts:[{name:'poumon droit',sev:4},{name:'cœur',sev:6}]},{entry:[.035,.06,.02],sev:3,parts:[{name:'fémur droit',sev:4}]}],
+  bleeds:[{name:'artère fémorale droite',rate:.4,tq:true},{name:'cœur',rate:1.2,internal:true}],blood:70};
+const F=[0,fy,0];const C=[F[0]+dist*Math.sin(th)*Math.cos(ph),F[1]+dist*Math.sin(ph),F[2]+dist*Math.cos(th)*Math.cos(ph)];const f=[F[0]-C[0],F[1]-C[1],F[2]-C[2]].map(v=>v/dist);
+for(const [sp,mode] of views){const cv=document.createElement('canvas');cv.width=600;cv.height=800;document.getElementById('g').appendChild(cv);
+  const fx=new Fiche3D();const r=fx.update(hurt,sp,.5,1,mode);render3d(cv.getContext('2d'),600,800,{C,f,dist},{sp,mode,hurt:r.hurt,fx:r.group,t:1});}
+document.getElementById('s').textContent=`3D ${ok} · ${Math.round(performance.now()-t0)} ms`;window.__done=true;
+</script>
