@@ -12,6 +12,7 @@
 // (un repère « gauche ») : le groupe racine est retourné en x, et la caméra montre la même chose que l'ancienne projection.
 import * as THREE from './lib/three.module.js';
 import {BODIES,RIB,BLOOD} from './body.js';
+import {MATS} from './armor.js';
 
 const FOVDEG=.55*180/Math.PI;
 const ALL={peau:true,os:true,organes:true,vaisseaux:true,cavite:true,eclats:true};
@@ -295,8 +296,22 @@ function sceneFx(sc){if(sc._fx)return sc._fx;const g=init();const grp=new THREE.
     const cav=b.tc.map(q=>{const m=new THREE.Mesh(g.geo.sph,xmat('#ff8c50',.03,.6,2));m.renderOrder=25;m.position.set(...q.p);grp.add(m);return {m,q};});
     const frags=b.frags.map(f=>{const geo=new THREE.BufferGeometry().setFromPoints(f.pts.map(q=>V3(q.p)));const line=new THREE.Line(geo,new THREE.LineBasicMaterial({color:C3(f.bone?'#eef3ff':'#ffc46e'),transparent:true,opacity:.9,depthTest:false,depthWrite:false,toneMapped:false}));
       line.renderOrder=34;line.frustumCulled=false;const head=new THREE.Mesh(g.geo.lo,new THREE.MeshBasicMaterial({color:C3('#ffe6b0'),depthTest:false,toneMapped:false}));head.renderOrder=35;head.scale.setScalar(.0011);grp.add(line,head);return {f,line,head};});
-    return {b,dark,col,md,mc,bullet,glow,cav,frags};});
+    // le sang : chaque vaisseau ouvert jaillit (une artère bat, en jets ; une veine coule), une fois la balle passée
+    const blood=b.bleeds.map(v=>{const n=v.art?36:18;const m=new THREE.InstancedMesh(g.geo.lo,g.mat.blood,n);m.renderOrder=36;m.frustumCulled=false;m.count=0;grp.add(m);
+      const r0=mulberry(Math.round(v.p[0]*1e5+v.p[1]*3e5));const dirs=[];for(let i=0;i<n;i++){const a=r0()*6.283,u=r0()*2-1;dirs.push([Math.sqrt(1-u*u)*Math.cos(a),Math.abs(u)*.8+.2,Math.sqrt(1-u*u)*Math.sin(a)]);}return {v,m,n,dirs};});
+    return {b,dark,col,md,mc,bullet,glow,cav,frags,blood};});
+  // la protection de la victime, sur le poitrail et la tête : plastron, dos, flancs, casque — la matière et son épaisseur
+  const e0=sc.events[0];if(e0?.armor){const M=model(e0.vf);const reg=id=>M.B.REGIONS.find(r=>r.id===id)?.shape;const th=reg('thorax'),ab=reg('abdomen'),hd=reg('tete');
+    const mat=m=>{const X=MATS[m]||{};return new THREE.MeshStandardMaterial({color:C3(X.col||'#888'),roughness:X.soft?.95:.35,metalness:m==='acier'?.75:m==='composite'?.25:0,transparent:true,opacity:X.soft?.55:.7,side:THREE.DoubleSide,depthWrite:false});};
+    const patch=(c,r,t,p0,pl,t0,tl,m)=>{const geo=new THREE.SphereGeometry(1,28,14,p0,pl,t0,tl);const mesh=new THREE.Mesh(geo,mat(m));const pad=.003+t/1000;mesh.scale.set(r[0]+pad,r[1]+pad,r[2]+pad);mesh.position.set(...c);mesh.renderOrder=20;grp.add(mesh);};
+    if(th&&ab){const top=th.c[1]+th.r[1]*.85,bot=ab.c[1]-ab.r[1]*.55;const c=[0,(top+bot)/2,(th.c[2]+ab.c[2])/2];const r=[Math.max(th.r[0],ab.r[0])*1.02,(top-bot)/2,Math.max(th.r[2],ab.r[2])*1.02];const P2=Math.PI/2;
+      for(const [z,p0,pl] of [['plastron',P2-1.05,2.1],['dos',3*P2-1.05,2.1],['flancs',-.42,.84],['flancs',Math.PI-.42,.84]]){const Z=e0.armor[z];if(Z&&Z[1]>0)patch(c,r,Z[1],p0,pl,.2*Math.PI,.62*Math.PI,Z[0]);}}
+    const Zc=e0.armor.casque;if(hd&&Zc&&Zc[1]>0){const R=hd.t==='sph'?[hd.r,hd.r,hd.r]:hd.r;patch([hd.c[0],hd.c[1]+R[1]*.08,hd.c[2]-R[2]*.05],R.map(v=>v*1.02),Zc[1],0,Math.PI*2,0,.38*Math.PI,Zc[0]);}
+    // là où la balle a frappé la plaque : un éclat de métal écrasé (arrêtée) ou un trou (traversée)
+    const hitAt=e0.rec?.entry;if(hitAt&&(e0.rec.stopped||e0.plate)){const m=new THREE.Mesh(g.geo.lo,new THREE.MeshBasicMaterial({color:C3(e0.rec.stopped?'#c9ccd2':'#1a0d0d'),depthTest:false,toneMapped:false}));m.position.set(...hitAt);m.scale.setScalar(e0.rec.stopped?.0035:.0022);m.renderOrder=37;grp.add(m);}}
   sc._fx={grp,items};return sc._fx;}
+function mulberry(a){return ()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const DUM=new THREE.Object3D();
 export function disposeSceneFx(sc){const F=sc?._fx;if(!F)return;F.grp.traverse(o=>{if(o.geometry&&o.geometry!==G?.geo.bullet&&o.geometry!==G?.geo.sph&&o.geometry!==G?.geo.lo)o.geometry.dispose();if(o.material&&o.material!==G?.mat.bullet&&!Object.values(G?.mat||{}).includes(o.material))o.material.dispose?.();});sc._fx=null;}
 const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
 const nrm=a=>{const n=Math.hypot(a[0],a[1],a[2])||1;return [a[0]/n,a[1]/n,a[2]/n];};
@@ -316,7 +331,13 @@ export function updateSceneFx(sc,st,L,PLAY){const F=sceneFx(sc);
       const open=since<.15?since/.15:Math.max(.18,1-(since-.15)/.8);c.m.visible=q.r*open>.0008;c.m.scale.setScalar(q.r*open);c.m.material.uniforms.uEdge.value=.65*open;c.m.material.uniforms.uBase.value=.04*open;}
     // les éclats
     for(const fr of it.frags){const f=fr.f;if(!L.eclats||f.at>s.i){fr.line.visible=fr.head.visible=false;continue;}const since=(s.done?b.T*b.slow+s.after:s.real*b.slow)-b.tt[f.at]*b.slow;
-      const m=Math.min(f.pts.length,Math.max(1,Math.floor(since/(PLAY*.45)*f.pts.length)));fr.line.visible=true;fr.line.geometry.setDrawRange(0,m);fr.head.visible=m<f.pts.length;if(fr.head.visible)fr.head.position.set(...f.pts[m-1].p);}});
+      const m=Math.min(f.pts.length,Math.max(1,Math.floor(since/(PLAY*.45)*f.pts.length)));fr.line.visible=true;fr.line.geometry.setDrawRange(0,m);fr.head.visible=m<f.pts.length;if(fr.head.visible)fr.head.position.set(...f.pts[m-1].p);}
+    // le sang qui jaillit des vaisseaux ouverts : des gouttes lancées en boucle, qui retombent ; une artère bat au rythme du cœur
+    for(const bl of it.blood){const v=bl.v;if(v.at>s.i){bl.m.count=0;continue;}const since=(s.done?b.T*b.slow+s.after:s.real*b.slow)-b.tt[v.at]*b.slow;if(since<0){bl.m.count=0;continue;}
+      const life=v.art?.9:1.4,spd=(v.art?.05:.018)*(.6+v.cut*.6);const beat=v.art?.55+.45*Math.max(0,Math.sin(since*7.5)):1;let k=0;
+      for(let i=0;i<bl.n;i++){const ph=((since/life)+i/bl.n)%1;const tau=ph*life;if(since<tau)continue;const d=bl.dirs[i];const sp=spd*beat*(.5+.5*((i*37)%11)/10);
+        DUM.position.set(v.p[0]+d[0]*sp*tau,v.p[1]+d[1]*sp*tau-.5*.09*tau*tau,v.p[2]+d[2]*sp*tau);DUM.scale.setScalar((v.art?.0011:.0014)*(1-ph*.5));DUM.updateMatrix();bl.m.setMatrixAt(k++,DUM.matrix);}
+      bl.m.count=k;bl.m.instanceMatrix.needsUpdate=true;}});
   return F.grp;}
 function bulletGeo(){const pts=[new THREE.Vector2(0,-.5),new THREE.Vector2(.46,-.5),new THREE.Vector2(.5,-.46),new THREE.Vector2(.5,.02)];
   for(let i=1;i<=10;i++){const u=i/10;pts.push(new THREE.Vector2(.5*Math.sqrt(1-u*u)*(1-.05*u),.02+.48*u));}return new THREE.LatheGeometry(pts,20);}

@@ -480,7 +480,7 @@ export class World{
     if(!hit){const near=Math.hypot(ex,hy-BODY_H/2);const k=.4+this.rand()*1.6;return {hit:false,near,px:e.x-tx/tl*k+(this.rand()-.5)*.3,py:e.y-ty/tl*k+(this.rand()-.5)*.3};}
     // la protection : la balle entre-t-elle par une plaque ?
     let plate=null;const Ar=e.armor&&this.armorOf(e.armor);if(Ar){const zone=plateZone(hit.p);if(zone&&Ar.D.zones[zone]?.t>0){const r=armorHit(Ar.D,zone,e,W.proj||W,v,W.pen(v),this.rand);
-        if(r?.stopped)return {hit:true,stopped:true,zone,v,blunt:r.blunt,mat:r.mat,armor:Ar.A.name};if(r){v=r.v;yaw0=Math.max(yaw0,.5+this.rand()*.8);plate=zone;}}}
+        if(r?.stopped)return {hit:true,stopped:true,zone,v,blunt:r.blunt,mat:r.mat,armor:Ar.A.name,p:hit.p,d:hit.d,eq:r.eq};if(r){v=r.v;yaw0=Math.max(yaw0,.5+this.rand()*.8);plate=zone;}}}
     const rec=wound(W.proj||W,v,hit.p,hit.d,this.rand,yaw0);return {hit:true,rec,v,plate,cover:cov&&hy<cov.h?cov.kind:null};}
   // Le rayon d'une balle dans le repère du corps, selon la posture ; renvoie le point d'entrée, ou rien (elle passe à côté)
   bodyRay(oL,dL,alpha,post,sp='meumeu'){setSpecies(sp);const ca=Math.cos(-alpha),sa=Math.sin(-alpha);const rot=v=>[v[0]*ca+v[2]*sa,v[1],-v[0]*sa+v[2]*ca];let o=rot(oL),d=rot(dL);
@@ -675,12 +675,12 @@ export class World{
     if(tg.b!=null){const b=this.building(tg.b);if(b){const E=.5*W.m/1000*r.v*r.v;this.damage(b,E/25,sh.f);if(CONSTRUCTIONS[W.p.cons].inc&&this.rand()<.05&&b.fire<=0){b.fire=FIRE.hours;this.emit({type:'fire',x:b.i+1,y:b.j+1});}}this.emit({type:'impact',x:sh.x1,y:sh.y1,hit:false,small:true,mat:'maison'});return;}
     if(tg.wall!=null){if(this.wall[tg.wall]){const E=.5*W.m/1000*r.v*r.v;this.damage({wall:tg.wall,x:sh.x1,y:sh.y1},E/25,sh.f);}this.emit({type:'impact',x:sh.x1,y:sh.y1,hit:false,small:true,mat:'pierre'});return;}
     const e=this.unit(tg.u);
-    if(r.stopped&&e&&alive(e)){this.plateHit(e,r,shooter);return;}
+    if(r.stopped&&e&&alive(e)){this.plateHit(e,r,shooter,sh,W);return;}
     if(r.hit&&e&&alive(e)&&d2(e.x,e.y,sh.x1,sh.y1)<.6){
       if(!e.h){this.damage(e,.5*W.m/1000*r.v*r.v/5,sh.f);this.emit({type:'impact',x:e.x,y:e.y,hit:true,small:true,mat:'metal'});return;}
       setSpecies(e.f);const out=applyWound(e.h,r.rec,this.rand,'balle');e.hitAt=this.s.t;e.supp=Math.min(1.5,(e.supp||0)+.6);
       if(r.plate)(e.h.log??=[]).push({t:this.s.t,what:`une balle a traversé la protection (${r.plate})`,by:''});
-      this.emit({type:'wound',plate:r.plate,cause:e.h.cause,len:W.l/1000,victim:e.id,shooter:sh.by,vf:e.f,vk:e.k,sk:shooter?.k,w:sh.w,rec:r.rec,out,R:sh.R,v:r.v,cover:r.cover,x:e.x,y:e.y,dir:[sh.x1-sh.x0,sh.y1-sh.y0],name:e.name,sname:shooter?.name||(sh.tower?'une tour':null)});
+      this.emit({type:'wound',plate:r.plate,cause:e.h.cause,len:W.l/1000,victim:e.id,shooter:sh.by,vf:e.f,vk:e.k,sk:shooter?.k,w:sh.w,rec:r.rec,out,R:sh.R,v:r.v,cover:r.cover,x:e.x,y:e.y,dir:[sh.x1-sh.x0,sh.y1-sh.y0],name:e.name,sname:shooter?.name||(sh.tower?'une tour':null),armor:e.armor?this.armorOf(e.armor)?.D.a||null:null});
       if(out?.now==='mort')this.death(e);else if(out?.now==='hors')this.stateChange(e,'hors');
       if(shooter)shooter.xp=(shooter.xp||0)+(out?.now?3:1);
       for(const o of this.s.units)if(o!==e&&alive(o)&&o.f===e.f&&d2(o.x,o.y,e.x,e.y)<.5)o.supp=Math.min(1.5,(o.supp||0)+.25);
@@ -689,7 +689,11 @@ export class World{
     if(e&&alive(e)){const near=r.near??1;e.supp=Math.min(1.5,(e.supp||0)+.35*Math.max(0,1-near/.6));if(e.f==='beee')this.beeeAlarm(e);}
     this.emit({type:'impact',x:sh.x1,y:sh.y1,hit:false,small:true,mat:r.cover||'terre'});}
   // Une balle arrêtée par la plaque : un choc (qui peut couper le souffle, faire tomber), la plaque qui s'use, un bruit de cloche
-  plateHit(e,r,shooter){e.supp=Math.min(1.5,(e.supp||0)+.5);this.emit({type:'plate',x:e.x,y:e.y,mat:r.mat,zone:r.zone,victim:e.id,shooter:shooter?.id});
+  plateHit(e,r,shooter,sh=null,W=null){e.supp=Math.min(1.5,(e.supp||0)+.5);
+    // pour la radiographie : la balle arrive, s'écrase sur la plaque et s'arrête (un trajet de 4 cm, jusqu'à la plaque)
+    let rec=null;if(r.p&&r.d&&W){const m=(W.proj||W).m??W.m;const back=r.p.map((v,i)=>v-r.d[i]*.04);const dd=(W.proj?.p?.d)||W.p?.d||1.8;
+      rec={path:[{p:back,v:r.v,yaw:0,d:dd},{p:r.p.slice(),v:r.v*.4,yaw:0,d:dd*1.6},{p:r.p.slice(),v:0,yaw:0,d:dd*1.8}],vIn:r.v,E0:.5*m/1000*r.v*r.v,E:0,dmg:{},tc:[],frags:[],entry:r.p.slice(),exit:null,lodged:true,stopped:true};}
+    this.emit({type:'plate',x:e.x,y:e.y,mat:r.mat,zone:r.zone,victim:e.id,shooter:shooter?.id,rec,v:r.v,blunt:r.blunt,eq:r.eq,armorName:r.armor,armor:e.armor?this.armorOf(e.armor)?.D.a||null:null,vf:e.f,vk:e.k,name:e.name,sname:shooter?.name||(sh?.tower?'une tour':null),w:sh?.w,R:sh?.R,len:W?W.l/1000:.0065,dir:sh?[sh.x1-sh.x0,sh.y1-sh.y0]:[1,0]});
     if(e.h){e.h.pain=Math.min(10,(e.h.pain||0)+.5);(e.h.log??=[]).push({t:this.s.t,what:`balle arrêtée par ${r.zone==='casque'?'le casque':r.zone==='dos'?'la plaque de dos':r.zone==='flancs'?'la protection des flancs':'le plastron'} (${r.armor})`,by:''});
       const jk=r.blunt/1.5;if(jk>3&&this.rand()<Math.min(.6,(jk-3)/10)){e.h.shock=Math.max(e.h.shock,6+this.rand()*10);if(e.h.state==='ok')e.h.state='blesse';e.h.cause='choc derrière la plaque';}}
     if(e.f==='beee')this.beeeAlarm(e);}

@@ -56,7 +56,7 @@ const view=new View($('#view'),world,{
   vehicleHint:w=>{const v=world.s.vehicles.find(x=>x.id===view.selV);return v?.k==='bombardier'?'clic droit : bombarder ici':null;},
   get pickStop(){return ui.pick?pickStop:null;}});
 const room=new XRoom($('#xroom'));const body3d=new BodyView();
-const xray=new XRay($('#xray'),{onGo:(x,y)=>view.lookAt(x,y),room,onFiche:id=>openFiche(id)});warm3d();
+const xray=new XRay($('#xray'),{onGo:(x,y)=>view.lookAt(x,y),room,onFiche:id=>openFiche(id),hostL:$('#xrayL')});warm3d();
 const designer=new Designer($('#dz'),{world:()=>world,
   bureau:()=>{const b=world.building(view.selB);if(b?.k==='armurerie'&&b.f==='meumeu'&&b.done)return b;return world.s.buildings.find(x=>x.k==='armurerie'&&x.f==='meumeu'&&x.done&&!x.proto)||null;},
   propose:(p,name)=>{const b=designer.bureau();if(!b)return {ok:false,why:['un bureau d’études']};const r=world.propose(b,name,p);if(r.ok){audio.play('built');say(r.text,'good');}return r;},
@@ -547,14 +547,14 @@ function where(x,y){const q=view.toScreen(x,y);const w=view.canvas.width,h=view.
 function alertBox(text,x,y,tone='bad'){const box=$('#alert');box.innerHTML=`${text}${x!=null?` <button class="small" data-gotoxy="${x},${y}">Voir</button>`:''}`;box.className='alert '+tone;box.hidden=false;clearTimeout(ui.alertT);ui.alertT=setTimeout(()=>box.hidden=true,9000);}
 function woundCard(e){if(xray.mode==='off')return;const mine=xray.mode==='sel'?(view.sel.has(e.victim)||(e.shooter!=null&&view.sel.has(e.shooter))):!where(e.x,e.y).far;if(!mine)return;
   const vD=e.vf==='beee'?BEEE.units[e.vk]:UNITS[e.vk];const victim=e.vf==='beee'?(vD?.name||'Bèè'):(e.name||vD?.name||'Meumeu');const shooter=e.frag?`${{grenade:'Grenade',obus:'Obus',bombe:'Bombe'}[e.frag]}${e.sname?' de '+e.sname:''}`:(e.sname||(e.vf==='meumeu'?'Un Bèè':'Un Meumeu'));
-  const received=view.sel.has(e.victim);const d=e.w?world.design(e.w):null;
-  xray.add(e,{title:`${received?'Reçu · ':''}${shooter} → ${victim}`,sub:`${e.frag?`éclat de ${fmt(e.rec.E0*1000/Math.max(1,e.v*e.v)*2,2)} g`:(d?.name||'')} · ${fmt(e.R,e.R<10?1:0)} m · ${Math.round(e.v)} m/s à l’impact${e.cover?` · à travers : ${e.cover}`:''}`});}
+  const received=e.vf==='meumeu';const d=e.w?world.design(e.w):null;
+  xray.add(e,{side:received?'L':'R',title:`${received?'Reçu · ':'Envoyé · '}${shooter} → ${victim}`,sub:`${e.frag?`éclat de ${fmt(e.rec.E0*1000/Math.max(1,e.v*e.v)*2,2)} g`:(d?.name||'')} · ${fmt(e.R,e.R<10?1:0)} m · ${Math.round(e.v)} m/s à l’impact${e.cover?` · à travers : ${e.cover}`:''}`});}
 function events(){for(const e of world.events.splice(0)){view.onEvent(e);const P=e.x!=null?where(e.x,e.y):null;
   switch(e.type){
     case 'shot':audio.play('shot',P,e);break;case 'cannon':audio.play('cannon',P);break;
     case 'wound':{const v=world.unit(e.victim);if(v){hurtRefs.delete(e.victim);hurtRefs.set(e.victim,v);if(hurtRefs.size>80)hurtRefs.delete(hurtRefs.keys().next().value);}woundCard(e);audio.play('hit',P,e);break;}
     case 'down':audio.play('down',P);if(e.f==='meumeu'&&P&&!P.far)say(`${unitName(world.unit(e.id)||{k:'soldat',f:'meumeu'})} est à terre : ${e.cause||''}.`,'bad');break;
-    case 'throw':audio.play('throw',P);break;case 'plate':audio.play('plate',P);break;case 'smoke':audio.play('smoke',P);break;case 'reload':audio.play('reload',P);break;case 'pierce':audio.play('pierce',P);break;case 'impact':if(e.mat==='pierre'||e.mat==='mur'||e.mat==='rocher')audio.play('ricochet',P);break;
+    case 'throw':audio.play('throw',P);break;case 'plate':audio.play('plate',P);if(e.rec)woundCard(e);break;case 'smoke':audio.play('smoke',P);break;case 'reload':audio.play('reload',P);break;case 'pierce':audio.play('pierce',P);break;case 'impact':if(e.mat==='pierre'||e.mat==='mur'||e.mat==='rocher')audio.play('ricochet',P);break;
     case 'boom':audio.play(e.kind==='bomb'?'bomb':'boom',P);break;case 'flak':audio.play('flak',P);break;
     case 'collapse':audio.play('collapse',P);if(e.k&&e.f==='meumeu'&&!e.small)alertBox(`<b>${BUILDINGS[e.k].name} détruit !</b>`,e.x,e.y);break;
     case 'fire':audio.play('fire',P);break;case 'felled':audio.play('felled',P);break;case 'death':audio.play('death',P);break;

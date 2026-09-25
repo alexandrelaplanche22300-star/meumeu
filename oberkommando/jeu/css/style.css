@@ -47,11 +47,11 @@ a{color:var(--teal);cursor:pointer;text-decoration:underline;text-underline-offs
 .sqchip{position:relative;overflow:hidden;background:#173d44e6;color:#fff8e6;border-radius:8px;padding:3px 9px 5px;font-size:12px;font-weight:600;display:flex;gap:6px;align-items:baseline}
 .sqchip b{color:#ffd36a}.sqchip span{opacity:.75;font-variant-numeric:tabular-nums}.sqchip i{position:absolute;left:0;bottom:0;height:2px;width:var(--m);background:#ffd36a}.sqchip.on{outline:2px solid #ffd36a}.sqchip.broken{background:#8a2c22e6}
 .xmode{position:absolute;right:10px;top:10px;z-index:6;background:#173d44d9;color:#fff8e6;font-size:12px;padding:4px 10px;border-radius:8px;font-weight:600}
-.xray{position:absolute;right:10px;top:44px;width:256px;height:320px;z-index:5;pointer-events:none}
-.xcard{position:absolute;top:0;right:0;width:256px;background:#070d14;border:1px solid #2c4a5a;border-radius:10px;box-shadow:0 10px 26px #000a;color:#dfe9f2;transform-origin:top center;transition:transform .25s,opacity .25s;pointer-events:auto;overflow:hidden}
+.xray{position:absolute;right:10px;top:44px;width:360px;height:400px;z-index:5;pointer-events:none}
+.xcard{position:absolute;top:0;right:0;width:360px;background:#070d14;border:1px solid #2c4a5a;border-radius:10px;box-shadow:0 10px 26px #000a;color:#dfe9f2;transform-origin:top center;transition:transform .25s,opacity .25s;pointer-events:auto;overflow:hidden}
 .xcard header{display:flex;gap:4px;align-items:center;padding:4px 6px;font-size:11.5px;background:#0e1c26}.xcard header b{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .xcard header button{background:transparent;color:#9fb6c6;padding:0 5px;font-size:13px;border-radius:5px}.xcard header button:hover{color:#fff;background:#ffffff18}.xn{color:#8fa6b8;font-size:10.5px}
-.xcard canvas{display:block;width:256px;height:154px;cursor:pointer}.xcard footer{font-size:11.5px;padding:5px 8px 2px;line-height:1.35}.xcard footer.dead b{color:#ff6b5b}.xcard footer.down b{color:#ffb347}.xcard footer.hurt b{color:#e8bf62}
+.xcard canvas{display:block;width:360px;height:216px;cursor:pointer}.xcard footer{font-size:11.5px;padding:5px 8px 2px;line-height:1.35}.xcard footer.dead b{color:#ff6b5b}.xcard footer.down b{color:#ffb347}.xcard footer.hurt b{color:#e8bf62}
 .xsub{display:block;padding:0 8px 6px;font-size:10.5px;color:#8fa6b8}
 /* le bureau d'études */
 .dzwrap{position:fixed;inset:0;background:#000a;z-index:20;display:grid;place-items:center;padding:16px}
@@ -190,3 +190,5 @@ table.dem td{padding:3px 4px;border-bottom:1px dotted var(--line);vertical-align
 .dz-help .bad,.dz-crew .bad{color:var(--red)}.dz-crew .good{color:var(--good)}.dz-roles{display:flex;gap:4px;flex-wrap:wrap;margin:4px 0}.dz-crew p{margin:4px 0}
 .dz-cal i{display:block;font-style:normal;font-size:11px;color:var(--muted)}
 .dz-mid h3 .small{margin-left:auto}
+.xray.left{right:auto;left:10px}.xray.left .xcard{right:auto;left:0}
+.xray.left{top:64px}
