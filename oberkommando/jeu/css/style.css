@@ -1,4 +1,4 @@
-/* Aller Simple 3 — la palette du projet : papier, encre, sarcelle, orange ; la carte en plein cadre. */
+/* Oberkommando der Meumeu — la palette du projet : papier, encre, sarcelle, orange ; la carte en plein cadre. */
 :root{--paper:#f5ecd7;--paper2:#fffaf0;--card:#fffdf6;--ink:#233c43;--muted:#6d7770;--line:#dccdab;--teal:#227b7b;--teal2:#54aaa1;--orange:#ee7d26;--orange2:#b95a14;--red:#bd4b3d;--gold:#e8bf62;--good:#2f7d4f;--shade:#233c4326}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#172a2f;--paper2:#1d3439;--card:#203a40;--ink:#eee4cc;--muted:#a9b3a8;--line:#35545a;--teal:#4fb0a6;--teal2:#6cc3b8;--orange:#f08c3c;--orange2:#e0904a;--red:#e0705f;--gold:#e8bf62;--good:#6cc08a;--shade:#0008}}
 :root[data-theme="dark"]{--paper:#172a2f;--paper2:#1d3439;--card:#203a40;--ink:#eee4cc;--muted:#a9b3a8;--line:#35545a;--teal:#4fb0a6;--teal2:#6cc3b8;--orange:#f08c3c;--orange2:#e0904a;--red:#e0705f;--gold:#e8bf62;--good:#6cc08a;--shade:#0008}
@@ -18,7 +18,7 @@ a{color:var(--teal);cursor:pointer;text-decoration:underline;text-underline-offs
 .speeds{display:flex;gap:3px}.speeds button{background:color-mix(in srgb,var(--ink) 9%,transparent);color:var(--ink);padding:4px 9px}.speeds button.on{background:var(--ink);color:var(--paper2)}
 .stocks{display:flex;gap:4px;flex-wrap:wrap}.rchip{display:inline-flex;gap:4px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:2px 7px;font-variant-numeric:tabular-nums}
 .rchip.rare{border-color:var(--gold)}.rchip.bad{border-color:var(--red);color:var(--red)}.spacer{flex:1}.menu{display:flex;gap:3px}.menu button{padding:4px 8px;font-size:12.5px}.top{row-gap:4px}.eyebrow{display:none}
-.layout{flex:1;display:grid;grid-template-columns:1fr 350px;min-height:0}
+.layout{flex:1;display:grid;grid-template-columns:1fr 390px;min-height:0}
 .stage{position:relative;min-height:0;background:#0d2233;overflow:hidden}.stage canvas#view{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 #mini{position:absolute;left:10px;bottom:10px;width:300px;height:150px;border:2px solid #fff8e6aa;border-radius:10px;background:#0d2233;cursor:pointer;box-shadow:0 8px 20px #0008}
 .keys{position:absolute;right:10px;bottom:8px;font-size:11px;color:#e8dcc0b0;pointer-events:none;text-align:right;max-width:55%}
@@ -153,3 +153,12 @@ a{color:var(--teal);cursor:pointer;text-decoration:underline;text-underline-offs
 @media (max-width:900px){.xr-body{grid-template-columns:1fr}.xr-side{border-left:0;border-top:1px solid #22384a}.fbody{grid-template-columns:1fr}.buildbar{left:10px;bottom:100px}.tri-sum{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:820px){.layout{grid-template-columns:1fr;grid-template-rows:1fr 42%}.panel{border-left:0;border-top:1px solid var(--line)}#mini{width:180px;height:90px}.hint{left:200px;max-width:calc(100% - 210px)}.keys{display:none}}
 @media (prefers-reduced-motion:reduce){.hint{transition:none}}
+/* la gestion : usines, dépôts, fret */
+.recipe{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 0}.recipe .arrow{color:var(--muted);font-weight:700}
+.pane h3{margin:6px 0 0;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.pane label.row select,.pane .row select{max-width:100%;flex:1;min-width:0;background:var(--paper2);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:3px 5px;font:inherit;font-size:12px}
+.kv b.kctl{display:inline-flex;gap:6px;align-items:center}
+.seg.prio button{min-width:26px}
+table.dem{width:100%;border-collapse:collapse;font-size:12px}table.dem th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:3px 4px;border-bottom:1px solid var(--line)}
+table.dem td{padding:3px 4px;border-bottom:1px dotted var(--line);vertical-align:middle;font-variant-numeric:tabular-nums}table.dem td button{padding:0 6px;margin-left:2px}table.dem tr.short td:first-child{box-shadow:inset 3px 0 0 var(--orange)}
+.gauge.coal i{background:#3b3f44}

@@ -164,13 +164,13 @@ function drawScene(ctx,W,H,sc,t,cam,o){setSpecies(sc.events[0]?.vf);const anat=o
 
 // ---------- la pile de fenêtres ----------
 export class XRay{
-  constructor(host,{onGo,room,onFiche}={}){this.host=host;this.cards=[];this.onGo=onGo;this.room=room;this.onFiche=onFiche;this.mode=localStorage.getItem('aller3-xray')||'sel';
+  constructor(host,{onGo,room,onFiche}={}){this.host=host;this.cards=[];this.onGo=onGo;this.room=room;this.onFiche=onFiche;this.mode=localStorage.getItem('okm-xray')||'sel';
     host.addEventListener('click',e=>{const b=e.target.closest('[data-x]');const card=e.target.closest('.xcard');if(!card)return;const c=this.cards.find(k=>k.el===card);if(!c)return;
       if(b?.dataset.x==='close'){this.remove(c);return;}if(b?.dataset.x==='go'){this.onGo?.(c.sc.events[0].x,c.sc.events[0].y);return;}if(b?.dataset.x==='fiche'){this.onFiche?.(c.victim);return;}if(b?.dataset.x==='replay'){c.t=0;this.front(c);return;}
       if(e.target.tagName==='CANVAS'||b?.dataset.x==='room'){this.room?.open(c.sc,c.el.querySelector('header b').textContent,c.el.querySelector('footer').innerHTML);return;}this.front(c);});
     host.addEventListener('pointerover',e=>{const card=e.target.closest('.xcard');for(const c of this.cards)c.hover=c.el===card;});
     host.addEventListener('pointerleave',()=>{for(const c of this.cards)c.hover=false;});}
-  setMode(m){this.mode=m;try{localStorage.setItem('aller3-xray',m);}catch(e){}if(m==='off')for(const c of [...this.cards])this.remove(c);}
+  setMode(m){this.mode=m;try{localStorage.setItem('okm-xray',m);}catch(e){}if(m==='off')for(const c of [...this.cards])this.remove(c);}
   // une blessure arrive : sur le même Meumeu, dans les deux secondes, elle rejoint la même fenêtre (une rafale) ; sinon, une nouvelle fenêtre
   add(e,{title,sub}){if(this.mode==='off'||!e.rec?.path?.length)return;const now=performance.now();
     const same=this.cards.find(c=>c.victim===e.victim&&now-c.born<MERGE&&c.sc.events.length<4);

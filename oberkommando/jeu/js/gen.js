@@ -2,7 +2,7 @@
 // des collines rocheuses. Au milieu, une chaîne de montagnes le traverse en diagonale, percée de trois cols : les passages
 // où la guerre passera. La capitale meumeu est dans un coin, les villes bèè dans le coin opposé : on ne se voit pas au début.
 // Le rare est dispersé pour qu'on progresse : pour chaque rare, un filon de notre côté, un au milieu, un près des Bèè.
-import {MAP_N,T,NODES,RARE} from './data.js';
+import {MAP_N,T,NODES,RARE,ORE_LEFT} from './data.js';
 
 export function rng(seed){let s=(seed>>>0)||1;return ()=>{s^=s<<13;s>>>=0;s^=s>>17;s^=s<<5;s>>>=0;return s/4294967296;};}
 function noise2(r){const P=256,g=new Float32Array(P*P);for(let i=0;i<g.length;i++)g[i]=r();
@@ -41,7 +41,7 @@ export function generate(seed){const N=MAP_N;const r=rng(seed*9973+17);for(let k
   const beee=[];for(const [ti,tj] of [[N*.87,N*.13],[N*.7,N*.1],[N*.9,N*.3]]){if(beee.length>=2)break;const p=siteNear(ti,tj,5,[capital,...beee]);if(p)beee.push(p);}
   // les ressources
   const nodes=[];const nodeAt=new Int32Array(N*N).fill(-1);
-  const add=(type,i,j,extra={})=>{if(i<1||j<1||i>=N-1||j>=N-1)return null;const k=j*N+i;if(nodeAt[k]>=0||!land(k))return null;const L=NODES[type].left;const nd={id:nodes.length,type,i,j,left:L,max:L,...extra};nodes.push(nd);nodeAt[k]=nd.id;return nd;};
+  const add=(type,i,j,extra={})=>{if(i<1||j<1||i>=N-1||j>=N-1)return null;const k=j*N+i;if(nodeAt[k]>=0||!land(k))return null;const L=(extra.res&&ORE_LEFT[extra.res])||NODES[type].left;const nd={id:nodes.length,type,i,j,left:L,max:L,...extra};nodes.push(nd);nodeAt[k]=nd.id;return nd;};
   const towns=[capital,...beee];const nearTown=(i,j,d)=>towns.some(([a,b])=>Math.hypot(a-i,b-j)<d);
   for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i;if(!land(k)||nearTown(i,j,7))continue;const f=fbm(n4,i/N*11,j/N*11,3);
     if((terrain[k]===T.grass||terrain[k]===T.meadow)&&f>.55&&r()<.6)add('tree',i,j);
@@ -64,4 +64,13 @@ export function generate(seed){const N=MAP_N;const r=rng(seed*9973+17);for(let k
   for(const res of order){if(!deposits.some(d=>d.res===res))place(res,(i,j)=>dC(i,j)>30&&dC(i,j)<70);}
   for(const res of order)place(res,(i,j)=>Math.abs(dC(i,j)-dB(i,j))<30&&dC(i,j)>60);
   for(const res of order)place(res,(i,j)=>dB(i,j)>12&&dB(i,j)<34);
+  // le commun : des veines de charbon et des glaisières, plus nombreuses que le rare. Une de chaque près de la capitale,
+  // de quoi faire tourner les premières machines et cuire les premières briques ; les autres plus loin, à relier par le rail.
+  const common=(res,ok,gap=9)=>{for(let t=0;t<6000;t++){const i=4+Math.floor(r()*(N-8)),j=4+Math.floor(r()*(N-8));const k=j*N+i;if(!land(k)||nodeAt[k]>=0||!ok(i,j))continue;
+      if(deposits.some(d=>Math.hypot(d.i-i,d.j-j)<gap))continue;let free=0;for(let b=-1;b<=2;b++)for(let a=-1;a<=2;a++){const kk=(j+b)*N+i+a;if(land(kk)&&nodeAt[kk]<0)free++;}if(free<14)continue;
+      const nd=add('ore',i,j,{res});deposits.push(nd);return nd;}return null;};
+  common('charbon',(i,j)=>dC(i,j)>11&&dC(i,j)<20,7);common('argile',(i,j)=>dC(i,j)>11&&dC(i,j)<20,7);
+  for(let n=0;n<3;n++)common('charbon',(i,j)=>dC(i,j)>24&&dC(i,j)<75);for(let n=0;n<2;n++)common('argile',(i,j)=>dC(i,j)>24&&dC(i,j)<75);
+  for(let n=0;n<3;n++)common('charbon',(i,j)=>Math.abs(dC(i,j)-dB(i,j))<40&&dC(i,j)>60);
+  for(const _ of beee){common('charbon',(i,j)=>dB(i,j)>10&&dB(i,j)<30);common('argile',(i,j)=>dB(i,j)>10&&dB(i,j)<30);}
   return {N,terrain,nodes,nodeAt,comp,main,capital,beee,deposits,passes};}

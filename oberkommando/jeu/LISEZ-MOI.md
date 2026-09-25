@@ -1,6 +1,7 @@
-# Meumeu Aller Simple 3
+# Oberkommando der Meumeu
 
-*Bâtir. Relier. Tenir.* — la refonte totale (2026-09-24), puis le combat réaliste (2026-09-25).
+*Bâtir. Relier. Tenir.* — l'ancien « Meumeu Aller Simple 3 », refondu autour de la gestion (2026-09-25) : usines,
+dépôts, commandes, fret et rail. Le combat réaliste d'Aller Simple 3 reste tel quel.
 
 Une seule carte, immense et continue (192 × 192 cases), tirée au sort à chaque partie : un continent
 qui court d'un bout à l'autre, des montagnes, des forêts, des îles au large. La capitale meumeu est
@@ -9,6 +10,42 @@ des mines, des voies ferrées, des aérodromes — et une guerre totale qui vise
 
 **Gagner** : cent caisses de chaque rare au dépôt de la capitale, ou la chute de toutes les villes bèè.
 **Perdre** : le dernier centre-ville qui s'effondre.
+
+## La gestion (Oberkommando, 2026-09-25)
+
+Toute l'économie est faite pour tenir une guerre totale — et elle est écrite pour les deux camps : l'état-major
+bèè s'en servira demain comme nous.
+
+- **Les usines ne font qu'une chose**, choisie dans leur panneau : un atelier fait des pièces *ou* du carburant,
+  un arsenal les munitions d'*une* conception *ou* des explosifs, une manufacture *un* modèle de fusil ou de
+  protection (changer de modèle, c'est refaire l'outillage : 6 h). Un plafond arrête l'usine quand son dépôt de
+  sortie en a assez ; un bouton l'arrête tout à fait.
+- **Deux rattachements par usine** : le dépôt d'approvisionnement (elle y prend ses matières) et le dépôt de sortie
+  (elle y livre), à moins de 14 cases, le plus proche par défaut, au choix du joueur. Les mines et les fermes ont
+  leur dépôt de sortie ; les villageois qui ramassent à la main se rattachent à un dépôt (« Livrent à »).
+- **Le charbon fait tourner les machines** : ateliers, arsenaux, manufactures en brûlent par heure de travail ;
+  sans charbon au dépôt d'approvisionnement, les machines sont froides. Les locomotives en brûlent aussi (une
+  caisse pour vingt cases) et ne partent que le tender assez plein pour le trajet.
+- **Nouvelles ressources** : le charbon (veines noires, ou le four à charbon de bois : 4 bois → 1 charbon),
+  l'argile (glaisières), les briques (briqueterie : 3 argile + 1 charbon → 4 briques). Gares, arsenaux,
+  manufactures, hôpitaux, casernes, villes nouvelles demandent des briques.
+- **Les commandes** : une usine commande à son dépôt d'approvisionnement de quoi faire plusieurs lots d'avance ;
+  un chantier commande ses matériaux au dépôt le plus proche et **se pose sans les avoir** — les bâtisseurs
+  avancent à mesure qu'ils arrivent. On peut donc aller bâtir près d'un filon lointain : un camp (gratuit), puis
+  la mine, la gare ; le fret suit.
+- **Les dépôts sont polyvalents** (centre-ville, camp, gare, entrepôt, aérodrome, tente) : chacun a une
+  **priorité de 1 à 5** et des **demandes permanentes** (« garder 40 munitions ici »). Le panneau montre toutes
+  ses demandes et d'où elles viennent, ce qui arrive, ce qui lui est rattaché.
+- **Le bureau du fret** : chaque charrette, train, avion est **à la demande** par défaut. Il prend le manque le
+  plus prioritaire qu'il peut servir, va le chercher au dépôt qui en a de trop le plus commode, et le livre en
+  complétant son chargement. Un dépôt garde ce qu'il demande lui-même — seule une priorité plus haute peut le
+  lui prendre. Un train sert les gares de son réseau ; une charrette, les dépôts de son rayon autour de sa base ;
+  on peut réserver un véhicule à certaines familles (un train de charbon). La ligne fixe d'avant reste possible.
+- **L'écran du fret** (E) : tout ce qui manque, par priorité, et pourquoi (en route, aucune source, aucun
+  véhicule ne dessert ce dépôt).
+- **Deux cases d'écart** entre les bâtiments : des rues, une carte lisible.
+- **Les trains sont dessinés** : locomotive à vapeur qui fume, tender, wagons faits pour leur chargement ;
+  les voies ont leur ballast.
 
 ## Nouveau (2026-09-25, troisième livraison) — l'équipement
 
@@ -106,12 +143,12 @@ Le son est synthétisé et placé : chaque arme a sa détonation (calibre, charg
 
 ## Pour le développement
 
-    python serve.py 8746 aller3        # depuis la racine du dépôt
+    python serve.py 8746 jeu           # depuis le dossier oberkommando/
     http://localhost:8746/             # le jeu ; ?new=1 : une nouvelle carte ; /test/run.html : les bancs
 
 `js/data.js` : tout ce qui se règle. `js/gen.js` : la carte. `js/path.js` : le chemin (A*).
 `js/ballistics.js` : la balistique. `js/body.js` : le corps. `js/health.js` : la santé.
-`js/designs.js` : les conceptions d'armes. `js/world.js` : la simulation.
+`js/designs.js` : les conceptions d'armes. `js/world.js` : la simulation. `js/eco.js` : la gestion (usines, dépôts, commandes, fret).
 `js/view.js` : le rendu isométrique. `js/xray.js` : les radiographies. `js/designer.js` : le bureau
 d'études. `js/audio.js` : le son. `js/ui.js` : l'interface.
 

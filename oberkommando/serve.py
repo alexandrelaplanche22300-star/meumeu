@@ -7,7 +7,7 @@ et les tests passent au vert sur du code périmé.
 
     python serve.py [port]        # jeu   : http://localhost:8743/
                                   # tests : http://localhost:8743/tests.html
-    python serve.py 8744 aller    # prototype Meumeu Aller Simple
+    python serve.py 8746 jeu      # Oberkommando der Meumeu
 """
 import sys
 from functools import partial

@@ -1,4 +1,4 @@
-// Les bancs d'Aller Simple 3. Chaque banc monte une situation, fait tourner le monde, et dit ce qui s'est passé.
+// Les bancs d'Oberkommando der Meumeu. Chaque banc monte une situation, fait tourner le monde, et dit ce qui s'est passé.
 // ?only=5,6 : ne lancer que ces bancs.
 import {World} from '../js/world.js';
 import {DAY,BUILDINGS,UNITS,VEHICLES,RARE,MAP_N,T} from '../js/data.js';
@@ -14,7 +14,7 @@ const run=(W,h,step=.05)=>{for(let t=0;t<h;t+=step)W.update(step);};
 const count=(W,h,step=.05)=>{const ev={};for(let t=0;t<h;t+=step){W.update(step);for(const e of W.events.splice(0))ev[e.type]=(ev[e.type]||0)+1;}return ev;};
 // poser un bâtiment fini, sans payer : pour monter une situation
 const put=(W,f,k,i,j)=>{const b=W.addBuilding(f,k,i,j,true);if(BUILDINGS[k].store)b.stock=b.stock||{};return b;};
-const free=(W,k,ci,cj,r0=4,r1=20)=>{for(let r=r0;r<r1;r++)for(let a=0;a<32;a++){const i=Math.round(ci+Math.cos(a/32*6.283)*r),j=Math.round(cj+Math.sin(a/32*6.283)*r);const c=W.canPlace('meumeu',k,i,j);if(c.ok||c.why.every(w=>w.startsWith('il manque')))return [i,j];}return null;};
+const free=(W,k,ci,cj,r0=4,r1=20)=>{for(let r=r0;r<r1;r++)for(let a=0;a<32;a++){const i=Math.round(ci+Math.cos(a/32*6.283)*r),j=Math.round(cj+Math.sin(a/32*6.283)*r);const c=W.canPlace('meumeu',k,i,j);if(c.ok||c.why.every(w=>w.startsWith('il manque')||w.startsWith('aucun dépôt')))return [i,j];}return null;};
 // un terrain plat et dégagé de n × m cases près de (ci, cj), pour les fusillades
 const field=(W,ci,cj,n,m)=>{for(let r=0;r<40;r++)for(let a=0;a<24;a++){const i=Math.round(ci+Math.cos(a/24*6.283)*r),j=Math.round(cj+Math.sin(a/24*6.283)*r);let ok=true;
   for(let dj=0;dj<m&&ok;dj++)for(let di=0;di<n;di++){const k=(j+dj)*MAP_N+i+di;const t=W.G.terrain[k];if(!(t>=T.sand&&t<=T.scrub)||W.occ[k]>=0||W.nodeAt[k]>=0||W.wall[k]){ok=false;break;}}if(ok)return [i,j];}return null;};
@@ -123,19 +123,23 @@ if(on(7)){say('\n=== banc 7 : les soins — un infirmier, un hôpital ===');
   run(W,72);say(`  trois jours plus tard : ${vic.map(where).join(' · ')}`);}
 
 if(on(8)){say('\n=== banc 8 : les munitions — arsenal, manufacture, caserne ===');
-  const W=new World(4);const cap=W.capital();Object.assign(cap.stock,{fer:60,sels:30,pieces:80,bois:300,pierre:200,vivres:300,'m:mle1':0,'a:mle1':0});
-  const ars=put(W,'meumeu','arsenal',...free(W,'arsenal',cap.i+2,cap.j+2,5,12));const man=put(W,'meumeu','manufacture',...free(W,'manufacture',cap.i+2,cap.j+2,6,14));const cas=put(W,'meumeu','caserne',...free(W,'caserne',cap.i+2,cap.j+2,6,14));
-  const vil=W.s.units.filter(u=>u.f==='meumeu');W.order(vil.slice(0,2).map(u=>u.id),{type:'building',id:ars.id});W.order(vil.slice(2,6).map(u=>u.id),{type:'building',id:man.id});
-  const f0=cap.stock.fer;run(W,24);const have=W.have('meumeu',cap.i+2,cap.j+2);
-  say(`  un jour : ${fmt(have['m:mle1']||0,1)} caisses de munitions Mle 1 (garder ${ars.keep['m:mle1']}), ${fmt(have.explosifs||0,1)} explosifs, ${fmt(have['a:mle1']||0)} fusils (garder ${man.keep['a:mle1']}) · fer consommé ${fmt(f0-cap.stock.fer,1)} · arsenal : ${ars.why||'au travail'} · manufacture : ${man.why||'au travail'}`);
+  const W=new World(4);const cap=W.capital();Object.assign(cap.stock,{fer:60,sels:30,pieces:80,bois:300,pierre:200,vivres:300,charbon:80,'m:mle1':0,'a:mle1':0});
+  const ars=put(W,'meumeu','arsenal',...free(W,'arsenal',cap.i+2,cap.j+2,6,14));const ars2=put(W,'meumeu','arsenal',...free(W,'arsenal',cap.i+2,cap.j+2,6,14));const man=put(W,'meumeu','manufacture',...free(W,'manufacture',cap.i+2,cap.j+2,6,15));const cas=put(W,'meumeu','caserne',...free(W,'caserne',cap.i+2,cap.j+2,6,16));
+  W.setProduct(ars2,'explosifs');
+  const vil=W.s.units.filter(u=>u.f==='meumeu');W.order(vil.slice(0,2).map(u=>u.id),{type:'building',id:ars.id});W.order(vil.slice(2,4).map(u=>u.id),{type:'building',id:ars2.id});W.order(vil.slice(4,8).map(u=>u.id),{type:'building',id:man.id});
+  const f0=cap.stock.fer,c0=cap.stock.charbon;run(W,24);const have=W.have('meumeu',cap.i+2,cap.j+2);
+  say(`  un jour : ${fmt(have['m:mle1']||0,1)} caisses de munitions Mle 1 (plafond ${ars.limit}), ${fmt(have.explosifs||0,1)} explosifs (plafond ${ars2.limit}), ${fmt(have['a:mle1']||0)} fusils (plafond ${man.limit}) · fer consommé ${fmt(f0-cap.stock.fer,1)} · charbon brûlé ${fmt(c0-cap.stock.charbon,1)} · arsenal : ${ars.why||'au travail'} · manufacture : ${man.why||'au travail'}`);
   const q=[];for(let n=0;n<4;n++)q.push(W.train(cas,'soldat','mle1'));run(W,14);const sol=W.s.units.filter(u=>u.k==='soldat');
   say(`  former quatre soldats : ${q.map(r=>r.ok?'ok':r.why[0]).join(', ')} · ${sol.length} soldats, ${sol.map(u=>u.pouch+u.mag).join('/')} coups chacun`);
-  // une nouvelle arme : prototype, outillage, fabrication
-  const bur=put(W,'meumeu','armurerie',...free(W,'armurerie',cap.i+2,cap.j+2,6,16));const p={d:2.2,l:8,nose:'pointue',base:'bt',cons:'fmj',c:.05,L:180,twist:60,action:'semi',rof:600,mag:10,heavy:false};
-  const pr=W.propose(bur,'Fusil Mle 2',p);run(W,16);const d=W.design(pr.id);W.setKeep(man,'a:'+pr.id,3);W.setKeep(ars,'m:'+pr.id,3);run(W,30);const h2=W.have('meumeu',cap.i+2,cap.j+2);
-  say(`  prototype Mle 2 : ${pr.ok?'lancé':pr.why} · ${d?.status} · outillé ${!!man.tooled[pr.id]} · ${fmt(h2['a:'+pr.id]||0)} fusils, ${fmt(h2['m:'+pr.id]||0,1)} caisses de munitions`);
-  // la manufacture tombe : sans archives, les plans sont perdus
-  W.collapse(man);say(`  la manufacture tombe (sans archives) : Mle 2 ${W.design(pr.id).status} · Mle 1 ${W.design('mle1').status}`);}
+  // une nouvelle arme : prototype, outillage de la manufacture (elle change de modèle), fabrication
+  const bur=put(W,'meumeu','armurerie',...free(W,'armurerie',cap.i+2,cap.j+2,6,18));const p={d:2.2,l:8,nose:'pointue',base:'bt',cons:'fmj',c:.05,L:180,twist:60,action:'semi',rof:600,mag:10,heavy:false};
+  Object.assign(cap.stock,{fer:80,sels:30,pieces:80,charbon:80});
+  const pr=W.propose(bur,'Fusil Mle 2',p);run(W,16);const d=W.design(pr.id);const r1=W.setProduct(man,'a:'+pr.id);const r2=W.setProduct(ars,'m:'+pr.id);run(W,30);const h2=W.have('meumeu',cap.i+2,cap.j+2);
+  say(`  prototype Mle 2 : ${pr.ok?'lancé':pr.why} · ${d?.status} · ${r1.text} · outillé ${!!man.tooled[pr.id]} · ${fmt(h2['a:'+pr.id]||0)} fusils, ${fmt(h2['m:'+pr.id]||0,1)} caisses de munitions`);
+  // sans charbon, les machines s'arrêtent
+  cap.stock.charbon=0;ars.limit=0;run(W,3);say(`  plus de charbon, plafond levé : arsenal « ${ars.why} »`);
+  // la manufacture tombe : sans autre manufacture ni archives, les plans sont perdus
+  W.collapse(man);say(`  la manufacture tombe (seule, sans archives) : Mle 2 ${W.design(pr.id).status} · Mle 1 ${W.design('mle1').status}`);}
 
 if(on(9)){say('\n=== banc 9 : la paix armée, puis la guerre — trente jours sans rien faire ===');
   const W=new World(5);const days=[];let ev={};const t0=performance.now();let firstShot=null;
@@ -186,4 +190,36 @@ if(on(14)){say('\n=== banc 14 : toutes les munitions contre toutes les protectio
   for(const dist of [.5,1.25,2.5,5]){let hits=0,shots=0,down=0;for(let rep=0;rep<40;rep++){const u=W.addUnit('meumeu','soldat',at[0]+.5,at[1]+1.5,{w:'fap',rounds:50});const e=W.addUnit('beee','soldat',at[0]+.5+dist,at[1]+1.5,{armor:null});
       W.face(u,1,0);W.face(e,-1,0);const Wd=W.W('fap');const share={};let hit=0;for(let k=0;k<Wd.pel;k++){const r=W.resolve(u,e,Wd,dist*4,0,share);if(r.hit&&!r.stopped){hit++;applyWound(e.h,r.rec,R0,'balle');}}shots++;hits+=hit;if(e.h.state==='hors'||e.h.state==='mort')down++;W.s.units=[];}
     say(`  chevrotine (4 mm, 9 plombs) à ${dist*4} m : ${fmt(hits/shots,1)} plombs touchent · hors de combat ou mort du premier coup : ${Math.round(down/shots*100)} %`);}}
+if(on(15)){say('\n=== banc 15 : la chaîne complète — filons, mines, briqueterie, dépôts, fret à la demande, trains, priorités ===');
+  const W=new World(3);const cap=W.capital();const [ci,cj]=W.bc(cap);
+  const ore=res=>W.s.nodes.filter(n=>n.type==='ore'&&n.res===res).sort((a,b)=>Math.hypot(a.i-ci,a.j-cj)-Math.hypot(b.i-ci,b.j-cj))[0];
+  const coal=ore('charbon'),clay=ore('argile');say(`  charbon à ${Math.round(Math.hypot(coal.i-ci,coal.j-cj))} cases, argile à ${Math.round(Math.hypot(clay.i-ci,clay.j-cj))} cases de la capitale`);
+  // à chaque filon : un camp (dépôt gratuit) posé par des villageois, puis une mine rattachée à ce camp
+  const vil=W.s.units.filter(u=>u.f==='meumeu');const campAt=nd=>{for(let r=5;r<11;r++)for(let a=0;a<24;a++){const i=Math.round(nd.i+Math.cos(a/24*6.283)*r),j=Math.round(nd.j+Math.sin(a/24*6.283)*r);if(W.canPlace('meumeu','camp',i,j).ok)return [i,j];}return null;};
+  const c1=W.place('meumeu','camp',...campAt(coal)).b,c2=W.place('meumeu','camp',...campAt(clay)).b;W.order(vil.slice(0,2).map(u=>u.id),{type:'building',id:c1.id});W.order(vil.slice(2,4).map(u=>u.id),{type:'building',id:c2.id});run(W,8);
+  say(`  camps : ${c1.done?'bâti':'chantier '+Math.round(c1.progress*100)+' %'}, ${c2.done?'bâti':'chantier '+Math.round(c2.progress*100)+' %'}`);
+  const m1=W.place('meumeu','mine',coal.i,coal.j),m2=W.place('meumeu','mine',clay.i,clay.j);say(`  mines posées : ${m1.ok?'charbon':m1.why[0]}, ${m2.ok?'argile':m2.why[0]} · approvisionnées par ${W.depotName(W.building(m1.b?.site))}`);
+  W.order(vil.slice(0,2).map(u=>u.id),{type:'building',id:m1.b.id});W.order(vil.slice(2,4).map(u=>u.id),{type:'building',id:m2.b.id});
+  // une charrette à la demande, construite au centre-ville
+  W.train(cap,'charrette');W.train(cap,'charrette');run(W,26);
+  say(`  mines : ${m1.b.done?'bâtie':'chantier '+Math.round(m1.b.progress*100)+' % '+(m1.b.why||'')}, ${m2.b.done?'bâtie':'chantier '+Math.round(m2.b.progress*100)+' % '+(m2.b.why||'')} · livrent à : ${W.depotName(W.building(m1.b.out))}, ${W.depotName(W.building(m2.b.out))}`);
+  for(const [m,us] of [[m1.b,vil.slice(0,2)],[m2.b,vil.slice(2,4)]])W.order(us.map(u=>u.id),{type:'building',id:m.id});
+  // une briqueterie près de la capitale, approvisionnée par la capitale : elle commande argile et charbon
+  const at=free(W,'briqueterie',cap.i+2,cap.j+2,6,14);const br=W.place('meumeu','briqueterie',...at).b;W.order(vil.slice(4,7).map(u=>u.id),{type:'building',id:br.id});run(W,10);
+  W.order(vil.slice(4,7).map(u=>u.id),{type:'building',id:br.id});const b0=cap.stock.briques||0;run(W,36);
+  const carts=W.s.vehicles.filter(v=>v.k==='charrette');
+  say(`  36 h : briqueterie ${br.done?(br.why||'au travail'):'chantier'} · commande de la briqueterie : ${JSON.stringify(Object.fromEntries(Object.entries(W.factoryNeed(br)||{}).map(([k,v])=>[k,+v.toFixed(1)])))} · briques à la capitale ${fmt(b0)} → ${fmt(cap.stock.briques||0)} · argile à la capitale ${fmt(cap.stock.argile||0,1)} · charbon ${fmt(cap.stock.charbon||0,1)} · voyages des charrettes : ${carts.map(v=>v.trips||0).join(', ')}`);
+  // les priorités : un dépôt en urgence (5) passe avant les autres et peut prendre ce que la capitale garde pour elle
+  const e=put(W,'meumeu','entrepot',...free(W,'entrepot',cap.i+2,cap.j+2,8,14));e.stock={};W.setWant(e,'pieces',20);W.setPrio(e,5);run(W,8);
+  say(`  un entrepôt en urgence qui demande 20 pièces : ${fmt(e.stock.pieces||0,1)} arrivées en 8 h`);
+  // les trains : deux gares sur une voie, un arsenal qui s'approvisionne au bout de la ligne ; un train à la demande
+  const W2=new World(3);const g=W2.capital();Object.assign(g.stock,{bois:3000,pierre:2000,pieces:500,charbon:200,briques:200});
+  let row=null;for(let dj=-6;dj<=8&&row==null;dj++){const j=g.j+dj;let ok=true;for(let i=g.i+6;i<g.i+44;i++){const k=j*MAP_N+i;if(!(W2.G.terrain[k]>=T.sand&&W2.G.terrain[k]<=T.scrub)||W2.occ[k]>=0){ok=false;break;}}if(ok)row=j;}
+  if(row==null){say('  pas de rangée libre pour la voie de test');}else{
+    const cells=W2.lineCells(g.i+6,row,g.i+43,row);W2.planLine('meumeu','rail',cells);for(const k of Object.keys(W2.s.rails))W2.lineBuilt('rail',+k);
+    const g1=put(W2,'meumeu','gare',g.i+7,row-2),g2=put(W2,'meumeu','gare',g.i+38,row-2);Object.assign(g1.stock,{fer:40,sels:20,pieces:30,charbon:30});
+    const ars=put(W2,'meumeu','arsenal',g.i+39,row-7);W2.setLink(ars,'sup',g2.id);W2.setLink(ars,'out',g2.id);const vs=W2.s.units.filter(u=>u.f==='meumeu');W2.order(vs.slice(0,2).map(u=>u.id),{type:'building',id:ars.id});
+    const tq=W2.train(g1,'train');run(W2,40);const tr=W2.s.vehicles.find(v=>v.k==='train');
+    say(`  train à la demande sur ${cells.length} cases : ${tq.ok?'construit':tq.why[0]} · ${tr?.trips||0} voyages · fer au bout ${fmt(g2.stock.fer||0,1)} · munitions faites ${fmt(g2.stock['m:mle1']||0,1)} · tender ${fmt(tr?.coal||0,1)} · arsenal ${ars.why||'au travail'}`);}}
+
 say(`\n(${Math.round(performance.now()-T0)} ms)`);

@@ -3,7 +3,7 @@
 // espace ouvert, calculée une fois). Les sons fréquents sont limités, pour que cent fusils ne fassent pas cent fois plus de bruit.
 // Deux nappes continues suivent la situation : le vent et la nature, et le grondement de la bataille quand elle est à l'écran.
 export class Audio{
-  constructor(){this.on=localStorage.getItem('aller3-sound')!=='off';this.ctx=null;this.last={};this.count={};this.bed={};}
+  constructor(){this.on=localStorage.getItem('okm-sound')!=='off';this.ctx=null;this.last={};this.count={};this.bed={};}
   init(){if(this.ctx)return;try{const c=this.ctx=new (window.AudioContext||window.webkitAudioContext)();this.master=c.createGain();this.master.gain.value=this.on?.8:0;
       const comp=c.createDynamicsCompressor();comp.threshold.value=-16;comp.ratio.value=5;this.master.connect(comp);comp.connect(c.destination);
       // la réverbération : un bruit qui décroît, filtré — un grand espace dehors
@@ -11,7 +11,7 @@ export class Audio{
       this.verb.buffer=ir;this.wet=c.createGain();this.wet.gain.value=.35;this.verb.connect(this.wet);this.wet.connect(this.master);
       this.noiseBuf=c.createBuffer(1,c.sampleRate*3,c.sampleRate);const nd=this.noiseBuf.getChannelData(0);for(let i=0;i<nd.length;i++)nd[i]=Math.random()*2-1;
       this.beds();}catch(e){this.ctx=null;}}
-  toggle(){this.on=!this.on;localStorage.setItem('aller3-sound',this.on?'on':'off');if(this.master)this.master.gain.setTargetAtTime(this.on?.8:0,this.ctx.currentTime,.05);return this.on;}
+  toggle(){this.on=!this.on;localStorage.setItem('okm-sound',this.on?'on':'off');if(this.master)this.master.gain.setTargetAtTime(this.on?.8:0,this.ctx.currentTime,.05);return this.on;}
   // une sortie placée : volume selon la distance, gauche-droite selon l'écran
   out(pos){const c=this.ctx;const g=c.createGain();const p=c.createStereoPanner?c.createStereoPanner():null;const vol=pos?pos.vol:1;g.gain.value=vol;
     if(p){p.pan.value=pos?Math.max(-1,Math.min(1,pos.pan)):0;g.connect(p);p.connect(this.master);const send=c.createGain();send.gain.value=pos?.far?.9:.4;p.connect(send);send.connect(this.verb);}else g.connect(this.master);return g;}

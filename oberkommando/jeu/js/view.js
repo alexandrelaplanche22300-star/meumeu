@@ -7,6 +7,8 @@ import {BLOOD,BODY_H} from './body.js';
 import {bleedRate,triage} from './health.js';
 
 export const TW=64,TH=32;
+// assombrir ou éclaircir une couleur #rrggbb
+function shade(hex,f){const n=parseInt(hex.slice(1),16);const c=v=>Math.max(0,Math.min(255,Math.round(v*f)));return `rgb(${c(n>>16)},${c((n>>8)&255)},${c(n&255)})`;}
 const TREES={[T.grass]:['tree_oak','tree_birch','tree_round','tree_maple'],[T.meadow]:['tree_fir','tree_pines','tree_birch-yellow','tree_oak'],[T.sand]:['tree_palm'],[T.dirt]:['tree_spruce','tree_fir'],[T.scrub]:['tree_dead','tree_cypress']};
 const BEEE_SPRITE={centre:'beee-colonial-shelter',maison:'beee-colonial-shelter',camp:'beee-depot'};
 // les caisses de munitions et les armes n'ont pas d'image dans le pack : on les dessine (une cartouche, un fusil)
@@ -150,14 +152,35 @@ export class View{
     for(const it of items)it.f();
     this.stepParts(dt);this.drawShots();this.drawStreaks(dt);this.drawParts(false);this.drawSmokes();this.drawFx(dt);
     for(const v of s.vehicles)if(v.alt>0&&inView(v.x,v.y,12))this.drawVehicle(v);
-    this.drawNight();this.drawParts(true);
+    this.drawNight();this.drawParts(true);this.drawLinks();
     if(this.placing&&this.hover)this.drawGhost();if(this.lining?.cells)this.drawLinePlan();
     if(this.drag?.box){const {x0,y0,x1,y1}=this.drag.box;ctx.fillStyle='rgba(255,211,106,.12)';ctx.strokeStyle='#ffd36a';ctx.lineWidth=1.5*this.dpr;ctx.fillRect(Math.min(x0,x1),Math.min(y0,y1),Math.abs(x1-x0),Math.abs(y1-y0));ctx.strokeRect(Math.min(x0,x1),Math.min(y0,y1),Math.abs(x1-x0),Math.abs(y1-y0));}
     this.marks=this.marks.filter(m=>(m.age+=dt)<.6);for(const m of this.marks){const q=this.toScreen(m.x,m.y);ctx.strokeStyle=m.bad?`rgba(235,90,70,${1-m.age/.6})`:`rgba(255,211,106,${1-m.age/.6})`;ctx.lineWidth=2.5*this.dpr;ctx.beginPath();ctx.ellipse(q.x,q.y,(6+m.age*30)*z,(3+m.age*15)*z,0,0,7);ctx.stroke();}
     if(this.hover?.label&&!this.drag?.box)this.tag(this.hover.label,this.hover.sx+14*this.dpr,this.hover.sy+22*this.dpr,this.hover.tone||'ink',true);}
 
+  // Les rattachements du bâtiment choisi : d'où une usine prend (sarcelle), où elle livre (orange), les chantiers d'un dépôt (or) ;
+  // le voyage du véhicule choisi. Des pointillés qui avancent, une flèche au bout.
+  drawLinks(){const W=this.world,ctx=this.ctx,z=this.z();const L=[];const b=this.selB!=null&&W.building(this.selB);
+    if(b&&b.f==='meumeu'&&W.bc){if(W.takesIn(b)&&b.sup!=null){const d=W.building(b.sup);if(d)L.push([d,b,'#54aaa1']);}if(W.givesOut(b)&&b.out!=null){const d=W.building(b.out);if(d)L.push([b,d,'#ee7d26']);}
+      if(W.isDepot(b)){const K=W.linkedTo(b);for(const x of K.sup)L.push([b,x,'#54aaa1']);for(const x of K.out)if(x!==b)L.push([x,b,'#ee7d26']);for(const x of K.site)L.push([b,x,'#e8bf62']);}
+      if(!b.done&&!b.ruin&&b.site!=null){const d=W.building(b.site);if(d)L.push([d,b,'#e8bf62']);}}
+    const v=this.selV!=null&&W.s.vehicles.find(x=>x.id===this.selV);
+    if(v?.job){const S=v.job.from!=null?W.building(v.job.from):null,D=W.building(v.job.to);const me={x:v.x,y:v.y};if(S&&v.job.phase==='src'){L.push([me,S,'#fff1c9']);if(D)L.push([S,D,'#fff1c9']);}else if(D)L.push([me,D,'#fff1c9']);}
+    if(!L.length)return;const P=o=>o.k?W.bc(o):[o.x,o.y];
+    ctx.save();ctx.lineWidth=2.4*this.dpr;ctx.setLineDash([8*this.dpr,6*this.dpr]);ctx.lineDashOffset=-this.clock*30*this.dpr;
+    for(const [a,c,col] of L){const [ax,ay]=P(a),[cx,cy]=P(c);const p=this.toScreen(ax,ay),q=this.toScreen(cx,cy);const dx=q.x-p.x,dy=q.y-p.y,d=Math.hypot(dx,dy);if(d<4)continue;
+      ctx.strokeStyle='rgba(20,30,34,.55)';ctx.lineWidth=4.4*this.dpr;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke();
+      ctx.strokeStyle=col;ctx.lineWidth=2.4*this.dpr;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke();
+      const ux=dx/d,uy=dy/d,s=9*this.dpr,tx=q.x-ux*14*z,ty=q.y-uy*14*z;ctx.save();ctx.setLineDash([]);ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(tx+ux*s,ty+uy*s);ctx.lineTo(tx-uy*s*.6,ty+ux*s*.6);ctx.lineTo(tx+uy*s*.6,ty-ux*s*.6);ctx.closePath();ctx.fill();ctx.restore();}
+    ctx.restore();}
   // Les rails : deux files et des traverses, dans le sens des voisins. Les murs : des blocs de pierre, crénelés.
   drawLines(i0,i1,j0,j1){const W=this.world,ctx=this.ctx,N=W.N,z=this.z();
+    // le ballast d'abord, sous toutes les voies bâties : un lit de gravier clair
+    ctx.save();ctx.lineCap='round';for(const [w,col] of [[14,'#857e70'],[10,'#a39c8c']]){ctx.strokeStyle=col;ctx.lineWidth=w*z;ctx.beginPath();
+      for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){if(W.rail[j*N+i]!==2)continue;const c=this.toScreen(i+.5,j+.5);let n=0;
+        for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){if(!di&&!dj)continue;const a=i+di,b=j+dj;if(a<0||b<0||a>=N||b>=N||W.rail[b*N+a]!==2)continue;n++;const e=this.toScreen(i+.5+di*.5,j+.5+dj*.5);ctx.moveTo(c.x,c.y);ctx.lineTo(e.x,e.y);}
+        if(!n){ctx.moveTo(c.x,c.y);ctx.lineTo(c.x+.1,c.y);}}
+      ctx.stroke();}ctx.restore();
     for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const k=j*N+i;const r=W.rail[k];if(!r)continue;const c=this.toScreen(i+.5,j+.5);let n=0;
       for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){if(!di&&!dj)continue;const a=i+di,b=j+dj;if(a<0||b<0||a>=N||b>=N||!W.rail[b*N+a])continue;n++;
         const e=this.toScreen(i+.5+di*.5,j+.5+dj*.5);const dx=e.x-c.x,dy=e.y-c.y,L=Math.hypot(dx,dy)||1;const px=-dy/L*4*z,py=dx/L*4*z;
@@ -280,10 +303,7 @@ export class View{
     ctx.fillStyle='#3a2a1c';for(const x of [-7,7]){ctx.beginPath();ctx.arc(x*z,-3*z,5*z,0,7);ctx.fill();}ctx.restore();}
   // Un train : la locomotive devant, quatre wagons derrière, le long de la voie parcourue.
   drawVehicle(v){const ctx=this.ctx,z=this.z(),W=this.world;const sel=this.selV===v.id;
-    if(v.k==='train'){const pts=[[v.x,v.y],...(v.trail||[])];const at=d=>{let left=d;for(let n=0;n<pts.length-1;n++){const [ax,ay]=pts[n],[bx,by]=pts[n+1];const L=Math.hypot(bx-ax,by-ay);if(left<=L){const t=L?left/L:0;return [ax+(bx-ax)*t,ay+(by-ay)*t,ax-bx,ay-by];}left-=L;}const l=pts[pts.length-1];return [l[0],l[1],v.dx||1,v.dy||0];};
-      for(let n=4;n>=0;n--){const [x,y,dx,dy]=at(n*.95);this.box(x,y,dx||v.dx||1,dy||v.dy||0,n?.42:.48,n?.34:.44,n?(sum(v.cargo)>0?'#8a6a45':'#6b5a48'):'#2d3b44',n?'#5e4630':'#1a242b',n?'#a9885e':'#3e5260',n?.5:.7);
-        if(!n){const q=this.toScreen(x,y,.8);ctx.fillStyle='#1a242b';ctx.fillRect(q.x-2*z,q.y-8*z,4*z,8*z);}}
-      if(sel||this.zoom>.8){const q=this.toScreen(v.x,v.y,1.2);this.tag(`${v.name}${v.why?' · '+v.why:''}`,q.x,q.y-10*z,v.why?'warn':'ink');}return;}
+    if(v.k==='train'){this.drawTrain(v,sel);return;}
     const q=this.toScreen(v.x,v.y);const air=v.alt>0;const g=this.toScreen(v.x,v.y,air?v.alt:0);
     if(air){ctx.fillStyle='rgba(0,0,0,.22)';ctx.beginPath();ctx.ellipse(q.x,q.y,26*z,8*z,0,0,7);ctx.fill();}
     const V=VEHICLES[v.k];const im=vehicle(v.f==='beee'?'beee_prop-plane':air?(V.sprite||'prop-plane_flying'):v.k==='charrette'?'hand-cart':'prop-plane_grounded');const w=(v.k==='charrette'?TW*.9:TW*2.2)*z;
@@ -291,6 +311,53 @@ export class View{
     if(v.k==='charrette'&&sum(v.cargo)>0){const ic=icon(Object.keys(v.cargo)[0]);if(ic)ctx.drawImage(ic,g.x-8*z,g.y-w*.8,16*z,16*z);}
     if(air&&v.hp<v.max)this.bar(g.x,g.y-w*.75,40*z,v.hp/v.max,v.f==='beee'?'#e0503a':'#54aaa1');
     if(sel||(air&&v.f==='beee'))this.tag(v.f==='beee'?'Bombardier bèè':`${v.name}${v.why?' · '+v.why:''}`,g.x,g.y-w*.85,v.f==='beee'?'bad':v.why?'warn':'ink');}
+  // Un train dessiné : la locomotive à vapeur (chaudière, cabine, cheminée qui fume, fanal la nuit), le tender de charbon, et
+  // quatre wagons faits pour ce qu'ils portent — trémies de charbon, d'argile, de minerai ; plats de grumes, de briques, de caisses ;
+  // citerne de carburant ; wagons couverts pour les munitions et les pièces. Les voitures suivent la trace de la locomotive.
+  drawTrain(v,sel){const ctx=this.ctx,z=this.z(),W=this.world;const pts=[[v.x,v.y],...(v.trail||[])];
+    const at=d=>{let left=d;for(let n=0;n<pts.length-1;n++){const [ax,ay]=pts[n],[bx,by]=pts[n+1];const L=Math.hypot(bx-ax,by-ay);if(left<=L){const t=L?left/L:0;return [ax+(bx-ax)*t,ay+(by-ay)*t,ax-bx,ay-by];}left-=L;}const l=pts[pts.length-1];return [l[0]-(v.dx||1)*(left),l[1]-(v.dy||0)*(left),v.dx||1,v.dy||0];};
+    const keys=Object.entries(v.cargo||{}).filter(([,n])=>n>=.05).sort((a,b)=>b[1]-a[1]).map(([k])=>k);
+    const cars=[{k:'loco',h:.5},{k:'tender',h:.3}];for(let n=0;n<4;n++)cars.push({k:'wagon',h:.44,load:keys.length?keys[n%keys.length]:null,fill:keys.length?Math.min(1,W.cargoW(v)/Math.max(1,W.capOf(v))*1.3):0});
+    let d=0;for(let n=0;n<cars.length;n++){const c=cars[n];if(n)d+=cars[n-1].h+c.h+.1;const [x,y,dx,dy]=at(d);Object.assign(c,{x,y,dx:dx||v.dx||1,dy:dy||v.dy||0});}
+    const moving=v.path&&v.state!=='wait';
+    for(const c of [...cars].sort((a,b)=>(a.x+a.y)-(b.x+b.y)))this.drawCar(c,v,moving);
+    // la fumée : des bouffées qui montent et partent en arrière
+    const L0=cars[0];const Lh=Math.hypot(L0.dx,L0.dy)||1;const ux=L0.dx/Lh,uy=L0.dy/Lh;
+    for(let k=0;k<6;k++){const age=((this.clock*(moving?1.4:.5))+k/6)%1;const q=this.toScreen(L0.x+ux*.35-ux*age*(moving?1.2:.2),L0.y+uy*.35-uy*age*(moving?1.2:.2),1.45+age*(moving?1.1:1.5));
+      ctx.fillStyle=`rgba(${moving?'62,62,64':'120,120,122'},${(1-age)*(moving?.38:.22)})`;ctx.beginPath();ctx.arc(q.x,q.y,(2.5+age*7)*z,0,7);ctx.fill();}
+    if(W.isNight()){const q=this.toScreen(L0.x+ux*.55,L0.y+uy*.55,.5);const g=ctx.createRadialGradient(q.x,q.y,0,q.x,q.y,26*z);g.addColorStop(0,'rgba(255,226,140,.8)');g.addColorStop(1,'rgba(255,226,140,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(q.x,q.y,26*z,0,7);ctx.fill();}
+    if(sel||this.zoom>.8||v.why){const q=this.toScreen(v.x,v.y,1.5);this.tag(`${v.name}${v.why?' · '+v.why:''}`,q.x,q.y-10*z,v.why?'warn':'ink');}}
+  drawCar(c,v,moving){const {x,y,dx,dy}=c;const L=Math.hypot(dx,dy)||1;const ux=dx/L,uy=dy/L,px=-uy,py=ux;const WS=1.6,HS=1.5;const P=(a,b,[len,wid,h0,h1,col])=>this.prism(x+ux*a+px*b*WS,y+uy*a+py*b*WS,ux,uy,len,wid*WS,h0*HS,h1*HS,col);const ctx=this.ctx,z=this.z();
+    // le châssis et les roues
+    const wheel=(a,s)=>{const q=this.toScreen(x+ux*a+px*s*.2,y+uy*a+py*s*.2,.08);ctx.fillStyle='#161a1c';ctx.beginPath();ctx.ellipse(q.x,q.y,4.6*z,3.4*z,0,0,7);ctx.fill();ctx.fillStyle='#6d6f71';ctx.beginPath();ctx.ellipse(q.x,q.y,1.6*z,1.2*z,0,0,7);ctx.fill();};
+    for(const a of [-c.h*.6,c.h*.6])for(const s of [-1,1])wheel(a,s);
+    P(0,0,[c.h,.13,.06,.13,'#2b2d2f']);
+    if(c.k==='loco'){P(-c.h*.62,0,[c.h*.38,.14,.13,.62,'#6a2a22']);P(-c.h*.62,0,[c.h*.42,.155,.62,.68,'#3a3f44']);   // la cabine, son toit
+      P(c.h*.18,0,[c.h*.62,.1,.13,.27,'#23313a']);P(c.h*.18,0,[c.h*.56,.075,.27,.34,'#2f4150']);                   // la chaudière
+      P(c.h*.52,0,[.025,.1,.13,.3,'#b58a3a']);P(-c.h*.1,0,[.02,.1,.13,.31,'#b58a3a']);                              // les cerclages de laiton
+      P(c.h*.7,0,[.045,.045,.34,.62,'#1b1f22']);P(c.h*.7,0,[.06,.06,.6,.66,'#2a2f33']);                             // la cheminée
+      P(c.h*.2,0,[.05,.05,.34,.44,'#b58a3a']);                                                                     // le dôme
+      P(c.h*.98,0,[.03,.14,.06,.14,'#7a1f1a']);return;}                                                          // le chasse-pierres
+    if(c.k==='tender'){P(0,0,[c.h*.95,.14,.13,.34,'#2c3236']);ctx.fillStyle='#111';for(let n=0;n<5;n++){const q=this.toScreen(x+ux*(n-2)*.09+px*((n%2)-.5)*.14,y+uy*(n-2)*.09+py*((n%2)-.5)*.14,.34*HS);ctx.beginPath();ctx.ellipse(q.x,q.y,5*z,3*z,0,0,7);ctx.fill();}return;}
+    const k=c.load;const bulk={charbon:'#16181a',argile:'#9a5a3a',pierre:'#8d8a84',fer:'#6d4a3a',sels:'#d0772c',soie:'#3aa39a',verre:'#6aa8d8'};
+    if(!k||bulk[k]){// une trémie : parois basses, le chargement bombé dessus
+      P(0,0,[c.h*.95,.14,.13,.36,'#5b4a3a']);if(k){const lvl=.2+.18*c.fill;P(0,0,[c.h*.85,.12,.13,lvl,bulk[k]]);if(c.fill>.5)P(0,0,[c.h*.55,.08,lvl,lvl+.06,bulk[k]]);}return;}
+    if(k==='carburant'){P(0,0,[c.h*.9,.11,.13,.35,'#d9d2c4']);P(0,0,[c.h*.9,.085,.35,.41,'#e8e2d6']);P(0,0,[.03,.115,.13,.42,'#c05a1c']);P(0,0,[.04,.04,.41,.46,'#555']);return;}
+    if(k==='bois'){P(0,0,[c.h*.95,.14,.13,.16,'#6b4a2e']);for(const s of [-1,0,1])P(0,s*.08,[c.h*.9,.035,.16,.16+.2*c.fill,'#8a5a34']);return;}
+    if(k==='briques'){P(0,0,[c.h*.95,.14,.13,.16,'#6b4a2e']);for(const a of [-.5,.5])P(c.h*a*.9,0,[c.h*.35,.11,.16,.16+.24*c.fill,'#b5522f']);return;}
+    // un wagon couvert : munitions, armes, pièces, vivres
+    const col=k.startsWith('m:')||k.startsWith('a:')||k.startsWith('p:')||k==='explosifs'?'#55613a':k==='sante'?'#d9d2c4':'#8a5a34';
+    P(0,0,[c.h*.95,.145,.13,.5,col]);P(0,0,[c.h*.98,.16,.5,.54,'#4a4e50']);if(k==='sante'){const q=this.toScreen(x+px*.146*WS,y+py*.146*WS,.32*HS);ctx.fillStyle='#c62828';ctx.fillRect(q.x-3*z,q.y-1*z,6*z,2*z);ctx.fillRect(q.x-1*z,q.y-3*z,2*z,6*z);}}
+  // Un prisme posé sur la carte : axe (ux, uy), demi-longueur, demi-largeur, de la hauteur h0 à h1. On ne peint que les faces
+  // tournées vers nous, ombrées selon leur orientation (la lumière vient du haut à gauche), puis le dessus.
+  prism(x,y,ux,uy,len,wid,h0,h1,col){const ctx=this.ctx,z=this.z();const px=-uy,py=ux;
+    const C=[[ux*len+px*wid,uy*len+py*wid],[ux*len-px*wid,uy*len-py*wid],[-ux*len-px*wid,-uy*len-py*wid],[-ux*len+px*wid,-uy*len+py*wid]].map(([a,b])=>[x+a,y+b]);
+    const S=(p,h)=>this.toScreen(p[0],p[1],h);
+    for(let n=0;n<4;n++){const a=C[n],b=C[(n+1)%4];const ex=b[0]-a[0],ey=b[1]-a[1];const nx=ey,ny=-ex;const cx=(a[0]+b[0])/2-x,cy=(a[1]+b[1])/2-y;const out=(nx*cx+ny*cy)>0?1:-1;const Nx=nx*out,Ny=ny*out;
+      if(Nx+Ny<=0)continue;const l=Math.hypot(Nx,Ny)||1;const f=.62+.2*((Nx-Ny)/l);
+      const p1=S(a,h0),p2=S(b,h0),p3=S(b,h1),p4=S(a,h1);ctx.fillStyle=shade(col,f);ctx.beginPath();ctx.moveTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);ctx.lineTo(p3.x,p3.y);ctx.lineTo(p4.x,p4.y);ctx.closePath();ctx.fill();}
+    ctx.fillStyle=shade(col,1.08);ctx.beginPath();C.forEach((p,n)=>{const q=S(p,h1);n?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y);});ctx.closePath();ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=.8*this.dpr;ctx.stroke();}
   // une boîte isométrique orientée : wagon, locomotive
   box(x,y,dx,dy,len,wid,top,side,front,hgt){const ctx=this.ctx,z=this.z();const L=Math.hypot(dx,dy)||1;const ux=dx/L,uy=dy/L,px=-uy,py=ux;
     const c=[[x+ux*len+px*wid,y+uy*len+py*wid],[x+ux*len-px*wid,y+uy*len-py*wid],[x-ux*len-px*wid,y-uy*len-py*wid],[x-ux*len+px*wid,y-uy*len+py*wid]].map(([a,b])=>this.toScreen(a,b));
