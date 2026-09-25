@@ -11,6 +11,7 @@ import {regionAt,AIM,SILH,BODY_H,BLOOD,setSpecies} from './body.js';
 import {newHealth,applyWound,tickHealth,malus,firstAid,doctorCare,heal,needsCare,needsDoctor,needsSurgery,bleedRate,triage,MED} from './health.js';
 import {DEFAULT_DESIGNS,weightOf,crateCost,weaponCost,protoCost,PROTO_HOURS,fragDesign} from './designs.js';
 import {DEFAULT_ARMORS,deriveArmor,plateZone,armorHit} from './armor.js';
+import {arcTable,aimArc,EXPO} from './explosive.js';
 
 export const SAVE_VERSION=7;
 const sum=o=>Object.values(o||{}).reduce((a,b)=>a+b,0);
@@ -64,6 +65,7 @@ export class World{
   // proposer un prototype au bureau d'études : il se paie, il prend du temps, puis il est adopté
   canPropose(b,p){const why=[];if(!b||b.k!=='armurerie'||!b.done)why.push('un bureau d’études');else if(b.proto)why.push('un prototype est déjà en cours');const D=derive(p);
     if(CONSTRUCTIONS[p.cons].minD&&p.d<CONSTRUCTIONS[p.cons].minD)why.push(`${CONSTRUCTIONS[p.cons].name.toLowerCase()} : ${CONSTRUCTIONS[p.cons].minD} mm de calibre au moins`);
+    if(p.fuse==='fusant'&&p.d<8&&CONSTRUCTIONS[p.cons].he)why.push('une fusée fusante : 8 mm de calibre au moins');
     if(!D.mountOk)why.push(`l’épaule ne tient pas cette arme : ${D.need==='trepied'?'un trépied':'un bipied'} au moins`);
     if((p.mods||[]).includes('bouclier')&&D.have==='epaule')why.push('un bouclier demande un affût');
     if(b){const pay=this.canPay(b.f,b.i+1,b.j+1,protoCost(p));if(!pay.ok)why.push(`il manque : ${pay.miss.join(', ')}`);}return {ok:!why.length,why,D};}
@@ -375,7 +377,7 @@ export class World{
     this.checkEnd();}
 
   // ---------- les Meumeu, les soldats ----------
-  unitTick(u,dt){const D=UDEF(u);const dts=this.dts;u.cool=Math.max(0,(u.cool||0)-dts);u.reload=Math.max(0,(u.reload||0)-dts);u.supp=(u.supp||0)*Math.exp(-dts/5);
+  unitTick(u,dt){const D=UDEF(u);const dts=this.dts;u.cool=Math.max(0,(u.cool||0)-dts);u.reload=Math.max(0,(u.reload||0)-dts);u.supp=(u.supp||0)*Math.exp(-dts/5);if(u.stun>0){u.stun=Math.max(0,u.stun-dts);if(!u.stun&&u.why==='sonné')u.why=null;}
     // le corps : le sang coule, on tombe, on meurt
     if(u.h){const ch=tickHealth(u.h,dts);if(ch)this.stateChange(u,ch);if(u.h.log?.length&&u.h.log[u.h.log.length-1].t==null)u.h.log[u.h.log.length-1].t=this.s.t;if(!alive(u))return;
       if(u.h.state==='hors'){u.anim='down';u.task=u.task?.kind==='carried'?u.task:null;u.path=null;u.post='couche';return;}}
@@ -391,7 +393,7 @@ export class World{
     if(D.medic&&this.medicTick(u,T0))return;
     if(u.k==='villageois'&&u.supp>.3&&T0?.kind!=='shelter'&&this.atWar){this.shelter(u);}
     // les combattants répondent : ils voient loin, tirent à portée, vont chercher l'ennemi
-    if((D.arm||D.img)&&(!T0||T0.kind==='assault'||T0.kind==='guard'||(T0.kind==='move'&&T0.hold))){const e=threat||(T0?.kind==='assault'?null:null);
+    if((D.arm||D.img)&&(!T0||T0.kind==='assault'||T0.kind==='guard'||(T0.kind==='move'&&T0.hold)||(T0.kind==='zone'&&threat&&d2(threat.x,threat.y,u.x,u.y)<4))){const e=threat||(T0?.kind==='assault'?null:null);
       if(e){if(this.engage(u,e))return;if(T0?.kind!=='assault'&&!u.hold){this.go(u,e.x,e.y);return;}}}
     if(!T0){u.anim=u.anim==='aim'?'aim':'idle';if(u.carry&&u.k==='villageois')this.deliverTick(u);return;}
     switch(T0.kind){
@@ -422,6 +424,7 @@ export class World{
         else{if(b.fire>0){b.fire=Math.max(0,b.fire-dt*3);}else b.hp=Math.min(b.max,b.hp+dt*60);}return;}
       case 'work':{const b=this.building(T0.b);if(!b||!b.done){u.task=null;return;}if(BUILDINGS[b.k].hub)return this.hubTick(u,b,dt);const [w,h]=BUILDINGS[b.k].size;u.at=this.go(u,b.i+w/2,b.j+h/2,[b.i,b.j,w,h]);u.anim=u.at&&b.working?'action':'idle';return;}
       case 'line':return this.lineTick(u,T0,dt);
+      case 'zone':return this.zoneTick(u,T0);
       case 'evac':return this.evacTick(u,T0);
       case 'shelter':{const b=this.building(T0.b);if(!b||!b.done){u.task=null;return;}const [w,h]=BUILDINGS[b.k].size;if(!this.go(u,b.i+w/2,b.j+h/2,[b.i,b.j,w,h]))return;
         if((b.hide||[]).length>=(BUILDINGS[b.k].shelter||0)){u.task=null;return;}(b.hide??=[]).push(u);this.s.units.splice(this.s.units.indexOf(u),1);this.uIndex.delete(u.id);u.task=null;u.path=null;return;}
@@ -461,7 +464,7 @@ export class World{
   // ce qu'on voit : 18 cases (72 m) le jour, la moitié la nuit
   sight(){return 9+9*this.light();}
   // la portée d'engagement : ce que l'arme porte utilement (un peu plus), et ce qu'on voit
-  engageRange(u){const D=UDEF(u);if(D.img)return D.range;if(!u.w)return 3;const W=this.W(u.w);return clamp(W.eff*1.25/TILE_M,3,16);}
+  engageRange(u){const D=UDEF(u);if(D.img)return D.range;if(!u.w)return 3;const W=this.W(u.w);if(ACTIONS[W.p.action]?.mortar)return clamp(this.zoneRange(W)*.95,3,18);return clamp(W.eff*1.25/TILE_M,3,16);}
   // voir : un bâtiment entre deux points cache (on ne voit pas à travers les maisons)
   los(ax,ay,bx,by){for(const s of this.s.smokes){const dx=bx-ax,dy=by-ay,L2=dx*dx+dy*dy||1;const t=Math.max(0,Math.min(1,((s.x-ax)*dx+(s.y-ay)*dy)/L2));if(Math.hypot(ax+dx*t-s.x,ay+dy*t-s.y)<s.r*Math.min(1,(s.end-this.s.t)/1+.3))return false;}
   const d=d2(ax,ay,bx,by);const n=Math.ceil(d*2);for(let k=1;k<n;k++){const x=ax+(bx-ax)*k/n,y=ay+(by-ay)*k/n;const o=this.occ[Math.floor(y)*this.N+Math.floor(x)];if(o>=0){const b=this.bIndex.get(o);if(b&&!b.ruin&&this.distB(b,ax,ay)>.6&&this.distB(b,bx,by)>.6)return false;}}return true;}
@@ -477,10 +480,14 @@ export class World{
     if(isB||e.wall!=null){if(distT>(isB?.9:1.5))return false;this.face(u,x-u.x,y-u.y);u.anim='action';u.path=null;
       if(u.gren>0&&(u.gcool||0)<=0){u.gcool=6;u.gren--;this.s.shots.push({kind:'grenade',f:u.f,by:u.id,x0:u.x,y0:u.y,x1:x,y1:y,t:0,dur:BLASTS.grenade.fuse/HOUR_REAL});this.emit({type:'throw',x:u.x,y:u.y});}
       u.gcool=Math.max(0,(u.gcool||0)-this.dts);this.damage(e,SACK.hp*this.dt,u.f);if(isB&&e.fire<=0&&this.rand()<SACK.fire*this.dt){e.fire=FIRE.hours;this.emit({type:'fire',x:e.i+1,y:e.j+1});}return true;}
-    if(!u.w)return false;const W=this.W(u.w);if(distT>this.engageRange(u))return false;
+    if(!u.w)return false;const W=this.W(u.w);
+    // un mortier ne tire qu'en cloche : sur l'ennemi qu'il voit, il règle son tir coup après coup
+    if(ACTIONS[W.p.action]?.mortar){if(isB||e.wall!=null)return false;if(!u.lob||u.lob.id!==e.id)u.lob={id:e.id,x,y,high:true,bias:null,fired:0,n:Infinity};u.lob.x=x;u.lob.y=y;return this.zoneTick(u,u.lob,true);}
+    if(distT>this.engageRange(u))return false;
     if(!isB&&e.wall==null&&!this.los(u.x,u.y,x,y))return false;
     this.face(u,x-u.x,y-u.y);u.anim='aim';u.path=null;
     if(u.supp>.85&&this.rand()<.7)return true;                 // cloué au sol
+    if((u.stun||0)>0){u.why='sonné';return true;}              // sonné par une explosion : il ne tire plus, un instant
     // une grenade : un ennemi à portée de lancer, ou un bâtiment à nettoyer
     if(u.gren>0&&(u.gcool||0)<=0&&distT<=BLASTS.grenade.throw&&distT>.35){u.gcool=6;u.gren--;const sp=.35+distT*.12;
       this.s.shots.push({kind:'grenade',f:u.f,by:u.id,x0:u.x,y0:u.y,x1:x+(this.rand()-.5)*sp,y1:y+(this.rand()-.5)*sp,t:0,dur:BLASTS.grenade.fuse/HOUR_REAL});this.emit({type:'throw',x:u.x,y:u.y});return true;}
@@ -497,7 +504,7 @@ export class World{
     const share={};let ix=x,iy=y;for(let k=0;k<(isB||e.wall!=null?1:(W.pel||1));k++){const res=isB||e.wall!=null?{hit:true,struct:true,v:fl.v}:this.resolve(u,e,W,R,u.burst||0,share);
       [ix,iy]=res.hit?[x,y]:[res.px??x,res.py??y];
       this.s.shots.push({kind:'round',f:u.f,by:u.id,w:u.w,x0:u.x,y0:u.y,x1:ix,y1:iy,t:0,dur:Math.max(.01,fl.t)/HOUR_REAL,res,target:isB?{b:e.id}:e.wall!=null?{wall:e.wall}:{u:e.id},R,tracer:!!CONSTRUCTIONS[W.p.cons].tracer});}
-    this.emit({type:'shot',x:u.x,y:u.y,x1:ix,y1:iy,f:u.f,cal:W.p.d,v0:W.v0,E:W.E0,sup:W.v0>340,tr:!!CONSTRUCTIONS[W.p.cons].tracer});u.xp=(u.xp||0)+.05;return true;}
+    this.emit({type:'shot',x:u.x,y:u.y,x1:ix,y1:iy,f:u.f,cal:W.p.d,v0:W.v0,E:W.E0,sup:W.vTop>340,tr:!!CONSTRUCTIONS[W.p.cons].tracer,rk:W.rocket});if(W.rocket)this.backblast(u,x-u.x,y-u.y,W);u.xp=(u.xp||0)+.05;return true;}
   // Où va la balle : la dispersion (l'arme, le tireur, sa posture, le feu qu'il subit, sa blessure, le recul de la rafale),
   // l'erreur d'estimation de la distance (la chute), puis ce qu'elle rencontre : le couvert (et s'il le perce), le corps.
   resolve(u,e,W,R,burst,share=null){const D=UDEF(u);const skill=(D.skill||2.4)/(1+(u.xp||0)/60)/(u.f==='meumeu'?this.mod('tir'):1);const moving=this.s.t-(u.moved||-9)<.03;
@@ -706,11 +713,17 @@ export class World{
       if(sh.kind==='round'){this.landRound(sh);continue;}
       if(sh.kind==='grenade'){this.blast(sh.x1,sh.y1,'grenade',sh.f,sh.by,1);continue;}
       if(sh.kind==='smokeg'){this.s.smokes.push({x:sh.x1,y:sh.y1,r:1.7,t0:this.s.t,end:this.s.t+8});this.emit({type:'smoke',x:sh.x1,y:sh.y1});continue;}
-      if(sh.kind==='shell'){this.blast(sh.x1,sh.y1,'obus',sh.f,sh.by,sh.vsB||1);continue;}}
+      if(sh.kind==='shell'){this.blast(sh.x1,sh.y1,'obus',sh.f,sh.by,sh.vsB||1);continue;}
+      if(sh.kind==='hshell'){const W=this.W(sh.w);if(W.he)this.heBlast(sh.x1,sh.y1,W.he,sh.f,sh.by,{w:sh.w});continue;}}
     s.shots=s.shots.filter(x=>!x.done);}
   // Une balle arrive : la blessure calculée au départ s'applique (si la cible est encore là) ; sinon, elle fait lever la poussière
   // et coucher ceux qui l'entendent passer.
-  landRound(sh){const r=sh.res,tg=sh.target;const W=this.W(sh.w);const shooter=this.unit(sh.by);
+  // une balle explosive éclate où elle arrive : sur la plaque (au contact de celui qui la porte), dans le corps (les autres
+  // autour reçoivent souffle et éclats), au sol ou contre un mur si elle manque
+  landRound(sh){this.landRound0(sh);const W=this.W(sh.w);if(!W.he||W.he.shaped)return;const r=sh.res,e=sh.target.u!=null?this.unit(sh.target.u):null;
+    if(r.stopped&&e&&alive(e))this.heBlast(e.x,e.y,W.he,sh.f,sh.by,{at:{id:e.id,r:.06},w:sh.w});
+    else if(r.hit&&e)this.heBlast(sh.x1,sh.y1,W.he,sh.f,sh.by,{skip:e.id,w:sh.w});else this.heBlast(sh.x1,sh.y1,W.he,sh.f,sh.by,{w:sh.w});}
+  landRound0(sh){const r=sh.res,tg=sh.target;const W=this.W(sh.w);const shooter=this.unit(sh.by);
     if(tg.b!=null){const b=this.building(tg.b);if(b){const E=.5*W.m/1000*r.v*r.v;this.damage(b,E/25,sh.f);if(CONSTRUCTIONS[W.p.cons].inc&&this.rand()<.05&&b.fire<=0){b.fire=FIRE.hours;this.emit({type:'fire',x:b.i+1,y:b.j+1});}}this.emit({type:'impact',x:sh.x1,y:sh.y1,hit:false,small:true,mat:'maison'});return;}
     if(tg.wall!=null){if(this.wall[tg.wall]){const E=.5*W.m/1000*r.v*r.v;this.damage({wall:tg.wall,x:sh.x1,y:sh.y1},E/25,sh.f);}this.emit({type:'impact',x:sh.x1,y:sh.y1,hit:false,small:true,mat:'pierre'});return;}
     const e=this.unit(tg.u);
@@ -736,28 +749,88 @@ export class World{
     if(e.h){e.h.pain=Math.min(10,(e.h.pain||0)+.5);(e.h.log??=[]).push({t:this.s.t,what:`balle arrêtée par ${r.zone==='casque'?'le casque':r.zone==='dos'?'la plaque de dos':r.zone==='flancs'?'la protection des flancs':'le plastron'} (${r.armor})`,by:''});
       const jk=r.blunt/1.5;if(jk>3&&this.rand()<Math.min(.6,(jk-3)/10)){e.h.shock=Math.max(e.h.shock,6+this.rand()*10);if(e.h.state==='ok')e.h.state='blesse';e.h.cause='choc derrière la plaque';}}
     if(e.f==='beee')this.beeeAlarm(e);}
-  // Une explosion : les éclats (chacun sa blessure, calculée par la balistique), le souffle, les bâtiments, les murs, les rails.
-  blast(x,y,kind,f,by,vsB=1){const S=BLASTS[kind];const N=this.N;const s=this.s;const Df=fragDesign(S.mass,S.d);
-    for(const u of [...s.units]){if(!alive(u))continue;const dt=d2(u.x,u.y,x,y);if(dt>S.radius)continue;const r=Math.max(.05,dt*TILE_M);
-      if(!u.h){this.damage(u,S.dmgB*(1-dt/S.radius)*.6,f);continue;}
-      if(dt<S.blast){u.h.state='mort';u.h.cause='souffle de l’explosion';this.death(u);continue;}
-      const area=u.post==='couche'?.012:u.post==='accroupi'?.026:.035;const lam=S.frags*area/(4*Math.PI*r*r);let k=0;{let L=Math.exp(-lam),p=1;do{k++;p*=this.rand();}while(p>L&&k<9);k--;}
-      u.supp=Math.min(1.5,(u.supp||0)+.8);
-      for(let n=0;n<k&&alive(u);n++){const v=S.v*Math.exp(-r/S.lambda);if(v<60)break;
-        // l'éclat arrive de l'explosion, n'importe où sur la silhouette tournée vers elle
-        const tx=x-u.x,ty=y-u.y,tl=Math.hypot(tx,ty)||1;const fx=u.fx??1,fy=u.fy??0;const alpha=Math.atan2(fx*ty/tl-fy*tx/tl,fx*tx/tl+fy*ty/tl);
-        const post=u.post||'debout';const [sw,sh]=SILH[post];const hit=this.bodyRay([(this.rand()-.5)*sw*1.6,this.rand()*sh,2],[0,.05*(this.rand()-.5),-1],alpha,post,u.f);if(!hit)continue;
-        const Ar=u.armor&&this.armorOf(u.armor);let vv=v;if(Ar){const zone=plateZone(hit.p);if(zone&&Ar.D.zones[zone]?.t>0){const pen=5.5e-4*Math.pow(S.mass,.7)*Math.pow(v,1.43)/Math.pow(S.d,1.07);const r=armorHit(Ar.D,zone,u,Df,v,pen,this.rand);
-          if(r?.stopped){this.emit({type:'plate',x:u.x,y:u.y,mat:r.mat,zone,victim:u.id});continue;}if(r)vv=r.v;}}
-        const rec=wound(Df,vv,hit.p,hit.d,this.rand,this.rand()*1.5);const out=applyWound(u.h,rec,this.rand,'éclat');
-        this.emit({type:'wound',cause:u.h.cause,len:S.d/1000,victim:u.id,shooter:by,vf:u.f,vk:u.k,w:null,frag:kind,rec,out,R:r,v,x:u.x,y:u.y,dir:[u.x-x,u.y-y],name:u.name,sname:this.unit(by)?.name||null});
-        if(out?.now==='mort'){this.death(u);break;}if(out?.now==='hors')this.stateChange(u,'hors');}}
-    const rB=S.radius*.6;for(const b of s.buildings){const d=this.distB(b,x,y);if(d<rB)this.damage(b,S.dmgB*vsB*(1-d/rB*.5),f);}
+  // Une explosion des anciennes tables (grenade, obus de canon, bombe) : on la traduit en charge, et c'est la même physique.
+  blast(x,y,kind,f,by,vsB=1){const S=BLASTS[kind];const b=S.blast*TILE_M;
+    const E=S._E??=({vg:S.v,cls:[{m:S.mass,n:S.frags,d:S.d,lam:S.lambda}],geo:.6,air:false,blast:b,inj:b*1.45,conc:b*2.05,stun:b*3.2,radius:S.radius*TILE_M,dmgB:S.dmgB,W:kind==='bombe'?.1:kind==='obus'?.01:.001});
+    this.heBlast(x,y,E,f,by,{kind,vsB,rB:S.radius*.6,boom:kind==='bombe'?'bomb':kind==='obus'?'shell':'grenade'});}
+  poisson(l){if(l<=0)return 0;let k=0,L=Math.exp(-Math.min(l,30)),p=1;do{k++;p*=this.rand();}while(p>L&&k<10);return k-1;}
+  // Une charge qui éclate en (x, y) — E : la charge calculée (explosive.js), distances en mètres. Dans l'ordre :
+  //  le souffle (mortel ; lésions internes ; commotion : assommé ; sonné : ne tire plus quelques secondes, sourd) ;
+  //  les éclats, classe par classe : combien touchent (selon la distance, la posture, le couvert, la fusée), chacun sa vraie blessure ;
+  //  les bâtiments, murs et voies. o.at : une victime au contact (la balle explosive qui l'a frappée) ; o.skip : une victime déjà blessée.
+  heBlast(x,y,E,f,by,o={}){const s=this.s,N=this.N;const kind=o.kind||'obus';const fd=new Map();const Df=c=>{let d=fd.get(c);if(!d){d=fragDesign(c.m,c.d);fd.set(c,d);}return d;};
+    const shooter=by!=null?this.unit(by):null;const Rmax=Math.max(E.radius||0,E.stun*1.5)+.1;const note=(u,what)=>(u.h.log??=[]).push({t:s.t,what,by:shooter?.name||''});
+    for(const u of [...s.units]){if(!alive(u)||u.id===o.skip)continue;let r=Math.max(.05,d2(u.x,u.y,x,y)*TILE_M);if(E.air)r=Math.hypot(r,.6);if(o.at?.id===u.id)r=o.at.r;if(r>Rmax)continue;
+      if(!u.h){this.damage(u,E.dmgB*Math.max(0,1-r/Rmax)*.6,f);continue;}
+      u.supp=Math.min(1.5,(u.supp||0)+.9*Math.max(0,1-r/(E.stun*1.5+.5)));if(u.f==='beee')this.beeeAlarm(u);
+      if(r<E.blast){u.h.state='mort';u.h.cause='souffle de l’explosion';note(u,'tué net par le souffle');this.death(u);continue;}
+      if(r<E.inj){u.h.shock=Math.max(u.h.shock,30+this.rand()*60);u.h.bleeds.push({name:'poumons (souffle)',rate:.02+this.rand()*.05,limb:null,internal:true});if(u.h.state!=='hors'){u.h.state='hors';u.h.cause='souffle : poumons et tympans déchirés';this.stateChange(u,'hors');}note(u,'soufflé : lésions internes');}
+      else if(r<E.conc){const p=.3+.6*(1-(r-E.inj)/Math.max(.01,E.conc-E.inj));if(this.rand()<p){u.h.conc=Math.max(u.h.conc,20+this.rand()*70);if(u.h.state!=='hors'){u.h.state='hors';u.h.cause='commotion (souffle)';this.stateChange(u,'hors');}note(u,'assommé par le souffle');}
+        else{u.stun=Math.max(u.stun||0,8+this.rand()*10);u.deaf=Math.max(u.deaf||0,s.t+6);note(u,'sonné par le souffle');}}
+      else if(r<E.stun){u.stun=Math.max(u.stun||0,(3+this.rand()*8)*(1.3-(r-E.conc)/Math.max(.01,E.stun-E.conc)));u.deaf=Math.max(u.deaf||0,s.t+2);}
+      // les éclats
+      const post=u.post||'debout';const air=!!E.air;let A=EXPO[air?'air':'sol'][post];
+      if(!air&&o.at?.id!==u.id){const cov=this.coverFor(u,x,y);if(cov&&cov.h>.1)A*=.3;}
+      const tx=x-u.x,ty=y-u.y,tl=Math.hypot(tx,ty)||1;const fx=u.fx??1,fy=u.fy??0;const alpha=Math.atan2(fx*ty/tl-fy*tx/tl,fx*tx/tl+fy*ty/tl);const [sw,sh]=SILH[post];
+      for(const c of E.cls){if(!alive(u))break;const v=E.vg*Math.exp(-r/c.lam);if(v<40)continue;const k=Math.min(8,this.poisson(c.n*E.geo*A/(4*Math.PI*r*r)));
+        for(let n=0;n<k&&alive(u);n++){let hit=null;for(let t=0;t<5&&!hit;t++)hit=air?this.bodyRay([(this.rand()-.5)*sw*1.3,BODY_H+.25,(this.rand()-.5)*.14],[(this.rand()-.5)*.3,-1,(this.rand()-.5)*.5],alpha,post,u.f):this.bodyRay([(this.rand()-.5)*sw*1.6,this.rand()*sh,2],[0,.05*(this.rand()-.5),-1],alpha,post,u.f);if(!hit)continue;
+          const Ar=u.armor&&this.armorOf(u.armor);let vv=v;if(Ar){const zone=plateZone(hit.p);if(zone&&Ar.D.zones[zone]?.t>0){const pen=5.5e-4*Math.pow(c.m,.7)*Math.pow(v,1.43)/Math.pow(c.d,1.07);const rr=armorHit(Ar.D,zone,u,Df(c),v,pen,this.rand);
+            if(rr?.stopped){this.emit({type:'plate',x:u.x,y:u.y,mat:rr.mat,zone,victim:u.id});continue;}if(rr)vv=rr.v;}}
+          setSpecies(u.f);const rec=wound(Df(c),vv,hit.p,hit.d,this.rand,this.rand()*1.5);const out=applyWound(u.h,rec,this.rand,'éclat');u.hitAt=s.t;
+          this.emit({type:'wound',cause:u.h.cause,len:c.d/1000,victim:u.id,shooter:by,vf:u.f,vk:u.k,w:o.w||null,frag:kind,rec,out,R:r,v,x:u.x,y:u.y,dir:[u.x-x,u.y-y],name:u.name,sname:shooter?.name||null,armor:u.armor?this.armorOf(u.armor)?.D.a||null:null});
+          if(out?.now==='mort'){this.death(u);break;}if(out?.now==='hors')this.stateChange(u,'hors');if(shooter)shooter.xp=(shooter.xp||0)+(out?.now?2:.5);}}}
+    // les bâtiments, les murs, les voies (la fusée à retard enferme le souffle : bien plus de dégâts)
+    const vsB=o.vsB||1;const rB=o.rB??Math.max(.3,E.blast*2.5/TILE_M);for(const b of s.buildings){const d=this.distB(b,x,y);if(d<rB)this.damage(b,E.dmgB*vsB*(1-d/rB*.5),f);}
     for(let j=Math.floor(y-rB);j<=y+rB;j++)for(let i=Math.floor(x-rB);i<=x+rB;i++){if(i<0||j<0||i>=N||j>=N||d2(i+.5,j+.5,x,y)>rB)continue;const k=j*N+i;
-      if(this.wall[k]===2||this.wall[k]===-2)this.damage({wall:k,x:i+.5,y:j+.5},S.dmgB*vsB*.6,f);
-      if(this.rail[k]===2){const rr=s.rails[k];rr.hp-=S.dmgB*vsB*.5;if(rr.hp<=0){this.lineBroken('rail',k);this.emit({type:'rail-cut',x:i+.5,y:j+.5});}}
+      if(this.wall[k]===2||this.wall[k]===-2)this.damage({wall:k,x:i+.5,y:j+.5},E.dmgB*vsB*.6,f);
+      if(this.rail[k]===2){const rr=s.rails[k];rr.hp-=E.dmgB*vsB*.5;if(rr.hp<=0){this.lineBroken('rail',k);this.emit({type:'rail-cut',x:i+.5,y:j+.5});}}
       const nd=this.nodeAt[k];if(nd>=0&&s.nodes[nd].type==='tree'&&kind==='bombe'&&this.rand()<.5){s.nodes[nd].left=0;this.nodeAt[k]=-1;}}
-    this.emit({type:'boom',x,y,kind:kind==='bombe'?'bomb':kind==='obus'?'shell':'grenade',big:kind!=='grenade'});}
+    const boom=o.boom||(E.W>.03?'bomb':E.W>.0015?'shell':E.W>.0002?'grenade':'pop');
+    this.emit({type:'boom',x,y,kind:boom,big:boom!=='grenade',air:!!E.air,r:Math.max(E.danger||0,E.conc)/TILE_M,conc:E.conc/TILE_M});}
+
+  // le souffle arrière d'une balle auto-propulsée : ceux qui se tiennent derrière le tireur, dans un cône, sont brûlés, assourdis
+  backblast(u,dx,dy,W){const L=Math.hypot(dx,dy)||1;const bx=-dx/L,by=-dy/L;const reach=Math.min(1.2,.25+Math.sqrt(W.p.c)*.35);
+    for(const o of this.s.units){if(o===u||!alive(o)||!o.h)continue;const rx=o.x-u.x,ry=o.y-u.y;const d=Math.hypot(rx,ry);if(d>reach||d<1e-3)continue;if((rx*bx+ry*by)/d<.7)continue;
+      o.stun=Math.max(o.stun||0,3+4*(1-d/reach));o.supp=Math.min(1.5,(o.supp||0)+.6);o.h.pain=Math.min(10,(o.h.pain||0)+2*(1-d/reach));(o.h.log??=[]).push({t:this.s.t,what:'brûlé et assourdi par le souffle arrière d’une fusée',by:u.name||''});}}
+  // ---------- le tir sur zone ----------
+  // Une arme à obus (charge explosive à éclats, 5 mm et plus) tire en cloche sur un point : sans voir la cible, par-dessus murs
+  // et maisons. La dispersion : en portée (la poudre, la hausse), en direction ; et une erreur de départ (la carte, la distance
+  // estimée) que le « réglage » corrige coup après coup — à condition qu'un Meumeu voie où tombent les obus.
+  canZone(W){return !!(W?.he&&!W.he.shaped&&W.p.d>=5);}
+  arcOf(W){return W._arc??=arcTable(W.v0,W.BC,!!ACTIONS[W.p.action]?.mortar,W.boost);}
+  zoneRange(W){return this.canZone(W)?this.arcOf(W).max/TILE_M:0;}
+  observer(f,x,y){const R=this.sight();for(const o of this.s.units)if(o.f===f&&active(o)&&d2(o.x,o.y,x,y)<R&&this.los(o.x,o.y,x,y))return o;return null;}
+  zoneFire(ids,x,y,opt={}){const us=ids.map(id=>this.unit(id)).filter(u=>u&&u.f==='meumeu'&&active(u)&&u.w&&this.canZone(this.W(u.w)));
+    if(!us.length)return {ok:false,why:['aucune arme à obus dans la sélection (munition explosive à éclats, 5 mm et plus)']};
+    if(!this.atWar)this.declareWar('meumeu');
+    for(const u of us){u.task={kind:'zone',x,y,n:opt.n??Infinity,high:opt.high??true,bias:null,fired:0};u.path=null;u.goal=null;u.hold=false;u.why=null;}
+    const far=us.filter(u=>d2(u.x,u.y,x,y)>this.zoneRange(this.W(u.w))).length;
+    return {ok:true,text:`${us.length} pièce${us.length>1?'s':''} en tir sur zone${far?` (${far} doivent se rapprocher)`:''}${this.observer('meumeu',x,y)?' · un observateur voit la zone : le tir se règle':' · personne ne voit la zone : tir sans réglage'}`};}
+  // auto : un mortier qui répond seul à un ennemi vu (pas d'ordre) — il ne bouge pas, et dit s'il a pu tirer
+  zoneTick(u,T,auto=false){const W=this.W(u.w);if(!u.w||!this.canZone(W)){if(!auto)u.task=null;return false;}if(!this.atWar){if(!auto)u.task=null;return false;}
+    const A=this.arcOf(W);const distT=d2(u.x,u.y,T.x,T.y);const R=distT*TILE_M;
+    if(R>A.max*.96){if(auto)return false;const k=1-A.max*.85/TILE_M/distT;this.go(u,u.x+(T.x-u.x)*k,u.y+(T.y-u.y)*k);u.why='se rapproche pour tirer';return true;}
+    const sol=aimArc(A,R,T.high)||aimArc(A,R,!T.high);if(!sol||R<Math.max(6,A.min*.9)){if(auto)return false;u.why='trop près pour un tir courbe';u.task=null;return false;}
+    this.face(u,T.x-u.x,T.y-u.y);u.anim='aim';u.path=null;
+    if((u.stun||0)>0){u.why='sonné';return true;}
+    let miss=0;if(W.crew>1){const mv=this.s.t-(u.moved||-9)<.03;u.deployT=mv?0:(u.deployT||0)+this.dts;if(u.deployT<W.setup){u.why='mise en batterie';return true;}miss=Math.max(0,W.crew-1-this.servants(u).length);}
+    u.why=null;if(u.reload>0)return true;const mortar=!!ACTIONS[W.p.action]?.mortar;
+    // un mortier n'a pas de chargeur : le chargeur prend l'obus suivant dans les caisses et le laisse glisser
+    if(mortar&&u.mag<=0&&u.pouch>0){u.mag=1;u.pouch--;}
+    if(u.mag<=0){if(u.pouch>0){const n=Math.min(W.p.mag,u.pouch);u.mag=n;u.pouch-=n;u.reload=(W.p.mag>12?4:2.5)*(1+miss*.8);this.emit({type:'reload',x:u.x,y:u.y});return true;}u.dry=true;u.why='plus d’obus';return true;}
+    u.dry=false;if(u.cool>0)return true;
+    // pointer la pièce sur une nouvelle zone : le temps de viser, une fois
+    if(!T.laid){T.laid=true;u.cool=W.aim*1.5;u.why='pointe la pièce';return true;}
+    // l'erreur de départ : sans observateur, elle reste ; avec, elle fond de moitié à chaque coup observé
+    const obs=this.observer(u.f,T.x,T.y);if(!T.bias)T.bias=[this.gauss()*R*.06,this.gauss()*R*.03];
+    const skill=1/(1+(u.xp||0)/80);const sR=R*(.012+W.moa*.0006)*(1+miss*.4)*skill,sD=R*(W.moa*.00045+.004)*(1+miss*.4)*skill;
+    const dl=Math.hypot(T.x-u.x,T.y-u.y)||1;const ux=(T.x-u.x)/dl,uy=(T.y-u.y)/dl;const eR=(T.bias[0]+this.gauss()*sR)/TILE_M,eD=(T.bias[1]+this.gauss()*sD)/TILE_M;
+    const x1=T.x+ux*eR-uy*eD,y1=T.y+uy*eR+ux*eD;if(obs){T.bias[0]*=.5;T.bias[1]*=.5;T.obs=obs.id;}else T.obs=null;
+    u.mag--;T.fired++;if(u.f==='meumeu')this.practice('tir',.05);u.xp=(u.xp||0)+.1;
+    u.cool=mortar?W.cyc:(ACTIONS[W.p.action]?.auto?Math.max(W.cyc,.6):W.cyc)+W.aim*.4+(W.p.mag<=1?1.2:0);if(miss)u.cool*=1+miss*.5;
+    this.s.shots.push({kind:'hshell',f:u.f,by:u.id,w:u.w,x0:u.x,y0:u.y,x1,y1,t:0,dur:Math.max(.2,sol.t)/HOUR_REAL,top:Math.tan(sol.deg*Math.PI/180)*R/4/TILE_M});
+    this.emit({type:'shot',x:u.x,y:u.y,x1,y1,f:u.f,cal:W.p.d,v0:W.v0,E:W.E0,sup:W.vTop>340,arc:true,rk:W.rocket});if(W.rocket)this.backblast(u,T.x-u.x,T.y-u.y,W);
+    if(T.fired>=T.n&&!auto){u.task=null;u.why=null;}return true;}
   fallsTick(dt){for(const F of this.s.falls){F.t+=dt;if(F.t<F.dur)continue;F.done=true;this.blast(F.x1,F.y1,'bombe',F.f,null,1);}
     this.s.falls=this.s.falls.filter(F=>!F.done);}
   flakTick(dt){const planes=this.s.vehicles.filter(v=>v.alt>1&&v.hp>0);if(!planes.length)return;

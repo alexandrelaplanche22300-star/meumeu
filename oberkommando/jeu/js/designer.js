@@ -4,10 +4,11 @@
 // c'est plus vite, mais la pression use le tube et l'étui grossit l'arme ; l'automatique arrose, et vide les dépôts.
 // Tout se voit en direct : le plateau (l'arme à l'échelle, ses servants), la trajectoire au ralenti, la précision à chaque
 // distance, la perforation, le bloc de gélatine ; et chaque réglage s'explique, avec ses chiffres, dans « Ce que ça change ».
-import {derive,gel,wound,NOSES,BASES,CONSTRUCTIONS,ACTIONS,MODS,MOUNTS,HUMAN,fmt} from './ballistics.js';
+import {derive,gel,wound,NOSES,BASES,CONSTRUCTIONS,ACTIONS,MODS,MOUNTS,HUMAN,PROPS,fmt} from './ballistics.js';
 import {setSpecies,regionAt,PART} from './body.js';
 import {MATS,deriveArmor,armorHit,plateZone} from './armor.js';
 import {ShotView} from './xray.js';
+import {FILLS,SHELLS,FUSES,ZB,arcTable,CHARGES} from './explosive.js';
 // les cibles du tir d'essai : un Bèè nu, ou protégé
 const TARGETS={nue:{name:'Sans protection',a:null},toile:{name:'Gilet de toile',a:{casque:['acier',0],plastron:['toile',5],dos:['toile',5],flancs:['toile',3]}},
   soie:{name:'Gilet de soie',a:{casque:['acier',.8],plastron:['soie',4],dos:['soie',4],flancs:['soie',3]}},acier:{name:'Plastron d’acier',a:{casque:['acier',1],plastron:['acier',1.2],dos:['acier',0],flancs:['acier',0]}},
@@ -46,6 +47,11 @@ const HELP={
   wallx:(D,p)=>`<b>L’épaisseur du tube</b> : ×${fmt(D.wallx,2)}. Un tube épais vibre moins (dispersion ${fmt(D.moa,1)} MOA), chauffe moins vite (tient ${D.sustain} coups/min), dure plus (${D.life} coups) ; il pèse (arme ${Math.round(D.mass*1000)} g). Mince : léger, mais il se tord à la chaleur et disperse.`,
   jacket:(D,p)=>`<b>La chemise</b> : l’enveloppe de cuivre autour du noyau, ×${fmt(D.jacket,1)}. Épaisse, la balle reste entière plus longtemps : elle se brise au-dessus de ${Math.round((CONSTRUCTIONS[p.cons].frag||0)*Math.sqrt(D.jacket))||'—'} m/s et s’ouvre plus tard. Mince : elle éclate vite dans le corps (grosse blessure, perce peu).`,
   core:(D,p)=>`<b>Le noyau d’acier</b> : ${Math.round((D.core||0)*100)} % du plomb remplacé par de l’acier trempé. Plus dur, il perce mieux (${fmt(D.pen(D.at(30).v),2)} mm à 30 m), mais la balle est plus légère et coûte du fer.`,
+  fragm:(D,p)=>D.he&&!D.he.shaped?`<b>La taille des éclats</b> : ${fmt(p.fragm??4,1)} mg chacun, ${D.he.n} éclats. Des petits éclats sont nombreux : de près, personne n’y échappe ; mais l’air les freine vite (un éclat de 1 mg a perdu les deux tiers de sa vitesse en ${fmt(16*Math.cbrt(.001)*1.1,1)} m). Des gros éclats portent loin et chacun fait une vraie plaie — mais ils sont rares : entre eux, on passe. Aujourd’hui : gravement touché à ${cm(D.he.lethal)}, touché à ${cm(D.he.danger)}.`:'<b>La taille des éclats</b> : seulement pour les munitions explosives à éclats.',
+  prop:(D,p)=>D.rocket?`<b>Balle auto-propulsée</b> : ${mg(p.c)} de poudre de fusée dans la balle. Elle quitte le tube à <b>${Math.round(D.v0)} m/s</b>, puis sa fusée la pousse ${fmt(D.boost.tr*1000,0)} ms de plus, jusqu’à <b>${Math.round(D.vTop)} m/s</b> (Δv = 1500 × ln(masse pleine / masse vide)). Le tube ne tient aucune pression : léger, pas de recul ; mais le souffle arrière brûle et assourdit qui se tient derrière, l’éclair trahit le tireur, et la poussée jamais parfaitement dans l’axe disperse (${fmt(D.moa,1)} MOA). De près, elle est lente : elle frappe mieux à 30 m qu’à 3.`:`<b>Cartouche</b> : la poudre brûle dans l’étui ; la balle a toute sa vitesse à la bouche. Essayez la propulsion par fusée : une balle qui accélère après le tube, sans recul.`,
+  fill:(D,p)=>`<b>L’explosif</b> : ${esc((FILLS[p.fill]||FILLS.tolite).name)} — ${esc((FILLS[p.fill]||FILLS.tolite).desc)}. ${Object.values(FILLS).map(F=>`${F.name} : ×${F.k} de souffle`).join(' · ')}.`,
+  shell:(D,p)=>`<b>La coque</b> : ${esc((SHELLS[p.shell]||SHELLS.lisse).name)} — ${esc((SHELLS[p.shell]||SHELLS.lisse).desc)}.`,
+  fuse:(D,p)=>`<b>La fusée</b> : ${esc((FUSES[p.fuse]||FUSES.impact).name)} — ${esc((FUSES[p.fuse]||FUSES.impact).desc)}.`,
   hef:(D,p)=>D.he?`<b>La charge explosive</b> : ${Math.round(D.hef*100)} % du volume de la balle, soit ${D.he.g<1?Math.round(D.he.g*1000)+' mg':fmt(D.he.g,2)+' g'}. Le souffle tue à ${cm(D.he.blast)} ; la coque (${mg(D.he.casing)}) éclate en ${D.he.n} éclats lancés à ${Math.round(D.he.vg)} m/s, mortels à ${cm(D.he.lethal)}. Plus d’explosif : plus de souffle, des éclats plus rapides — mais moins nombreux, et une balle plus légère qui perce moins.`:'<b>La charge explosive</b> : seulement pour les munitions explosives (explosive, explosive-incendiaire, semi-perforante, charge creuse).',
   mods:(D,p)=>`<b>Les modules</b> : chacun a son prix en poids et en fabrication. Montés ici : ${D.mods.length?D.mods.map(k=>`${MODS[k].name.toLowerCase()} (${Math.round(D.modKg[k]*1000)} g)`).join(', '):'aucun'}.`,
   ...Object.fromEntries(Object.entries(MODS).map(([k,M])=>[`mod-${k}`,(D,p)=>`<b>${esc(M.name)}</b> : ${esc(M.desc)}.${D.modKg[k]!=null?` Ici : ${Math.round(D.modKg[k]*1000)} g.`:''}`])),
@@ -61,12 +67,12 @@ export class Designer{
       if(k==='close')this.close();else if(k==='armor'){this.toArmor?.();}else if(k==='gel'){this.gelR=+v;this.render();}else if(k==='tgt'){this.target=v;this.render();}else if(k==='shotmode'){if(this.shot)this.shot.mode=v;this.sync();}else if(k==='fire')this.fire();
       else if(k==='go'){const r=this.propose(this.p,this.name);this.say(r.ok?r.text:r.why.join(' · '),r.ok?'good':'bad');if(r.ok)this.close();}
       else if(k==='mod'){const m=new Set(this.p.mods||[]);if(m.has(v))m.delete(v);else{m.add(v);if(v==='bipied')m.delete('trepied');if(v==='trepied')m.delete('bipied');}this.p.mods=[...m];this.help='mod-'+v;this.sync();this.render();this.fire();}
-      else if(['nose','base','action','cons'].includes(k)){this.p[k]=v;this.help=k;this.sync();this.render();this.fire();}});
+      else if(['nose','base','action','cons','fill','shell','fuse','prop'].includes(k)){this.p[k]=v;this.help=k;this.sync();this.render();this.fire();}});
     addEventListener('resize',()=>{if(this.open)this.render();});}
   get open(){return !this.host.hidden;}
   show(fromId='mle1'){this.host.hidden=false;this.load(fromId);let last=performance.now();const loop=now=>{if(!this.open)return;const dt=Math.min(.1,(now-last)/1000);last=now;try{this.shot?.step(dt);}catch(e){console.error(e);}requestAnimationFrame(loop);};requestAnimationFrame(loop);}
   close(){this.host.hidden=true;this.anim=null;this.shot?.dispose();this.shot=null;this.shotKey='';}
-  load(id){const d=this.world().design(id)||this.world().design('mle1');this.ref=d;this.p=JSON.parse(JSON.stringify(d.p));this.p.mods??=[];this.p.zero??=50;
+  load(id){const d=this.world().design(id)||this.world().design('mle1');this.ref=d;this.p=JSON.parse(JSON.stringify(d.p));this.p.mods??=[];this.p.zero??=50;this.p.prop??='cartouche';this.p.fill??='tolite';this.p.shell??='lisse';this.p.fuse??='impact';this.p.fragm??=4;
     this.name=d.base?`${d.name.replace(/Mle \d+/,'')}Modèle ${Object.keys(this.world().s.designs).length}`.trim():`${d.name} (variante)`;this.build();this.render();this.fire();}
   say(t,tone){const el=this.host.querySelector('.dz-say');if(el){el.textContent=t;el.className='dz-say '+tone;}}
   // la page, une fois ; ensuite on ne change que les chiffres et les dessins
@@ -87,11 +93,17 @@ export class Designer{
             ${range('jacket','Chemise',LIMITS.jacket[0],LIMITS.jacket[1],LIMITS.jacket[2],p.jacket??1,'épaisse : se brise et s’ouvre plus tard ; plus de cuivre')}
             ${range('core','Noyau d’acier',LIMITS.core[0],LIMITS.core[1],LIMITS.core[2],p.core||0,'une part de plomb remplacée par de l’acier : perce mieux, plus légère')}
             ${range('hef','Charge explosive',LIMITS.hef[0],LIMITS.hef[1],LIMITS.hef[2],p.hef??.3,'munitions explosives : plus d’explosif, plus de souffle — moins de coque, moins d’éclats')}
+            <div class="dz-he-ctl" id="dz-hectl">
+              ${range('fragm','Taille des éclats',LIMITS.fragm[0],LIMITS.fragm[1],LIMITS.fragm[2],p.fragm??4,'petits : nombreux, terribles de près, freinés vite ; gros : rares, ils portent loin')}
+              <div class="dz-f" data-help="fill"><span>Explosif</span>${seg('fill',FILLS)}</div>
+              <div class="dz-f" data-help="shell"><span>Coque</span>${seg('shell',SHELLS)}</div>
+              <div class="dz-f" data-help="fuse"><span>Fusée</span>${seg('fuse',FUSES)}</div></div>
             <div class="dz-f"><span>Nez</span>${seg('nose',NOSES)}</div>
             <div class="dz-f"><span>Culot</span>${seg('base',BASES)}</div>
             <div class="dz-f" data-help="cons"><span>Construction</span>${FAMS.map(([fam,ks])=>`<div class="dz-fam"><small>${fam}</small><div class="seg wrap">${ks.filter(k=>CONSTRUCTIONS[k]).map(v=>`<button data-dz="cons:${v}" class="${p.cons===v?'on':''}" title="${esc(CONSTRUCTIONS[v].desc)}"><i class="tip" style="background:${TIPC[v]||'#c07a3e'}"></i>${esc(CONSTRUCTIONS[v].name)}</button>`).join('')}</div></div>`).join('')}</div>
           </details>
           <details open><summary>La charge et le canon</summary>
+            <div class="dz-f" data-help="prop"><span>Propulsion</span>${seg('prop',PROPS)}</div>
             ${range('c','Poudre',0,1000,1,cToS(p.c),'plus : plus vite — plus de pression, un étui et un recul plus gros')}
             ${range('L','Canon',LIMITS.L[0],LIMITS.L[1],LIMITS.L[2],p.L,'long : brûle toute la poudre, plus précis ; plus lourd')}
             ${range('twist','Pas de rayure',LIMITS.twist[0],LIMITS.twist[1],LIMITS.twist[2],p.twist,'court : tient les balles longues ; trop long, elles basculent')}
@@ -113,6 +125,8 @@ export class Designer{
           <canvas id="dz-traj" class="dz-cv" style="height:200px"></canvas>
           <h3>Portée et précision <small>où tombent les balles sur un Meumeu debout (7 × 20 cm), à chaque distance</small></h3>
           <canvas id="dz-prec" class="dz-cv" style="height:190px"></canvas>
+          <div id="dz-zonewrap"><h3>Zone d’effet <small>vu de dessus, à l’échelle — des Meumeu tous les 50 cm ; à droite, la chance d’être touché selon la distance</small></h3>
+          <canvas id="dz-zone" class="dz-cv" style="height:250px"></canvas><p class="dz-gelt" id="dz-zonet"></p></div>
           <h3>Perforation <small>millimètres d’acier traversés, selon la distance</small></h3>
           <canvas id="dz-pen" class="dz-cv" style="height:170px"></canvas>
           <h3>Dans le corps <small>bloc de gélatine de 16 cm, comme un Meumeu</small><span class="seg sm">${[5,20,50,100].map(r=>`<button data-dz="gel:${r}" class="${r===this.gelR?'on':''}">${r} m</button>`).join('')}</span></h3>
@@ -134,13 +148,13 @@ export class Designer{
   read(el){const id=el.id.replace('dz-','');if(id==='name'){this.name=el.value;return;}if(id==='heavy'){this.p.heavy=el.checked;this.help='heavy';}else if(id==='c'){this.p.c=sToC(+el.value);this.help='c';}else if(id in LIMITS||id in this.p){this.p[id]=+el.value;this.help=id;}else return;this.sync();this.render();}
   sync(){const p=this.p;const $=id=>this.host.querySelector('#dz-v-'+id);const set=(id,t)=>{const e=$(id);if(e)e.textContent=t;};
     set('d',` ${fmt(p.d,1)} mm`);set('l',` ${fmt(p.l,1)} mm`);set('c',` ${mg(p.c)}`);set('L',` ${p.L} mm`);set('twist',` 1 tour / ${p.twist} mm`);set('rof',ACTIONS[p.action]?.auto?` ${p.rof} coups/min`:' — (automatique seulement)');set('mag',` ${p.mag} coups`);set('zero',` ${p.zero} m`);set('wallx',` ×${fmt(p.wallx??(p.heavy?1.5:1),2)}`);set('jacket',` ×${fmt(p.jacket??1,1)}`);set('core',` ${Math.round((p.core||0)*100)} %`);set('hef',CONSTRUCTIONS[p.cons].he?` ${Math.round((p.hef??.3)*100)} % du volume`:' — (munitions explosives)');
-    const C0=CONSTRUCTIONS[p.cons];for(const [id,off] of [['hef',!C0.he],['core',!!(C0.core||C0.he||C0.pellets)]]){const e=this.host.querySelector('#dz-'+id);if(e)e.disabled=off;}
+    const C0=CONSTRUCTIONS[p.cons];const hc=this.host.querySelector('#dz-hectl');if(hc)hc.classList.toggle('off',!C0.he||!!C0.shaped);set('fragm',C0.he&&!C0.shaped?` ${fmt(p.fragm??4,1)} mg`:' — (explosive à éclats)');for(const [id,off] of [['fragm',!C0.he||!!C0.shaped],['hef',!C0.he],['core',!!(C0.core||C0.he||C0.pellets)]]){const e=this.host.querySelector('#dz-'+id);if(e)e.disabled=off;}
     const rof=this.host.querySelector('#dz-rof');if(rof)rof.disabled=p.action!=='auto';const ms=new Set(p.mods||[]);
-    for(const b of this.host.querySelectorAll('[data-dz]')){const [k,v]=b.dataset.dz.split(':');if(['nose','base','action','cons'].includes(k))b.classList.toggle('on',p[k]===v);if(k==='gel')b.classList.toggle('on',+v===this.gelR);if(k==='tgt')b.classList.toggle('on',v===this.target);if(k==='shotmode')b.classList.toggle('on',v===(this.shot?.mode||'xray'));if(k==='mod')b.classList.toggle('on',ms.has(v));}}
+    for(const b of this.host.querySelectorAll('[data-dz]')){const [k,v]=b.dataset.dz.split(':');if(['nose','base','action','cons','fill','shell','fuse','prop'].includes(k))b.classList.toggle('on',p[k]===v);if(k==='gel')b.classList.toggle('on',+v===this.gelR);if(k==='tgt')b.classList.toggle('on',v===this.target);if(k==='shotmode')b.classList.toggle('on',v===(this.shot?.mode||'xray'));if(k==='mod')b.classList.toggle('on',ms.has(v));}}
   renderHelp(){const el=this.host.querySelector('#dz-help');if(!el||!this.D)return;const f=HELP[this.help]||HELP.cons;el.innerHTML=`<h3>Ce que ça change</h3><p>${f(this.D,this.p)}</p>`;}
   render(){const D=derive(this.p),R=derive(this.ref.p);this.D=D;const W=this.world();const $=id=>this.host.querySelector('#'+id);if(!$('dz-big'))return;const p=this.p;
     const pen=D.pen(D.at(30).v),penR=R.pen(R.at(30).v);
-    $('dz-big').innerHTML=[['Vitesse',`${Math.round(D.v0)}`,'m/s'],['Énergie',fmt(D.E0,D.E0<10?1:0),'J'],['Portée utile',`${D.eff}`,'m'],['Perce à 30 m',fmt(pen,pen<10?2:0),'mm']].map(([k,v,u])=>`<div><small>${k}</small><b>${v}<i>${u}</i></b></div>`).join('')+
+    $('dz-big').innerHTML=[['Vitesse',D.rocket?`${Math.round(D.v0)}→${Math.round(D.vTop)}`:`${Math.round(D.v0)}`,'m/s'],['Énergie',fmt(D.E0,D.E0<10?1:0),'J'],(ACTIONS[p.action]?.mortar?['Portée en cloche',`${Math.round(arcTable(D.v0,D.BC,true,D.boost).max)}`,'m']:['Portée utile',`${D.eff}`,'m']),['Perce à 30 m',fmt(pen,pen<10?2:0),'mm']].map(([k,v,u])=>`<div><small>${k}</small><b>${v}<i>${u}</i></b></div>`).join('')+
       `<div class="dz-cal"><small>Cartouche</small><b>${esc(D.name)}</b><i>≈ ${fmt(p.d*HUMAN,1)} mm humain</i></div>`;
     this.renderHelp();
     // l'affût et les servants
@@ -161,7 +175,7 @@ export class Designer{
       <p class="quiet small">Adopté, il faut encore l’outillage de la manufacture (4 pièces, 1 fer, 6 h) — et le perdre si elle tombe.</p>`;
     const bur=this.bureau();const can=bur?W.canPropose(bur,p):{ok:false,why:['un bureau d’études bâti (choisissez-le, puis « Concevoir »)']};const go=$('dz-go');go.disabled=!can.ok;go.title=can.ok?'':can.why.join(', ');
     if(!can.ok)this.say(`Il faut : ${can.why.join(' · ')}`,'warn');else this.say(`Prêt : ${PROTO_HOURS} h au bureau d’études, puis adopté.`,'');
-    this.draw(0);this.drawPrec(D);this.drawPen(D,R);this.drawGel(D);this.shoot(D);}
+    this.draw(0);this.drawPrec(D);this.drawPen(D,R);this.drawGel(D);this.drawZone(D);this.shoot(D);}
   // ---------- le tir d'essai : la balle (ou la gerbe) entre dans un Bèè, à travers sa protection s'il en a une ----------
   shoot(D){const cv=this.host.querySelector('#dz-shot');if(!cv)return;const key=JSON.stringify([this.p,this.gelR,this.target]);if(key===this.shotKey)return;this.shotKey=key;
     if(!this.shot||this.shot.cv!==cv){this.shot?.dispose();this.shot=new ShotView(cv);}
@@ -188,6 +202,7 @@ export class Designer{
   drawPlan(D,t){const F=this.fit('dz-plan');if(!F)return;const [x,W,H]=F;const p=D.p;const ms=new Set(D.mods);
     const bg=x.createLinearGradient(0,0,0,H);bg.addColorStop(0,'#1c2a33');bg.addColorStop(.72,'#141d23');bg.addColorStop(1,'#0e1418');x.fillStyle=bg;x.fillRect(0,0,W,H);const sp=x.createRadialGradient(W*.4,H*.6,10,W*.4,H*.6,W*.6);sp.addColorStop(0,'rgba(255,230,190,.10)');sp.addColorStop(1,'rgba(255,230,190,0)');x.fillStyle=sp;x.fillRect(0,0,W,H);
     const ground=H-26;x.fillStyle='rgba(90,70,45,.45)';x.fillRect(0,ground,W,H-ground);x.strokeStyle='rgba(160,130,90,.45)';x.beginPath();x.moveTo(0,ground);x.lineTo(W,ground);x.stroke();
+    if(ACTIONS[p.action]?.mortar)return this.drawMortar(D,t,x,W,H,ground);
     // les dimensions de l'arme (mm)
     const d=p.d,Dc=d*(D.pistol?1.25:1.45),COL=D.COL,wall=d*(.35+.00075*D.P)*D.wallx,Dout=d+2*wall;const crewGun=D.have==='trepied';
     const act=COL*2.4+8,stock=crewGun?COL*1.1+14:Math.max(55,60+COL*1.6),dev=ms.has('manchon')?d*14:ms.has('frein')?d*3.2:ms.has('cacheflamme')?d*4:0;const Lw=stock+act+p.L+dev;
@@ -203,10 +218,11 @@ export class Designer{
     for(let k=0;k<bearers;k++)meu(x,bx-u(behind+.07)-k*u(.13),ground,s,'porte');
     if(D.have==='epaule')meu(x,bx-u(.04),ground,s,'epaule');else if(D.have==='bipied')meu(x,bx+u(.01),ground,s,'couche');else meu(x,bx-u(.035),ground,s,'genou');
     const mx=this.gun(x,D,bx,axisY,s,ground,ms,stock,act,dev);
-    // l'éclair, la fumée, l'étui éjecté
+    // l'éclair, la fumée, l'étui éjecté ; pour une fusée, le souffle arrière
+    if(D.rocket&&t>0&&t<1.6){const k=t/1.6;const rx=bx-8;for(let i=0;i<6;i++){x.fillStyle=`rgba(${t<.15?'255,200,120':'205,200,190'},${.5*(1-k)})`;x.beginPath();x.arc(rx-i*10-k*60,axisY+(i%2?-4:4)*k*3,5+k*22+i*3,0,7);x.fill();}}
     if(t>0&&t<.1&&D.flash>.02){const r=(10+D.flash*60)*Math.min(1,s*3)*(1-t/.1);const g=x.createRadialGradient(mx,axisY,0,mx,axisY,r);g.addColorStop(0,'rgba(255,250,210,.95)');g.addColorStop(.4,'rgba(255,190,70,.7)');g.addColorStop(1,'rgba(255,120,20,0)');x.fillStyle=g;x.beginPath();x.ellipse(mx+r*.5,axisY,r*1.3,r*.6,0,0,7);x.fill();}
     if(t>0&&t<2.2){const k=t/2.2;for(let i=0;i<5;i++){x.fillStyle=`rgba(200,196,188,${.35*(1-k)})`;x.beginPath();x.arc(mx+10+i*9+k*40,axisY-k*30-i*3,6+k*20+i*2,0,7);x.fill();}
-      if(p.action!=='verrou'&&t<.8){const ex=bx+(stock+act*.45)*s+t*60,ey=axisY-20*s-Math.sin(t/.8*Math.PI)*40+t*t*60;x.fillStyle='#c9a043';x.fillRect(ex,ey,Math.max(3,D.caseLen*s),Math.max(2,Dc*s));}}
+      if(p.action!=='verrou'&&!D.rocket&&t<.8){const ex=bx+(stock+act*.45)*s+t*60,ey=axisY-20*s-Math.sin(t/.8*Math.PI)*40+t*t*60;x.fillStyle='#c9a043';x.fillRect(ex,ey,Math.max(3,D.caseLen*s),Math.max(2,Dc*s));}}
     // la cartouche en coupe, en médaillon
     this.cartridge(x,D,W-250,10,240,96);
     x.fillStyle='#e8dcc4';x.font='600 12px system-ui';const TW=W-280;x.fillText(`${MOUNTS[D.have].name.toLowerCase()} · ${D.crew} servant${D.crew>1?'s':''} · ${Math.round(D.mass*1000)} g chargée · ${fmt(Lw/10,1)} cm`,12,18,TW);
@@ -219,6 +235,14 @@ export class Designer{
     const metal=(y0,h)=>{const g=x.createLinearGradient(0,y0,0,y0+h);g.addColorStop(0,'#7b848d');g.addColorStop(.45,'#3d434a');g.addColorStop(1,'#23272b');return g;};
     const wood=(y0,h)=>{const g=x.createLinearGradient(0,y0,0,y0+h);g.addColorStop(0,'#a8703f');g.addColorStop(1,'#6a4221');return g;};
     x.lineWidth=1;x.strokeStyle='#1c1f22';
+    // un lance-fusée : un simple tube ouvert aux deux bouts, une poignée, une détente électrique, une hausse
+    if(D.rocket){const Lt=stock+act+p.L;const bw=Math.max(3,(d+2*d*.08)*s*1.15);const og=x.createLinearGradient(0,ay-bw/2,0,ay+bw/2);og.addColorStop(0,'#7c8a55');og.addColorStop(.5,'#4f5a33');og.addColorStop(1,'#2f361e');
+      x.fillStyle=og;x.fillRect(X(0),ay-bw/2,Lt*s,bw);x.strokeRect(X(0),ay-bw/2,Lt*s,bw);x.fillStyle='#2f361e';x.beginPath();x.moveTo(X(0),ay-bw/2);x.lineTo(X(0)-bw*.6,ay-bw*.85);x.lineTo(X(0)-bw*.6,ay+bw*.85);x.lineTo(X(0),ay+bw/2);x.fill();
+      for(const f of [.25,.62,.97]){x.fillStyle='#3a4226';x.fillRect(X(Lt*f)-2,ay-bw/2-1,4,bw+2);}
+      x.fillStyle='#2b2f33';x.beginPath();x.moveTo(X(Lt*.42),ay+bw/2);x.lineTo(X(Lt*.4),ay+bw/2+r2*2.2);x.lineTo(X(Lt*.44),ay+bw/2+r2*2.2);x.lineTo(X(Lt*.47),ay+bw/2);x.fill();
+      x.fillStyle='#c9cdd2';x.fillRect(X(Lt*.55),ay-bw/2-6,3,6);x.fillRect(X(Lt*.9),ay-bw/2-4,2,4);
+      // le souffle arrière, au départ
+      return X(Lt);}
     // l'affût
     if(ms.has('trepied')){const hx=X(stock+act*.6);x.strokeStyle='#2e3338';x.lineWidth=Math.max(2,d*s*.9);const hh=ground-ay;x.beginPath();x.moveTo(hx,ay+r2);x.lineTo(hx+hh*.95,ground);x.moveTo(hx,ay+r2);x.lineTo(hx-hh*1.15,ground);x.moveTo(hx,ay+r2);x.lineTo(hx-hh*.2,ground+3);x.stroke();x.fillStyle='#2e3338';x.fillRect(hx-6,ay+r2-2,12,6);x.lineWidth=1;}
     if(ms.has('bipied')){const lx=X(stock+act+p.L*.62);x.strokeStyle='#2e3338';x.lineWidth=Math.max(1.5,d*s*.6);x.beginPath();x.moveTo(lx,ay);x.lineTo(lx-8,ground);x.moveTo(lx,ay);x.lineTo(lx+8,ground);x.stroke();x.lineWidth=1;}
@@ -261,10 +285,14 @@ export class Designer{
     const sc=Math.min((w-24)/COL,(h-36)/Dc);const px=v=>x0+12+v*sc,Y=y0+h/2+6,py=v=>Y-v*sc;const body=caseLen-neck-shoulder;const pel=D.pel>1;
     // l'étui (ou la douille de papier d'une cartouche de chevrotine)
     const brass=x.createLinearGradient(0,py(Dc/2),0,py(-Dc/2));brass.addColorStop(0,'#f0cf73');brass.addColorStop(.5,'#c9a043');brass.addColorStop(1,'#8a6a22');
-    x.fillStyle=pel&&!C.dart&&p.cons!=='duplex'?'#b3302a':brass;x.strokeStyle='#5a4412';x.beginPath();x.moveTo(px(0),py(Dc/2*.92));x.lineTo(px(d*.2),py(Dc/2*.78));x.lineTo(px(d*.42),py(Dc/2));x.lineTo(px(body),py(Dc/2*.97));x.lineTo(px(body+shoulder),py(d/2*1.06));x.lineTo(px(caseLen),py(d/2*1.06));
+    if(D.rocket){const Lm=D.boost.Lm;const st=x.createLinearGradient(0,py(d/2),0,py(-d/2));st.addColorStop(0,'#aab3bb');st.addColorStop(.5,'#6b747c');st.addColorStop(1,'#3b4148');x.fillStyle=st;x.strokeStyle='#22272b';x.fillRect(px(d*.35),py(d/2),(Lm-d*.35)*sc,d*sc);x.strokeRect(px(d*.35),py(d/2),(Lm-d*.35)*sc,d*sc);
+      x.fillStyle='#2b2f33';x.beginPath();x.moveTo(px(0),py(d*.42));x.lineTo(px(d*.35),py(d*.3));x.lineTo(px(d*.35),py(-d*.3));x.lineTo(px(0),py(-d*.42));x.fill();
+      x.fillStyle='#4a3a22';x.fillRect(px(d*.5),py(d*.38),(Lm-d*.7)*sc,d*.76*sc);const r1=rng(9);x.fillStyle='#9a8a62';for(let k=0;k<120;k++)x.fillRect(px(d*.5+r1()*(Lm-d*.7)),py((r1()-.5)*d*.7),1.3,1.3);
+      x.fillStyle='rgba(255,255,255,.75)';x.font='10px system-ui';x.fillText('fusée : poudre, tuyères',px(d*.4),py(-d/2)+12);}
+    else{x.fillStyle=pel&&!C.dart&&p.cons!=='duplex'?'#b3302a':brass;x.strokeStyle='#5a4412';x.beginPath();x.moveTo(px(0),py(Dc/2*.92));x.lineTo(px(d*.2),py(Dc/2*.78));x.lineTo(px(d*.42),py(Dc/2));x.lineTo(px(body),py(Dc/2*.97));x.lineTo(px(body+shoulder),py(d/2*1.06));x.lineTo(px(caseLen),py(d/2*1.06));
     x.lineTo(px(caseLen),py(-d/2*1.06));x.lineTo(px(body+shoulder),py(-d/2*1.06));x.lineTo(px(body),py(-Dc/2*.97));x.lineTo(px(d*.42),py(-Dc/2));x.lineTo(px(d*.2),py(-Dc/2*.78));x.lineTo(px(0),py(-Dc/2*.92));x.closePath();x.fill();x.stroke();
-    x.fillStyle='#2a2418';x.fillRect(px(d*.5),py(Dc/2*.8),(body-d*.5)*sc,Dc/2*.8*sc);const r0=rng(7);x.fillStyle='#6b6b52';for(let k=0;k<160;k++)x.fillRect(px(d*.5+r0()*(body-d*.5)),py(r0()*Dc/2*.8),1.4,1.4);
-    const b0=caseLen-seat,r=d/2,tip=b0+l,shank=l-nose;
+    x.fillStyle='#2a2418';x.fillRect(px(d*.5),py(Dc/2*.8),(body-d*.5)*sc,Dc/2*.8*sc);const r0=rng(7);x.fillStyle='#6b6b52';for(let k=0;k<160;k++)x.fillRect(px(d*.5+r0()*(body-d*.5)),py(r0()*Dc/2*.8),1.4,1.4);}
+    const b0=D.rocket?D.boost.Lm:caseLen-seat,r=d/2,tip=b0+l,shank=l-nose;
     if(pel&&p.cons!=='duplex'){x.fillStyle=C.dart?'#9aa4ad':'#7d8388';const n=Math.min(D.pel,24);for(let k=0;k<n;k++){const fx=b0+(k%4+.5)*l/4,fy=((k/4|0)%2?.5:-.5)*r*.8;if(C.dart){x.fillRect(px(b0),py(fy+r*.08*(k%3-1)),l*sc,1.2);}else{x.beginPath();x.arc(px(fx),py(fy),Math.max(1.5,r*.35*sc),0,7);x.fill();}}}
     else{const jacket=C.mono?'#c46d38':C.soft?'#8d9196':C.core?'#a8744a':'#c07a3e';const drawB=(o,sub)=>{const rr=r*sub,bt=p.base==='bt';x.beginPath();x.moveTo(px(o),py(bt?rr*.72:rr));x.lineTo(px(o+shank*(1-(bt?.1:0))),py(rr));
         if(p.nose==='plate'){x.lineTo(px(o+l-nose*.2),py(rr*.95));x.lineTo(px(o+l),py(rr*.55));x.lineTo(px(o+l),py(-rr*.55));x.lineTo(px(o+l-nose*.2),py(-rr*.95));}
@@ -311,6 +339,52 @@ export class Designer{
       const r0=rng(11+i);for(let j=0;j<20;j++){const a=r0()*6.283,g=Math.sqrt(-2*Math.log(Math.max(1e-6,r0())));const hx=cx+Math.cos(a)*g*k(sig),hy=cy+k(.02)+Math.sin(a)*g*k(sig);x.fillStyle='#b3261e';x.beginPath();x.arc(hx,hy,2,0,7);x.fill();}
       x.fillStyle=ink;x.font='600 12px system-ui';x.textAlign='center';x.fillText(`${R} m`,cx,16);x.font='600 12px system-ui';const hp=Math.round(D.hitP(R)*100);x.fillStyle=hp>=50?css('--good'):hp>=20?css('--orange2'):css('--red');x.fillText(`touche ${hp} %`,cx,H-22);x.font='11px system-ui';x.fillStyle=muted;x.fillText(`groupe ${cm(sig*4)}`,cx,H-8);x.textAlign='left';}}
   // ---------- la perforation selon la distance, contre ce qu'on rencontre ----------
+  // un mortier : la plaque de base, le tube à 60°, le bipied ; le chargeur laisse glisser l'obus, le pointeur à la hausse
+  drawMortar(D,t,x,W,H,ground){const p=D.p;const d=p.d,wall=d*(.35+.00075*D.P)*D.wallx,Dout=d+2*wall;const L=p.L;
+    const s=Math.min(.9,(W-60)/(L*.5+520),(H-50)/(L*.87+60));const u=v=>v*1000*s;const a=-Math.PI/3;
+    const bx=W*.5-L*.25*s,by=ground-4;const mx=bx+Math.cos(a)*L*s,my=by+Math.sin(a)*L*s;
+    const bearers=D.roles.filter(r=>r!=='tireur'&&r!=='chargeur').length;
+    for(let k=0;k<bearers;k++)meu(x,bx-u(.2)-k*u(.13),ground,s,'porte');
+    meu(x,bx-u(.07),ground,s,'genou');                                               // le pointeur, à la hausse
+    // la plaque de base
+    x.fillStyle='#3b4148';x.beginPath();x.ellipse(bx,by+2,Dout*s*2.4,Dout*s*.7,0,0,7);x.fill();x.strokeStyle=LINE;x.lineWidth=1;x.stroke();
+    // le tube
+    x.save();x.translate(bx,by);x.rotate(a);const g=x.createLinearGradient(0,-Dout*s/2,0,Dout*s/2);g.addColorStop(0,'#5b636b');g.addColorStop(.5,'#2e3439');g.addColorStop(1,'#1d2226');x.fillStyle=g;x.fillRect(0,-Dout*s/2,L*s,Dout*s);x.strokeStyle=LINE;x.strokeRect(0,-Dout*s/2,L*s,Dout*s);
+    x.fillStyle='#15191c';x.fillRect(L*s-2,-d*s/2,2,d*s);x.restore();
+    // le bipied, la hausse
+    const kx=bx+Math.cos(a)*L*s*.62,ky=by+Math.sin(a)*L*s*.62;x.strokeStyle='#4a525a';x.lineWidth=Math.max(1.5,Dout*s*.35);x.beginPath();x.moveTo(kx,ky);x.lineTo(kx+u(.09),ground);x.moveTo(kx,ky);x.lineTo(kx+u(.05),ground);x.stroke();
+    x.fillStyle='#8a939b';x.fillRect(kx-4,ky-6,6,4);
+    // le chargeur, à genoux devant la bouche ; l'obus qui descend, le départ, la fumée
+    meu(x,mx+u(.07),ground,s,'genou',true);
+    const sl=D.l*s,sd=d*s;const drop=t>0&&t<.45?t/.45:0;
+    if(t===0||drop>0){const q=drop>0?drop:0;const ox=mx+Math.cos(a)*(sl*(1.2-q*1.5)),oy=my+Math.sin(a)*(sl*(1.2-q*1.5));x.save();x.translate(ox,oy);x.rotate(a+Math.PI);x.fillStyle='#6b7b3a';x.beginPath();x.ellipse(0,0,sl*.55,sd*.5,0,0,7);x.fill();x.fillStyle='#f0c419';x.fillRect(sl*.2,-sd*.5,sl*.12,sd);x.fillStyle='#39402a';x.fillRect(-sl*.75,-sd*.35,sl*.25,sd*.7);x.restore();}
+    if(t>=.45&&t<.75){const k=(t-.45)/.3;x.globalCompositeOperation='lighter';const r=x.createRadialGradient(mx,my,0,mx,my,20+40*k);r.addColorStop(0,`rgba(255,240,200,${.9*(1-k)})`);r.addColorStop(1,'rgba(255,120,40,0)');x.fillStyle=r;x.beginPath();x.arc(mx,my,20+40*k,0,7);x.fill();x.globalCompositeOperation='source-over';}
+    if(t>=.45&&t<3){const k=(t-.45);for(let n=0;n<7;n++){x.fillStyle=`rgba(200,195,185,${Math.max(0,.35-k*.1)})`;x.beginPath();x.arc(mx+n*6+k*14,my-n*5-k*20,8+n*3+k*10,0,7);x.fill();}
+      if(k<.6){const ox=mx+Math.cos(a)*k*900,oy=my+Math.sin(a)*k*900;x.fillStyle='#6b7b3a';x.beginPath();x.arc(ox,oy,Math.max(1.5,sd*.5),0,7);x.fill();}}
+    x.fillStyle='rgba(255,255,255,.75)';x.font='11px system-ui';x.fillText(`Mortier de ${fmt(d,1)} mm · tube de ${L} mm · ${fmt(D.mass*1000,0)} g · ${D.crew} servant${D.crew>1?'s':''} — il ne tire qu’en cloche, de ${CHARGES.length} charges`,10,16);}
+  // la zone d'effet d'un obus : le souffle (mortel, lésions, commotion, sonné), les éclats (gravement touché à 50 %, touché à 10 %,
+  // à 1 % : la distance de sécurité), debout et couché ; et le tir courbe (portée, charges, temps de vol)
+  drawZone(D){const wrap=this.host.querySelector('#dz-zonewrap');const he=D.he;if(wrap)wrap.hidden=!he||he.shaped;if(!he||he.shaped)return;const F=this.fit('dz-zone');if(!F)return;const [x,W,H]=F;
+    const ink=css('--ink'),muted=css('--muted'),line=css('--line');x.font='11px system-ui';
+    const safe=(()=>{let r=0;for(let q=.02;q<200;q*=1.04)if(he.at(q).pb>=.01)r=q;return r;})();
+    const Rm=Math.max(.6,Math.min(40,Math.max(he.danger,he.stun)*1.25));const cx=H/2+6,cy=H/2,S=(H/2-14)/Rm;
+    // la chance d'être gravement touché, en couleur ; les anneaux du souffle
+    for(let r=Rm;r>0;r-=Rm/60){const {pg,pb}=he.at(r);x.fillStyle=`rgba(${Math.round(120+135*pg)},${Math.round(70*(1-pg))},40,${Math.min(.85,pb*.9+pg*.2)})`;x.beginPath();x.arc(cx,cy,r*S,0,7);x.fill();}
+    const ring=(r,col,lab,dash)=>{if(r*S<2)return;x.strokeStyle=col;x.lineWidth=1.5;x.setLineDash(dash||[]);x.beginPath();x.arc(cx,cy,r*S,0,7);x.stroke();x.setLineDash([]);};
+    ring(he.stun,'#9fb4ff','',[2,3]);ring(he.conc,'#9fb4ff','');ring(he.inj,'#ff7a6a','');ring(he.blast,'#ffffff','');ring(he.lethal,'#ff3b2f','',[5,3]);ring(he.danger,'#ffb347','',[5,3]);
+    // des Meumeu tous les 50 cm, pour l'échelle
+    for(let r=.5;r<Rm;r+=.5)for(const a of [-.6,.9,2.4,3.9]){const px=cx+Math.cos(a+r)*r*S,py=cy+Math.sin(a+r)*r*S;x.fillStyle='rgba(240,230,210,.85)';x.beginPath();x.ellipse(px,py,Math.max(1.5,.035*S),Math.max(1.2,.025*S),0,0,7);x.fill();}
+    x.fillStyle='#fff';x.beginPath();x.arc(cx,cy,3,0,7);x.fill();
+    x.fillStyle=muted;x.fillText(`${fmt(Rm,1)} m`,cx+Rm*S*.72,cy+Rm*S*.72);
+    // la courbe
+    const G0=H+30,G1=W-12,T0=14,T1=H-26;const Xg=r=>G0+(G1-G0)*r/Rm,Yg=p=>T1-(T1-T0)*p;x.strokeStyle=line;x.beginPath();x.moveTo(G0,T0);x.lineTo(G0,T1);x.lineTo(G1,T1);x.stroke();
+    for(const [f,col,dash] of [[r=>he.at(r).pg,'#ff3b2f',[]],[r=>he.at(r).pb,'#ffb347',[]],[r=>he.at(r,'couche').pg,'#ff3b2f',[4,3]],[r=>he.at(r,'couche').pb,'#ffb347',[4,3]]]){x.strokeStyle=col;x.setLineDash(dash);x.lineWidth=2;x.beginPath();for(let i=0;i<=80;i++){const r=Math.max(.02,Rm*i/80);const v=f(r);i?x.lineTo(Xg(r),Yg(v)):x.moveTo(Xg(r),Yg(v));}x.stroke();x.setLineDash([]);}
+    x.fillStyle=muted;x.fillText('100 %',G0+4,T0+8);x.fillText(`distance (m) →  ${fmt(Rm,1)}`,G1-110,T1+14);x.fillStyle='#ff3b2f';x.fillText('— gravement touché',G1-150,T0+10);x.fillStyle='#ffb347';x.fillText('— touché',G1-150,T0+24);x.fillStyle=muted;x.fillText('- - couché',G1-150,T0+38);
+    const A=arcTable(D.v0,D.BC,!!ACTIONS[this.p.action]?.mortar,D.boost);const zoneOk=this.p.d>=5;
+    const t=this.host.querySelector('#dz-zonet');if(t)t.innerHTML=`<b>Le souffle</b> (${mg(he.g)} de ${esc(he.fill.name.toLowerCase())}, ${fmt(he.W*1000,2)} g d’équivalent tolite) : tue net à <b>${cm(he.blast)}</b>, déchire poumons et tympans à ${cm(he.inj)}, assomme à <b>${cm(he.conc)}</b>, sonne et assourdit à ${cm(he.stun)} (le Meumeu ne tire plus quelques secondes). `+
+      `<b>Les éclats</b> : ${he.n} éclats de ${fmt((he.fm||.004)*1000,1)} mg (${esc(he.shell.name.toLowerCase())}), lancés à ${Math.round(he.vg)} m/s ; un Meumeu debout est gravement touché une fois sur deux à <b>${cm(he.lethal)}</b> (couché : ${cm(he.lethalProne)}), touché une fois sur dix à <b>${cm(he.danger)}</b> ; distance de sécurité (1 %) : ${cm(safe)}. `+
+      `Fusée ${esc(he.fuse.name.toLowerCase())} : ${esc(he.fuse.desc)}. `+
+      (zoneOk?`<b>Tir sur zone</b> : portée ${Math.round(A.max)} m (${Math.round(A.max/4)} cases)${A.mortar?` avec ${CHARGES.length} charges (de ${Math.round(A.min)} à ${Math.round(A.max)} m, en cloche)`:', en cloche ou tendu'}. Sans observateur, les obus tombent à 6 % de la distance près ; un Meumeu qui voit la zone règle le tir.`:'<b>Tir sur zone</b> : il faut 5 mm de calibre au moins.');}
   drawPen(D,R){const F=this.fit('dz-pen');if(!F)return;const [x,W,H]=F;const muted=css('--muted'),line=css('--line'),teal=css('--teal'),ink=css('--ink');
     const last=D.table.length?D.table[D.table.length-1].x:0;const Xmax=Math.max(50,Math.min(last,400,Math.ceil(D.eff*2.5/50)*50));const pmax=Math.max(1.5,D.pen(D.v0),R.pen(R.v0))*1.15;
     const X0=40,X1=W-170,Y0=10,Y1=H-24;const X=r=>X0+(X1-X0)*r/Xmax,Y=v=>Y1-(Y1-Y0)*Math.min(1,v/pmax);x.font='11px system-ui';

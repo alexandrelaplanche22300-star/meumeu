@@ -194,3 +194,7 @@ table.dem td{padding:3px 4px;border-bottom:1px dotted var(--line);vertical-align
 .xray.left{top:64px}
 .xcard footer{max-height:48px;overflow:hidden}
 .dz-shotwrap{position:relative}.dz-shot{height:340px;background:#0c1013}.dz-shotmode{position:absolute;right:8px;top:8px}
+.zonebox{border:1px solid rgba(255,170,60,.35);border-radius:8px;padding:6px 8px;margin:6px 0;background:rgba(255,170,60,.05)}
+button.on{outline:2px solid var(--accent,#ffd36a)}
+.dz-he-ctl{border-left:3px solid #f0c419;padding-left:8px;margin:4px 0 8px}
+.dz-he-ctl.off{opacity:.4;pointer-events:none}

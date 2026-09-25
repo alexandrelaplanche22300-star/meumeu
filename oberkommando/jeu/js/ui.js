@@ -33,11 +33,12 @@ const bthumb=k=>{const B=BUILDINGS[k];if(k==='tente')return TENT_SVG;const p=man
 
 let world=new World();
 const audio=new Audio();
-const ui={speed:1,panelAt:0,lastPanel:'',pick:null,trainW:{},trainA:{},bb:true,bbCat:'vivre',modal:null};
+const ui={zoneN:6,zoneHigh:true,speed:1,panelAt:0,lastPanel:'',pick:null,trainW:{},trainA:{},bb:true,bbCat:'vivre',modal:null};
 const view=new View($('#view'),world,{
   describe:t=>describe(t),
   unitLabel:u=>unitLabel(u),
   unitInfo:u=>openFiche(u.id),
+  zoneAt:(w,keep)=>{const r=world.zoneFire([...view.sel],w.x,w.y,{n:ui.zoneN||Infinity,high:ui.zoneHigh});say(r.ok?r.text:r.why[0],r.ok?'':'bad');audio.play(r.ok?'order':'bad');view.marks.push({x:w.x,y:w.y,age:0,bad:!r.ok});renderPanel(true);return r;},
   order:(ids,t)=>{const r=world.order(ids,t);say(r.ok?r.text:r.why[0],r.ok?'':'bad');audio.play(r.ok?'order':'bad');renderPanel(true);return r;},
   place:(k,i,j)=>{const r=world.place('meumeu',k,i,j);if(!r.ok){say(r.why[0],'bad');audio.play('bad');return r;}
     // ceux qu'on a choisis y vont ; sinon, les villageois oisifs les plus proches
@@ -197,6 +198,13 @@ function unitsPane(sel){const by={};for(const u of sel)by[u.k]=(by[u.k]||0)+1;co
     if(armed.length)h+=`<div class="kv"><span>Munitions</span><b class="${dry?'bad':''}">${armed.reduce((a,u)=>a+u.mag+u.pouch,0)} coups${dry?` · ${dry} à sec`:''}</b></div>`;
     const med=sel.filter(u=>UNITS[u.k].medic);if(med.length)h+=`<div class="kv"><span>Santé</span><b>${med.length} soignant${med.length>1?'s':''} · ${med.reduce((a,u)=>a+u.kits,0)} trousses</b></div>`;
     if(sel.some(u=>UNITS[u.k].doctor&&u.tents))h+=`<div class="row"><button class="small" data-act="tent">Planter une tente médicale (T)</button></div>`;}
+  // le tir sur zone : les pièces à obus de la sélection
+  const zg=sel.filter(u=>u.w&&u.h&&world.canZone(world.W(u.w)));if(zg.length){const Wd=world.W(zg[0].w),A=world.arcOf(Wd),mortar=A.mortar;
+    h+=`<div class="zonebox"><h3>Tir sur zone <small>${zg.length} pièce${zg.length>1?'s':''} à obus</small></h3><p class="small">Portée <b>${Math.round(A.max)} m</b> (${Math.round(A.max/4)} cases)${A.min>6?`, au moins ${Math.round(A.min)} m`:''}. Un obus : mortel à <b>${fmt(Wd.he.lethal*100,0)} cm</b>, blesse à ${fmt(Wd.he.danger*100,0)} cm, assomme à ${fmt(Wd.he.conc*100,0)} cm.</p>
+      <div class="row"><span class="quiet small">Coups</span><div class="seg">${[[1,'1'],[3,'3'],[6,'6'],[12,'12'],[0,'∞']].map(([n,t])=>`<button data-zonen="${n}" class="${(ui.zoneN||0)===n?'on':''}">${t}</button>`).join('')}</div>
+      ${mortar?'':`<div class="seg">${[[1,'En cloche'],[0,'Tendu']].map(([k,t])=>`<button data-zoneh="${k}" class="${(ui.zoneHigh?1:0)===k?'on':''}" title="${k?'par-dessus murs et maisons, lent, plus dispersé en portée':'plus rapide, plus précis, mais le relief et les murs arrêtent'}">${t}</button>`).join('')}</div>`}</div>
+      <div class="row"><button class="small ${view.zoning?'on':''}" data-act="zone">Tir sur zone (X) : cliquez le point visé</button>${zg.some(u=>u.task?.kind==='zone')?'<button class="small ghost" data-act="stop">Cessez le feu</button>':''}</div>
+      <p class="quiet small">Un Meumeu qui voit la zone règle le tir : l’erreur fond de moitié à chaque obus. Sans observateur, les obus tombent loin (6 % de la distance).</p></div>`;}
   h+=postureRow(sel);const sm=sel.filter(u=>u.smoke>0).length;if(sm)h+=`<div class="row"><button class="small ghost" data-act="smoke" title="Un nuage entre eux et l’ennemi : il coupe la vue">Fumigène (F) · ${sel.reduce((a,u)=>a+(u.smoke||0),0)}</button></div>`;
   if(sq&&whole){h+=`<div class="kv"><span>Moral</span><b class="${sq.morale<.4?'bad':sq.morale<.7?'warn':'good'}">${Math.round(sq.morale*100)} %${sq.broken?' · en déroute':''}</b></div><i class="bloodbar morale"><b style="width:${Math.round(sq.morale*100)}%"></b></i>
       <div class="row"><span class="quiet small">Formation</span><div class="seg">${[['ligne','En ligne'],['colonne','En colonne'],['dispersee','Dispersés']].map(([k,n])=>`<button data-form="${k}" class="${sq.form===k?'on':''}">${n}</button>`).join('')}</div></div>
@@ -209,7 +217,7 @@ function unitsPane(sel){const by={};for(const u of sel)by[u.k]=(by[u.k]||0)+1;co
   return h;}
 function doing(u){const T=u.task;if(u.h?.state==='hors')return u.carriedBy?'on le porte vers les soins':'à terre';if(!T)return u.carry?'rapporte au dépôt':u.anim==='aim'?'tire':'rien';const b=T.b!=null?world.building(T.b):null;
   return {gather:'ramasse',build:`bâtit ${b?BUILDINGS[b.k].name.toLowerCase():''}`,repair:'répare',work:b&&BUILDINGS[b.k].hub?'récolte autour du camp':`travaille : ${b?BUILDINGS[b.k].name.toLowerCase():''}`,move:'marche',guard:'en position',assault:'attaque en avançant',attack:'attaque',line:'pose une voie, un mur',deposit:'dépose',board:'embarque',
-    evac:'porte un blessé',soigne:'soigne un blessé',operer:'opère sous la tente',hosp:'va se faire soigner',shelter:'court aux abris'}[T.kind]||T.kind;}
+    zone:`tir sur zone${T.n<1e9?` : ${T.fired}/${T.n} coups`:` : ${T.fired} coups`}`,evac:'porte un blessé',soigne:'soigne un blessé',operer:'opère sous la tente',hosp:'va se faire soigner',shelter:'court aux abris'}[T.kind]||T.kind;}
 // ---------- la gestion : usines, rattachements, dépôts ----------
 const SRC={want:'réglée ici',reserve:'réserve',usine:'usine',chantier:'chantier',voie:'voies, murs tracés',locomotive:'locomotive',objectif:'objectif (le rare)'};
 function depotOpt(d,b,cur){const [x,y]=world.bc(b);return `<option value="${d.id}" ${cur===d.id?'selected':''}>${esc(BUILDINGS[d.k].name)} · ${esc(world.cityName(d))} — ${Math.round(world.distB(d,x,y))} cases</option>`;}
@@ -492,6 +500,8 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   if(d.vmode){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v){const r=world.setMode(v,d.vmode);say(r.ok?r.text:r.why[0],r.ok?'':'bad');}renderPanel(true);return;}
   if(d.fam){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v)world.toggleFamily(v,d.fam);renderPanel(true);return;}
   if(d.vrange){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v)v.range=Math.max(6,Math.min(30,(v.range||VEHICLES.porteur.range)+Math.sign(+d.vrange)*2));renderPanel(true);return;}
+  if(d.zonen!=null){ui.zoneN=+d.zonen;renderPanel(true);return;}
+  if(d.zoneh!=null){ui.zoneHigh=d.zoneh==='1';renderPanel(true);return;}
   if(d.post){world.setPosture([...view.sel],d.post);renderPanel(true);return;}
   if(d.form){const u=world.unit([...view.sel][0]);const sq=u&&world.squad(u.sq);if(sq){sq.form=d.form;say(`${sq.name} : ${b.textContent.toLowerCase()} au prochain ordre de marche.`);}renderPanel(true);return;}
   if(d.squad){selectSquad(+d.squad,e.detail>=2);return;}
@@ -501,6 +511,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   if(d.vehicle){const v=world.s.vehicles.find(x=>x.id===+d.vehicle);if(v){view.sel.clear();view.selB=null;view.selV=v.id;view.lookAt(v.x,v.y);ui.modal=null;renderPanel(true);}return;}
   if(d.goods){const [dir,k]=d.goods.split(':');const v=world.s.vehicles.find(x=>x.id===view.selV);if(v?.route){const L=v.route[dir];const i=L.indexOf(k);i>=0?L.splice(i,1):L.push(k);}renderPanel(true);return;}
   const a=d.act;if(!a)return;
+  if(a==='zone'){view.zoning=!view.zoning;renderPanel(true);return;}
   if(a==='stop'){for(const id of view.sel){const u=world.unit(id);if(u&&u.h?.state!=='hors'){u.task=null;u.path=null;}}}
   else if(a==='modal-off'){ui.modal=null;renderModal();return;}
   else if(a==='bb'){ui.bb=!ui.bb;ui.bbHtml='';$('#buildbar').innerHTML='';buildBar();return;}
@@ -554,10 +565,11 @@ const keys=new Set();
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','=','-','0'].includes(e.key)){e.preventDefault();uiZ.step(e.key==='-'?-1:e.key==='0'?0:1);return;}
   if(e.target.closest('input,textarea,select'))return;if(designer.open){if(e.key==='Escape')designer.close();return;}if(room.isOpen){if(e.key==='Escape')room.close();return;}audio.init();const k=e.key;
   if(ui.modal&&k==='Escape'){ui.modal=null;renderModal();return;}keys.add(k.toLowerCase());
-  if(k==='Escape'){view.placing=null;view.lining=null;ui.pick=null;view.sel.clear();view.selB=null;view.selV=null;renderPanel(true);}
+  if(k==='Escape'){view.zoning=false;view.placing=null;view.lining=null;ui.pick=null;view.sel.clear();view.selB=null;view.selV=null;renderPanel(true);}
   else if(k===' '){e.preventDefault();setSpeed(ui.speed?0:(ui.lastSpeed||1));if(ui.speed)ui.lastSpeed=ui.speed;}
   else if(k==='1'||k==='2'||k==='3'){if(ui.bb&&view.placing==null&&!view.sel.size&&view.selB==null){}setSpeed({1:1,2:2,3:4}[k]);ui.lastSpeed=ui.speed;}
   else if(k==='g'||k==='G'){if(view.sel.size)formSquad();}
+  else if(k==='x'||k==='X'){view.zoning=!view.zoning;renderPanel(true);}
   else if(k==='b'||k==='B'){ui.bb=!ui.bb;ui.bbHtml='';$('#buildbar').innerHTML='';buildBar();}
   else if(k==='t'||k==='T'){pitchTent();}
   else if((k==='f'||k==='F')&&view.sel.size){const n=world.smokeOrder([...view.sel]);say(n?`${n} fumigène${n>1?'s':''} lancé${n>1?'s':''}.`:'Plus de fumigène.',n?'':'bad');}
@@ -622,5 +634,5 @@ await loadManifest();
 {const j=localStorage.getItem('okm-auto');const P=new URLSearchParams(location.search);if(P.has('demo')){const w=new World();setupDemo(w);world=w;view.world=w;}else if(j&&!P.has('new')){try{const w=new World(1);w.load(j);world=w;view.world=w;}catch(e){console.warn('sauvegarde ancienne ignorée',e.message);}}
   const c=world.capital();if(c)view.lookAt(c.i+2,c.j+2);if(P.get('speed'))setSpeed(+P.get('speed'));if(P.get('at')){const [x,y,z]=P.get('at').split(',').map(Number);view.lookAt(x,y);if(z)view.zoom=z;}}
 setSpeed(ui.speed);renderPanel(true);requestAnimationFrame(frame);
-window.world=()=>world;window.view=view;window.ui=ui;window.audio=audio;window.xray=xray;window.designer=designer;window.room=room;window.openModal=openModal;window.openFiche=id=>openFiche(id);
+window.world=()=>world;window.view=view;window.ui=ui;window.audio=audio;window.xray=xray;window.designer=designer;window.room=room;window.openModal=openModal;window.renderPanel=renderPanel;window.openFiche=id=>openFiche(id);
 window.__step=(n=1,dt=1/30)=>{for(let i=0;i<n;i++){if(ui.speed>0)world.update(dt*ui.speed/HOUR_REAL);events();view.draw(dt);xray.step(dt);if(ui.modal?.kind==='fiche'){const f=findUnit(ui.modal.id);if(f)body3d.draw(f.u.h,dt,f.u.f);}}view.drawMini(mini);renderPanel(true);topbar();};
