@@ -186,20 +186,7 @@ export class View{
     ctx.restore();}
   // Les rails : deux files et des traverses, dans le sens des voisins. Les murs : des blocs de pierre, crénelés.
   drawLines(i0,i1,j0,j1){const W=this.world,ctx=this.ctx,N=W.N,z=this.z();
-    // le ballast d'abord, sous toutes les voies bâties : un lit de gravier clair
-    ctx.save();ctx.lineCap='round';for(const [w,col] of [[14,'#857e70'],[10,'#a39c8c']]){ctx.strokeStyle=col;ctx.lineWidth=w*z;ctx.beginPath();
-      for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){if(W.rail[j*N+i]!==2)continue;const c=this.toScreen(i+.5,j+.5);let n=0;
-        for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){if(!di&&!dj)continue;const a=i+di,b=j+dj;if(a<0||b<0||a>=N||b>=N||W.rail[b*N+a]!==2)continue;n++;const e=this.toScreen(i+.5+di*.5,j+.5+dj*.5);ctx.moveTo(c.x,c.y);ctx.lineTo(e.x,e.y);}
-        if(!n){ctx.moveTo(c.x,c.y);ctx.lineTo(c.x+.1,c.y);}}
-      ctx.stroke();}ctx.restore();
-    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const k=j*N+i;const r=W.rail[k];if(!r)continue;const c=this.toScreen(i+.5,j+.5);let n=0;
-      for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){if(!di&&!dj)continue;const a=i+di,b=j+dj;if(a<0||b<0||a>=N||b>=N||!W.rail[b*N+a])continue;n++;
-        const e=this.toScreen(i+.5+di*.5,j+.5+dj*.5);const dx=e.x-c.x,dy=e.y-c.y,L=Math.hypot(dx,dy)||1;const px=-dy/L*4*z,py=dx/L*4*z;
-        ctx.save();if(r===1){ctx.globalAlpha=.55;ctx.setLineDash([4*z,3*z]);}
-        ctx.strokeStyle=r===2?'#6b4a2e':'#e8bf62';ctx.lineWidth=3.2*z;for(let t=.15;t<1;t+=.35){const mx=c.x+dx*t,my=c.y+dy*t;ctx.beginPath();ctx.moveTo(mx-px*1.5,my-py*1.5);ctx.lineTo(mx+px*1.5,my+py*1.5);ctx.stroke();}
-        ctx.strokeStyle=r===2?'#9aa0a6':'#e8bf62';ctx.lineWidth=1.4*z;for(const sgn of [-1,1]){ctx.beginPath();ctx.moveTo(c.x+px*sgn,c.y+py*sgn);ctx.lineTo(e.x+px*sgn,e.y+py*sgn);ctx.stroke();}ctx.restore();}
-      if(!n){ctx.fillStyle=r===2?'#9aa0a6':'#e8bf62';ctx.beginPath();ctx.arc(c.x,c.y,3*z,0,7);ctx.fill();}
-      if(W.s.rails[k]?.broken&&r===1){ctx.fillStyle='rgba(189,75,61,.8)';ctx.beginPath();ctx.arc(c.x,c.y,4*z,0,7);ctx.fill();}}
+    this.drawRails(i0,i1,j0,j1);
     for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const k=j*N+i;const w=W.wall[k];if(!w)continue;const built=Math.abs(w)===2;const mine=w>0;const c=this.toScreen(i+.5,j+.5);const hgt=(built?1.1:.15)*TH*z;
       const top=mine?'#cbb893':'#6f7456',side=mine?'#9a8866':'#4c5040',side2=mine?'#b3a07c':'#5b6048';const a=this.toScreen(i,j),b=this.toScreen(i+1,j),cc=this.toScreen(i+1,j+1),d=this.toScreen(i,j+1);
       ctx.save();if(!built)ctx.globalAlpha=.5;ctx.fillStyle=side;ctx.beginPath();ctx.moveTo(d.x,d.y);ctx.lineTo(cc.x,cc.y);ctx.lineTo(cc.x,cc.y-hgt);ctx.lineTo(d.x,d.y-hgt);ctx.fill();
@@ -492,6 +479,52 @@ export class View{
         const t=this.world.targetAt(w.x,w.y);this.sel.clear();this.selV=null;this.selB=t?.type==='building'?t.id:null;this.ui.inspect(t);this.ui.changed();return;}
       if(e.button===2){if(this.selV){this.ui.vehicleOrder(w);return;}if(this.selB&&!this.sel.size){this.ui.rally(w);return;}if(!this.sel.size)return;const t=this.world.targetAt(w.x,w.y);const r=this.ui.order([...this.sel],t);this.marks.push({x:w.x,y:w.y,age:0,bad:!r.ok});}});
     cv.addEventListener('wheel',e=>{e.preventDefault();const [sx,sy]=this.pos(e);const before=this.toWorld(sx,sy);this.zoom=Math.max(.18,Math.min(2,this.zoom*(e.deltaY<0?1.15:1/1.15)));const after=this.toWorld(sx,sy);this.cx+=before.x-after.x;this.cy+=before.y-after.y;},{passive:false});}
+  // La géométrie des voies : les cases de rail deviennent des chaînes (d'un aiguillage à l'autre), lissées (Chaikin) pour que
+  // l'escalier des cases devienne une courbe ; traverses tous les 0,2 case. Recalculée quand une voie change.
+  railGeom(){const W=this.world,N=W.N;const ks=Object.keys(W.s.rails);let sig=ks.length;for(const k of ks)sig=(sig*31+(+k)*3+(W.rail[+k]||0))|0;
+    if(this._rg?.sig===sig)return this._rg;
+    const cells=new Map();for(const k of ks){const r=W.rail[+k];if(r)cells.set(+k,r);}
+    const nb=k=>{const i=k%N,j=(k/N)|0;const out=[];for(const [di,dj] of [[1,0],[-1,0],[0,1],[0,-1]]){const kk=(j+dj)*N+i+di;if(cells.has(kk))out.push(kk);}
+      for(const [di,dj] of [[1,1],[1,-1],[-1,1],[-1,-1]]){const kk=(j+dj)*N+i+di;if(cells.has(kk)&&!cells.has(j*N+i+di)&&!cells.has((j+dj)*N+i))out.push(kk);}return out;};
+    const adj=new Map();for(const k of cells.keys())adj.set(k,nb(k));
+    const seen=new Set(),ek=(a,b)=>a<b?a+','+b:b+','+a,chains=[];
+    const walk=(a,b)=>{const pts=[a,b];seen.add(ek(a,b));let prev=a,cur=b;while(adj.get(cur).length===2){const nx=adj.get(cur).find(x=>x!==prev);if(nx==null||seen.has(ek(cur,nx)))break;seen.add(ek(cur,nx));pts.push(nx);prev=cur;cur=nx;}return pts;};
+    for(const [k,L] of adj)if(L.length!==2)for(const n of L)if(!seen.has(ek(k,n)))chains.push(walk(k,n));
+    for(const [k,L] of adj)for(const n of L)if(!seen.has(ek(k,n)))chains.push(walk(k,n));
+    const junctions=[...adj].filter(([,L])=>L.length>=3).map(([k])=>[k%N+.5,((k/N)|0)+.5]);const lone=[...adj].filter(([,L])=>!L.length).map(([k])=>({x:k%N+.5,y:((k/N)|0)+.5,st:cells.get(k)}));
+    // chaque chaîne est coupée en tronçons de même état (bâti, prévu) ; l'escalier des cases est redressé (Douglas-Peucker :
+    // on garde les vrais virages), puis les coins arrondis (Chaikin)
+    const dp=(P,tol)=>{if(P.length<3)return P;const a=P[0],b=P[P.length-1];let best=-1,bd=0;const L=Math.hypot(b.x-a.x,b.y-a.y)||1e-6;
+      for(let n=1;n<P.length-1;n++){const d=Math.abs((b.x-a.x)*(a.y-P[n].y)-(a.x-P[n].x)*(b.y-a.y))/L;if(d>bd){bd=d;best=n;}}
+      if(bd<=tol)return [a,b];return [...dp(P.slice(0,best+1),tol).slice(0,-1),...dp(P.slice(best),tol)];};
+    const chaikin=P=>{if(P.length<3)return P;const Q=[P[0]];for(let n=0;n<P.length-1;n++){const a=P[n],b=P[n+1];const L=Math.hypot(b.x-a.x,b.y-a.y);const f=Math.min(.25,.45/Math.max(.01,L));
+        if(n>0)Q.push({x:a.x+(b.x-a.x)*f,y:a.y+(b.y-a.y)*f});if(n<P.length-2)Q.push({x:b.x-(b.x-a.x)*f,y:b.y-(b.y-a.y)*f});}Q.push(P[P.length-1]);return Q;};
+    const out=[];for(const ch of chains){const C=ch.map(k=>({x:k%N+.5,y:((k/N)|0)+.5,k}));
+      const runs=[];let cur=null;for(let n=0;n<C.length-1;n++){const st=cells.get(C[n].k)===2&&cells.get(C[n+1].k)===2?2:1;if(!cur||cur.st!==st){cur={st,P:[C[n]]};runs.push(cur);}cur.P.push(C[n+1]);}
+      for(const r of runs){let P=dp(r.P,.72);for(let it=0;it<3;it++)P=chaikin(P);const st=P.slice(1).map(()=>r.st);
+        const ties=[];let acc=0,next=.1;for(let n=0;n<P.length-1;n++){const a=P[n],b=P[n+1];const L=Math.hypot(b.x-a.x,b.y-a.y)||1e-6;while(next<=acc+L){const t=(next-acc)/L;ties.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,px:-(b.y-a.y)/L,py:(b.x-a.x)/L,st:r.st,h:(ties.length*7919)%3});next+=.21;}acc+=L;}
+        let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const q of P){x0=Math.min(x0,q.x);y0=Math.min(y0,q.y);x1=Math.max(x1,q.x);y1=Math.max(y1,q.y);}
+        out.push({P,st,ties,box:[x0,y0,x1,y1]});}}
+    return this._rg={sig,chains:out,junctions,lone};}
+  drawRails(i0,i1,j0,j1){const G=this.railGeom();const ctx=this.ctx,z=this.z(),W=this.world,N=W.N;const vis=c=>c.box[2]>=i0-1&&c.box[0]<=i1+1&&c.box[3]>=j0-1&&c.box[1]<=j1+1;
+    const CH=G.chains.filter(vis);const S=(x,y)=>this.toScreen(x,y);
+    const path=(c,off,want)=>{ctx.beginPath();let on=false;for(let n=0;n<c.P.length-1;n++){if(want&&c.st[n]!==want){on=false;continue;}const a=c.P[n],b=c.P[n+1];const L=Math.hypot(b.x-a.x,b.y-a.y)||1;const ox=-(b.y-a.y)/L*off,oy=(b.x-a.x)/L*off;
+        const pa=S(a.x+ox,a.y+oy),pb=S(b.x+ox,b.y+oy);if(!on){ctx.moveTo(pa.x,pa.y);on=true;}ctx.lineTo(pb.x,pb.y);}};
+    ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
+    // le ballast : un remblai sombre, un lit de gravier, des bords clairs
+    for(const [w,col] of [[17,'rgba(60,54,46,.55)'],[13,'#7d766a'],[9.5,'#9a9384']]){ctx.strokeStyle=col;ctx.lineWidth=w*z;for(const c of CH){path(c,0,2);ctx.stroke();}}
+    for(const [x,y] of G.junctions){const q=S(x,y);ctx.fillStyle='#8d8678';ctx.beginPath();ctx.ellipse(q.x,q.y,15*z,8*z,0,0,7);ctx.fill();}
+    // les traverses : du bois goudronné, un peu de variété
+    const TC=['#4a3321','#5a3e27','#3f2b1b'];for(const c of CH)for(const t of c.ties){const a=S(t.x+t.px*.21,t.y+t.py*.21),b=S(t.x-t.px*.21,t.y-t.py*.21);
+      if(t.st===2){ctx.strokeStyle=TC[t.h];ctx.lineWidth=3.4*z;ctx.lineCap='butt';}else{ctx.strokeStyle='rgba(232,191,98,.35)';ctx.lineWidth=2*z;}ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}
+    ctx.lineCap='round';
+    // les rails : l'ombre, l'acier, le reflet du champignon usé par les roues
+    for(const off of [-.13,.13]){for(const [w,col,dy] of [[2.6,'rgba(20,18,16,.6)',1],[1.9,'#5d6368',0],[.9,'#d9dde0',-.4]]){ctx.strokeStyle=col;ctx.lineWidth=w*z;ctx.save();ctx.translate(0,dy*z);for(const c of CH){path(c,off,2);ctx.stroke();}ctx.restore();}}
+    // la voie prévue : un tracé doré, en pointillés
+    ctx.setLineDash([5*z,4*z]);ctx.strokeStyle='rgba(232,191,98,.85)';ctx.lineWidth=1.6*z;for(const off of [-.13,.13])for(const c of CH){path(c,off,1);ctx.stroke();}ctx.setLineDash([]);
+    for(const o of G.lone){const q=S(o.x,o.y);ctx.fillStyle=o.st===2?'#9aa0a6':'#e8bf62';ctx.beginPath();ctx.arc(q.x,q.y,3*z,0,7);ctx.fill();}
+    ctx.restore();
+    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const k=j*N+i;if(W.rail[k]===1&&W.s.rails[k]?.broken){const c=S(i+.5,j+.5);ctx.fillStyle='rgba(189,75,61,.85)';ctx.beginPath();ctx.arc(c.x,c.y,4.5*z,0,7);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.2*z;ctx.beginPath();ctx.moveTo(c.x-2.5*z,c.y-2.5*z);ctx.lineTo(c.x+2.5*z,c.y+2.5*z);ctx.moveTo(c.x+2.5*z,c.y-2.5*z);ctx.lineTo(c.x-2.5*z,c.y+2.5*z);ctx.stroke();}}}
   // un cercle au sol (r en cases)
   ring(x,y,r,stroke,fill=null,dash=null,w=1.5){const ctx=this.ctx,z=this.zoom,q=this.toScreen(x,y);ctx.save();if(dash)ctx.setLineDash(dash.map(v=>v*z));ctx.beginPath();ctx.ellipse(q.x,q.y,Math.max(1,r*TW/2*z*1.41),Math.max(.5,r*TH/2*z*1.41),0,0,7);if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=w*this.dpr;ctx.stroke();}ctx.restore();}
   // le tir sur zone : l'onde de choc des explosions ; les zones visées par les pièces choisies ; l'aperçu sous la souris (touche X)
