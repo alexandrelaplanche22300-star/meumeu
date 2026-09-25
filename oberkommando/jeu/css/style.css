@@ -163,3 +163,18 @@ table.dem{width:100%;border-collapse:collapse;font-size:12px}table.dem th{text-a
 table.dem td{padding:3px 4px;border-bottom:1px dotted var(--line);vertical-align:middle;font-variant-numeric:tabular-nums}table.dem td button{padding:0 6px;margin-left:2px}table.dem tr.short td:first-child{box-shadow:inset 3px 0 0 var(--orange)}
 .gauge.coal i{background:#3b3f44}
 .jam{border-left:3px solid var(--orange);background:color-mix(in srgb,var(--orange) 10%,transparent);padding:6px 9px;border-radius:6px;margin-bottom:6px;font-size:12.5px}
+
+/* ---------- l'écran : 1920 × 1080 (et 1536 × 864, Windows à 125 %) ---------- */
+.top{display:grid;grid-template-columns:auto auto auto auto 1fr auto;grid-template-areas:"brand clock speeds status . menu" "stocks stocks stocks stocks stocks stocks";column-gap:14px;row-gap:5px;padding:6px 14px}
+.top .brand{grid-area:brand}.top .clock{grid-area:clock}.top .speeds{grid-area:speeds}.top .status{grid-area:status}.top .menu{grid-area:menu}.top .stocks{grid-area:stocks}.top .spacer{display:none}
+.status{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.stocks{gap:4px;align-items:center}.rchip i{font-style:normal;font-size:11px;color:var(--muted);font-weight:600}.rchip small{font-size:10px;color:var(--muted)}.rsep{width:10px}
+.rchip.rare b{color:var(--orange2)}
+.buildbar{right:auto;max-width:calc(100% - 340px);bottom:40px}
+.bb-row{width:max-content;max-width:100%}
+.bb-card{width:112px}.bb-img{height:44px}.bb-img img{max-height:48px}
+.bb-hint{background:#173d44d9;color:#e8dcc0;text-shadow:none;border-radius:8px;padding:3px 9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
+.keys{background:#173d44b0;color:#e8dcc0;border-radius:8px;padding:3px 9px;white-space:nowrap;max-width:none;bottom:8px}
+@media (min-width:1700px){.layout{grid-template-columns:1fr 420px}#mini{width:340px;height:170px}.buildbar{left:360px;max-width:calc(100% - 380px)}}
+@media (max-width:1600px){.keys{display:none}.top .brand .title{display:none}}
+@media (max-width:1600px){.top{column-gap:10px;padding:5px 10px}.stocks{gap:3px}.rchip{padding:1px 5px;font-size:12.5px;gap:3px}.rchip i{font-size:10.5px}.rchip.rare small{display:none}.rsep{width:4px}.tb{padding:3px 7px}}
