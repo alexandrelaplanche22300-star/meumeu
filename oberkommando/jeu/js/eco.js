@@ -3,7 +3,7 @@
 //    livrent à un dépôt de sortie (à moins de RADIUS cases, les porteurs y vont à pied), et leurs machines brûlent du charbon ;
 //  · les dépôts : polyvalents. Chacun a une priorité (1 à 5) et des demandes : celles que le joueur y règle, celles des usines
 //    qui s'y approvisionnent, celles des chantiers voisins, des voies tracées, des locomotives à court de charbon ;
-//  · le bureau du fret : chaque charrette, train, avion « à la demande » prend le manque le plus prioritaire qu'il peut servir,
+//  · le bureau du fret : chaque train, chaque porteur « à la demande » prend le manque le plus prioritaire qu'il peut servir,
 //    va le chercher au dépôt qui en a de trop le plus commode, et le livre. Un dépôt garde ce qu'il demande lui-même ;
 //    seule une demande de priorité plus haute peut le lui prendre.
 // Tout ici vaut pour les deux camps : l'état-major bèè s'en servira comme nous. Les méthodes sont posées sur World.
@@ -108,7 +108,7 @@ export const ECO={
     for(const b of this.s.buildings){if(b.f!==f)continue;
       if(b.done&&BUILDINGS[b.k].factory){const need=this.factoryNeed(b);const D=need&&this.building(b.sup);if(D&&this.isDepot(D))for(const [k,n] of Object.entries(need))add(D,k,n,D.prio??3,'usine',b.id);}
       if(b.done&&b.need&&Object.keys(b.need).length){this.autoLink(b);const D=this.building(b.sup);if(D&&this.isDepot(D))for(const [k,n] of Object.entries(b.need))add(D,k,n,D.prio??3,'reserve',b.id);}
-      if(!b.done&&!b.ruin&&b.site!=null){const D=this.building(b.site);if(D&&this.isDepot(D))for(const [k,n] of Object.entries(this.siteRemaining(b)))add(D,k,n,D.prio??3,'chantier',b.id);}}
+      if(!b.done&&!b.ruin&&b.site!=null){const D=this.building(b.site);if(D&&this.isDepot(D))for(const [k,n0] of Object.entries(this.siteRemaining(b))){const n=n0-(b.f==='meumeu'?this.enRoute(b,k):0);if(n>1e-6)add(D,k,n,D.prio??3,'chantier',b.id);}}}
     for(const [id,need] of Object.entries(this.lineDemand(f))){const D=this.building(+id);if(D)for(const [k,n] of Object.entries(need))add(D,k,n,D.prio??3,'voie',null);}
     for(const v of this.s.vehicles){if(v.f!==f)continue;
       if(v.k==='train'&&v.needCoal&&v.at!=null){const D=this.building(v.at);if(D&&this.isDepot(D))add(D,'charbon',this.tender(),Math.min(5,(D.prio??3)+1),'locomotive',v.id);}
@@ -155,7 +155,7 @@ export const ECO={
   tender(){return FRET.TENDER*this.mod('tender');},
 
   // ---------- le bureau du fret ----------
-  // qui un véhicule peut servir : une gare du même réseau, un aérodrome, un dépôt à portée de charrette sur la même terre
+  // qui un véhicule peut servir : une gare du même réseau ; pour un porteur, un dépôt à sa portée sur la même terre
   serves(v,D){const B=BUILDINGS[D.k];if(!D.done||D.f!==v.f||(v.ban?.[D.id]||0)>this.s.t)return false;
     if(v.k==='train'){if(!B.station)return false;const n=this.netOf(D);return n!=null&&n===this.netAt(v.x,v.y);}
     if(v.k==='porteur'||v.k==='charrette'){if(!B.store)return false;const base=this.building(v.base)||this.building(v.home);const [x,y]=base?this.bc(base):[v.x,v.y];

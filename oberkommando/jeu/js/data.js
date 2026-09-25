@@ -90,7 +90,7 @@ export const BUILDINGS={
   centre:{name:'Centre-ville',sprite:'command',big:true,size:[4,4],cost:{bois:200,pierre:120,pieces:20,briques:60},hours:30,store:4000,pop:10,hp:1600,trains:['villageois'],defense:{range:9,shooters:2},shelter:20,ward:4,
     why:'Le cœur d’une ville : un grand dépôt, dix places de vie, on y forme des Meumeu. Le premier est la capitale : le rare doit y arriver. Tombé, la ville est perdue.'},
   camp:{name:'Camp',sprite:'shelter',size:[2,2],cost:{bois:15},hours:5,store:500,hp:300,workers:6,hub:true,
-    why:'Un dépôt de poche au bord d’une forêt, de rochers, de buissons : envoyez-y des villageois, ils ramassent tout autour (10 cases) et y rapportent. Ce qui est au camp y reste : charrettes, trains et avions le font circuler.'},
+    why:'Un dépôt de poche au bord d’une forêt, de rochers, de buissons : envoyez-y des villageois, ils ramassent tout autour (10 cases) et y rapportent. Ce qui est au camp y reste : les porteurs et les trains le font circuler.'},
   maison:{name:'Maison',sprite:'dorm',size:[2,2],cost:{bois:30},hours:6,pop:5,hp:350,shelter:5,why:'Cinq places de vie de plus, et un abri pour cinq quand les Bèè sont là.'},
   ferme:{name:'Ferme',sprite:'food',size:[3,3],cost:{bois:35},hours:8,workers:3,makes:{vivres:3.2},hp:300,why:'Trois Meumeu y font des vivres sans fin.'},
   atelier:{name:'Atelier',sprite:'workshop',size:[2,2],cost:{bois:40,pierre:20},hours:8,workers:2,hp:400,factory:{coal:.2,mod:'atelier'},
