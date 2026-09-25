@@ -1,5 +1,5 @@
 # Oberkommando der Meumeu : à chaque mise à jour de main, les bancs de test tournent, puis une machine Windows
-# fabrique l'exe et le publie dans les « Releases » du dépôt. Le dernier est toujours ici :
+# fabrique l'application (Electron : son propre moteur, aucun navigateur) et la publie dans les « Releases ». Le dernier est toujours ici :
 # https://github.com/alexandrelaplanche22300-star/meumeu/releases/latest/download/OberkommandoDerMeumeu.exe
 name: Fabriquer l'exe
 
@@ -34,13 +34,15 @@ jobs:
         working-directory: oberkommando
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-node@v4
         with:
-          python-version: '3.12'
-      - name: Outils
-        run: python -m pip install --upgrade pip pyinstaller pywebview
-      - name: Fabriquer l'exe
-        run: python -m PyInstaller --noconfirm --distpath release Oberkommando.spec
+          node-version: 22
+      - name: Outils (Electron, electron-builder)
+        run: npm ci
+      - name: Fabriquer l'application
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --win portable --publish never
       - name: Garder l'exe (toutes les branches)
         uses: actions/upload-artifact@v4
         with:
@@ -54,5 +56,5 @@ jobs:
         run: |
           gh release create "jeu-${{ github.run_number }}" release/OberkommandoDerMeumeu.exe \
             --title "Oberkommando der Meumeu — version ${{ github.run_number }}" \
-            --notes "Téléchargez OberkommandoDerMeumeu.exe ci-dessous et double-cliquez : le jeu s'ouvre dans sa propre fenêtre. Rien à installer (Windows 10 ou 11). La partie est sauvée dans %APPDATA%\\OberkommandoDerMeumeu." \
+            --notes "Téléchargez OberkommandoDerMeumeu.exe ci-dessous et double-cliquez : c'est une vraie application, avec son propre moteur — ni navigateur, ni Edge, ni rien à installer (Windows 10 ou 11). F11 : plein écran. Les parties sont sauvées dans %APPDATA%\\Oberkommando der Meumeu." \
             --latest
