@@ -33,11 +33,12 @@ const bthumb=k=>{const B=BUILDINGS[k];if(k==='tente')return TENT_SVG;const p=man
 
 let world=new World();
 const audio=new Audio();
-const ui={speed:1,panelAt:0,lastPanel:'',pick:null,trainW:{},trainA:{},bb:true,bbCat:'vivre',modal:null};
+const ui={zoneN:6,zoneHigh:true,speed:1,panelAt:0,lastPanel:'',pick:null,trainW:{},trainA:{},bb:true,bbCat:'vivre',modal:null};
 const view=new View($('#view'),world,{
   describe:t=>describe(t),
   unitLabel:u=>unitLabel(u),
   unitInfo:u=>openFiche(u.id),
+  zoneAt:(w,keep)=>{const r=world.zoneFire([...view.sel],w.x,w.y,{n:ui.zoneN||Infinity,high:ui.zoneHigh});say(r.ok?r.text:r.why[0],r.ok?'':'bad');audio.play(r.ok?'order':'bad');view.marks.push({x:w.x,y:w.y,age:0,bad:!r.ok});renderPanel(true);return r;},
   order:(ids,t)=>{const r=world.order(ids,t);say(r.ok?r.text:r.why[0],r.ok?'':'bad');audio.play(r.ok?'order':'bad');renderPanel(true);return r;},
   place:(k,i,j)=>{const r=world.place('meumeu',k,i,j);if(!r.ok){say(r.why[0],'bad');audio.play('bad');return r;}
     // ceux qu'on a choisis y vont ; sinon, les villageois oisifs les plus proches
@@ -105,11 +106,10 @@ function topbar(){const cap=world.capital();const p=world.pop('meumeu');const st
   const B=world.s.beee;const war=world.atWar?`<span class="rchip war" title="La guerre depuis le jour ${B.warDay}">⚔ <b>Guerre</b></span>`:`<span class="rchip peace" title="Les Bèè s’arment. La guerre éclatera entre le jour ${BEEE.peace[0]} et le jour ${BEEE.peace[1]} — ils l’annonceront.">☮ <b>Paix armée</b></span>`;
   const W=wounded();const red=W.filter(x=>triage(x.u.h).k==='rouge').length;const ideas=world.s.innov.ideas.length;
   // la ligne des ressources : chacune avec son nom, ce qu'il y a à la capitale
-  const SHORT={bois:'Bois',pierre:'Pierre',briques:'Briques',charbon:'Charbon',vivres:'Vivres',pieces:'Pièces',poudre:'Poudre',explosifs:'Explosifs',sante:'Santé',fer:'Fer',sels:'Sels',soie:'Soie',verre:'Verre',argile:'Argile'};
+  const SHORT={bois:'Bois',pierre:'Pierre',fer:'Fer',cuivre:'Cuivre',plomb:'Plomb',salpetre:'Salpêtre',charbon:'Charbon',vivres:'Vivres',pieces:'Pièces',poudre:'Poudre',explosifs:'Explosifs',sante:'Santé',fer:'Fer',sels:'Sels',soie:'Soie',verre:'Verre'};
   const chip=(k,v,cls='')=>`<span class="rchip ${cls}" title="${RES[k].name} à la capitale">${ico(k)}<b>${v}</b><i>${SHORT[k]}</i></span>`;
-  const h=`${['bois','pierre','argile','briques','charbon','vivres','pieces','poudre','explosifs','sante'].map(k=>chip(k,n0(st[k]||0))).join('')}
-    <span class="rchip" title="Caisses de munitions à la capitale (toutes conceptions)"><img class="ico" src="${AMMO_SVG}" alt=""><b>${n1(sumK('m:'))}</b><i>Munitions</i></span><span class="rchip" title="Armes en stock à la capitale"><img class="ico" src="${ARM_SVG}" alt=""><b>${n0(sumK('a:'))}</b><i>Armes</i></span>
-    <span class="rsep"></span>${RARE.map(k=>chip(k,`${n0(st[k]||0)}<small>/${GOAL}</small>`,'rare')).join('')}`;
+  const h=`${['bois','pierre','charbon','fer','cuivre','plomb','salpetre','vivres','pieces','poudre','explosifs','sante'].map(k=>chip(k,n0(st[k]||0))).join('')}
+    <span class="rchip" title="Caisses de munitions à la capitale (toutes conceptions)"><img class="ico" src="${AMMO_SVG}" alt=""><b>${n1(sumK('m:'))}</b><i>Munitions</i></span><span class="rchip" title="Armes en stock à la capitale"><img class="ico" src="${ARM_SVG}" alt=""><b>${n0(sumK('a:'))}</b><i>Armes</i></span>${RARE.map(k=>chip(k,n0(st[k]||0),'rare')).join('')}`;
   const h2=`<span class="rchip ${p.used>=p.cap?'bad':''}" title="Population / places de vie">👥 <b>${p.used}/${p.cap}</b><i>Meumeu</i></span>${war}
     <button class="tb ${red?'alarm':''}" data-modal="med" title="Le service de santé (M)">✚ <b>${W.length}</b> Blessés${red?` <i>${red} rouge${red>1?'s':''}</i>`:''}</button><button class="tb ${ideas?'glow':''}" data-modal="innov" title="Les idées des Meumeu, le laboratoire (I)">💡 <b>${ideas}</b> Idées</button><button class="tb" data-modal="eco" title="Le fret, la production, les stocks, les convois (E)">📦 Économie</button>`;
   if(h!==ui.topHtml){$('#stocks').innerHTML=h;ui.topHtml=h;}if(h2!==ui.topHtml2){$('#status').innerHTML=h2;ui.topHtml2=h2;}
@@ -198,10 +198,17 @@ function unitsPane(sel){const by={};for(const u of sel)by[u.k]=(by[u.k]||0)+1;co
     if(armed.length)h+=`<div class="kv"><span>Munitions</span><b class="${dry?'bad':''}">${armed.reduce((a,u)=>a+u.mag+u.pouch,0)} coups${dry?` · ${dry} à sec`:''}</b></div>`;
     const med=sel.filter(u=>UNITS[u.k].medic);if(med.length)h+=`<div class="kv"><span>Santé</span><b>${med.length} soignant${med.length>1?'s':''} · ${med.reduce((a,u)=>a+u.kits,0)} trousses</b></div>`;
     if(sel.some(u=>UNITS[u.k].doctor&&u.tents))h+=`<div class="row"><button class="small" data-act="tent">Planter une tente médicale (T)</button></div>`;}
+  // le tir sur zone : les pièces à obus de la sélection
+  const zg=sel.filter(u=>u.w&&u.h&&world.canZone(world.W(u.w)));if(zg.length){const Wd=world.W(zg[0].w),A=world.arcOf(Wd),mortar=A.mortar;
+    h+=`<div class="zonebox"><h3>Tir sur zone <small>${zg.length} pièce${zg.length>1?'s':''} à obus</small></h3><p class="small">Portée <b>${Math.round(A.max)} m</b> (${Math.round(A.max/4)} cases)${A.min>6?`, au moins ${Math.round(A.min)} m`:''}. Un obus : mortel à <b>${fmt(Wd.he.lethal*100,0)} cm</b>, blesse à ${fmt(Wd.he.danger*100,0)} cm, assomme à ${fmt(Wd.he.conc*100,0)} cm.</p>
+      <div class="row"><span class="quiet small">Coups</span><div class="seg">${[[1,'1'],[3,'3'],[6,'6'],[12,'12'],[0,'∞']].map(([n,t])=>`<button data-zonen="${n}" class="${(ui.zoneN||0)===n?'on':''}">${t}</button>`).join('')}</div>
+      ${mortar?'':`<div class="seg">${[[1,'En cloche'],[0,'Tendu']].map(([k,t])=>`<button data-zoneh="${k}" class="${(ui.zoneHigh?1:0)===k?'on':''}" title="${k?'par-dessus murs et maisons, lent, plus dispersé en portée':'plus rapide, plus précis, mais le relief et les murs arrêtent'}">${t}</button>`).join('')}</div>`}</div>
+      <div class="row"><button class="small ${view.zoning?'on':''}" data-act="zone">Tir sur zone (X) : cliquez le point visé</button>${zg.some(u=>u.task?.kind==='zone')?'<button class="small ghost" data-act="stop">Cessez le feu</button>':''}</div>
+      <p class="quiet small">Un Meumeu qui voit la zone règle le tir : l’erreur fond de moitié à chaque obus. Sans observateur, les obus tombent loin (6 % de la distance).</p></div>`;}
   h+=postureRow(sel);const sm=sel.filter(u=>u.smoke>0).length;if(sm)h+=`<div class="row"><button class="small ghost" data-act="smoke" title="Un nuage entre eux et l’ennemi : il coupe la vue">Fumigène (F) · ${sel.reduce((a,u)=>a+(u.smoke||0),0)}</button></div>`;
   if(sq&&whole){h+=`<div class="kv"><span>Moral</span><b class="${sq.morale<.4?'bad':sq.morale<.7?'warn':'good'}">${Math.round(sq.morale*100)} %${sq.broken?' · en déroute':''}</b></div><i class="bloodbar morale"><b style="width:${Math.round(sq.morale*100)}%"></b></i>
       <div class="row"><span class="quiet small">Formation</span><div class="seg">${[['ligne','En ligne'],['colonne','En colonne'],['dispersee','Dispersés']].map(([k,n])=>`<button data-form="${k}" class="${sq.form===k?'on':''}">${n}</button>`).join('')}</div></div>
-      <div class="row"><button class="small ghost" data-act="dissolve">Dissoudre l’escouade</button></div>`;}
+      <div class="row"><button class="small" data-act="sq-open">Gérer l’escouade : rôles, armes, caisses</button><button class="small ghost" data-act="dissolve">Dissoudre l’escouade</button></div>`;}
   else if(sel.filter(u=>u.k!=='villageois').length>=2)h+=`<div class="row"><button class="small" data-act="squad">Former une escouade (G)</button><span class="quiet small">elle se commande d’un bloc, tient son moral ; un médecin la suit</span></div>`;
   h+=`<p class="quiet small">Clic droit : une cible (ressource, chantier, camp, bâtiment, ennemi, blessé) ou un point — les soldats y vont en formation et attaquent ce qu’ils voient.</p><div class="row"><button class="small ghost" data-act="stop">Arrêter</button></div></section>`;
   if(vil.length){const cx=vil.reduce((a,u)=>a+u.x,0)/vil.length,cy=vil.reduce((a,u)=>a+u.y,0)/vil.length;const deps=world.s.buildings.filter(d=>d.f==='meumeu'&&world.isDepot(d)).sort((a,z)=>world.distB(a,cx,cy)-world.distB(z,cx,cy)).slice(0,10);const cur=vil.every(u=>u.dep===vil[0].dep)?vil[0].dep:undefined;
@@ -210,7 +217,7 @@ function unitsPane(sel){const by={};for(const u of sel)by[u.k]=(by[u.k]||0)+1;co
   return h;}
 function doing(u){const T=u.task;if(u.h?.state==='hors')return u.carriedBy?'on le porte vers les soins':'à terre';if(!T)return u.carry?'rapporte au dépôt':u.anim==='aim'?'tire':'rien';const b=T.b!=null?world.building(T.b):null;
   return {gather:'ramasse',build:`bâtit ${b?BUILDINGS[b.k].name.toLowerCase():''}`,repair:'répare',work:b&&BUILDINGS[b.k].hub?'récolte autour du camp':`travaille : ${b?BUILDINGS[b.k].name.toLowerCase():''}`,move:'marche',guard:'en position',assault:'attaque en avançant',attack:'attaque',line:'pose une voie, un mur',deposit:'dépose',board:'embarque',
-    evac:'porte un blessé',soigne:'soigne un blessé',operer:'opère sous la tente',hosp:'va se faire soigner',shelter:'court aux abris'}[T.kind]||T.kind;}
+    zone:`tir sur zone${T.n<1e9?` : ${T.fired}/${T.n} coups`:` : ${T.fired} coups`}`,evac:'porte un blessé',soigne:'soigne un blessé',operer:'opère sous la tente',hosp:'va se faire soigner',shelter:'court aux abris'}[T.kind]||T.kind;}
 // ---------- la gestion : usines, rattachements, dépôts ----------
 const SRC={want:'réglée ici',reserve:'réserve',usine:'usine',chantier:'chantier',voie:'voies, murs tracés',locomotive:'locomotive',objectif:'objectif (le rare)'};
 function depotOpt(d,b,cur){const [x,y]=world.bc(b);return `<option value="${d.id}" ${cur===d.id?'selected':''}>${esc(BUILDINGS[d.k].name)} · ${esc(world.cityName(d))} — ${Math.round(world.distB(d,x,y))} cases</option>`;}
@@ -278,6 +285,9 @@ function buildingPane(b){const B=BUILDINGS[b.k];const beee=b.f==='beee';let h=`<
     if(!b.done&&!b.ruin)h+=`<div class="row"><button class="small ghost" data-act="cancel-site">Annuler (rembourse)</button></div>`;
     if(B.defense&&b.done){const wid=world.bestRifle('meumeu');h+=`<div class="kv"><span>Tireurs</span><b>${Math.round(B.defense.shooters*world.mod('creneaux'))+Math.floor((b.hide||[]).length/3)} · ${esc(world.design(wid)?.name||'')}</b></div>${b.dry?'<p class="small bad">À sec : aucune caisse de munitions dans les dépôts voisins.</p>':''}`;}}
   h+='</section>';
+  if(b.k==='centre'&&!beee&&b.done){const st=world.cityStats(b);h+=`<section class="pane"><h2>La ville <small>${esc(b.city||'')}</small></h2><div class="kv"><span>Habitants</span><b class="${st.res>=st.cap?'warn':''}">${st.res} / ${st.cap} places</b></div><div class="kv"><span>Maisons</span><b>${st.houses} · 5 places chacune</b></div>
+    <div class="row"><button class="small ${b.grow===false?'ghost':''}" data-act="grow">${b.grow===false?'Croissance arrêtée':'Croissance : le centre forme des villageois'}</button><span class="quiet small">25 vivres chacun, tant qu’il y a de la place</span></div>
+    <p class="quiet small">Chaque ville grandit par son centre : plus de villes, plus de naissances en même temps. Une maison compte pour la ville la plus proche (26 cases).</p></section>`;}
   if(b.stock&&!beee&&b.done)h+=depotPane(b);
   if(beee){h+=`<section class="pane war"><p>Choisissez des soldats, puis clic droit sur ce bâtiment : au contact, ils le saccagent et y mettent le feu ; les commandos y jettent leurs grenades. Les canons l’abattent de loin ; un bombardier, d’en haut.${!world.atWar?' <b>Nous sommes en paix : attaquer, c’est déclarer la guerre.</b>':''}</p></section>`;return h;}
   if(!b.done)return h;
@@ -313,7 +323,7 @@ function vehiclePane(){const v=world.s.vehicles.find(x=>x.id===view.selV);if(!v)
     h+=`<p class="quiet small">À la demande : il prend le manque le plus prioritaire qu’il peut servir, le charge au dépôt qui en a de trop le plus commode, et le livre. ${v.k==='train'?'Il sert les gares de son réseau.':v.k==='avion'?'Il sert les aérodromes ; le carburant est pris au départ.':'Il sert les dépôts de son rayon, sur la même terre.'}</p>`;}
   else{const A=v.route&&world.building(v.route.a),B=v.route&&world.building(v.route.b);
     h+=`<div class="kv"><span>Ligne</span><b>${A&&B?`${esc(world.cityName(A))} (${BUILDINGS[A.k].name.toLowerCase()}) ↔ ${esc(world.cityName(B))} (${BUILDINGS[B.k].name.toLowerCase()})`:'aucune'}</b></div><div class="row"><button class="small" data-act="route">${v.route?'Changer la ligne':'Tracer la ligne'}</button></div>`;
-    if(v.route){const sets=[['guerre','munitions, armes, explosifs, santé'],['vivres','vivres'],['industrie','pièces'],['materiaux','bois, pierre, argile, briques, charbon'],['rare','le rare']];
+    if(v.route){const sets=[['guerre','munitions, armes, explosifs, santé'],['vivres','vivres'],['industrie','pièces'],['materiaux','bois, pierre'],['minerais','fer, cuivre, plomb, salpêtre'],['rare','le rare']];
       for(const [dir,label] of [['out',`→ vers ${esc(B?world.cityName(B):'B')}`],['back',`← vers ${esc(A?world.cityName(A):'A')}`]])h+=`<div class="goods"><span class="quiet small">${label}</span>${sets.map(([k,n])=>`<button class="chip ${v.route[dir].includes(k)?'on':''}" data-goods="${dir}:${k}">${n}</button>`).join('')}</div>`;
       h+=`<p class="quiet small">Un convoi part mêlé : au premier tour, aucun bien ne prend plus de 40 % de la place.</p>`;}}
   return h+'</section>';}
@@ -321,7 +331,7 @@ function vehiclePane(){const v=world.s.vehicles.find(x=>x.id===view.selV);if(!v)
 const has=(W,k,more=()=>true)=>W.s.buildings.some(b=>b.f==='meumeu'&&b.k===k&&b.done&&more(b));
 const STEP_OK={bois:W=>(W.capital()?.stock.bois||0)>=260||(W.s.innov.prac.bois||0)>4,maisons:W=>W.s.buildings.filter(b=>b.f==='meumeu'&&b.k==='maison'&&b.done).length>=2,
   camp:W=>has(W,'camp',b=>W.workers(b).length),charbon:W=>has(W,'mine',b=>W.s.nodes[b.ore]?.res==='charbon'),charrette:W=>W.s.vehicles.some(v=>v.f==='meumeu'&&v.k==='porteur'&&(v.trips||0)>0),
-  briques:W=>has(W,'briqueterie',b=>(b.made||0)>0),atelier:W=>has(W,'atelier'),labo:W=>has(W,'labo'),hopital:W=>has(W,'hopital'),
+  atelier:W=>has(W,'atelier'),labo:W=>has(W,'labo'),hopital:W=>has(W,'hopital'),
   caserne:W=>has(W,'caserne')&&W.s.units.filter(u=>u.f==='meumeu'&&u.w).length>=6,arsenal:W=>has(W,'arsenal',b=>(b.made||0)>0),
   rail:W=>W.s.buildings.filter(b=>b.f==='meumeu'&&b.k==='gare'&&b.done).length>=2&&W.s.vehicles.some(v=>v.f==='meumeu'&&v.k==='train'),
   defense:W=>W.s.buildings.filter(b=>b.f==='meumeu'&&b.k==='tour'&&b.done).length>=2&&Object.values(W.s.walls).filter(w=>w.f==='meumeu'&&w.b).length>=6,
@@ -332,9 +342,9 @@ function stepsPane(){const S=world.s;S.steps??={};for(const st of STEPS)if(!S.st
     <details class="drawer"><summary>Déjà fait</summary>${STEPS.filter(s=>S.steps[s.k]).map(s=>`<div class="step done"><b>✓ ${esc(s.name)}</b><span>jour ${S.steps[s.k]}</span></div>`).join('')||'<p class="quiet small">rien encore</p>'}</details></section>`;}
 function overviewPane(){const s=world.s;const cap=world.capital();const st=cap?.stock||{};const ours=s.buildings.filter(b=>b.f==='meumeu');const army=s.units.filter(u=>u.f==='meumeu'&&u.k!=='villageois');const idle=world.idle();
   const W=wounded();
-  let h=stepsPane()+`<section class="pane"><h2>${esc(cap?.city||'La capitale')} <small>la capitale</small></h2><div class="goal">${RARE.map(k=>`<div class="gl">${ico(k)}<span>${RES[k].name}</span><i><b style="width:${Math.min(100,(st[k]||0)/GOAL*100)}%"></b></i><em>${n0(st[k]||0)}/${GOAL}</em></div>`).join('')}</div>
-    <p class="quiet small">Le but : cent caisses de chaque rare au dépôt de la capitale — ou la chute de toutes les villes bèè.</p>${s.won?`<p class="good"><b>Gagné au jour ${s.won.day}.</b></p>`:''}${s.lost?`<p class="bad"><b>La civilisation meumeu est tombée au jour ${s.lost.day}.</b></p>`:''}</section>`;
-  h+=`<section class="pane"><h2>Civilisation</h2><div class="kv"><span>Villes</span><b>${ours.filter(b=>b.k==='centre'&&!b.ruin).map(b=>`<a data-goto="${b.id}">${esc(b.city)}</a>`).join(', ')}</b></div>
+  let h=stepsPane()+`<section class="pane"><h2>${esc(cap?.city||'La capitale')} <small>la capitale</small></h2>
+    <p class="quiet small">Le but : la chute de toutes les villes bèè — et que la capitale tienne.</p>${s.won?`<p class="good"><b>Gagné au jour ${s.won.day}.</b></p>`:''}${s.lost?`<p class="bad"><b>La civilisation meumeu est tombée au jour ${s.lost.day}.</b></p>`:''}</section>`;
+  h+=`<section class="pane"><h2>Civilisation</h2><div class="kv"><span>Villes</span><b>${ours.filter(b=>b.k==='centre'&&!b.ruin).map(b=>{const st=b.done?world.cityStats(b):null;return `<a data-goto="${b.id}">${esc(b.city)}</a>${st?` <small>${st.res}/${st.cap}</small>`:' <small>chantier</small>'}`;}).join(', ')}</b></div>
     <div class="kv"><span>Villageois</span><b>${s.units.filter(u=>u.f==='meumeu'&&u.k==='villageois').length}${idle.length?` · <a data-act="idle">${idle.length} sans rien à faire</a>`:''}</b></div>
     <div class="kv"><span>Armée</span><b>${army.length?Object.entries(army.reduce((o,u)=>(o[u.k]=(o[u.k]||0)+1,o),{})).map(([k,n])=>`${n} ${UNITS[k].name.toLowerCase()}${n>1?'s':''}`).join(', '):'aucune'}${army.length?` · <a data-act="army">choisir</a>`:''}</b></div>
     ${W.length?`<div class="kv"><span>Blessés</span><b><a data-modal="med">${W.length} · ${W.filter(x=>triage(x.u.h).k==='rouge').length} en urgence</a></b></div>`:''}
@@ -351,10 +361,27 @@ function overviewPane(){const s=world.s;const cap=world.capital();const st=cap?.
 // ---------- les grandes fenêtres : santé, fiche médicale, idées, économie ----------
 function openModal(kind,id=null){ui.modal={kind,id};ui.modalHtml='';renderModal();}
 function renderModal(){const el=$('#modal');if(!ui.modal){if(!el.hidden){el.hidden=true;el.innerHTML='';}return;}
-  let body='';try{body={med:medModal,fiche:ficheModal,innov:innovModal,eco:ecoModal}[ui.modal.kind]?.(ui.modal.id)||'';}catch(e){console.error(e);body=`<p class="bad">${esc(e.message)}</p>`;}
+  let body='';try{body={med:medModal,fiche:ficheModal,innov:innovModal,eco:ecoModal,squad:squadModal}[ui.modal.kind]?.(ui.modal.id)||'';}catch(e){console.error(e);body=`<p class="bad">${esc(e.message)}</p>`;}
   if(!body){ui.modal=null;el.hidden=true;return;}
   if(body!==ui.modalHtml){const box=el.querySelector('.mbody');const top=box?box.scrollTop:0;el.innerHTML=`<div class="mbox ${ui.modal.kind}" role="dialog">${body}</div>`;el.hidden=false;ui.modalHtml=body;const nb=el.querySelector('.mbody');if(nb)nb.scrollTop=top;
     const slot=el.querySelector('#f3dslot');if(slot)slot.appendChild(body3d.cv);}}
+// ---------- l'escouade : chaque membre, son rôle, son arme, sa protection, ses munitions ; les pièces et leurs servants ----------
+function squadModal(id){const sq=world.squad(id);if(!sq)return '';const ms=world.members(sq);const dep=ms[0]&&world.depots('meumeu',ms[0].x,ms[0].y)[0];const have=dep?dep.stock:{};
+  const guns=world.designsOf('meumeu');const arms=world.armorsOf('meumeu');const pieces=ms.filter(u=>u.w&&world.W(u.w).crew>1);
+  const roleSel=u=>{const opts=[['tireur','Tireur'],['munitions','Porteur de munitions'],...pieces.filter(g=>g!==u).map(g=>[`serve:${g.id}`,`Servant de ${unitName(g)}`])];const cur=u.role==='munitions'?'munitions':u.serve?`serve:${u.serve}`:'tireur';
+    return `<select data-sqr="${u.id}">${opts.map(([v,n])=>`<option value="${v}" ${v===cur?'selected':''}>${esc(n)}</option>`).join('')}</select>`;};
+  const rows=ms.map(u=>{const W=u.w?world.W(u.w):null;const st=u.h?.state||'ok';const ammo=W?u.mag+u.pouch:0;
+    return `<tr class="${st==='hors'?'bad':''}"><td><a data-fiche="${u.id}">${esc(unitName(u))}</a><small>${esc(UNITS[u.k].name)}${sq.leader===u.id?' · chef':''}</small></td>
+      <td>${UNITS[u.k].medic?'<span class="quiet">soignant</span>':roleSel(u)}</td>
+      <td>${UNITS[u.k].arm?`<select data-sqw="${u.id}">${guns.map(d=>`<option value="${d.id}" ${d.id===u.w?'selected':''}>${esc(d.name)}${d.id!==u.w?` (${n0(have['a:'+d.id]||0)} au dépôt)`:''}</option>`).join('')}</select>${W&&W.crew>1?`<small>pièce à ${W.crew} · ${world.servants(u,1.5).length}/${W.crew-1} servants · ${u.deployT>=W.setup?'en batterie':'à mettre en batterie'}</small>`:''}`:'—'}</td>
+      <td>${UNITS[u.k].arm||UNITS[u.k].medic?`<select data-sqa="${u.id}"><option value="">rien</option>${arms.map(a=>`<option value="${a.id}" ${a.id===u.armor?'selected':''}>${esc(a.name)}${a.id!==u.armor?` (${n0(have['p:'+a.id]||0)})`:''}</option>`).join('')}</select>`:'—'}</td>
+      <td>${W?`<i class="gauge inline"><i style="width:${Math.min(100,ammo/W.carry*100)}%"></i></i> ${ammo}/${W.carry}`:'—'}${u.role==='munitions'?`<small>${fmt(u.crates||0,1)} caisse${(u.crates||0)>=2?'s':''} de ${esc(world.design(u.ammoW)?.name||'—')}</small>`:''}</td>
+      <td>${st==='ok'?'<span class="good">indemne</span>':st==='blesse'?'<span class="warn">blessé</span>':'<span class="bad">à terre</span>'}</td></tr>`;}).join('');
+  return mhead(esc(sq.name),`${ms.length} membres · moral ${Math.round(sq.morale*100)} % · ${dep?`dépôt le plus proche : ${esc(world.depotName(dep))}`:'aucun dépôt à portée — on ne change d’arme qu’au dépôt'}`)+`<div class="mbody">
+    <div class="row"><span class="quiet small">Formation</span><div class="seg">${[['ligne','En ligne'],['colonne','En colonne'],['dispersee','Dispersés']].map(([k,n])=>`<button data-form="${k}" class="${sq.form===k?'on':''}">${n}</button>`).join('')}</div>
+      <button class="small" data-act="sq-crews" title="Pour chaque pièce, les plus proches deviennent ses servants">Répartir les servants</button><button class="small ghost" data-act="sq-resupply" title="Remplir les cartouchières au dépôt le plus proche">Ravitailler au dépôt</button></div>
+    <table class="medt eco sqt"><thead><tr><th>Membre</th><th>Rôle</th><th>Arme</th><th>Protection</th><th>Munitions</th><th>État</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="quiet small">Une pièce (trépied) se met en batterie immobile avant de tirer ; chaque servant manquant la ralentit, seule elle se traîne. Un porteur de munitions prend deux caisses au dépôt et remplit les cartouchières à moins d’une case et demie. On change d’arme ou de protection au dépôt, qui doit l’avoir en stock ; l’ancienne y reste.</p></div>`;}
 function mhead(title,sub){return `<header class="mhead"><div><b>${title}</b><small>${sub}</small></div><button class="ghost" data-act="modal-off">Fermer</button></header>`;}
 // le service de santé : tous les blessés, du plus urgent au moins urgent
 function medModal(){const L=wounded();const ord={noir:3,rouge:0,jaune:1,vert:2,ok:4,mort:5};L.sort((a,b)=>ord[triage(a.u.h).k]-ord[triage(b.u.h).k]||bleedRate(b.u.h)-bleedRate(a.u.h));
@@ -418,7 +445,7 @@ function ecoModal(){const tab=ui.ecoTab||'fret';const bs=world.s.buildings.filte
     body=`<table class="medt eco"><thead><tr><th></th><th>Bâtiment</th><th>Au travail</th><th>Fait</th><th>Approvisionné par</th><th>Livre à</th><th>État</th></tr></thead><tbody>${prod.map(b=>{const B=BUILDINGS[b.k];const n=B.workers?world.workers(b).length:0;
       const what=B.factory?`${b.prod?`${ico(b.prod)} ${esc(world.productName(b.prod))}`:'<span class="warn">rien</span>'}${b.batch?` <small>${Math.round(Math.min(1,b.batch.done/b.batch.hours)*100)} %</small>`:''}`:B.makes?Object.entries(B.makes).map(([k,v])=>`${ico(k)} ${fmt(v*n*world.mod('ferme'),1)}/h`).join(' '):b.k==='mine'?(()=>{const nd=world.s.nodes[b.ore];return nd?`${ico(nd.res)} ${fmt(B.rate*n*world.mod('mine'),1)}/h · filon ${n0(nd.left)}`:'';})():B.hub?`récolte : ${({auto:'ce qui manque',bois:'bois',pierre:'pierre',vivres:'baies'})[b.res||'auto']}`:b.dev?`innovation ${Math.round((1-b.dev.left/b.dev.total)*100)} %`:b.proto?'prototype':'—';
       return `<tr><td>${bthumb(b.k)?`<img class="thumb" src="${bthumb(b.k)}" alt="">`:''}</td><td><a data-selb="${b.id}">${esc(B.name)}</a><small>${esc(world.cityName(b))}</small></td><td>${B.workers?`${n}/${B.workers}`:'—'}</td><td>${what}</td><td>${world.takesIn(b)?dn(b.sup):'—'}</td><td>${world.givesOut(b)?dn(b.out):'—'}</td><td class="${b.why?'warn':b.working?'good':'quiet'}">${esc(b.why||(b.working?'au travail':'à l’arrêt'))}</td></tr>`;}).join('')}</tbody></table>`;}
-  else if(tab==='stocks'){const deps=bs.filter(b=>BUILDINGS[b.k].store);const cols=['bois','pierre','argile','briques','charbon','vivres','pieces','cuivre','plomb','soufre','salpetre','poudre','explosifs','sante','fer','sels','soie','verre'];
+  else if(tab==='stocks'){const deps=bs.filter(b=>BUILDINGS[b.k].store);const cols=['bois','pierre','charbon','fer','cuivre','plomb','salpetre','vivres','pieces','poudre','explosifs','sante','soie'];
     body=`<table class="medt eco"><thead><tr><th>Dépôt</th><th>Prio.</th><th>Plein</th>${cols.map(k=>`<th title="${RES[k].name}">${ico(k)}</th>`).join('')}<th title="Munitions (caisses)"><img class="ico" src="${AMMO_SVG}" alt=""></th><th title="Armes"><img class="ico" src="${ARM_SVG}" alt=""></th></tr></thead><tbody>${deps.map(b=>{const B=BUILDINGS[b.k];const u=world.stored(b);const sum=pre=>Object.entries(b.stock).filter(([k])=>k.startsWith(pre)).reduce((a,[,v])=>a+v,0);
       return `<tr><td><a data-selb="${b.id}">${esc(B.name)}</a><small>${esc(world.cityName(b))}</small></td><td>${b.prio??3}</td><td><i class="gauge inline"><i style="width:${Math.min(100,u/B.store*100)}%"></i></i> ${n0(u)}/${B.store}</td>${cols.map(k=>`<td class="${(b.stock[k]||0)<1?'quiet':''}">${n0(b.stock[k]||0)}</td>`).join('')}<td>${n1(sum('m:'))}</td><td>${n0(sum('a:'))}</td></tr>`;}).join('')}</tbody></table>`;}
   else if(tab==='fret'){const L=world.shortages('meumeu');const fv=world.s.vehicles.filter(v=>v.f==='meumeu'&&v.mode==='fret');const J=world.jams('meumeu');
@@ -426,10 +453,13 @@ function ecoModal(){const tab=ui.ecoTab||'fret';const bs=world.s.buildings.filte
       <table class="medt eco"><thead><tr><th>Priorité</th><th>Dépôt</th><th>Bien</th><th>Manque</th><th>En route</th><th>Ailleurs</th><th>État</th></tr></thead><tbody>${L.slice(0,60).map(it=>{const served=fv.some(v=>world.serves(v,it.D));
       const st=it.inb>.05?'<span class="good">en route</span>':it.p<1&&it.src<Math.min(1,it.n)?'<span class="quiet">à rapatrier dès qu’il y en aura</span>':it.src<Math.min(1,it.n)?'<span class="warn">aucune source : il faut en produire, ou une priorité plus haute</span>':!served?'<span class="warn">aucun véhicule à la demande ne dessert ce dépôt</span>':'<span class="quiet">attend un véhicule</span>';
       return `<tr><td>${it.p<1?'objectif':PRIO[it.p]}</td><td><a data-selb="${it.D.id}">${esc(BUILDINGS[it.D.k].name)}</a><small>${esc(world.cityName(it.D))}</small></td><td>${ico(it.k)} ${esc(world.goodName(it.k))}</td><td>${n1(it.n)}</td><td>${it.inb?n1(it.inb):''}</td><td>${n1(it.src)}</td><td>${st}</td></tr>`;}).join('')||'<tr><td colspan="7" class="quiet">Rien ne manque nulle part.</td></tr>'}</tbody></table>`;}
+  else if(tab==='gis'){const cap=world.capital();const [cx,cy]=cap?world.bc(cap):[0,0];const ns=world.s.nodes.filter(n=>n.type==='ore').map(n=>({n,d:Math.hypot(n.i-cx,n.j-cy),m:world.s.buildings.find(b=>b.ore===n.id&&!b.ruin)})).sort((a,b)=>a.d-b.d);
+    const bf=ui.gisF||'';const kinds=[...new Set(ns.map(x=>x.n.res))];
+    body=`<div class="seg">${['',...kinds].map(k=>`<button data-gisf="${k}" class="${bf===k?'on':''}">${k?`${ico(k)} ${esc(RES[k].name)}`:'Tous'}</button>`).join('')}</div><table class="medt eco"><thead><tr><th>Gisement</th><th>Distance</th><th>Reste</th><th>Exploité</th><th></th></tr></thead><tbody>${ns.filter(x=>!bf||x.n.res===bf).slice(0,60).map(({n,d,m})=>`<tr><td>${ico(n.res)} <b>${esc(RES[n.res].name)}</b></td><td>${Math.round(d)} cases${d<23?' <small class="good">à pied</small>':' <small class="quiet">rail</small>'}</td><td><i class="gauge inline"><i style="width:${Math.round(n.left/n.max*100)}%"></i></i> ${n0(n.left)}</td><td>${m?`<a data-selb="${m.id}">${m.done?'mine':'chantier'}</a>`:'<span class="quiet">non</span>'}</td><td><button class="small ghost" data-gotoxy="${n.i},${n.j}">Voir</button></td></tr>`).join('')}</tbody></table><p class="quiet small">Les filons près de la capitale sont petits ; les gros sont loin : dépôt, mine, gare, voie. Tous s’épuisent.</p>`;}
   else{const vs=world.s.vehicles.filter(v=>v.f==='meumeu');body=`<table class="medt eco"><thead><tr><th>Véhicule</th><th>Service</th><th>Voyage</th><th>À bord</th><th>Charge</th></tr></thead><tbody>${vs.map(v=>{const A=v.route&&world.building(v.route.a),B=v.route&&world.building(v.route.b);const cap=v.k==='bombardier'?1:world.capOf(v);
       return `<tr><td><a data-vehicle="${v.id}">${esc(VEHICLES[v.k].name)} « ${esc(v.name)} »</a></td><td>${v.k==='bombardier'?'—':v.mode==='fret'?'à la demande':'ligne fixe'}</td><td>${v.mode==='fret'?esc(world.jobText(v)):A&&B?`${esc(world.cityName(A))} ↔ ${esc(world.cityName(B))}`:'<span class="warn">aucune ligne</span>'}${v.why?`<small class="warn">${esc(v.why)}</small>`:''}</td>
         <td>${Object.entries(v.cargo||{}).filter(([,n])=>n>=.05).map(([k,n])=>`${ico(k)}${n1(n)}`).join(' ')||'—'}</td><td>${v.k==='bombardier'?'—':`<i class="gauge inline"><i style="width:${Math.min(100,world.cargoW(v)/cap*100)}%"></i></i> ${n1(world.cargoW(v))}/${n1(cap)}`}</td></tr>`;}).join('')||'<tr><td colspan="5" class="quiet">Aucun véhicule : construisez une charrette au centre-ville, à un camp, à un entrepôt.</td></tr>'}</tbody></table>`;}
-  return mhead('L’économie','le fret, la production, les stocks, les convois')+`<div class="mbody"><div class="seg tabs">${[['fret','Le fret'],['prod','Production'],['stocks','Stocks'],['convois','Convois']].map(([k,n])=>`<button data-eco="${k}" class="${tab===k?'on':''}">${n}</button>`).join('')}</div>${body}</div>`;}
+  return mhead('L’économie','le fret, la production, les stocks, les convois')+`<div class="mbody"><div class="seg tabs">${[['fret','Le fret'],['prod','Production'],['stocks','Stocks'],['gis','Gisements'],['convois','Convois']].map(([k,n])=>`<button data-eco="${k}" class="${tab===k?'on':''}">${n}</button>`).join('')}</div>${body}</div>`;}
 
 // ---------- les véhicules ----------
 function pickStop(bid){const v=world.s.vehicles.find(x=>x.id===ui.pick.v);const b=world.building(bid);if(!v||!b)return;if(b.f!=='meumeu'){say('un arrêt à nous','bad');return;}
@@ -458,6 +488,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   if(d.dev){const r=world.develop(d.dev);say(r.ok?r.text:r.why[0],r.ok?'good':'bad');audio.play(r.ok?'built':'bad');ui.modalHtml='';renderPanel(true);return;}
   if(d.drop){world.dropIdea(d.drop);ui.modalHtml='';renderPanel(true);return;}
   if(d.b3){body3d.mode=d.b3;ui.modalHtml='';renderModal();return;}
+  if(d.gisf!==undefined){ui.gisF=d.gisf;ui.modalHtml='';renderModal();return;}
   if(d.eco){ui.ecoTab=d.eco;ui.modalHtml='';renderModal();return;}
   if(d.selb){const bd=world.building(+d.selb);if(bd){view.sel.clear();view.selV=null;view.selB=bd.id;view.lookAt(bd.i+1,bd.j+1);ui.modal=null;renderPanel(true);}return;}
   if(d.hub){const bd=world.building(view.selB);if(bd){bd.res=d.hub==='auto'?null:d.hub;for(const u of world.workers(bd))u.hubNode=null;}renderPanel(true);return;}
@@ -469,15 +500,18 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   if(d.vmode){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v){const r=world.setMode(v,d.vmode);say(r.ok?r.text:r.why[0],r.ok?'':'bad');}renderPanel(true);return;}
   if(d.fam){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v)world.toggleFamily(v,d.fam);renderPanel(true);return;}
   if(d.vrange){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v)v.range=Math.max(6,Math.min(30,(v.range||VEHICLES.porteur.range)+Math.sign(+d.vrange)*2));renderPanel(true);return;}
+  if(d.zonen!=null){ui.zoneN=+d.zonen;renderPanel(true);return;}
+  if(d.zoneh!=null){ui.zoneHigh=d.zoneh==='1';renderPanel(true);return;}
   if(d.post){world.setPosture([...view.sel],d.post);renderPanel(true);return;}
   if(d.form){const u=world.unit([...view.sel][0]);const sq=u&&world.squad(u.sq);if(sq){sq.form=d.form;say(`${sq.name} : ${b.textContent.toLowerCase()} au prochain ordre de marche.`);}renderPanel(true);return;}
   if(d.squad){selectSquad(+d.squad,e.detail>=2);return;}
   if(d.design){openDesigner(d.design);return;}
   if(d.goto){const bd=world.building(+d.goto);if(bd)view.lookAt(bd.i+2,bd.j+2);return;}
-  if(d.gotoxy){const [x,y]=d.gotoxy.split(',').map(Number);view.lookAt(x,y);if(ui.modal){ui.modal=null;renderModal();}return;}
+  if(d.gotoxy){const [x,y]=d.gotoxy.split(',').map(Number);view.lookAt(x,y);view.zoom=Math.max(view.zoom,.8);if(ui.modal){ui.modal=null;renderModal();}return;}
   if(d.vehicle){const v=world.s.vehicles.find(x=>x.id===+d.vehicle);if(v){view.sel.clear();view.selB=null;view.selV=v.id;view.lookAt(v.x,v.y);ui.modal=null;renderPanel(true);}return;}
   if(d.goods){const [dir,k]=d.goods.split(':');const v=world.s.vehicles.find(x=>x.id===view.selV);if(v?.route){const L=v.route[dir];const i=L.indexOf(k);i>=0?L.splice(i,1):L.push(k);}renderPanel(true);return;}
   const a=d.act;if(!a)return;
+  if(a==='zone'){view.zoning=!view.zoning;renderPanel(true);return;}
   if(a==='stop'){for(const id of view.sel){const u=world.unit(id);if(u&&u.h?.state!=='hors'){u.task=null;u.path=null;}}}
   else if(a==='modal-off'){ui.modal=null;renderModal();return;}
   else if(a==='bb'){ui.bb=!ui.bb;ui.bbHtml='';$('#buildbar').innerHTML='';buildBar();return;}
@@ -495,6 +529,10 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   else if(a==='cancel-site'){world.cancel(view.selB);view.selB=null;}
   else if(a==='need-add'){const bd=world.building(view.selB);const k=$('[data-wantk]')?.value;if(bd&&k){ui.wantK=k;world.setNeed(bd,k,(bd.need?.[k]||0)+4);say(`${BUILDINGS[bd.k].name} : réserve de ${bd.need[k]} ${world.goodName(k).toLowerCase()}.`,'good');}}
   else if(a==='site-idle'){const bd=world.building(view.selB);if(bd){const [x,y]=world.bc(bd);const us=world.idle().sort((a,z)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(z.x-x,z.y-y)).slice(0,2);if(us.length){world.order(us.map(u=>u.id),{type:'building',id:bd.id});say(`${us.length} bâtisseur${us.length>1?'s':''} en route.`,'good');}}}
+  else if(a==='sq-open'){const u=[...view.sel].map(id=>world.unit(id)).find(u=>u?.sq);if(u)openModal('squad',u.sq);}
+  else if(a==='sq-crews'){const sq=world.squad(ui.modal?.id);if(sq){for(const u of world.members(sq))if(u.serve)u.serve=null;world.assignCrews(sq);ui.modalHtml='';renderModal();say('Servants répartis.','good');}}
+  else if(a==='sq-resupply'){const sq=world.squad(ui.modal?.id);if(sq){for(const u of world.members(sq))world.resupply(u);ui.modalHtml='';renderModal();say('Cartouchières remplies au dépôt (s’il en a).','good');}}
+  else if(a==='grow'){const bd=world.building(view.selB);if(bd){bd.grow=bd.grow===false;say(bd.grow?`${bd.city} : croissance.`:`${bd.city} : croissance arrêtée.`);}}
   else if(a==='porters'){const bd=world.building(view.selB);const r=world.addPorters(bd,2);say(r.ok?`${r.n} porteur${r.n>1?'s':''} pour ${world.depotName(bd)}.`:r.why[0],r.ok?'good':'bad');}
   else if(a==='porters-off'){const bd=world.building(view.selB);const v=bd&&world.porters(bd).pop();if(v){world.releasePorter(v);say('Un porteur rendu au village.');}}
   else if(a==='porter-free'){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v){world.releasePorter(v);view.selV=null;say('Rendu au village.');}}
@@ -512,7 +550,8 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   else if(a==='demo'){if(confirm('Démo de guerre : une capitale équipée, deux escouades, un avant-poste bèè à 40 cases. La partie en cours sera perdue si elle n’est pas sauvée.')){const w=new World();const r=setupDemo(w);setWorld(w);if(r.post)alertBox('La guerre est déclarée : un avant-poste bèè vous attend.',r.post[0],r.post[1],'bad');say('Démo de guerre : escouades sur les touches 1 et 2.','good');}}
   else if(a==='win-off'){$('#win').hidden=true;}
   renderPanel(true);});
-document.addEventListener('change',e=>{const s=e.target.closest('[data-trainw]');if(s){ui.trainW[+s.dataset.trainw]=s.value;renderPanel(true);}const a=e.target.closest('[data-traina]');if(a){ui.trainA[+a.dataset.traina]=a.value;renderPanel(true);}
+document.addEventListener('change',e=>{const sr=e.target.closest('[data-sqr],[data-sqw],[data-sqa]');if(sr){const d=sr.dataset;const u=world.unit(+(d.sqr||d.sqw||d.sqa));if(u){const r=d.sqr?world.setRole(u,sr.value):d.sqw?world.rearm(u,sr.value):world.rearmor(u,sr.value||null);if(!r.ok)say(r.why[0],'bad');ui.modalHtml='';renderModal();renderPanel(true);}return;}
+  const s=e.target.closest('[data-trainw]');if(s){ui.trainW[+s.dataset.trainw]=s.value;renderPanel(true);}const a=e.target.closest('[data-traina]');if(a){ui.trainA[+a.dataset.traina]=a.value;renderPanel(true);}
   const t=e.target;const bd=world.building(view.selB);
   if(t.matches('[data-prod]')&&bd){const r=world.setProduct(bd,t.value||null);say(r.ok?r.text:r.why[0],r.ok?'good':'bad');audio.play(r.ok?'click':'bad');renderPanel(true);}
   else if(t.matches('[data-link]')&&bd&&t.value){const r=world.setLink(bd,t.dataset.link,+t.value);say(r.ok?r.text:r.why[0],r.ok?'good':'bad');renderPanel(true);}
@@ -526,10 +565,11 @@ const keys=new Set();
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','=','-','0'].includes(e.key)){e.preventDefault();uiZ.step(e.key==='-'?-1:e.key==='0'?0:1);return;}
   if(e.target.closest('input,textarea,select'))return;if(designer.open){if(e.key==='Escape')designer.close();return;}if(room.isOpen){if(e.key==='Escape')room.close();return;}audio.init();const k=e.key;
   if(ui.modal&&k==='Escape'){ui.modal=null;renderModal();return;}keys.add(k.toLowerCase());
-  if(k==='Escape'){view.placing=null;view.lining=null;ui.pick=null;view.sel.clear();view.selB=null;view.selV=null;renderPanel(true);}
+  if(k==='Escape'){view.zoning=false;view.placing=null;view.lining=null;ui.pick=null;view.sel.clear();view.selB=null;view.selV=null;renderPanel(true);}
   else if(k===' '){e.preventDefault();setSpeed(ui.speed?0:(ui.lastSpeed||1));if(ui.speed)ui.lastSpeed=ui.speed;}
   else if(k==='1'||k==='2'||k==='3'){if(ui.bb&&view.placing==null&&!view.sel.size&&view.selB==null){}setSpeed({1:1,2:2,3:4}[k]);ui.lastSpeed=ui.speed;}
   else if(k==='g'||k==='G'){if(view.sel.size)formSquad();}
+  else if(k==='x'||k==='X'){view.zoning=!view.zoning;renderPanel(true);}
   else if(k==='b'||k==='B'){ui.bb=!ui.bb;ui.bbHtml='';$('#buildbar').innerHTML='';buildBar();}
   else if(k==='t'||k==='T'){pitchTent();}
   else if((k==='f'||k==='F')&&view.sel.size){const n=world.smokeOrder([...view.sel]);say(n?`${n} fumigène${n>1?'s':''} lancé${n>1?'s':''}.`:'Plus de fumigène.',n?'':'bad');}
@@ -594,5 +634,5 @@ await loadManifest();
 {const j=localStorage.getItem('okm-auto');const P=new URLSearchParams(location.search);if(P.has('demo')){const w=new World();setupDemo(w);world=w;view.world=w;}else if(j&&!P.has('new')){try{const w=new World(1);w.load(j);world=w;view.world=w;}catch(e){console.warn('sauvegarde ancienne ignorée',e.message);}}
   const c=world.capital();if(c)view.lookAt(c.i+2,c.j+2);if(P.get('speed'))setSpeed(+P.get('speed'));if(P.get('at')){const [x,y,z]=P.get('at').split(',').map(Number);view.lookAt(x,y);if(z)view.zoom=z;}}
 setSpeed(ui.speed);renderPanel(true);requestAnimationFrame(frame);
-window.world=()=>world;window.view=view;window.ui=ui;window.audio=audio;window.xray=xray;window.designer=designer;window.room=room;window.openModal=openModal;window.openFiche=id=>openFiche(id);
+window.world=()=>world;window.view=view;window.ui=ui;window.audio=audio;window.xray=xray;window.designer=designer;window.room=room;window.openModal=openModal;window.renderPanel=renderPanel;window.openFiche=id=>openFiche(id);
 window.__step=(n=1,dt=1/30)=>{for(let i=0;i<n;i++){if(ui.speed>0)world.update(dt*ui.speed/HOUR_REAL);events();view.draw(dt);xray.step(dt);if(ui.modal?.kind==='fiche'){const f=findUnit(ui.modal.id);if(f)body3d.draw(f.u.h,dt,f.u.f);}}view.drawMini(mini);renderPanel(true);topbar();};

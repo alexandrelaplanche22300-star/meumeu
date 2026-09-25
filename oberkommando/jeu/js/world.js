@@ -6,13 +6,14 @@ import {SITE_RANGE,HOUR_REAL,DAY,NIGHT,MAP_N,RADIUS,CARRY,GAP,TERRAIN,T,RES,RARE
 import {ECO} from './eco.js';
 import {generate,rng} from './gen.js';
 import {Pather} from './path.js';
-import {derive,wound,TILE_M,CRATE_KG,CONSTRUCTIONS} from './ballistics.js';
+import {derive,wound,TILE_M,CRATE_KG,CONSTRUCTIONS,ACTIONS} from './ballistics.js';
 import {regionAt,AIM,SILH,BODY_H,BLOOD,setSpecies} from './body.js';
 import {newHealth,applyWound,tickHealth,malus,firstAid,doctorCare,heal,needsCare,needsDoctor,needsSurgery,bleedRate,triage,MED} from './health.js';
 import {DEFAULT_DESIGNS,weightOf,crateCost,weaponCost,protoCost,PROTO_HOURS,fragDesign} from './designs.js';
 import {DEFAULT_ARMORS,deriveArmor,plateZone,armorHit} from './armor.js';
+import {arcTable,aimArc,EXPO} from './explosive.js';
 
-export const SAVE_VERSION=6;
+export const SAVE_VERSION=7;
 const sum=o=>Object.values(o||{}).reduce((a,b)=>a+b,0);
 const d2=(ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -36,7 +37,7 @@ export class World{
     const [ci,cj]=G.capital;const cap=this.addBuilding('meumeu','centre',ci-2,cj-2,true);cap.capital=true;cap.goal=true;cap.city=CITY_NAMES[0];s.cityN=1;Object.assign(cap.stock,START.stock);
     for(let n=0;n<START.villagers;n++){const a=n/START.villagers*Math.PI*2;this.addUnit('meumeu','villageois',ci+Math.cos(a)*3.2,cj+Math.sin(a)*3.2);}
     G.beee.forEach(([bi,bj],n)=>this.makeBeeeCity(bi,bj,BEEE_CITIES[n]));
-    this.log(CITY_NAMES[0],'La capitale est fondée. Le rare est loin : il faudra des rails. Les Bèè tiennent l’autre bout du continent — pour l’instant, ils nous observent.');}
+    this.log(CITY_NAMES[0],'La capitale est fondée. Les bons filons sont loin : il faudra des rails. Les Bèè tiennent l’autre bout du continent — pour l’instant, ils nous observent.');}
   grids(){const N=this.N,M=N*N;this.occ=new Int32Array(M).fill(-1);this.rail=new Uint8Array(M);this.wall=new Int8Array(M);this.nodeAt=new Int32Array(M).fill(-1);
     for(const nd of this.s.nodes)if(nd.left>0||nd.type==='bush'||nd.type==='ore')this.nodeAt[nd.j*N+nd.i]=nd.id;
     for(const b of this.s.buildings)this.stamp(b,b.id);
@@ -64,6 +65,7 @@ export class World{
   // proposer un prototype au bureau d'études : il se paie, il prend du temps, puis il est adopté
   canPropose(b,p){const why=[];if(!b||b.k!=='armurerie'||!b.done)why.push('un bureau d’études');else if(b.proto)why.push('un prototype est déjà en cours');const D=derive(p);
     if(CONSTRUCTIONS[p.cons].minD&&p.d<CONSTRUCTIONS[p.cons].minD)why.push(`${CONSTRUCTIONS[p.cons].name.toLowerCase()} : ${CONSTRUCTIONS[p.cons].minD} mm de calibre au moins`);
+    if(p.fuse==='fusant'&&p.d<8&&CONSTRUCTIONS[p.cons].he)why.push('une fusée fusante : 8 mm de calibre au moins');
     if(!D.mountOk)why.push(`l’épaule ne tient pas cette arme : ${D.need==='trepied'?'un trépied':'un bipied'} au moins`);
     if((p.mods||[]).includes('bouclier')&&D.have==='epaule')why.push('un bouclier demande un affût');
     if(b){const pay=this.canPay(b.f,b.i+1,b.j+1,protoCost(p));if(!pay.ok)why.push(`il manque : ${pay.miss.join(', ')}`);}return {ok:!why.length,why,D};}
@@ -102,6 +104,15 @@ export class World{
   building(id){return this.bIndex.get(id)||null;}
   unit(id){return this.uIndex.get(id)||null;}
   centreOf(b){const cs=this.s.buildings.filter(x=>x.k==='centre'&&x.f===b.f&&!x.ruin);return cs.sort((a,z)=>d2(a.i,a.j,b.i,b.j)-d2(z.i,z.j,b.i,b.j))[0]||null;}
+  // Les villes : chaque centre-ville en est une ; un bâtiment appartient au centre le plus proche (à moins de 26 cases),
+  // un Meumeu à la ville où il est né (ou la plus proche). Chaque ville a ses places (son centre, ses maisons), ses
+  // habitants, et sa croissance : son centre forme des villageois tant qu'il a des vivres et de la place.
+  cityOf(b){const c=this.centreOf(b);return c&&d2(c.i,c.j,b.i,b.j)<26*26?c:null;}
+  homeOf(u){let c=u.home!=null&&this.building(u.home);if(!c||c.ruin||c.k!=='centre'){c=this.s.buildings.filter(x=>x.k==='centre'&&x.f===u.f&&!x.ruin&&x.done).sort((a,z)=>d2(a.i,a.j,u.x,u.y)-d2(z.i,z.j,u.x,u.y))[0]||null;u.home=c?.id??null;}return c;}
+  cityStats(c){const cap=this.s.buildings.filter(b=>b.f===c.f&&b.done&&BUILDINGS[b.k].pop&&this.cityOf(b)===c).reduce((a,b)=>a+BUILDINGS[b.k].pop,0);
+    const res=this.s.units.filter(u=>u.f===c.f&&this.homeOf(u)===c).length+this.s.vehicles.filter(v=>v.k==='porteur'&&v.f===c.f&&v.u&&this.homeOf(v.u)===c).length;
+    const houses=this.s.buildings.filter(b=>b.f===c.f&&b.k==='maison'&&this.cityOf(b)===c).length;return {cap,res,houses};}
+  cities(f){return this.s.buildings.filter(b=>b.k==='centre'&&b.f===f&&!b.ruin&&b.done);}
   cityName(b){const c=this.centreOf(b);return c&&d2(c.i,c.j,b.i,b.j)<30?c.city:b.f==='beee'?'Terres bèè':'Avant-poste';}
   capital(){return this.s.buildings.find(b=>b.capital)||null;}
 
@@ -129,7 +140,14 @@ export class World{
       const goal=rect?(k=>{const i=k%N,j=(k/N)|0;return i>=rect[0]-1&&i<=rect[0]+rect[2]&&j>=rect[1]-1&&j<=rect[1]+rect[3];}):(k=>k===tj*N+ti);
       const r=this.pather.find(si,sj,ti,tj,this.costFn(u.f),goal);u.path=r.path;u.pathDone=r.done;u.goal=key;u.pi=0;}
     return this.follow(u,rect?null:[tx,ty]);}
-  speedOf(u){const D=UDEF(u);let s=D.speed*(u.armor?this.armorOf(u.armor)?.D.move||1:1)*(u.carry?.n>5?.85:1)*(u.carrying!=null?.55*this.mod('brancard'):1)*(u.amput?.7:1);if(u.h){if(u.h.state==='hors')return 0;s*=Math.max(.15,malus(u.h).move);}if(u.post==='couche')s*=.25;else if(u.post==='accroupi')s*=.7;return s;}
+  speedOf(u){const D=UDEF(u);let s=D.speed*(u.armor?this.armorOf(u.armor)?.D.move||1:1)*(u.carry?.n>5?.85:1)*(u.carrying!=null?.55*this.mod('brancard'):1)*(u.amput?.7:1);if(u.h){if(u.h.state==='hors')return 0;s*=Math.max(.15,malus(u.h).move);}if(u.post==='couche')s*=.25;else if(u.post==='accroupi')s*=.7;
+    if(u.w){const Wd=this.W(u.w);if(Wd.crew>1){const n=this.servants(u,1.5).length;s*=Math.min(.8,.3+.5*n/(Wd.crew-1));}}if(u.crates>0)s*=Math.max(.6,1-u.crates*.15);return s;}
+  // les servants d'une pièce : ceux de l'escouade qui la servent, à `r` cases au plus
+  servants(u,r=1.2){return this.s.units.filter(o=>o.serve===u.id&&alive(o)&&o.h?.state!=='hors'&&Math.hypot(o.x-u.x,o.y-u.y)<=r);}
+  // une escouade répartit ses rôles : pour chaque pièce, ses servants (les plus proches) ; le reste tire
+  assignCrews(sq){const ms=this.members(sq);for(const u of ms)if(u.serve&&!ms.some(g=>g.id===u.serve))u.serve=null;
+    for(const g of ms){if(!g.w)continue;const Wd=this.W(g.w);const need=Wd.crew-1-ms.filter(o=>o.serve===g.id).length;if(need<=0)continue;
+      const free=ms.filter(o=>o!==g&&!o.serve&&o.role!=='munitions'&&!UNITS[o.k]?.medic&&!(o.w&&this.W(o.w).crew>1)).sort((a,b)=>Math.hypot(a.x-g.x,a.y-g.y)-Math.hypot(b.x-g.x,b.y-g.y));for(const o of free.slice(0,need))o.serve=g.id;}}
   follow(u,exact){const sp=this.speedOf(u)*this.dt;let left=sp;if(sp<=0){u.anim='idle';return false;}
     while(left>0){let tgt;if(u.pi<u.path.length){const [i,j]=u.path[u.pi];tgt=[i+.5,j+.5];}else if(exact&&u.pathDone){tgt=exact;}else{u.anim='idle';return true;}
       if(u.pi<u.path.length){const [i,j]=u.path[u.pi];const w=this.wall[j*this.N+i];if(w===(u.f==='meumeu'?-2:2)){u.blockedBy=j*this.N+i;u.anim='idle';return false;}}
@@ -142,8 +160,25 @@ export class World{
   // Des soldats choisis, la touche G : une escouade. On la commande d'un bloc ; elle se met en formation, se couvre, se soigne.
   formSquad(ids){const us=ids.map(id=>this.unit(id)).filter(u=>alive(u)&&u.f==='meumeu'&&u.k!=='villageois');if(us.length<2)return {ok:false,why:['au moins deux soldats']};
     for(const u of us)if(u.sq)this.leave(u);const n=++this.s.squadN;const sq={id:this.id(),f:'meumeu',name:`${n}${n===1?'re':'e'} escouade`,m:us.map(u=>u.id),leader:us.slice().sort((a,b)=>(b.xp||0)-(a.xp||0))[0].id,morale:1,form:'ligne'};
-    for(const u of us)u.sq=sq.id;this.s.squads.push(sq);this.log('Armée',`${sq.name} formée : ${us.length} ${us.length>1?'hommes':'homme'}.`,'good');return {ok:true,sq,text:`${sq.name} : ${us.length}`};}
+    for(const u of us)u.sq=sq.id;this.s.squads.push(sq);this.assignCrews(sq);this.log('Armée',`${sq.name} formée : ${us.length} ${us.length>1?'hommes':'homme'}.`,'good');return {ok:true,sq,text:`${sq.name} : ${us.length}`};}
   squad(id){return this.s.squads.find(q=>q.id===id)||null;}
+  // Changer d'arme, de protection : au dépôt le plus proche (à moins de RADIUS cases), qui doit l'avoir en stock ; l'ancienne y reste
+  rearm(u,wid){const dep=this.depots(u.f,u.x,u.y)[0];if(!dep)return {ok:false,why:[`aucun dépôt à moins de ${RADIUS} cases`]};if(u.w===wid)return {ok:true};
+    if((dep.stock['a:'+wid]||0)<1)return {ok:false,why:[`${this.design(wid)?.name||'cette arme'} : aucune au ${this.depotName(dep)}`]};
+    dep.stock['a:'+wid]-=1;if(u.w){this.put(dep,'a:'+u.w,1);const Wo=this.W(u.w);const back=(u.mag+u.pouch)/Wo.perCrate;if(back>0)this.put(dep,'m:'+u.w,back);}
+    u.w=wid;u.mag=0;u.pouch=0;this.resupply(u);const Wn=this.W(wid);const n=Math.min(Wn.p.mag,u.pouch);u.mag=n;u.pouch-=n;u.serve=null;const sq=u.sq&&this.squad(u.sq);if(sq)this.assignCrews(sq);return {ok:true};}
+  rearmor(u,aid){const dep=this.depots(u.f,u.x,u.y)[0];if(!dep)return {ok:false,why:[`aucun dépôt à moins de ${RADIUS} cases`]};if((u.armor||'')===(aid||''))return {ok:true};
+    if(aid&&(dep.stock['p:'+aid]||0)<1)return {ok:false,why:[`${this.s.armors[aid]?.name||'cette protection'} : aucune au ${this.depotName(dep)}`]};
+    if(aid)dep.stock['p:'+aid]-=1;if(u.armor)this.put(dep,'p:'+u.armor,1);u.armor=aid||null;u.plates={};return {ok:true};}
+  // le rôle dans l'escouade : tireur, servant d'une pièce, porteur de munitions
+  setRole(u,role){if(role==='munitions'){u.role='munitions';u.serve=null;}else if(role?.startsWith('serve:')){u.role=null;u.serve=+role.slice(6);}else{u.role=null;u.serve=null;}return {ok:true};}
+  // Le porteur de munitions : deux caisses au plus, des munitions de l'arme la plus portée de son escouade ; il les prend au
+  // dépôt quand il passe à portée, et remplit les cartouchières de ceux qui sont à moins de 1,5 case et ont moins de la moitié.
+  bearerTick(u){const sq=this.squad(u.sq);if(!sq)return;const ms=this.members(sq).filter(o=>o.w&&alive(o));if(!ms.length)return;
+    const cnt={};for(const o of ms)cnt[o.w]=(cnt[o.w]||0)+1;const wid=u.ammoW&&cnt[u.ammoW]?u.ammoW:Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0][0];if(u.ammoW!==wid){u.ammoW=wid;u.crates=0;}
+    const Wd=this.W(wid);if((u.crates||0)<2){const got=this.take(u.f,u.x,u.y,'m:'+wid,2-(u.crates||0));if(got>0)u.crates=(u.crates||0)+got;}
+    if(!(u.crates>0))return;for(const o of ms){if(o.w!==wid||o===u||Math.hypot(o.x-u.x,o.y-u.y)>1.5)continue;const want=Wd.carry-(o.pouch||0);if(want<Wd.carry*.5)continue;
+      const give=Math.min(want,Math.floor(u.crates*Wd.perCrate));if(give<=0)break;o.pouch=(o.pouch||0)+give;u.crates=Math.max(0,u.crates-give/Wd.perCrate);if(o.why?.startsWith('à sec'))o.why=null;}}
   leave(u){const sq=this.squad(u.sq);u.sq=null;if(!sq)return;sq.m=sq.m.filter(id=>id!==u.id);if(sq.leader===u.id)sq.leader=sq.m[0]??null;if(!sq.m.length)this.s.squads.splice(this.s.squads.indexOf(sq),1);}
   dissolve(id){const sq=this.squad(id);if(!sq)return;for(const mid of sq.m){const u=this.unit(mid);if(u)u.sq=null;}this.s.squads.splice(this.s.squads.indexOf(sq),1);}
   members(sq){return sq.m.map(id=>this.unit(id)).filter(Boolean);}
@@ -259,7 +294,7 @@ export class World{
   setRoute(vid,a,b){const v=this.s.vehicles.find(x=>x.id===vid);const A=this.building(a),B=this.building(b);if(!v||!A||!B||a===b)return {ok:false,why:['deux arrêts différents']};
     const need=v.k==='train'?'station':v.k==='avion'?'airfield':'store';if(!BUILDINGS[A.k][need]||!BUILDINGS[B.k][need])return {ok:false,why:[v.k==='train'?'deux gares':v.k==='avion'?'deux aérodromes':'deux dépôts']};
     v.route={a,b,out:['guerre','vivres','industrie','materiaux'],back:['rare']};v.mode='ligne';v.job=null;v.state='go';v.leg=0;v.path=null;return {ok:true,text:`${v.name} : ligne ${this.cityName(A)} ↔ ${this.cityName(B)}`};}
-  goodsOf(sets,at){const map={rare:RARE,materiaux:['bois','pierre','argile','briques','charbon'],vivres:['vivres'],industrie:['pieces','carburant'],guerre:['explosifs','sante',...Object.keys(at?.stock||{}).filter(k=>k.startsWith('m:')||k.startsWith('a:'))]};return sets.flatMap(s=>map[s]||[]);}
+  goodsOf(sets,at){const map={rare:RARE,materiaux:['bois','pierre','charbon'],minerais:['fer','cuivre','plomb','salpetre'],vivres:['vivres'],industrie:['pieces','carburant'],guerre:['explosifs','sante',...Object.keys(at?.stock||{}).filter(k=>k.startsWith('m:')||k.startsWith('a:'))]};return sets.flatMap(s=>map[s]||[]);}
   // Charger : dans l'ordre des familles choisies, mais sans qu'un seul bien prenne tout — au plus 40 % de la place au premier tour,
   // puis ce qui reste. Un convoi part mêlé : des munitions, des vivres, des pièces, du bois.
   capOf(v){return VEHICLES[v.k].cap*(v.k==='porteur'?this.mod('cap_porteur'):v.k==='train'?this.mod('cap_train'):1);}
@@ -342,10 +377,13 @@ export class World{
     this.checkEnd();}
 
   // ---------- les Meumeu, les soldats ----------
-  unitTick(u,dt){const D=UDEF(u);const dts=this.dts;u.cool=Math.max(0,(u.cool||0)-dts);u.reload=Math.max(0,(u.reload||0)-dts);u.supp=(u.supp||0)*Math.exp(-dts/5);
+  unitTick(u,dt){const D=UDEF(u);const dts=this.dts;u.cool=Math.max(0,(u.cool||0)-dts);u.reload=Math.max(0,(u.reload||0)-dts);u.supp=(u.supp||0)*Math.exp(-dts/5);if(u.stun>0){u.stun=Math.max(0,u.stun-dts);if(!u.stun&&u.why==='sonné')u.why=null;}
     // le corps : le sang coule, on tombe, on meurt
     if(u.h){const ch=tickHealth(u.h,dts);if(ch)this.stateChange(u,ch);if(u.h.log?.length&&u.h.log[u.h.log.length-1].t==null)u.h.log[u.h.log.length-1].t=this.s.t;if(!alive(u))return;
       if(u.h.state==='hors'){u.anim='down';u.task=u.task?.kind==='carried'?u.task:null;u.path=null;u.post='couche';return;}}
+    if(u.role==='munitions'&&u.sq)this.bearerTick(u);
+    // un servant rejoint sa pièce quand elle s'arrête
+    if(u.serve&&(!u.task||u.task.kind==='guard')){const g=this.unit(u.serve);if(g&&alive(g)&&this.s.t-(g.moved||-9)>.05){const tx=g.x-.45,ty=g.y+.35;if(Math.hypot(u.x-tx,u.y-ty)>.9)u.task={kind:'guard',tx,ty};}}
     // se réapprovisionner : munitions de sa conception, grenades, trousses — dans les dépôts proches
     u.resup=(u.resup||0)-dts;if(u.resup<=0){u.resup=3;this.resupply(u);this.selfCare(u);}
     const T0=u.task;
@@ -355,7 +393,7 @@ export class World{
     if(D.medic&&this.medicTick(u,T0))return;
     if(u.k==='villageois'&&u.supp>.3&&T0?.kind!=='shelter'&&this.atWar){this.shelter(u);}
     // les combattants répondent : ils voient loin, tirent à portée, vont chercher l'ennemi
-    if((D.arm||D.img)&&(!T0||T0.kind==='assault'||T0.kind==='guard'||(T0.kind==='move'&&T0.hold))){const e=threat||(T0?.kind==='assault'?null:null);
+    if((D.arm||D.img)&&(!T0||T0.kind==='assault'||T0.kind==='guard'||(T0.kind==='move'&&T0.hold)||(T0.kind==='zone'&&threat&&d2(threat.x,threat.y,u.x,u.y)<4))){const e=threat||(T0?.kind==='assault'?null:null);
       if(e){if(this.engage(u,e))return;if(T0?.kind!=='assault'&&!u.hold){this.go(u,e.x,e.y);return;}}}
     if(!T0){u.anim=u.anim==='aim'?'aim':'idle';if(u.carry&&u.k==='villageois')this.deliverTick(u);return;}
     switch(T0.kind){
@@ -386,6 +424,7 @@ export class World{
         else{if(b.fire>0){b.fire=Math.max(0,b.fire-dt*3);}else b.hp=Math.min(b.max,b.hp+dt*60);}return;}
       case 'work':{const b=this.building(T0.b);if(!b||!b.done){u.task=null;return;}if(BUILDINGS[b.k].hub)return this.hubTick(u,b,dt);const [w,h]=BUILDINGS[b.k].size;u.at=this.go(u,b.i+w/2,b.j+h/2,[b.i,b.j,w,h]);u.anim=u.at&&b.working?'action':'idle';return;}
       case 'line':return this.lineTick(u,T0,dt);
+      case 'zone':return this.zoneTick(u,T0);
       case 'evac':return this.evacTick(u,T0);
       case 'shelter':{const b=this.building(T0.b);if(!b||!b.done){u.task=null;return;}const [w,h]=BUILDINGS[b.k].size;if(!this.go(u,b.i+w/2,b.j+h/2,[b.i,b.j,w,h]))return;
         if((b.hide||[]).length>=(BUILDINGS[b.k].shelter||0)){u.task=null;return;}(b.hide??=[]).push(u);this.s.units.splice(this.s.units.indexOf(u),1);this.uIndex.delete(u.id);u.task=null;u.path=null;return;}
@@ -425,7 +464,7 @@ export class World{
   // ce qu'on voit : 18 cases (72 m) le jour, la moitié la nuit
   sight(){return 9+9*this.light();}
   // la portée d'engagement : ce que l'arme porte utilement (un peu plus), et ce qu'on voit
-  engageRange(u){const D=UDEF(u);if(D.img)return D.range;if(!u.w)return 3;const W=this.W(u.w);return clamp(W.eff*1.25/TILE_M,3,16);}
+  engageRange(u){const D=UDEF(u);if(D.img)return D.range;if(!u.w)return 3;const W=this.W(u.w);if(ACTIONS[W.p.action]?.mortar)return clamp(this.zoneRange(W)*.95,3,18);return clamp(W.eff*1.25/TILE_M,3,16);}
   // voir : un bâtiment entre deux points cache (on ne voit pas à travers les maisons)
   los(ax,ay,bx,by){for(const s of this.s.smokes){const dx=bx-ax,dy=by-ay,L2=dx*dx+dy*dy||1;const t=Math.max(0,Math.min(1,((s.x-ax)*dx+(s.y-ay)*dy)/L2));if(Math.hypot(ax+dx*t-s.x,ay+dy*t-s.y)<s.r*Math.min(1,(s.end-this.s.t)/1+.3))return false;}
   const d=d2(ax,ay,bx,by);const n=Math.ceil(d*2);for(let k=1;k<n;k++){const x=ax+(bx-ax)*k/n,y=ay+(by-ay)*k/n;const o=this.occ[Math.floor(y)*this.N+Math.floor(x)];if(o>=0){const b=this.bIndex.get(o);if(b&&!b.ruin&&this.distB(b,ax,ay)>.6&&this.distB(b,bx,by)>.6)return false;}}return true;}
@@ -441,30 +480,36 @@ export class World{
     if(isB||e.wall!=null){if(distT>(isB?.9:1.5))return false;this.face(u,x-u.x,y-u.y);u.anim='action';u.path=null;
       if(u.gren>0&&(u.gcool||0)<=0){u.gcool=6;u.gren--;this.s.shots.push({kind:'grenade',f:u.f,by:u.id,x0:u.x,y0:u.y,x1:x,y1:y,t:0,dur:BLASTS.grenade.fuse/HOUR_REAL});this.emit({type:'throw',x:u.x,y:u.y});}
       u.gcool=Math.max(0,(u.gcool||0)-this.dts);this.damage(e,SACK.hp*this.dt,u.f);if(isB&&e.fire<=0&&this.rand()<SACK.fire*this.dt){e.fire=FIRE.hours;this.emit({type:'fire',x:e.i+1,y:e.j+1});}return true;}
-    if(!u.w)return false;const W=this.W(u.w);if(distT>this.engageRange(u))return false;
+    if(!u.w)return false;const W=this.W(u.w);
+    // un mortier ne tire qu'en cloche : sur l'ennemi qu'il voit, il règle son tir coup après coup
+    if(ACTIONS[W.p.action]?.mortar){if(isB||e.wall!=null)return false;if(!u.lob||u.lob.id!==e.id)u.lob={id:e.id,x,y,high:true,bias:null,fired:0,n:Infinity};u.lob.x=x;u.lob.y=y;return this.zoneTick(u,u.lob,true);}
+    if(distT>this.engageRange(u))return false;
     if(!isB&&e.wall==null&&!this.los(u.x,u.y,x,y))return false;
     this.face(u,x-u.x,y-u.y);u.anim='aim';u.path=null;
     if(u.supp>.85&&this.rand()<.7)return true;                 // cloué au sol
+    if((u.stun||0)>0){u.why='sonné';return true;}              // sonné par une explosion : il ne tire plus, un instant
     // une grenade : un ennemi à portée de lancer, ou un bâtiment à nettoyer
     if(u.gren>0&&(u.gcool||0)<=0&&distT<=BLASTS.grenade.throw&&distT>.35){u.gcool=6;u.gren--;const sp=.35+distT*.12;
       this.s.shots.push({kind:'grenade',f:u.f,by:u.id,x0:u.x,y0:u.y,x1:x+(this.rand()-.5)*sp,y1:y+(this.rand()-.5)*sp,t:0,dur:BLASTS.grenade.fuse/HOUR_REAL});this.emit({type:'throw',x:u.x,y:u.y});return true;}
     u.gcool=Math.max(0,(u.gcool||0)-this.dts);
     if(u.reload>0)return true;
-    if(u.mag<=0){if(u.pouch>0){const n=Math.min(W.p.mag,u.pouch);u.mag=n;u.pouch-=n;u.reload=W.p.mag>12?4:W.p.action==='verrou'?3:2.5;u.burst=0;this.emit({type:'reload',x:u.x,y:u.y});return true;}u.dry=true;return false;}
+    // une pièce : elle se met en batterie (immobile) avant de tirer ; il manque des servants, elle tire et recharge lentement
+    let miss=0;if(W.crew>1){const mv=this.s.t-(u.moved||-9)<.03;u.deployT=mv?0:(u.deployT||0)+this.dts;if(u.deployT<W.setup){u.why='mise en batterie';return true;}if(u.why==='mise en batterie')u.why=null;miss=Math.max(0,W.crew-1-this.servants(u).length);}
+    if(u.mag<=0){if(u.pouch>0){const n=Math.min(W.p.mag,u.pouch);u.mag=n;u.pouch-=n;u.reload=(W.p.mag>12?4:W.p.action==='verrou'?3:2.5)*(1+miss*.8);u.burst=0;this.emit({type:'reload',x:u.x,y:u.y});return true;}u.dry=true;return false;}
     u.dry=false;if(u.cool>0)return true;if(u.f==='meumeu')this.practice('tir',.03);
     if(u.aimAt!==(e.id??e.wall??'b')){u.aimAt=e.id??e.wall??'b';u.cool=W.aim*(u.post==='couche'?1.2:1);return true;}
     // le coup part
-    u.mag--;if(W.p.action==='auto'){u.burst=(u.burst||0)+1;if(u.burst>=4){u.burst=0;u.cool=W.aim*.7;}else u.cool=W.cyc;}else{u.burst=0;u.cool=W.cyc+W.aim*.4;}
+    u.mag--;if(ACTIONS[W.p.action]?.auto){u.burst=(u.burst||0)+1;if(u.burst>=4){u.burst=0;u.cool=W.aim*.7;}else u.cool=W.cyc;}else{u.burst=0;u.cool=W.cyc+W.aim*.4;}if(miss)u.cool*=1+miss*.5;
     const R=distT*TILE_M;const fl=W.at(R);
     const share={};let ix=x,iy=y;for(let k=0;k<(isB||e.wall!=null?1:(W.pel||1));k++){const res=isB||e.wall!=null?{hit:true,struct:true,v:fl.v}:this.resolve(u,e,W,R,u.burst||0,share);
       [ix,iy]=res.hit?[x,y]:[res.px??x,res.py??y];
       this.s.shots.push({kind:'round',f:u.f,by:u.id,w:u.w,x0:u.x,y0:u.y,x1:ix,y1:iy,t:0,dur:Math.max(.01,fl.t)/HOUR_REAL,res,target:isB?{b:e.id}:e.wall!=null?{wall:e.wall}:{u:e.id},R,tracer:!!CONSTRUCTIONS[W.p.cons].tracer});}
-    this.emit({type:'shot',x:u.x,y:u.y,x1:ix,y1:iy,f:u.f,cal:W.p.d,v0:W.v0,E:W.E0,sup:W.v0>340,tr:!!CONSTRUCTIONS[W.p.cons].tracer});u.xp=(u.xp||0)+.05;return true;}
+    this.emit({type:'shot',x:u.x,y:u.y,x1:ix,y1:iy,f:u.f,cal:W.p.d,v0:W.v0,E:W.E0,sup:W.vTop>340,tr:!!CONSTRUCTIONS[W.p.cons].tracer,rk:W.rocket});if(W.rocket)this.backblast(u,x-u.x,y-u.y,W);u.xp=(u.xp||0)+.05;return true;}
   // Où va la balle : la dispersion (l'arme, le tireur, sa posture, le feu qu'il subit, sa blessure, le recul de la rafale),
   // l'erreur d'estimation de la distance (la chute), puis ce qu'elle rencontre : le couvert (et s'il le perce), le corps.
   resolve(u,e,W,R,burst,share=null){const D=UDEF(u);const skill=(D.skill||2.4)/(1+(u.xp||0)/60)/(u.f==='meumeu'?this.mod('tir'):1);const moving=this.s.t-(u.moved||-9)<.03;
     const sigS=skill*POST[u.post||'debout']*(moving?2.4:1)*(1+1.5*(u.supp||0))*(u.h?malus(u.h).aim:1)*(u.armor?this.armorOf(u.armor)?.D.aim||1:1);
-    const sigW=W.moa*.291;const sigR=burst*W.rk*9;const sig=Math.hypot(sigS,sigW,sigR)/1000;
+    const sigW=W.moa*.291;const sigR=burst*W.rk*9;const sig=Math.hypot(sigS,sigW,sigR)/1000*(W.tracer&&burst>0?.7:1);
     const fl=W.at(R),fl2=W.at(R+1);const slope=fl2.drop-fl.drop;const dropErr=slope*.12*R;
     let ex,ey;if(share?.ex!=null){ex=share.ex;ey=share.ey;}else{ex=sig*R*this.gauss();ey=sig*R*this.gauss()+dropErr*this.gauss();if(share){share.ex=ex;share.ey=ey;}}
     if(W.pel>1){const sp=(CONSTRUCTIONS[W.p.cons].spread||20)/1000*R/2;ex+=sp*this.gauss()*.7;ey+=sp*this.gauss()*.7;}
@@ -603,6 +648,7 @@ export class World{
 
   // ---------- les bâtiments ----------
   buildingTick(b,dt){const B=BUILDINGS[b.k];b.working=false;
+    if(b.k==='centre'&&b.f==='meumeu'&&b.done&&!b.ruin&&b.grow!==false){b.growT=(b.growT||0)-dt;if(b.growT<=0){b.growT=1;if(!b.queue.length){const st=this.cityStats(b);if(st.res<st.cap&&this.canTrain(b,'villageois').ok)this.train(b,'villageois');}}}
     if(b.hide?.length&&(b.ruin||!this.s.units.some(e=>e.f!==b.f&&alive(e)&&this.distB(b,e.x,e.y)<13))){b.hideT=(b.hideT||0)+dt;if(b.hideT>.5||b.ruin){this.unhide(b);}}else b.hideT=0;
     if(b.fire>0){b.fire-=dt;b.hp-=FIRE.dps*dt;if(b.hp<=0&&!b.ruin)this.collapse(b);}
     // les blessés soignés ici
@@ -621,7 +667,7 @@ export class World{
     // le bureau d'études : le prototype avance
     if(b.proto){b.proto.left-=dt;b.working=true;if(b.proto.left<=0){const d=this.design(b.proto.id);if(d){d.status='adopte';this.log(this.cityName(b),`Prototype réussi : ${d.name} est adopté. La manufacture et l’arsenal peuvent le fabriquer.`,'good');this.emit({type:'design',id:d.id});}b.proto=null;}}
     const q=b.queue[0];if(q){q.left-=dt;if(q.left<=0){b.queue.shift();const [w,h]=B.size;
-      if(UNITS[q.k]||(b.f==='beee'&&BEEE.units[q.k])){const u=this.addUnit(b.f,q.k,b.i+w/2+(this.rand()-.5)*w,b.j+h+.7,{w:q.w,rounds:0,armor:q.armor});this.resupply(u);if(b.rally)u.task={kind:u.k==='villageois'?'move':'guard',tx:b.rally[0],ty:b.rally[1]};this.emit({type:'trained',x:u.x,y:u.y,k:q.k,f:b.f});}
+      if(UNITS[q.k]||(b.f==='beee'&&BEEE.units[q.k])){const u=this.addUnit(b.f,q.k,b.i+w/2+(this.rand()-.5)*w,b.j+h+.7,{w:q.w,rounds:0,armor:q.armor});u.home=(this.cityOf(b)||this.centreOf(b))?.id??null;this.resupply(u);if(b.rally)u.task={kind:u.k==='villageois'?'move':'guard',tx:b.rally[0],ty:b.rally[1]};this.emit({type:'trained',x:u.x,y:u.y,k:q.k,f:b.f});}
       else{const v=this.addVehicle(b.f,q.k,b);this.log(this.cityName(b),`${VEHICLES[q.k].name} « ${v.name} » prêt.`,'good');this.emit({type:'trained',x:v.x,y:v.y,k:q.k,f:b.f});}}}
     const here=B.workers?this.workers(b).filter(u=>u.at):[];if(!here.length)return;const n=here.length;
     // les fermes et les mines livrent à leur dépôt de sortie (le plus proche, ou celui que le joueur a choisi)
@@ -667,11 +713,17 @@ export class World{
       if(sh.kind==='round'){this.landRound(sh);continue;}
       if(sh.kind==='grenade'){this.blast(sh.x1,sh.y1,'grenade',sh.f,sh.by,1);continue;}
       if(sh.kind==='smokeg'){this.s.smokes.push({x:sh.x1,y:sh.y1,r:1.7,t0:this.s.t,end:this.s.t+8});this.emit({type:'smoke',x:sh.x1,y:sh.y1});continue;}
-      if(sh.kind==='shell'){this.blast(sh.x1,sh.y1,'obus',sh.f,sh.by,sh.vsB||1);continue;}}
+      if(sh.kind==='shell'){this.blast(sh.x1,sh.y1,'obus',sh.f,sh.by,sh.vsB||1);continue;}
+      if(sh.kind==='hshell'){const W=this.W(sh.w);if(W.he)this.heBlast(sh.x1,sh.y1,W.he,sh.f,sh.by,{w:sh.w});continue;}}
     s.shots=s.shots.filter(x=>!x.done);}
   // Une balle arrive : la blessure calculée au départ s'applique (si la cible est encore là) ; sinon, elle fait lever la poussière
   // et coucher ceux qui l'entendent passer.
-  landRound(sh){const r=sh.res,tg=sh.target;const W=this.W(sh.w);const shooter=this.unit(sh.by);
+  // une balle explosive éclate où elle arrive : sur la plaque (au contact de celui qui la porte), dans le corps (les autres
+  // autour reçoivent souffle et éclats), au sol ou contre un mur si elle manque
+  landRound(sh){this.landRound0(sh);const W=this.W(sh.w);if(!W.he||W.he.shaped)return;const r=sh.res,e=sh.target.u!=null?this.unit(sh.target.u):null;
+    if(r.stopped&&e&&alive(e))this.heBlast(e.x,e.y,W.he,sh.f,sh.by,{at:{id:e.id,r:.06},w:sh.w});
+    else if(r.hit&&e)this.heBlast(sh.x1,sh.y1,W.he,sh.f,sh.by,{skip:e.id,w:sh.w});else this.heBlast(sh.x1,sh.y1,W.he,sh.f,sh.by,{w:sh.w});}
+  landRound0(sh){const r=sh.res,tg=sh.target;const W=this.W(sh.w);const shooter=this.unit(sh.by);
     if(tg.b!=null){const b=this.building(tg.b);if(b){const E=.5*W.m/1000*r.v*r.v;this.damage(b,E/25,sh.f);if(CONSTRUCTIONS[W.p.cons].inc&&this.rand()<.05&&b.fire<=0){b.fire=FIRE.hours;this.emit({type:'fire',x:b.i+1,y:b.j+1});}}this.emit({type:'impact',x:sh.x1,y:sh.y1,hit:false,small:true,mat:'maison'});return;}
     if(tg.wall!=null){if(this.wall[tg.wall]){const E=.5*W.m/1000*r.v*r.v;this.damage({wall:tg.wall,x:sh.x1,y:sh.y1},E/25,sh.f);}this.emit({type:'impact',x:sh.x1,y:sh.y1,hit:false,small:true,mat:'pierre'});return;}
     const e=this.unit(tg.u);
@@ -697,28 +749,88 @@ export class World{
     if(e.h){e.h.pain=Math.min(10,(e.h.pain||0)+.5);(e.h.log??=[]).push({t:this.s.t,what:`balle arrêtée par ${r.zone==='casque'?'le casque':r.zone==='dos'?'la plaque de dos':r.zone==='flancs'?'la protection des flancs':'le plastron'} (${r.armor})`,by:''});
       const jk=r.blunt/1.5;if(jk>3&&this.rand()<Math.min(.6,(jk-3)/10)){e.h.shock=Math.max(e.h.shock,6+this.rand()*10);if(e.h.state==='ok')e.h.state='blesse';e.h.cause='choc derrière la plaque';}}
     if(e.f==='beee')this.beeeAlarm(e);}
-  // Une explosion : les éclats (chacun sa blessure, calculée par la balistique), le souffle, les bâtiments, les murs, les rails.
-  blast(x,y,kind,f,by,vsB=1){const S=BLASTS[kind];const N=this.N;const s=this.s;const Df=fragDesign(S.mass,S.d);
-    for(const u of [...s.units]){if(!alive(u))continue;const dt=d2(u.x,u.y,x,y);if(dt>S.radius)continue;const r=Math.max(.05,dt*TILE_M);
-      if(!u.h){this.damage(u,S.dmgB*(1-dt/S.radius)*.6,f);continue;}
-      if(dt<S.blast){u.h.state='mort';u.h.cause='souffle de l’explosion';this.death(u);continue;}
-      const area=u.post==='couche'?.012:u.post==='accroupi'?.026:.035;const lam=S.frags*area/(4*Math.PI*r*r);let k=0;{let L=Math.exp(-lam),p=1;do{k++;p*=this.rand();}while(p>L&&k<9);k--;}
-      u.supp=Math.min(1.5,(u.supp||0)+.8);
-      for(let n=0;n<k&&alive(u);n++){const v=S.v*Math.exp(-r/S.lambda);if(v<60)break;
-        // l'éclat arrive de l'explosion, n'importe où sur la silhouette tournée vers elle
-        const tx=x-u.x,ty=y-u.y,tl=Math.hypot(tx,ty)||1;const fx=u.fx??1,fy=u.fy??0;const alpha=Math.atan2(fx*ty/tl-fy*tx/tl,fx*tx/tl+fy*ty/tl);
-        const post=u.post||'debout';const [sw,sh]=SILH[post];const hit=this.bodyRay([(this.rand()-.5)*sw*1.6,this.rand()*sh,2],[0,.05*(this.rand()-.5),-1],alpha,post,u.f);if(!hit)continue;
-        const Ar=u.armor&&this.armorOf(u.armor);let vv=v;if(Ar){const zone=plateZone(hit.p);if(zone&&Ar.D.zones[zone]?.t>0){const pen=5.5e-4*Math.pow(S.mass,.7)*Math.pow(v,1.43)/Math.pow(S.d,1.07);const r=armorHit(Ar.D,zone,u,Df,v,pen,this.rand);
-          if(r?.stopped){this.emit({type:'plate',x:u.x,y:u.y,mat:r.mat,zone,victim:u.id});continue;}if(r)vv=r.v;}}
-        const rec=wound(Df,vv,hit.p,hit.d,this.rand,this.rand()*1.5);const out=applyWound(u.h,rec,this.rand,'éclat');
-        this.emit({type:'wound',cause:u.h.cause,len:S.d/1000,victim:u.id,shooter:by,vf:u.f,vk:u.k,w:null,frag:kind,rec,out,R:r,v,x:u.x,y:u.y,dir:[u.x-x,u.y-y],name:u.name,sname:this.unit(by)?.name||null});
-        if(out?.now==='mort'){this.death(u);break;}if(out?.now==='hors')this.stateChange(u,'hors');}}
-    const rB=S.radius*.6;for(const b of s.buildings){const d=this.distB(b,x,y);if(d<rB)this.damage(b,S.dmgB*vsB*(1-d/rB*.5),f);}
+  // Une explosion des anciennes tables (grenade, obus de canon, bombe) : on la traduit en charge, et c'est la même physique.
+  blast(x,y,kind,f,by,vsB=1){const S=BLASTS[kind];const b=S.blast*TILE_M;
+    const E=S._E??=({vg:S.v,cls:[{m:S.mass,n:S.frags,d:S.d,lam:S.lambda}],geo:.6,air:false,blast:b,inj:b*1.45,conc:b*2.05,stun:b*3.2,radius:S.radius*TILE_M,dmgB:S.dmgB,W:kind==='bombe'?.1:kind==='obus'?.01:.001});
+    this.heBlast(x,y,E,f,by,{kind,vsB,rB:S.radius*.6,boom:kind==='bombe'?'bomb':kind==='obus'?'shell':'grenade'});}
+  poisson(l){if(l<=0)return 0;let k=0,L=Math.exp(-Math.min(l,30)),p=1;do{k++;p*=this.rand();}while(p>L&&k<10);return k-1;}
+  // Une charge qui éclate en (x, y) — E : la charge calculée (explosive.js), distances en mètres. Dans l'ordre :
+  //  le souffle (mortel ; lésions internes ; commotion : assommé ; sonné : ne tire plus quelques secondes, sourd) ;
+  //  les éclats, classe par classe : combien touchent (selon la distance, la posture, le couvert, la fusée), chacun sa vraie blessure ;
+  //  les bâtiments, murs et voies. o.at : une victime au contact (la balle explosive qui l'a frappée) ; o.skip : une victime déjà blessée.
+  heBlast(x,y,E,f,by,o={}){const s=this.s,N=this.N;const kind=o.kind||'obus';const fd=new Map();const Df=c=>{let d=fd.get(c);if(!d){d=fragDesign(c.m,c.d);fd.set(c,d);}return d;};
+    const shooter=by!=null?this.unit(by):null;const Rmax=Math.max(E.radius||0,E.stun*1.5)+.1;const note=(u,what)=>(u.h.log??=[]).push({t:s.t,what,by:shooter?.name||''});
+    for(const u of [...s.units]){if(!alive(u)||u.id===o.skip)continue;let r=Math.max(.05,d2(u.x,u.y,x,y)*TILE_M);if(E.air)r=Math.hypot(r,.6);if(o.at?.id===u.id)r=o.at.r;if(r>Rmax)continue;
+      if(!u.h){this.damage(u,E.dmgB*Math.max(0,1-r/Rmax)*.6,f);continue;}
+      u.supp=Math.min(1.5,(u.supp||0)+.9*Math.max(0,1-r/(E.stun*1.5+.5)));if(u.f==='beee')this.beeeAlarm(u);
+      if(r<E.blast){u.h.state='mort';u.h.cause='souffle de l’explosion';note(u,'tué net par le souffle');this.death(u);continue;}
+      if(r<E.inj){u.h.shock=Math.max(u.h.shock,30+this.rand()*60);u.h.bleeds.push({name:'poumons (souffle)',rate:.02+this.rand()*.05,limb:null,internal:true});if(u.h.state!=='hors'){u.h.state='hors';u.h.cause='souffle : poumons et tympans déchirés';this.stateChange(u,'hors');}note(u,'soufflé : lésions internes');}
+      else if(r<E.conc){const p=.3+.6*(1-(r-E.inj)/Math.max(.01,E.conc-E.inj));if(this.rand()<p){u.h.conc=Math.max(u.h.conc,20+this.rand()*70);if(u.h.state!=='hors'){u.h.state='hors';u.h.cause='commotion (souffle)';this.stateChange(u,'hors');}note(u,'assommé par le souffle');}
+        else{u.stun=Math.max(u.stun||0,8+this.rand()*10);u.deaf=Math.max(u.deaf||0,s.t+6);note(u,'sonné par le souffle');}}
+      else if(r<E.stun){u.stun=Math.max(u.stun||0,(3+this.rand()*8)*(1.3-(r-E.conc)/Math.max(.01,E.stun-E.conc)));u.deaf=Math.max(u.deaf||0,s.t+2);}
+      // les éclats
+      const post=u.post||'debout';const air=!!E.air;let A=EXPO[air?'air':'sol'][post];
+      if(!air&&o.at?.id!==u.id){const cov=this.coverFor(u,x,y);if(cov&&cov.h>.1)A*=.3;}
+      const tx=x-u.x,ty=y-u.y,tl=Math.hypot(tx,ty)||1;const fx=u.fx??1,fy=u.fy??0;const alpha=Math.atan2(fx*ty/tl-fy*tx/tl,fx*tx/tl+fy*ty/tl);const [sw,sh]=SILH[post];
+      for(const c of E.cls){if(!alive(u))break;const v=E.vg*Math.exp(-r/c.lam);if(v<40)continue;const k=Math.min(8,this.poisson(c.n*E.geo*A/(4*Math.PI*r*r)));
+        for(let n=0;n<k&&alive(u);n++){let hit=null;for(let t=0;t<5&&!hit;t++)hit=air?this.bodyRay([(this.rand()-.5)*sw*1.3,BODY_H+.25,(this.rand()-.5)*.14],[(this.rand()-.5)*.3,-1,(this.rand()-.5)*.5],alpha,post,u.f):this.bodyRay([(this.rand()-.5)*sw*1.6,this.rand()*sh,2],[0,.05*(this.rand()-.5),-1],alpha,post,u.f);if(!hit)continue;
+          const Ar=u.armor&&this.armorOf(u.armor);let vv=v;if(Ar){const zone=plateZone(hit.p);if(zone&&Ar.D.zones[zone]?.t>0){const pen=5.5e-4*Math.pow(c.m,.7)*Math.pow(v,1.43)/Math.pow(c.d,1.07);const rr=armorHit(Ar.D,zone,u,Df(c),v,pen,this.rand);
+            if(rr?.stopped){this.emit({type:'plate',x:u.x,y:u.y,mat:rr.mat,zone,victim:u.id});continue;}if(rr)vv=rr.v;}}
+          setSpecies(u.f);const rec=wound(Df(c),vv,hit.p,hit.d,this.rand,this.rand()*1.5);const out=applyWound(u.h,rec,this.rand,'éclat');u.hitAt=s.t;
+          this.emit({type:'wound',cause:u.h.cause,len:c.d/1000,victim:u.id,shooter:by,vf:u.f,vk:u.k,w:o.w||null,frag:kind,rec,out,R:r,v,x:u.x,y:u.y,dir:[u.x-x,u.y-y],name:u.name,sname:shooter?.name||null,armor:u.armor?this.armorOf(u.armor)?.D.a||null:null});
+          if(out?.now==='mort'){this.death(u);break;}if(out?.now==='hors')this.stateChange(u,'hors');if(shooter)shooter.xp=(shooter.xp||0)+(out?.now?2:.5);}}}
+    // les bâtiments, les murs, les voies (la fusée à retard enferme le souffle : bien plus de dégâts)
+    const vsB=o.vsB||1;const rB=o.rB??Math.max(.3,E.blast*2.5/TILE_M);for(const b of s.buildings){const d=this.distB(b,x,y);if(d<rB)this.damage(b,E.dmgB*vsB*(1-d/rB*.5),f);}
     for(let j=Math.floor(y-rB);j<=y+rB;j++)for(let i=Math.floor(x-rB);i<=x+rB;i++){if(i<0||j<0||i>=N||j>=N||d2(i+.5,j+.5,x,y)>rB)continue;const k=j*N+i;
-      if(this.wall[k]===2||this.wall[k]===-2)this.damage({wall:k,x:i+.5,y:j+.5},S.dmgB*vsB*.6,f);
-      if(this.rail[k]===2){const rr=s.rails[k];rr.hp-=S.dmgB*vsB*.5;if(rr.hp<=0){this.lineBroken('rail',k);this.emit({type:'rail-cut',x:i+.5,y:j+.5});}}
+      if(this.wall[k]===2||this.wall[k]===-2)this.damage({wall:k,x:i+.5,y:j+.5},E.dmgB*vsB*.6,f);
+      if(this.rail[k]===2){const rr=s.rails[k];rr.hp-=E.dmgB*vsB*.5;if(rr.hp<=0){this.lineBroken('rail',k);this.emit({type:'rail-cut',x:i+.5,y:j+.5});}}
       const nd=this.nodeAt[k];if(nd>=0&&s.nodes[nd].type==='tree'&&kind==='bombe'&&this.rand()<.5){s.nodes[nd].left=0;this.nodeAt[k]=-1;}}
-    this.emit({type:'boom',x,y,kind:kind==='bombe'?'bomb':kind==='obus'?'shell':'grenade',big:kind!=='grenade'});}
+    const boom=o.boom||(E.W>.03?'bomb':E.W>.0015?'shell':E.W>.0002?'grenade':'pop');
+    this.emit({type:'boom',x,y,kind:boom,big:boom!=='grenade',air:!!E.air,r:Math.max(E.danger||0,E.conc)/TILE_M,conc:E.conc/TILE_M});}
+
+  // le souffle arrière d'une balle auto-propulsée : ceux qui se tiennent derrière le tireur, dans un cône, sont brûlés, assourdis
+  backblast(u,dx,dy,W){const L=Math.hypot(dx,dy)||1;const bx=-dx/L,by=-dy/L;const reach=Math.min(1.2,.25+Math.sqrt(W.p.c)*.35);
+    for(const o of this.s.units){if(o===u||!alive(o)||!o.h)continue;const rx=o.x-u.x,ry=o.y-u.y;const d=Math.hypot(rx,ry);if(d>reach||d<1e-3)continue;if((rx*bx+ry*by)/d<.7)continue;
+      o.stun=Math.max(o.stun||0,3+4*(1-d/reach));o.supp=Math.min(1.5,(o.supp||0)+.6);o.h.pain=Math.min(10,(o.h.pain||0)+2*(1-d/reach));(o.h.log??=[]).push({t:this.s.t,what:'brûlé et assourdi par le souffle arrière d’une fusée',by:u.name||''});}}
+  // ---------- le tir sur zone ----------
+  // Une arme à obus (charge explosive à éclats, 5 mm et plus) tire en cloche sur un point : sans voir la cible, par-dessus murs
+  // et maisons. La dispersion : en portée (la poudre, la hausse), en direction ; et une erreur de départ (la carte, la distance
+  // estimée) que le « réglage » corrige coup après coup — à condition qu'un Meumeu voie où tombent les obus.
+  canZone(W){return !!(W?.he&&!W.he.shaped&&W.p.d>=5);}
+  arcOf(W){return W._arc??=arcTable(W.v0,W.BC,!!ACTIONS[W.p.action]?.mortar,W.boost);}
+  zoneRange(W){return this.canZone(W)?this.arcOf(W).max/TILE_M:0;}
+  observer(f,x,y){const R=this.sight();for(const o of this.s.units)if(o.f===f&&active(o)&&d2(o.x,o.y,x,y)<R&&this.los(o.x,o.y,x,y))return o;return null;}
+  zoneFire(ids,x,y,opt={}){const us=ids.map(id=>this.unit(id)).filter(u=>u&&u.f==='meumeu'&&active(u)&&u.w&&this.canZone(this.W(u.w)));
+    if(!us.length)return {ok:false,why:['aucune arme à obus dans la sélection (munition explosive à éclats, 5 mm et plus)']};
+    if(!this.atWar)this.declareWar('meumeu');
+    for(const u of us){u.task={kind:'zone',x,y,n:opt.n??Infinity,high:opt.high??true,bias:null,fired:0};u.path=null;u.goal=null;u.hold=false;u.why=null;}
+    const far=us.filter(u=>d2(u.x,u.y,x,y)>this.zoneRange(this.W(u.w))).length;
+    return {ok:true,text:`${us.length} pièce${us.length>1?'s':''} en tir sur zone${far?` (${far} doivent se rapprocher)`:''}${this.observer('meumeu',x,y)?' · un observateur voit la zone : le tir se règle':' · personne ne voit la zone : tir sans réglage'}`};}
+  // auto : un mortier qui répond seul à un ennemi vu (pas d'ordre) — il ne bouge pas, et dit s'il a pu tirer
+  zoneTick(u,T,auto=false){const W=this.W(u.w);if(!u.w||!this.canZone(W)){if(!auto)u.task=null;return false;}if(!this.atWar){if(!auto)u.task=null;return false;}
+    const A=this.arcOf(W);const distT=d2(u.x,u.y,T.x,T.y);const R=distT*TILE_M;
+    if(R>A.max*.96){if(auto)return false;const k=1-A.max*.85/TILE_M/distT;this.go(u,u.x+(T.x-u.x)*k,u.y+(T.y-u.y)*k);u.why='se rapproche pour tirer';return true;}
+    const sol=aimArc(A,R,T.high)||aimArc(A,R,!T.high);if(!sol||R<Math.max(6,A.min*.9)){if(auto)return false;u.why='trop près pour un tir courbe';u.task=null;return false;}
+    this.face(u,T.x-u.x,T.y-u.y);u.anim='aim';u.path=null;
+    if((u.stun||0)>0){u.why='sonné';return true;}
+    let miss=0;if(W.crew>1){const mv=this.s.t-(u.moved||-9)<.03;u.deployT=mv?0:(u.deployT||0)+this.dts;if(u.deployT<W.setup){u.why='mise en batterie';return true;}miss=Math.max(0,W.crew-1-this.servants(u).length);}
+    u.why=null;if(u.reload>0)return true;const mortar=!!ACTIONS[W.p.action]?.mortar;
+    // un mortier n'a pas de chargeur : le chargeur prend l'obus suivant dans les caisses et le laisse glisser
+    if(mortar&&u.mag<=0&&u.pouch>0){u.mag=1;u.pouch--;}
+    if(u.mag<=0){if(u.pouch>0){const n=Math.min(W.p.mag,u.pouch);u.mag=n;u.pouch-=n;u.reload=(W.p.mag>12?4:2.5)*(1+miss*.8);this.emit({type:'reload',x:u.x,y:u.y});return true;}u.dry=true;u.why='plus d’obus';return true;}
+    u.dry=false;if(u.cool>0)return true;
+    // pointer la pièce sur une nouvelle zone : le temps de viser, une fois
+    if(!T.laid){T.laid=true;u.cool=W.aim*1.5;u.why='pointe la pièce';return true;}
+    // l'erreur de départ : sans observateur, elle reste ; avec, elle fond de moitié à chaque coup observé
+    const obs=this.observer(u.f,T.x,T.y);if(!T.bias)T.bias=[this.gauss()*R*.06,this.gauss()*R*.03];
+    const skill=1/(1+(u.xp||0)/80);const sR=R*(.012+W.moa*.0006)*(1+miss*.4)*skill,sD=R*(W.moa*.00045+.004)*(1+miss*.4)*skill;
+    const dl=Math.hypot(T.x-u.x,T.y-u.y)||1;const ux=(T.x-u.x)/dl,uy=(T.y-u.y)/dl;const eR=(T.bias[0]+this.gauss()*sR)/TILE_M,eD=(T.bias[1]+this.gauss()*sD)/TILE_M;
+    const x1=T.x+ux*eR-uy*eD,y1=T.y+uy*eR+ux*eD;if(obs){T.bias[0]*=.5;T.bias[1]*=.5;T.obs=obs.id;}else T.obs=null;
+    u.mag--;T.fired++;if(u.f==='meumeu')this.practice('tir',.05);u.xp=(u.xp||0)+.1;
+    u.cool=mortar?W.cyc:(ACTIONS[W.p.action]?.auto?Math.max(W.cyc,.6):W.cyc)+W.aim*.4+(W.p.mag<=1?1.2:0);if(miss)u.cool*=1+miss*.5;
+    this.s.shots.push({kind:'hshell',f:u.f,by:u.id,w:u.w,x0:u.x,y0:u.y,x1,y1,t:0,dur:Math.max(.2,sol.t)/HOUR_REAL,top:Math.tan(sol.deg*Math.PI/180)*R/4/TILE_M});
+    this.emit({type:'shot',x:u.x,y:u.y,x1,y1,f:u.f,cal:W.p.d,v0:W.v0,E:W.E0,sup:W.vTop>340,arc:true,rk:W.rocket});if(W.rocket)this.backblast(u,T.x-u.x,T.y-u.y,W);
+    if(T.fired>=T.n&&!auto){u.task=null;u.why=null;}return true;}
   fallsTick(dt){for(const F of this.s.falls){F.t+=dt;if(F.t<F.dur)continue;F.done=true;this.blast(F.x1,F.y1,'bombe',F.f,null,1);}
     this.s.falls=this.s.falls.filter(F=>!F.done);}
   flakTick(dt){const planes=this.s.vehicles.filter(v=>v.alt>1&&v.hp>0);if(!planes.length)return;
@@ -807,7 +919,7 @@ B.nextAir=this.s.t+BEEE.airEvery*DAY*(.7+this.rand()*.6);const af=this.s.buildin
   develop(id){const r=this.canDevelop(id);if(!r.ok)return r;const I=INNOV.find(x=>x.id===id);this.pay('meumeu',r.lab.i+1,r.lab.j+1,I.cost);r.lab.dev={id,left:I.hours,total:I.hours};
     this.s.innov.ideas=this.s.innov.ideas.filter(x=>x.id!==id);this.log(this.cityName(r.lab),`Le laboratoire développe : ${I.name}.`,'good');return {ok:true,text:`Au laboratoire : ${I.name} (${I.hours} h)`};}
   dropIdea(id){this.s.innov.ideas=this.s.innov.ideas.filter(x=>x.id!==id);}
-  checkEnd(){const s=this.s;if(!s.won){const cap=this.capital();if(cap&&!cap.ruin&&RARE.every(k=>(cap.stock[k]||0)>=GOAL)){s.won={day:this.day,how:'rare'};this.log(cap.city,'Cent caisses de chaque rare à la capitale : la civilisation meumeu a ce qu’il lui faut.','good');this.emit({type:'won'});}
+  checkEnd(){const s=this.s;if(!s.won){const cap=this.capital();
       if(s.beee.cities.length&&s.beee.cities.every(c=>c.fallen)){s.won={day:this.day,how:'guerre'};this.log('Front','Toutes les villes bèè sont tombées. La guerre est gagnée.','good');this.emit({type:'won'});}}
     if(!s.lost&&!s.buildings.some(b=>b.f==='meumeu'&&b.k==='centre'&&!b.ruin)){s.lost={day:this.day};this.log('Front','Le dernier centre-ville est tombé.','bad');this.emit({type:'lost'});}}
 

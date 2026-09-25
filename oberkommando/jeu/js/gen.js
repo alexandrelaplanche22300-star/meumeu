@@ -55,9 +55,9 @@ export function generate(seed){const N=MAP_N;const r=rng(seed*9973+17);for(let k
         for(let q=0;q<(type==='tree'?8:type==='rock'?5:3)&&have<min;q++){if(add(type,i+Math.round(r()*3-1.5),j+Math.round(r()*3-1.5)))have++;}}};
     ensure('tree',80,9,18);ensure('rock',26,10,19);ensure('bush',14,8,15);}
   // Les gisements, répartis de façon équilibrée et symétrique : chaque camp a les mêmes chances, aux mêmes distances.
-  //  · à pied de la ville (10-18 cases) : pierre, charbon, argile — de quoi démarrer ;
-  //  · à 35-65 cases, en éventail vers le centre : cuivre, plomb, soufre, salpêtre — l'armement demande le rail ;
-  //  · à 50-85 : encore du charbon, de la pierre, de l'argile ; le rare de plus en plus loin ;
+  //  · à pied de la ville (10-18 cases) : pierre, charbon, fer — de quoi démarrer ;
+  //  · à 35-65 cases, en éventail vers le centre : cuivre, plomb, salpêtre — l'armement demande le rail ;
+  //  · à 50-85 : encore du charbon, du fer, de la pierre ; le rare de plus en plus loin ;
   //  · au milieu, disputés : un peu de tout ; et partout ailleurs, une grille tirée au sort pour qu'aucune région ne soit vide.
   const deposits=[];const place=(res,ok,gap=12)=>{for(let t=0;t<8000;t++){const i=4+Math.floor(r()*(N-8)),j=4+Math.floor(r()*(N-8));const k=j*N+i;if(!land(k)||nodeAt[k]>=0||!ok(i,j,k))continue;
       if(deposits.some(d=>Math.hypot(d.i-i,d.j-j)<gap))continue;let free=0;for(let b=-1;b<=2;b++)for(let a=-1;a<=2;a++){const kk=(j+b)*N+i+a;if(land(kk)&&nodeAt[kk]<0)free++;}if(free<14)continue;
@@ -66,16 +66,19 @@ export function generate(seed){const N=MAP_N;const r=rng(seed*9973+17);for(let k
   const mid=[N/2,N/2];const angDiff=(a,b)=>Math.abs(((a-b+Math.PI*3)%(Math.PI*2))-Math.PI);
   // autour d'une ville : dans l'anneau [r0, r1], vers l'angle `ang` (± spread)
   const near=([ci,cj],res,r0,r1,ang,spread=.6,gap=10)=>place(res,(i,j)=>{const d=Math.hypot(i-ci,j-cj);return d>r0&&d<r1&&(ang==null||angDiff(Math.atan2(j-cj,i-ci),ang)<spread);},gap);
-  const arm=['cuivre','plomb','soufre','salpetre'];
+  const arm=['fer','cuivre','plomb','salpetre'];
   for(const T0 of [capital,beee[0]]){const toMid=Math.atan2(mid[1]-T0[1],mid[0]-T0[0]);
-    ['pierre','charbon','argile'].forEach((res,n)=>near(T0,res,10,18,toMid+(n-1)*1.4,.9,7)||near(T0,res,9,22,null,1,6)||near(T0,res,8,28,null,1,4));
+    ['pierre','charbon'].forEach((res,n)=>near(T0,res,10,18,toMid+(n-.5)*1.6,.9,7)||near(T0,res,9,22,null,1,6)||near(T0,res,8,28,null,1,4));
+    near(T0,'fer',16,26,null,1,6)||near(T0,'fer',14,32,null,1,4);
     shuffle(arm).forEach((res,n)=>near(T0,res,35,65,toMid+(n-1.5)*.55,.35)||near(T0,res,35,70,toMid,1.2));
-    for(const res of ['charbon','pierre','argile','charbon'])near(T0,res,50,85,null);
-    near(T0,order[0],25,40,toMid,.9);near(T0,order[1],45,70,toMid,.9);for(const res of order.slice(2))near(T0,res,75,110,toMid,.9);}
-  for(const T0 of beee.slice(1))for(const res of ['pierre','charbon','argile'])near(T0,res,10,20,null);
+    for(const res of ['charbon','fer','pierre','fer'])near(T0,res,50,85,null);
+    for(const res of order)near(T0,res,70,110,toMid,.9);}
+  for(const T0 of beee.slice(1))for(const res of ['pierre','charbon','fer'])near(T0,res,10,20,null);
   const dC=(i,j)=>Math.hypot(i-capital[0],j-capital[1]),dB=(i,j)=>Math.min(...beee.map(([a,b])=>Math.hypot(a-i,b-j)));
   for(const res of [...COMMON_ORES,...COMMON_ORES,...order])place(res,(i,j)=>Math.abs(dC(i,j)-dB(i,j))<40&&dC(i,j)>70);
   const G=5,cell=N/G;let cyc=shuffle(COMMON_ORES),ci=0;
   for(let gy=0;gy<G;gy++)for(let gx=0;gx<G;gx++){const res=cyc[ci++%cyc.length];if(ci%cyc.length===0)cyc=shuffle(COMMON_ORES);
     place(res,(i,j)=>i>=gx*cell&&i<(gx+1)*cell&&j>=gy*cell&&j<(gy+1)*cell&&dC(i,j)>25&&dB(i,j)>25,14);}
+  // près des villes, les filons sont petits (de quoi démarrer) ; les gros sont loin : il faut s'étendre
+  for(const d of deposits){const near=Math.min(dC(d.i,d.j),dB(d.i,d.j));if(near<32){d.left=d.max=Math.round(d.max*.35);}}
   return {N,terrain,nodes,nodeAt,comp,main,capital,beee,deposits,passes};}

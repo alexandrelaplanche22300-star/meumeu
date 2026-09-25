@@ -120,7 +120,7 @@ if(on(7)){say('\n=== banc 7 : les soins — un infirmier, un hôpital ===');
   run(W,72);say(`  trois jours plus tard : ${vic.map(where).join(' · ')}`);}
 
 if(on(8)){say('\n=== banc 8 : les munitions — arsenal, manufacture, caserne ===');
-  const W=new World(4);const cap=W.capital();Object.assign(cap.stock,{fer:60,sels:30,plomb:60,cuivre:40,poudre:40,salpetre:30,soufre:12,pieces:80,bois:300,pierre:200,vivres:300,charbon:80,'m:mle1':0,'a:mle1':0});
+  const W=new World(4);const cap=W.capital();Object.assign(cap.stock,{fer:60,sels:30,plomb:60,cuivre:40,poudre:40,salpetre:30,pieces:80,bois:300,pierre:200,vivres:300,charbon:80,'m:mle1':0,'a:mle1':0});
   const ars=put(W,'meumeu','arsenal',...free(W,'arsenal',cap.i+2,cap.j+2,6,14));const ars2=put(W,'meumeu','poudrerie',...free(W,'poudrerie',cap.i+2,cap.j+2,6,14));const man=put(W,'meumeu','manufacture',...free(W,'manufacture',cap.i+2,cap.j+2,6,15));const cas=put(W,'meumeu','caserne',...free(W,'caserne',cap.i+2,cap.j+2,6,16));
   W.setProduct(ars2,'explosifs');
   const vil=W.s.units.filter(u=>u.f==='meumeu');W.order(vil.slice(0,2).map(u=>u.id),{type:'building',id:ars.id});W.order(vil.slice(2,4).map(u=>u.id),{type:'building',id:ars2.id});W.order(vil.slice(4,8).map(u=>u.id),{type:'building',id:man.id});
@@ -176,7 +176,7 @@ if(on(13)){say('\n=== banc 13 : la chaîne des soins — le front, la tente, l�
   run(W,90);say(`  4 jours : ${vic.map(where).join(' · ')} · réformés : ${vic.filter(u=>u.amput).length}`);}
 if(on(14)){say('\n=== banc 14 : toutes les munitions contre toutes les protections ===');
   const base={d:1.8,l:6.5,nose:'pointue',base:'plat',c:.032,L:140,twist:60,action:'verrou',rof:600,mag:5,heavy:false};
-  const plates=[['soie 4 mm',{casque:['acier',0],plastron:['soie',4],dos:['soie',0],flancs:['soie',0]}],['acier 1,2 mm',{casque:['acier',0],plastron:['acier',1.2],dos:['acier',0],flancs:['acier',0]}],['céramique 3 mm',{casque:['acier',0],plastron:['ceramique',3],dos:['acier',0],flancs:['acier',0]}],['verre 3 mm',{casque:['acier',0],plastron:['verre',3],dos:['acier',0],flancs:['acier',0]}]];
+  const plates=[['soie 4 mm',{casque:['acier',0],plastron:['soie',4],dos:['soie',0],flancs:['soie',0]}],['acier 1,2 mm',{casque:['acier',0],plastron:['acier',1.2],dos:['acier',0],flancs:['acier',0]}],['céramique 3 mm',{casque:['acier',0],plastron:['ceramique',3],dos:['acier',0],flancs:['acier',0]}]];
   for(const [n,a] of plates){const A=deriveArmor(a);say(`  plastron ${n} : ${fmt(A.mass*1000,0)} g, vitesse ×${fmt(A.move,2)}`);}
   say('  munition (1,8 mm Mle 1, même charge) — à 20 m : ce qui arrête · ce qu’elle laisse dans un gel de 16 cm');
   for(const cons of Object.keys(CONSTRUCTIONS)){if(CONSTRUCTIONS[cons].minD)continue;const D=derive({...base,cons});const v=D.at(20).v;const g=gel(D,v,rng(3));
@@ -187,31 +187,31 @@ if(on(14)){say('\n=== banc 14 : toutes les munitions contre toutes les protectio
   for(const dist of [.5,1.25,2.5,5]){let hits=0,shots=0,down=0;for(let rep=0;rep<40;rep++){const u=W.addUnit('meumeu','soldat',at[0]+.5,at[1]+1.5,{w:'fap',rounds:50});const e=W.addUnit('beee','soldat',at[0]+.5+dist,at[1]+1.5,{armor:null});
       W.face(u,1,0);W.face(e,-1,0);const Wd=W.W('fap');const share={};let hit=0;for(let k=0;k<Wd.pel;k++){const r=W.resolve(u,e,Wd,dist*4,0,share);if(r.hit&&!r.stopped){hit++;applyWound(e.h,r.rec,R0,'balle');}}shots++;hits+=hit;if(e.h.state==='hors'||e.h.state==='mort')down++;W.s.units=[];}
     say(`  chevrotine (4 mm, 9 plombs) à ${dist*4} m : ${fmt(hits/shots,1)} plombs touchent · hors de combat ou mort du premier coup : ${Math.round(down/shots*100)} %`);}}
-if(on(15)){say('\n=== banc 15 : la chaîne complète — filons, mines, briqueterie, dépôts, fret à la demande, trains, priorités ===');
+if(on(15)){say('\n=== banc 15 : la chaîne complète — filons, mines, atelier, dépôts, fret à la demande, trains, priorités ===');
   const W=new World(3);const cap=W.capital();const [ci,cj]=W.bc(cap);
   const ore=res=>W.s.nodes.filter(n=>n.type==='ore'&&n.res===res).sort((a,b)=>Math.hypot(a.i-ci,a.j-cj)-Math.hypot(b.i-ci,b.j-cj))[0];
-  const coal=ore('charbon'),clay=ore('argile');say(`  charbon à ${Math.round(Math.hypot(coal.i-ci,coal.j-cj))} cases, argile à ${Math.round(Math.hypot(clay.i-ci,clay.j-cj))} cases de la capitale`);
+  const coal=ore('charbon'),clay=ore('fer');say(`  charbon à ${Math.round(Math.hypot(coal.i-ci,coal.j-cj))} cases, fer à ${Math.round(Math.hypot(clay.i-ci,clay.j-cj))} cases de la capitale`);
   // à chaque filon : un camp (dépôt gratuit) posé par des villageois, puis une mine rattachée à ce camp
   const vil=W.s.units.filter(u=>u.f==='meumeu');const campAt=nd=>{for(let r=5;r<11;r++)for(let a=0;a<24;a++){const i=Math.round(nd.i+Math.cos(a/24*6.283)*r),j=Math.round(nd.j+Math.sin(a/24*6.283)*r);if(W.canPlace('meumeu','camp',i,j).ok)return [i,j];}return null;};
   const c1=W.place('meumeu','camp',...campAt(coal)).b,c2=W.place('meumeu','camp',...campAt(clay)).b;W.order(vil.slice(0,2).map(u=>u.id),{type:'building',id:c1.id});W.order(vil.slice(2,4).map(u=>u.id),{type:'building',id:c2.id});run(W,8);
   say(`  camps : ${c1.done?'bâti':'chantier '+Math.round(c1.progress*100)+' %'}, ${c2.done?'bâti':'chantier '+Math.round(c2.progress*100)+' %'}`);
-  const m1=W.place('meumeu','mine',coal.i,coal.j),m2=W.place('meumeu','mine',clay.i,clay.j);say(`  mines posées : ${m1.ok?'charbon':m1.why[0]}, ${m2.ok?'argile':m2.why[0]} · approvisionnées par ${W.depotName(W.building(m1.b?.site))}`);
+  const m1=W.place('meumeu','mine',coal.i,coal.j),m2=W.place('meumeu','mine',clay.i,clay.j);say(`  mines posées : ${m1.ok?'charbon':m1.why[0]}, ${m2.ok?'fer':m2.why[0]} · approvisionnées par ${W.depotName(W.building(m1.b?.site))}`);
   W.order(vil.slice(0,2).map(u=>u.id),{type:'building',id:m1.b.id});W.order(vil.slice(2,4).map(u=>u.id),{type:'building',id:m2.b.id});
   // des porteurs : au centre-ville et à chaque camp
   for(let n=0;n<3;n++)W.train(cap,'villageois');run(W,13);W.addPorters(cap,1);W.addPorters(c1,1);W.addPorters(c2,1);run(W,13);
   say(`  mines : ${m1.b.done?'bâtie':'chantier '+Math.round(m1.b.progress*100)+' % '+(m1.b.why||'')}, ${m2.b.done?'bâtie':'chantier '+Math.round(m2.b.progress*100)+' % '+(m2.b.why||'')} · livrent à : ${W.depotName(W.building(m1.b.out))}, ${W.depotName(W.building(m2.b.out))}`);
   for(const [m,us] of [[m1.b,vil.slice(0,2)],[m2.b,vil.slice(2,4)]])W.order(us.map(u=>u.id),{type:'building',id:m.id});
-  // une briqueterie près de la capitale, approvisionnée par la capitale : elle commande argile et charbon
+  // un atelier près de la capitale, approvisionné par la capitale : il commande fer, bois et charbon, fait des pièces
   cap.stock.pierre=(cap.stock.pierre||0)+100;   // la pierre vient d'une mine de pierre, pas encore posée ici
-  const at=free(W,'briqueterie',cap.i+2,cap.j+2,6,14);const br=W.place('meumeu','briqueterie',...at).b;W.order(vil.slice(4,7).map(u=>u.id),{type:'building',id:br.id});run(W,10);
-  W.order(vil.slice(4,7).map(u=>u.id),{type:'building',id:br.id});const b0=cap.stock.briques||0;run(W,36);
+  const at=free(W,'atelier',cap.i+2,cap.j+2,6,14);const br=W.place('meumeu','atelier',...at).b;W.order(vil.slice(4,7).map(u=>u.id),{type:'building',id:br.id});run(W,10);
+  W.order(vil.slice(4,7).map(u=>u.id),{type:'building',id:br.id});cap.stock.pieces=0;const b0=0;run(W,36);
   const carts=W.s.vehicles.filter(v=>v.k==='porteur');
-  say(`  36 h : briqueterie ${br.done?(br.why||'au travail'):'chantier '+Math.round(br.progress*100)+' % '+(br.why||'')+' · bâtisseurs '+W.s.units.filter(u=>u.task?.b===br.id).length} · commande de la briqueterie : ${JSON.stringify(Object.fromEntries(Object.entries(W.factoryNeed(br)||{}).map(([k,v])=>[k,+v.toFixed(1)])))} · briques à la capitale ${fmt(b0)} → ${fmt(cap.stock.briques||0)} · argile à la capitale ${fmt(cap.stock.argile||0,1)} · charbon ${fmt(cap.stock.charbon||0,1)} · porteurs : ${carts.map(v=>`${W.depotName(W.building(v.base))} ${v.trips||0}${v.why?' ('+v.why+')':''}`).join(', ')}`);
+  say(`  36 h : atelier ${br.done?(br.why||'au travail'):'chantier '+Math.round(br.progress*100)+' % '+(br.why||'')+' · bâtisseurs '+W.s.units.filter(u=>u.task?.b===br.id).length} · commande de l’atelier : ${JSON.stringify(Object.fromEntries(Object.entries(W.factoryNeed(br)||{}).map(([k,v])=>[k,+v.toFixed(1)])))} · pièces à la capitale ${fmt(b0)} → ${fmt(cap.stock.pieces||0)} · fer à la capitale ${fmt(cap.stock.fer||0,1)} · charbon ${fmt(cap.stock.charbon||0,1)} · porteurs : ${carts.map(v=>`${W.depotName(W.building(v.base))} ${v.trips||0}${v.why?' ('+v.why+')':''}`).join(', ')}`);
   // les priorités : un dépôt en urgence (5) passe avant les autres et peut prendre ce que la capitale garde pour elle
   const e=put(W,'meumeu','entrepot',...free(W,'entrepot',cap.i+2,cap.j+2,8,14));e.stock={};W.setWant(e,'pieces',20);W.setPrio(e,5);run(W,8);
   say(`  un entrepôt en urgence qui demande 20 pièces : ${fmt(e.stock.pieces||0,1)} arrivées en 8 h`);
   // les trains : deux gares sur une voie, un arsenal qui s'approvisionne au bout de la ligne ; un train à la demande
-  const W2=new World(3);const g=W2.capital();Object.assign(g.stock,{bois:3000,pierre:2000,pieces:500,charbon:200,briques:200});
+  const W2=new World(3);const g=W2.capital();Object.assign(g.stock,{bois:3000,pierre:2000,pieces:500,charbon:200,fer:200});
   let row=null;for(let dj=-6;dj<=8&&row==null;dj++){const j=g.j+dj;let ok=true;for(let i=g.i+6;i<g.i+44;i++){const k=j*MAP_N+i;if(!(W2.G.terrain[k]>=T.sand&&W2.G.terrain[k]<=T.scrub)||W2.occ[k]>=0){ok=false;break;}}if(ok)row=j;}
   if(row==null){say('  pas de rangée libre pour la voie de test');}else{
     const cells=W2.lineCells(g.i+6,row,g.i+43,row);W2.planLine('meumeu','rail',cells);for(const k of Object.keys(W2.s.rails))W2.lineBuilt('rail',+k);
