@@ -36,7 +36,7 @@ export class World{
     const [ci,cj]=G.capital;const cap=this.addBuilding('meumeu','centre',ci-2,cj-2,true);cap.capital=true;cap.goal=true;cap.city=CITY_NAMES[0];s.cityN=1;Object.assign(cap.stock,START.stock);
     for(let n=0;n<START.villagers;n++){const a=n/START.villagers*Math.PI*2;this.addUnit('meumeu','villageois',ci+Math.cos(a)*3.2,cj+Math.sin(a)*3.2);}
     G.beee.forEach(([bi,bj],n)=>this.makeBeeeCity(bi,bj,BEEE_CITIES[n]));
-    this.log(CITY_NAMES[0],'La capitale est fondée. Le rare est loin : il faudra des routes, des rails, des avions. Les Bèè tiennent l’autre bout du continent — pour l’instant, ils nous observent.');}
+    this.log(CITY_NAMES[0],'La capitale est fondée. Le rare est loin : il faudra des rails. Les Bèè tiennent l’autre bout du continent — pour l’instant, ils nous observent.');}
   grids(){const N=this.N,M=N*N;this.occ=new Int32Array(M).fill(-1);this.rail=new Uint8Array(M);this.wall=new Int8Array(M);this.nodeAt=new Int32Array(M).fill(-1);
     for(const nd of this.s.nodes)if(nd.left>0||nd.type==='bush'||nd.type==='ore')this.nodeAt[nd.j*N+nd.i]=nd.id;
     for(const b of this.s.buildings)this.stamp(b,b.id);
@@ -85,7 +85,7 @@ export class World{
     if(k==='villageois'||D.medic||D.arm){const used=new Set(this.s.units.map(x=>x.name));u.name=NAMES.find(n=>!used.has(n))||'Meumeu '+u.id;if(f==='beee')u.name='Bèè '+u.id;}
     this.s.units.push(u);this.uIndex?.set(u.id,u);return u;}
   addBuilding(f,k,i,j,done=false){const B=BUILDINGS[k];const b={id:this.id(),f,k,i,j,done,progress:done?1:0,hp:done?B.hp:B.hp*.1,max:B.hp,queue:[],fire:0,ruin:false};
-    if(B.store){b.stock={};b.no=this.s.buildings.filter(x=>x.f===f&&x.k===k).length+1;b.prio=k==='tente'?4:3;b.want=k==='aerodrome'?{carburant:30}:k==='tente'?{sante:6}:k==='centre'?{vivres:80}:{};}
+    if(B.store){b.stock={};b.no=this.s.buildings.filter(x=>x.f===f&&x.k===k).length+1;b.prio=k==='tente'?4:3;b.want=k==='tente'?{sante:6}:k==='centre'?{vivres:80}:{};}
     // ceux qui forment (caserne, fonderie, hôpital) gardent une réserve à leur dépôt : ce qu'il faut pour les prochains
     if(B.stock0&&f==='meumeu')b.need={...B.stock0};if(B.ward)b.wardList=[];
     // une usine neuve : sa première production (le joueur la change), son plafond, et l'outillage du fusil de base
@@ -234,7 +234,7 @@ export class World{
     const cost={...D.cost};if(UNITS[k]?.arm){const d=this.design(w||'mle1');if(!d||d.status!=='adopte')why.push('une arme adoptée');else cost['a:'+d.id]=1;if(armor){const a=this.s.armors[armor];if(!a||a.status!=='adopte')why.push('une protection adoptée');else cost['p:'+armor]=1;}}
     const p=this.canPay(b.f,b.i+1,b.j+1,cost);if(!p.ok)why.push(`il manque : ${p.miss.join(', ')}`);return {ok:!why.length,why,cost};}
   train(b,k,w=null,armor=null){const r=this.canTrain(b,k,w,armor);if(!r.ok)return r;const D=UNITS[k]||VEHICLES[k];this.pay(b.f,b.i+1,b.j+1,r.cost);b.queue.push({k,left:D.hours,w:w||'mle1',armor:UNITS[k]?.arm?armor:null});return {ok:true,text:`${D.name} en préparation`};}
-  pop(f){const cap=this.s.buildings.filter(b=>b.f===f&&b.done&&BUILDINGS[b.k].pop).reduce((a,b)=>a+BUILDINGS[b.k].pop,0);const used=this.s.units.filter(u=>u.f===f).reduce((a,u)=>a+(UDEF(u).pop||1),0);return {cap,used};}
+  pop(f){const cap=this.s.buildings.filter(b=>b.f===f&&b.done&&BUILDINGS[b.k].pop).reduce((a,b)=>a+BUILDINGS[b.k].pop,0);const used=this.s.units.filter(u=>u.f===f).reduce((a,u)=>a+(UDEF(u).pop||1),0)+this.s.vehicles.filter(v=>v.f===f&&v.k==='porteur').length;return {cap,used};}
 
   // ---------- les véhicules ----------
   setRoute(vid,a,b){const v=this.s.vehicles.find(x=>x.id===vid);const A=this.building(a),B=this.building(b);if(!v||!A||!B||a===b)return {ok:false,why:['deux arrêts différents']};
@@ -243,7 +243,16 @@ export class World{
   goodsOf(sets,at){const map={rare:RARE,materiaux:['bois','pierre','argile','briques','charbon'],vivres:['vivres'],industrie:['pieces','carburant'],guerre:['explosifs','sante',...Object.keys(at?.stock||{}).filter(k=>k.startsWith('m:')||k.startsWith('a:'))]};return sets.flatMap(s=>map[s]||[]);}
   // Charger : dans l'ordre des familles choisies, mais sans qu'un seul bien prenne tout — au plus 40 % de la place au premier tour,
   // puis ce qui reste. Un convoi part mêlé : des munitions, des vivres, des pièces, du bois.
-  capOf(v){return VEHICLES[v.k].cap*(v.k==='charrette'?this.mod('cap_charrette'):v.k==='train'?this.mod('cap_train'):1);}
+  capOf(v){return VEHICLES[v.k].cap*(v.k==='porteur'?this.mod('cap_porteur'):v.k==='train'?this.mod('cap_train'):1);}
+  // Les porteurs : des villageois oisifs affectés à un dépôt ; à pied, ils servent les dépôts voisins. Rendus, ils redeviennent
+  // villageois là où ils sont (ce qu'ils portent est posé au dépôt le plus proche).
+  porters(D){return this.s.vehicles.filter(v=>v.k==='porteur'&&v.base===D.id);}
+  addPorters(D,n=2){if(!D||!BUILDINGS[D.k].store||!D.done)return {ok:false,why:['pas un dépôt achevé']};const [x,y]=this.bc(D);
+    const us=this.idle(D.f).filter(u=>d2(u.x,u.y,x,y)<60).sort((a,z)=>d2(a.x,a.y,x,y)-d2(z.x,z.y,x,y)).slice(0,n);if(!us.length)return {ok:false,why:['aucun villageois sans rien à faire']};
+    for(const u of us){this.s.units.splice(this.s.units.indexOf(u),1);this.uIndex.delete(u.id);const v=this.addVehicle(D.f,'porteur',D);Object.assign(v,{x:u.x,y:u.y,at:null,name:u.name||v.name,u,range:VEHICLES.porteur.range});}
+    return {ok:true,n:us.length};}
+  releasePorter(v){if(v?.k!=='porteur')return;const D=this.depots(v.f,v.x,v.y)[0];if(D&&Object.keys(v.cargo).length)this.unloadCargo(v,D);const u=v.u;
+    if(u){u.x=v.x;u.y=v.y;u.task=null;u.path=null;u.carry=null;this.s.units.push(u);this.uIndex.set(u.id,u);}this.s.vehicles.splice(this.s.vehicles.indexOf(v),1);}
   loadCargo(v,at,to){const V={cap:this.capOf(v)};const goods=this.goodsOf(at.id===v.route.a?v.route.out:v.route.back,at);
     for(const share of [.4,1]){let room=V.cap-this.cargoW(v);for(const k of goods){if(room<=.01)break;const w=weightOf(k,this.s.designs,this.s.armors);const lim=Math.max(0,V.cap*share-(v.cargo[k]||0)*w);
       const q=Math.min(Math.min(room,lim)/w,at.stock[k]||0);const qq=k.startsWith('a:')?Math.floor(q):Math.floor(q*100)/100;if(qq>0){at.stock[k]-=qq;v.cargo[k]=(v.cargo[k]||0)+qq;room-=qq*w;}}}}
@@ -277,7 +286,7 @@ export class World{
     if(!v.path||v.dest!==to.id){const [w,h]=BUILDINGS[to.k].size;const N=this.N;const goal=k=>{const i=k%N,j=(k/N)|0;return i>=to.i-1&&i<=to.i+w&&j>=to.j-1&&j<=to.j+h;};
       if(goal(Math.floor(v.y)*N+Math.floor(v.x))){v.at=to.id;v.path=null;return true;}
       const r=this.pather.find(Math.floor(v.x),Math.floor(v.y),to.i+1,to.j+1,this.costFn(v.f),goal,40000);if(!r.done){v.why='pas de chemin par la terre';return 'blocked';}v.path=r.path.map(([i,j])=>[i,j]);v.pi=0;v.dest=to.id;v.why=null;v.at=null;}
-    if(this.slide(v,v.path,V.speed*dt*(v.k==='charrette'&&this.cargoW(v)>this.capOf(v)*.6?.85:1))){v.path=null;v.at=to.id;return true;}return false;}
+    if(this.slide(v,v.path,V.speed*dt*(v.k==='porteur'?this.mod('vit_marche')*(this.cargoW(v)>this.capOf(v)*.6?.8:1):1))){v.path=null;v.at=to.id;return true;}return false;}
   slide(v,path,left){while(left>0){if(v.pi>=path.length)return true;const [i,j]=path[v.pi];const tx=i+.5,ty=j+.5;const dx=tx-v.x,dy=ty-v.y,d=Math.hypot(dx,dy);if(d>1e-6){v.dx=dx/d;v.dy=dy/d;}
       if(d<=left){v.x=tx;v.y=ty;left-=d;v.pi++;if(v.trail){v.trail.unshift([v.x,v.y]);if(v.trail.length>12)v.trail.pop();}}else{v.x+=dx/d*left;v.y+=dy/d*left;left=0;}}return v.pi>=path.length;}
   arrive(v,to){this.unloadCargo(v,to);this.practice('logistique',1);v.leg=1-v.leg;const dest=v.leg===0?this.building(v.route.b):this.building(v.route.a);this.loadCargo(v,to,dest);v.state='wait';v.wait=v.k==='train'?1.2:.6;v.path=null;
@@ -545,7 +554,7 @@ export class World{
   hubTick(u,b,dt){const want=b.res||'auto';const TYPE={bois:'tree',pierre:'rock',vivres:'bush'};let types=want==='auto'?['tree','rock','bush']:[TYPE[want]];
     if(want==='auto')types.sort((x,y)=>(b.stock[NODES[x].res]||0)-(b.stock[NODES[y].res]||0));
     let nd=u.hubNode!=null?this.s.nodes[u.hubNode]:null;const ok=n=>n&&n.left>=1&&types.includes(n.type)&&this.distB(b,n.i+.5,n.j+.5)<10;
-    if(u.carry&&(u.carry.n>=CARRY-1e-6||!ok(nd))){if(this.room(b)<1){u.why='le camp est plein : il faut des charrettes';u.anim='idle';u.at=false;return;}this.deliverTo(u,b);u.at=false;return;}
+    if(u.carry&&(u.carry.n>=CARRY-1e-6||!ok(nd))){if(this.room(b)<1){u.why='le camp est plein : il lui faut des porteurs';u.anim='idle';u.at=false;return;}this.deliverTo(u,b);u.at=false;return;}
     if(!ok(nd)){nd=null;for(const t of types){const c=this.s.nodes.filter(n=>n.type===t&&n.left>=1&&this.distB(b,n.i+.5,n.j+.5)<10).sort((a,z)=>d2(a.i,a.j,u.x,u.y)-d2(z.i,z.j,u.x,u.y))[0];if(c){nd=c;break;}}
       u.hubNode=nd?nd.id:null;u.path=null;if(!nd){u.why='plus rien à ramasser autour du camp';u.anim='idle';u.at=false;return;}}
     u.why=null;if(!this.go(u,nd.i+.5,nd.j+.5,[nd.i,nd.j,1,1])){u.at=false;return;}u.at=true;u.anim='action';this.face(u,nd.i+.5-u.x,nd.j+.5-u.y);const res=NODES[nd.type].res;
@@ -708,7 +717,7 @@ export class World{
 
   // ---------- les Bèè ----------
   makeBeeeCity(ci,cj,name){const c={id:this.id(),name,x:ci,y:cj,fallen:false};const centre=this.addBuilding('beee','centre',ci-2,cj-2,true);centre.city=name;c.centre=centre.id;this.s.beee.cities.push(c);
-    for(const k of ['caserne','maison','maison','tour','tour','camp','maison','dca'])this.beeeBuild(c,k,true);
+    for(const k of ['caserne','maison','maison','tour','tour','camp','maison'])this.beeeBuild(c,k,true);
     const cap=this.G.capital;const a0=Math.atan2(cap[1]-cj,cap[0]-ci);const cells=[];for(let t=-7;t<=7;t++){const a=a0+t*.11;cells.push([Math.round(ci+Math.cos(a)*9),Math.round(cj+Math.sin(a)*9)]);}
     const ks=this.canLine('beee','mur',cells);for(const k of ks){this.s.walls[k]={f:'beee',b:1,p:1,hp:LINES.mur.hp};this.wall[k]=-2;}
     for(let n=0;n<BEEE.garrison;n++){const a=n/BEEE.garrison*Math.PI*2;const u=this.addUnit('beee',n%4===3?'commando':'soldat',ci+Math.cos(a)*5,cj+Math.sin(a)*5);u.task={kind:'guard',tx:u.x,ty:u.y};u.city=c.id;}
@@ -732,12 +741,12 @@ export class World{
       for(const b of this.s.buildings)if(b.f==='beee'&&b.k==='caserne'&&b.done&&!b.queue.length&&units.length<cap&&d2(b.i,b.j,c.x,c.y)<20){const k=day>=8&&this.rand()<.35?'commando':'soldat';b.queue.push({k,left:5});}
       for(const b of this.s.buildings)if(b.f==='beee'&&b.k==='fonderie'&&b.done&&!b.queue.length&&units.filter(u=>u.k==='canon').length<2+Math.floor(day/6))b.queue.push({k:'canon',left:14});
       c.grow=(c.grow||0)+dt;if(c.grow>=BEEE.buildEvery){c.grow=0;const has=k=>this.s.buildings.some(b=>b.f==='beee'&&b.k===k&&d2(b.i,b.j,c.x,c.y)<20);
-        const k=day>=B.warDay+BEEE.air-3&&!has('aerodrome')?'aerodrome':day>=5&&!has('fonderie')?'fonderie':['maison','tour','caserne','dca','tour','camp'][Math.floor(this.rand()*6)];const b=this.beeeBuild(c,k);if(b)this.log(c.name,`Les Bèè bâtissent : ${BUILDINGS[k].name.toLowerCase()}.`,'bad');}
+        const k=day>=5&&!has('fonderie')?'fonderie':['maison','tour','caserne','tour','camp'][Math.floor(this.rand()*5)];const b=this.beeeBuild(c,k);if(b)this.log(c.name,`Les Bèè bâtissent : ${BUILDINGS[k].name.toLowerCase()}.`,'bad');}
       for(const u of this.s.units)if(u.f==='beee'&&u.city==null&&u.task?.kind!=='assault'&&d2(u.x,u.y,c.x,c.y)<12)u.city=c.id;}
     if(!this.atWar)return;
     if(this.s.t>=B.nextWave){B.nextWave=this.s.t+BEEE.every*DAY*(.8+this.rand()*.4)/(1+B.anger*.15);B.waves++;
       const ours=this.s.buildings.filter(b=>b.f==='meumeu'&&!b.ruin);if(ours.length){const from=cities[Math.floor(this.rand()*cities.length)];
-        const w={gare:4,mine:4,aerodrome:3,camp:2.5,atelier:2,arsenal:2.5,manufacture:3,ferme:1.5,centre:B.waves>3?3:.5,maison:1,caserne:2,tour:1,dca:1.5,fonderie:2,hopital:1.5};
+        const w={gare:4,mine:4,camp:2.5,atelier:2,arsenal:2.5,manufacture:3,ferme:1.5,centre:B.waves>3?3:.5,maison:1,caserne:2,tour:1,fonderie:2,hopital:1.5};
         const target=ours.map(b=>({b,s:(w[b.k]||1)/(1+d2(b.i,b.j,from.x,from.y)/40)*(.6+this.rand()*.8)})).sort((a,z)=>z.s-a.s)[0].b;
         const size=Math.min(30,BEEE.wave+BEEE.grow*(B.waves-1)+Math.floor(B.anger));
         let pool=this.s.units.filter(u=>u.f==='beee'&&u.city===from.id&&u.task?.kind==='guard'&&active(u)).slice(0,Math.max(0,size-2));
@@ -745,7 +754,8 @@ export class World{
         const [tw,th]=BUILDINGS[target.k].size;for(const [n,u] of pool.entries()){u.city=null;u.task={kind:'assault',tx:target.i+tw/2+(n%4-1.5)*.7,ty:target.j+th+.5+((n/4)|0)*.6};u.path=null;}
         this.log(this.cityName(target),`Une armée bèè de ${pool.length} marche de ${from.name} vers ${this.cityName(target)} (${BUILDINGS[target.k].name.toLowerCase()}).`,'bad');
         this.emit({type:'wave',n:pool.length,x:target.i,y:target.j,from:[from.x,from.y]});}}
-    if(this.s.t>=B.nextAir){B.nextAir=this.s.t+BEEE.airEvery*DAY*(.7+this.rand()*.6);const af=this.s.buildings.find(b=>b.f==='beee'&&b.k==='aerodrome'&&b.done);
+    if(false&&this.s.t>=B.nextAir){   // plus d'aviation dans le jeu : ni raids ni bombardiers
+B.nextAir=this.s.t+BEEE.airEvery*DAY*(.7+this.rand()*.6);const af=this.s.buildings.find(b=>b.f==='beee'&&b.k==='aerodrome'&&b.done);
       const tg=this.s.buildings.filter(b=>b.f==='meumeu'&&b.done&&['gare','centre','aerodrome','arsenal','manufacture','mine','atelier','caserne','hopital'].includes(b.k));
       if(af&&tg.length){const t=tg[Math.floor(this.rand()*tg.length)];const [w,h]=BUILDINGS[t.k].size;const v={id:this.id(),f:'beee',k:'bombardier',name:'Bombardier bèè',x:af.i+1,y:af.j+1,home:af.id,hp:VEHICLES.bombardier.hp*.8,max:VEHICLES.bombardier.hp*.8,alt:0,cargo:{},state:'idle',pass:[]};
         this.s.vehicles.push(v);this.sortie(v,t.i+w/2,t.j+h/2);

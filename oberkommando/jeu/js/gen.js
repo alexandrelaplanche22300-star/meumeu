@@ -69,7 +69,7 @@ export function generate(seed){const N=MAP_N;const r=rng(seed*9973+17);for(let k
       if(deposits.some(d=>Math.hypot(d.i-i,d.j-j)<gap))continue;let free=0;for(let b=-1;b<=2;b++)for(let a=-1;a<=2;a++){const kk=(j+b)*N+i+a;if(land(kk)&&nodeAt[kk]<0)free++;}if(free<14)continue;
       const nd=add('ore',i,j,{res});deposits.push(nd);return nd;}return null;};
   // une de chaque près de la capitale (la pierre, le charbon et l'argile d'abord), d'autres plus loin, et chez les Bèè
-  for(const res of COMMON_ORES)common(res,(i,j)=>dC(i,j)>9&&dC(i,j)<(res==='pierre'?18:24),7);
+  for(const res of COMMON_ORES)common(res,(i,j)=>dC(i,j)>9&&dC(i,j)<(res==='pierre'?16:20),7);
   for(const res of COMMON_ORES)for(let n=0;n<(res==='charbon'||res==='pierre'?3:2);n++)common(res,(i,j)=>dC(i,j)>26&&dC(i,j)<80);
   for(let n=0;n<3;n++)common('charbon',(i,j)=>Math.abs(dC(i,j)-dB(i,j))<40&&dC(i,j)>60);
   for(const _ of beee)for(const res of COMMON_ORES)common(res,(i,j)=>dB(i,j)>9&&dB(i,j)<32);

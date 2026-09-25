@@ -304,6 +304,10 @@ export class View{
   // Un train : la locomotive devant, quatre wagons derrière, le long de la voie parcourue.
   drawVehicle(v){const ctx=this.ctx,z=this.z(),W=this.world;const sel=this.selV===v.id;
     if(v.k==='train'){this.drawTrain(v,sel);return;}
+    // un porteur : le Meumeu lui-même, à pied, ce qu'il porte sur le dos
+    if(v.k==='porteur'&&v.u){const u=v.u;const k0=Object.keys(v.cargo).find(k=>v.cargo[k]>=.05);Object.assign(u,{x:v.x,y:v.y,dx:v.dx,dy:v.dy,anim:v.path?'walk':'idle',carry:k0?{k:k0,n:v.cargo[k0]}:null});
+      if(sel){const q=this.toScreen(v.x,v.y),z=this.z();this.ctx.strokeStyle='#ffd36a';this.ctx.lineWidth=2;this.ctx.beginPath();this.ctx.ellipse(q.x,q.y,14*z,7*z,0,0,7);this.ctx.stroke();}
+      this.drawUnit(u);return;}
     const q=this.toScreen(v.x,v.y);const air=v.alt>0;const g=this.toScreen(v.x,v.y,air?v.alt:0);
     if(air){ctx.fillStyle='rgba(0,0,0,.22)';ctx.beginPath();ctx.ellipse(q.x,q.y,26*z,8*z,0,0,7);ctx.fill();}
     const V=VEHICLES[v.k];const im=vehicle(v.f==='beee'?'beee_prop-plane':air?(V.sprite||'prop-plane_flying'):v.k==='charrette'?'hand-cart':'prop-plane_grounded');const w=(v.k==='charrette'?TW*.9:TW*2.2)*z;
