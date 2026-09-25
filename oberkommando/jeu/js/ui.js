@@ -547,7 +547,7 @@ function where(x,y){const q=view.toScreen(x,y);const w=view.canvas.width,h=view.
 function alertBox(text,x,y,tone='bad'){const box=$('#alert');box.innerHTML=`${text}${x!=null?` <button class="small" data-gotoxy="${x},${y}">Voir</button>`:''}`;box.className='alert '+tone;box.hidden=false;clearTimeout(ui.alertT);ui.alertT=setTimeout(()=>box.hidden=true,9000);}
 function woundCard(e){if(xray.mode==='off')return;const mine=xray.mode==='sel'?(view.sel.has(e.victim)||(e.shooter!=null&&view.sel.has(e.shooter))):!where(e.x,e.y).far;if(!mine)return;
   const vD=e.vf==='beee'?BEEE.units[e.vk]:UNITS[e.vk];const victim=e.vf==='beee'?(vD?.name||'Bèè'):(e.name||vD?.name||'Meumeu');const shooter=e.frag?`${{grenade:'Grenade',obus:'Obus',bombe:'Bombe'}[e.frag]}${e.sname?' de '+e.sname:''}`:(e.sname||(e.vf==='meumeu'?'Un Bèè':'Un Meumeu'));
-  const received=e.vf==='meumeu';const d=e.w?world.design(e.w):null;
+  const received=e.vf==='meumeu';const d=e.w?world.design(e.w):null;if(d)e.cons=d.p.cons;
   xray.add(e,{side:received?'L':'R',title:`${received?'Reçu · ':'Envoyé · '}${shooter} → ${victim}`,sub:`${e.frag?`éclat de ${fmt(e.rec.E0*1000/Math.max(1,e.v*e.v)*2,2)} g`:(d?.name||'')} · ${fmt(e.R,e.R<10?1:0)} m · ${Math.round(e.v)} m/s à l’impact${e.cover?` · à travers : ${e.cover}`:''}`});}
 function events(){for(const e of world.events.splice(0)){view.onEvent(e);const P=e.x!=null?where(e.x,e.y):null;
   switch(e.type){

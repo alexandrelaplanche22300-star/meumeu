@@ -15,7 +15,7 @@ import {has3d,render3d,updateSceneFx,disposeSceneFx,Fiche3D} from './gl3d.js';
 import {MATS} from './armor.js';
 const MATN=Object.fromEntries(Object.entries(MATS).map(([k,M])=>[k,M.name]));
 
-const MAX=6,ZOOM=.8,PLAY=2.6,GAP=.5,READ=3.6,MERGE=2500,FOV=.55;
+const MAX=12,ZOOM=.8,PLAY=2.6,GAP=.5,READ=3.6,MERGE=2500,FOV=.55,CARD_H=274;
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const SEVC=['#9aa','#8fb996','#e8bf62','#ee9a3a','#e0663f','#d23a2e','#b0122a'];
 const MARK=['#ffd36a','#7fd3f0','#ff8a6a','#b6f07f'];
@@ -180,28 +180,38 @@ export class XRay{
   setMode(m){this.mode=m;try{localStorage.setItem('okm-xray',m);}catch(e){}if(m==='off')for(const c of [...this.cards])this.remove(c);}
   // une blessure arrive : sur le même Meumeu, dans les deux secondes, elle rejoint la même fenêtre (une rafale) ; sinon, une nouvelle fenêtre
   add(e,{title,sub,side='R'}){if(this.mode==='off'||!e.rec?.path?.length)return;const now=performance.now();if(!this.hostL)side='R';
-    const same=this.cards.find(c=>c.victim===e.victim&&now-c.born<MERGE&&c.sc.events.length<4&&!e.rec.stopped&&!c.sc.events[0].rec.stopped);
-    if(same){disposeSceneFx(same.sc);same.sc=buildScene([...same.sc.events,e]);same.el.querySelector('footer').innerHTML=this.footer(same.sc.events);same.el.querySelector('header b').textContent=`${same.title} · ${same.sc.events.length} balles`;return;}
-    const c={victim:e.victim,born:now,t:0,title,side,sc:buildScene([e])};const el=document.createElement('div');el.className='xcard';
+    const same=this.cards.find(c=>c.victim===e.victim&&(c.shooter??null)===(e.shooter??null)&&now-c.last<MERGE&&c.sc.events.length<8&&!e.rec.stopped&&!c.sc.events[0].rec.stopped);if(same)same.last=now;
+    if(same){disposeSceneFx(same.sc);same.sc=buildScene([...same.sc.events,e]);same.el.querySelector('footer').innerHTML=this.footer(same.sc.events);same.el.querySelector('header b').textContent=`${same.title} · rafale de ${same.sc.events.length}`;return;}
+    const c={victim:e.victim,shooter:e.shooter??null,born:now,last:now,t:0,title,side,sc:buildScene([e])};const el=document.createElement('div');el.className='xcard';
     el.innerHTML=`<header><b>${esc(title)}</b><span class="xn"></span><button data-x="fiche" title="La fiche médicale de la victime, en 3D">✚</button><button data-x="room" title="La salle de radiologie : tourner, zoomer, image par image">⤢</button><button data-x="replay" title="Rejouer">↻</button><button data-x="go" title="Voir sur la carte">◎</button><button data-x="close" title="Fermer (la suivante joue)">✕</button></header>
-      <canvas width="720" height="432" title="Cliquez pour ouvrir la salle de radiologie"></canvas><footer>${this.footer([e])}</footer><small class="xsub">${esc(sub)}</small>`;
+      <canvas width="640" height="360" title="Cliquez pour ouvrir la salle de radiologie"></canvas><footer>${this.footer([e])}</footer><small class="xsub">${esc(sub)}</small>`;
     c.el=el;c.cv=el.querySelector('canvas');c.ctx=c.cv.getContext('2d');
     const mine=this.side(side);if(mine.length>=MAX){const last=mine[mine.length-1];if(last!==mine[0])this.remove(last);}
     this.cards.push(c);(side==='L'?this.hostL:this.host).appendChild(el);this.layout();}
-  front(c){const i=this.cards.indexOf(c);const S=this.side(c.side);if(S[0]!==c){this.cards.splice(i,1);this.cards.unshift(c);c.t=0;this.layout();}}
-  remove(c){const i=this.cards.indexOf(c);if(i<0)return;const wasFront=this.side(c.side)[0]===c;this.cards.splice(i,1);c.el.remove();if(this.room?.sc!==c.sc)disposeSceneFx(c.sc);const nf=this.side(c.side)[0];if(wasFront&&nf)nf.t=0;this.layout();}
-  layout(){for(const s of ['L','R'])this.side(s).forEach((c,i,S)=>{c.el.style.zIndex=String(100-i);c.el.style.transform=`translateY(${i*14}px) scale(${1-i*.035})`;c.el.style.opacity=i>3?'0':'1';c.el.classList.toggle('front',i===0);
-    c.el.querySelector('.xn').textContent=i===0&&S.length>1?`+${S.length-1}`:'';});}
+  fits(s){const h=(s==='L'?this.hostL:this.host)?.parentElement?.clientHeight||900;return Math.max(1,Math.floor((h-60)/(CARD_H+8)));}
+  front(c){c.t=0;}
+  remove(c){const i=this.cards.indexOf(c);if(i<0)return;this.cards.splice(i,1);c.el.remove();if(this.room?.sc!==c.sc)disposeSceneFx(c.sc);this.layout();}
+  layout(){for(const s of ['L','R']){const K=this.fits(s);this.side(s).forEach((c,i,S)=>{const on=i<K;c.el.style.zIndex=String(100-i);c.el.style.transform=`translateY(${Math.min(i,K-1)*(CARD_H+8)}px)`;c.el.style.opacity=on?'1':'0';c.el.style.pointerEvents=on?'':'none';c.el.classList.toggle('front',on);
+    c.el.querySelector('.xn').textContent=i===K-1&&S.length>K?`+${S.length-K} en attente`:'';});}}
   footer(evs){const e=evs[evs.length-1];if(e.rec?.stopped)return `<b class="hurt">Arrêtée</b> par ${esc(e.armorName||'la protection')} (${esc({casque:'casque',plastron:'plastron',dos:'dos',flancs:'flancs'}[e.zone]||e.zone||'')}) — le choc passe : ${fmt(e.blunt||0,1)} J<br>${esc(MATN[e.mat]||e.mat||'')}`;const o=e.out;if(!o)return '';const tone=o.now==='mort'?'dead':o.now==='hors'?'down':'hurt';
     const now=o.now==='mort'?`<b class="${tone}">Tué</b> — ${esc(e.cause||'')}`:o.now==='hors'?`<b class="${tone}">Hors de combat</b> — ${esc(e.cause||'')}`:`<b class="${tone}">Blessé</b>, il tient encore`;
     const all=new Map();for(const x of evs)for(const p of x.out?.parts||[])if(!all.has(p.name)||all.get(p.name).sev<p.sev)all.set(p.name,p);
     const parts=[...all.values()].sort((a,b)=>b.sev-a.sev).slice(0,4).map(p=>`<span style="color:${SEVC[p.sev]}">${esc(p.name)}${p.note?' ('+esc(p.note)+')':''}</span>`).join(' · ');
     const bleed=evs.reduce((a,x)=>a+(x.out?.bleed||0),0);return `${now}${bleed>.005?` · saigne ${fmt(bleed,2)} mL/s`:''}<br>${parts||'rien de vital'}`;}
-  step(dt){for(const s of ['L','R']){const c=this.side(s)[0];if(!c)continue;const hold=c.hover||this.room?.isOpen;if(!hold)c.t+=dt;this.draw(c);if(c.t>c.sc.end+READ&&!hold)this.remove(c);}}
+  step(dt){for(const s of ['L','R']){const K=this.fits(s);for(const c of this.side(s).slice(0,K)){const hold=c.hover||this.room?.isOpen;if(!hold)c.t+=dt;this.draw(c);if(c.t>c.sc.end+READ&&!hold)this.remove(c);}}}
   draw(c){const sc=c.sc,t=c.t;const z=ease(t/ZOOM);const W=c.cv.width,H=c.cv.height;
     const F=[lerp(0,sc.F[0],z),lerp(BODY_H*.5,sc.F[1],z),lerp(0,sc.F[2],z)];const ext=lerp(.36,sc.ext,z);const dist=ext/2/Math.tan(FOV/2)*1.05;
     const cam=camera(F,sc.th0-.6*(1-z)+.28*Math.sin(t*.4),.2,dist,W,H);drawScene(c.ctx,W,H,sc,t,cam,{mode:'xray',hud:true});}
 }
+
+// ---------- le tir d'essai du bureau d'études : un Bèè, la munition dessinée, au ralenti, en boucle ----------
+export class ShotView{
+  constructor(cv){this.cv=cv;this.t=0;this.sc=null;this.mode='xray';this.th=0;}
+  set(events){if(this.sc)disposeSceneFx(this.sc);this.sc=events.length?buildScene(events):null;this.t=0;}
+  step(dt){const cv=this.cv,sc=this.sc;if(!sc||!cv.isConnected)return;const dpr=devicePixelRatio||1;const r=cv.getBoundingClientRect();if(!r.width)return;const W=Math.round(r.width*dpr),H=Math.round(r.height*dpr);if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;}
+    this.t+=dt;if(this.t>sc.end+2.2)this.t=0;const t=this.t;const z=ease(t/ZOOM);const F=[lerp(0,sc.F[0],z),lerp(BODY_H*.5,sc.F[1],z),lerp(0,sc.F[2],z)];const ext=lerp(.36,Math.min(.3,Math.max(.22,sc.ext*1.15)),z);const dist=ext/2/Math.tan(FOV/2)*1.05;
+    drawScene(cv.getContext('2d'),W,H,sc,t,camera(F,sc.th0-.6*(1-z)+.35*Math.sin(t*.35),.18,dist,W,H),{mode:this.mode,hud:true});}
+  dispose(){if(this.sc)disposeSceneFx(this.sc);this.sc=null;}}
 
 // ---------- la salle de radiologie ----------
 // Une grande vue : on tourne autour (glisser), on zoome (molette), double-clic pour recadrer ; lecture, pause, vitesse,

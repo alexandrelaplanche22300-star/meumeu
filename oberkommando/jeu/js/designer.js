@@ -4,7 +4,14 @@
 // c'est plus vite, mais la pression use le tube et l'étui grossit l'arme ; l'automatique arrose, et vide les dépôts.
 // Tout se voit en direct : le plateau (l'arme à l'échelle, ses servants), la trajectoire au ralenti, la précision à chaque
 // distance, la perforation, le bloc de gélatine ; et chaque réglage s'explique, avec ses chiffres, dans « Ce que ça change ».
-import {derive,gel,NOSES,BASES,CONSTRUCTIONS,ACTIONS,MODS,MOUNTS,HUMAN,fmt} from './ballistics.js';
+import {derive,gel,wound,NOSES,BASES,CONSTRUCTIONS,ACTIONS,MODS,MOUNTS,HUMAN,fmt} from './ballistics.js';
+import {setSpecies,regionAt,PART} from './body.js';
+import {MATS,deriveArmor,armorHit,plateZone} from './armor.js';
+import {ShotView} from './xray.js';
+// les cibles du tir d'essai : un Bèè nu, ou protégé
+const TARGETS={nue:{name:'Sans protection',a:null},toile:{name:'Gilet de toile',a:{casque:['acier',0],plastron:['toile',5],dos:['toile',5],flancs:['toile',3]}},
+  soie:{name:'Gilet de soie',a:{casque:['acier',.8],plastron:['soie',4],dos:['soie',4],flancs:['soie',3]}},acier:{name:'Plastron d’acier',a:{casque:['acier',1],plastron:['acier',1.2],dos:['acier',0],flancs:['acier',0]}},
+  composite:{name:'Composite',a:{casque:['acier',1],plastron:['composite',2],dos:['composite',2],flancs:['soie',3]}}};
 import {LIMITS,crateCost,weaponCost,protoCost,PROTO_HOURS} from './designs.js';
 import {rng} from './gen.js';
 
@@ -41,20 +48,20 @@ const HELP={
 };
 
 export class Designer{
-  constructor(host,{world,bureau,propose,ico,goodName,toArmor}){this.host=host;this.world=world;this.bureau=bureau;this.propose=propose;this.ico=ico;this.goodName=goodName;this.toArmor=toArmor;this.gelR=20;this.help='cons';this.anim=null;
+  constructor(host,{world,bureau,propose,ico,goodName,toArmor}){this.host=host;this.world=world;this.bureau=bureau;this.propose=propose;this.ico=ico;this.goodName=goodName;this.toArmor=toArmor;this.gelR=20;this.help='cons';this.anim=null;this.target='nue';this.shotKey='';
     host.addEventListener('input',e=>{if(e.target.closest('#designer'))this.read(e.target);});
     host.addEventListener('change',e=>{if(e.target.id==='dz-from'){this.load(e.target.value);}else if(e.target.closest('#designer')&&e.target.type==='range')this.fire();});
     host.addEventListener('pointerover',e=>{const h=e.target.closest('[data-help]');if(h&&h.dataset.help!==this.help){this.help=h.dataset.help;this.renderHelp();}});
     host.addEventListener('focusin',e=>{const h=e.target.closest('[data-help]');if(h){this.help=h.dataset.help;this.renderHelp();}});
     host.addEventListener('click',e=>{const b=e.target.closest('[data-dz]');if(!b)return;const [k,v]=b.dataset.dz.split(':');
-      if(k==='close')this.close();else if(k==='armor'){this.toArmor?.();}else if(k==='gel'){this.gelR=+v;this.render();}else if(k==='fire')this.fire();
+      if(k==='close')this.close();else if(k==='armor'){this.toArmor?.();}else if(k==='gel'){this.gelR=+v;this.render();}else if(k==='tgt'){this.target=v;this.render();}else if(k==='shotmode'){if(this.shot)this.shot.mode=v;this.sync();}else if(k==='fire')this.fire();
       else if(k==='go'){const r=this.propose(this.p,this.name);this.say(r.ok?r.text:r.why.join(' · '),r.ok?'good':'bad');if(r.ok)this.close();}
       else if(k==='mod'){const m=new Set(this.p.mods||[]);if(m.has(v))m.delete(v);else{m.add(v);if(v==='bipied')m.delete('trepied');if(v==='trepied')m.delete('bipied');}this.p.mods=[...m];this.help='mod-'+v;this.sync();this.render();this.fire();}
       else if(['nose','base','action','cons'].includes(k)){this.p[k]=v;this.help=k;this.sync();this.render();this.fire();}});
     addEventListener('resize',()=>{if(this.open)this.render();});}
   get open(){return !this.host.hidden;}
-  show(fromId='mle1'){this.host.hidden=false;this.load(fromId);}
-  close(){this.host.hidden=true;this.anim=null;}
+  show(fromId='mle1'){this.host.hidden=false;this.load(fromId);let last=performance.now();const loop=now=>{if(!this.open)return;const dt=Math.min(.1,(now-last)/1000);last=now;try{this.shot?.step(dt);}catch(e){console.error(e);}requestAnimationFrame(loop);};requestAnimationFrame(loop);}
+  close(){this.host.hidden=true;this.anim=null;this.shot?.dispose();this.shot=null;this.shotKey='';}
   load(id){const d=this.world().design(id)||this.world().design('mle1');this.ref=d;this.p=JSON.parse(JSON.stringify(d.p));this.p.mods??=[];this.p.zero??=50;
     this.name=d.base?`${d.name.replace(/Mle \d+/,'')}Modèle ${Object.keys(this.world().s.designs).length}`.trim():`${d.name} (variante)`;this.build();this.render();this.fire();}
   say(t,tone){const el=this.host.querySelector('.dz-say');if(el){el.textContent=t;el.className='dz-say '+tone;}}
@@ -103,6 +110,8 @@ export class Designer{
           <canvas id="dz-pen" class="dz-cv" style="height:170px"></canvas>
           <h3>Dans le corps <small>bloc de gélatine de 16 cm, comme un Meumeu</small><span class="seg sm">${[5,20,50,100].map(r=>`<button data-dz="gel:${r}" class="${r===this.gelR?'on':''}">${r} m</button>`).join('')}</span></h3>
           <canvas id="dz-gel" class="dz-cv" style="height:210px"></canvas><p class="dz-gelt" id="dz-gelt"></p>
+          <h3>Sur un Bèè, en 3D <small>le tir d’essai au ralenti, à la distance choisie ci-dessus</small><span class="seg sm">${Object.entries(TARGETS).map(([k,T])=>`<button data-dz="tgt:${k}" class="${k===this.target?'on':''}">${T.name}</button>`).join('')}</span></h3>
+          <div class="dz-shotwrap"><canvas id="dz-shot" class="dz-cv dz-shot"></canvas><span class="seg sm dz-shotmode">${[['xray','Radiographie'],['anat','Anatomie'],['peluche','Peluche']].map(([k,n])=>`<button data-dz="shotmode:${k}">${n}</button>`).join('')}</span></div><p class="dz-gelt" id="dz-shott"></p>
         </section>
         <section class="dz-col dz-side">
           <div class="dz-help" id="dz-help"></div>
@@ -119,7 +128,7 @@ export class Designer{
   sync(){const p=this.p;const $=id=>this.host.querySelector('#dz-v-'+id);const set=(id,t)=>{const e=$(id);if(e)e.textContent=t;};
     set('d',` ${fmt(p.d,1)} mm`);set('l',` ${fmt(p.l,1)} mm`);set('c',` ${mg(p.c)}`);set('L',` ${p.L} mm`);set('twist',` 1 tour / ${p.twist} mm`);set('rof',p.action==='auto'?` ${p.rof} coups/min`:' — (automatique seulement)');set('mag',` ${p.mag} coups`);set('zero',` ${p.zero} m`);
     const rof=this.host.querySelector('#dz-rof');if(rof)rof.disabled=p.action!=='auto';const ms=new Set(p.mods||[]);
-    for(const b of this.host.querySelectorAll('[data-dz]')){const [k,v]=b.dataset.dz.split(':');if(['nose','base','action','cons'].includes(k))b.classList.toggle('on',p[k]===v);if(k==='gel')b.classList.toggle('on',+v===this.gelR);if(k==='mod')b.classList.toggle('on',ms.has(v));}}
+    for(const b of this.host.querySelectorAll('[data-dz]')){const [k,v]=b.dataset.dz.split(':');if(['nose','base','action','cons'].includes(k))b.classList.toggle('on',p[k]===v);if(k==='gel')b.classList.toggle('on',+v===this.gelR);if(k==='tgt')b.classList.toggle('on',v===this.target);if(k==='shotmode')b.classList.toggle('on',v===(this.shot?.mode||'xray'));if(k==='mod')b.classList.toggle('on',ms.has(v));}}
   renderHelp(){const el=this.host.querySelector('#dz-help');if(!el||!this.D)return;const f=HELP[this.help]||HELP.cons;el.innerHTML=`<h3>Ce que ça change</h3><p>${f(this.D,this.p)}</p>`;}
   render(){const D=derive(this.p),R=derive(this.ref.p);this.D=D;const W=this.world();const $=id=>this.host.querySelector('#'+id);if(!$('dz-big'))return;const p=this.p;
     const pen=D.pen(D.at(30).v),penR=R.pen(R.at(30).v);
@@ -144,7 +153,23 @@ export class Designer{
       <p class="quiet small">Adopté, il faut encore l’outillage de la manufacture (4 pièces, 1 fer, 6 h) — et le perdre si elle tombe.</p>`;
     const bur=this.bureau();const can=bur?W.canPropose(bur,p):{ok:false,why:['un bureau d’études bâti (choisissez-le, puis « Concevoir »)']};const go=$('dz-go');go.disabled=!can.ok;go.title=can.ok?'':can.why.join(', ');
     if(!can.ok)this.say(`Il faut : ${can.why.join(' · ')}`,'warn');else this.say(`Prêt : ${PROTO_HOURS} h au bureau d’études, puis adopté.`,'');
-    this.draw(0);this.drawPrec(D);this.drawPen(D,R);this.drawGel(D);}
+    this.draw(0);this.drawPrec(D);this.drawPen(D,R);this.drawGel(D);this.shoot(D);}
+  // ---------- le tir d'essai : la balle (ou la gerbe) entre dans un Bèè, à travers sa protection s'il en a une ----------
+  shoot(D){const cv=this.host.querySelector('#dz-shot');if(!cv)return;const key=JSON.stringify([this.p,this.gelR,this.target]);if(key===this.shotKey)return;this.shotKey=key;
+    if(!this.shot||this.shot.cv!==cv){this.shot?.dispose();this.shot=new ShotView(cv);}
+    setSpecies('beee');const p=this.p,C=CONSTRUCTIONS[p.cons];const v0=D.at(this.gelR).v;const r=rng(5);const n=Math.min(D.pel||1,6);const T=TARGETS[this.target];const A=T.a?deriveArmor(T.a):null;const evs=[];const notes=[];
+    const spread=D.pel>1?Math.min(.05,(C.spread||20)/1000*this.gelR/2):0;
+    for(let k=0;k<n;k++){let v=v0;const x=(r()-.5)*.03+(spread?(r()-.5)*2*spread:0),y=.15+(r()-.5)*.05+(spread?(r()-.5)*spread:0);const dir=[(r()-.5)*.03,(r()-.5)*.03,-1];const L=Math.hypot(...dir);const d=dir.map(q=>q/L);
+      let q=[x,y,.2];for(let i=0;i<500&&!regionAt(q);i++)q=q.map((c,j)=>c+d[j]*.0008);if(!regionAt(q)){notes.push('à côté');continue;}
+      let yaw0=0,plate=null;const zone=A?plateZone(q):null;
+      if(A&&zone&&A.zones[zone]?.t>0){const W=D.proj||D;const res=armorHit(A,zone,{},W,v,D.pen(v),r);
+        if(res?.stopped){const back=q.map((c,j)=>c-d[j]*.04);const dd=D.proj?.p?.d||p.d;const m=(D.proj||D).m;evs.push({victim:'essai',vf:'beee',len:D.l/1000,cons:p.cons,armor:T.a,zone,mat:res.mat,armorName:T.name,blunt:res.blunt,
+          rec:{path:[{p:back,v,yaw:0,d:dd},{p:q.slice(),v:v*.4,yaw:0,d:dd*1.6},{p:q.slice(),v:0,yaw:0,d:dd*1.8}],vIn:v,E0:.5*m/1000*v*v,E:0,dmg:{},tc:[],frags:[],entry:q.slice(),exit:null,lodged:true,stopped:true}});notes.push(`arrêtée par le ${zone} (${MATS[res.mat].name.toLowerCase()})`);continue;}
+        if(res){v=res.v;yaw0=.5+r()*.8;plate=zone;notes.push(`traverse le ${zone} (${MATS[A.zones[zone].mat].name.toLowerCase()}) : ${Math.round(v0)} → ${Math.round(v)} m/s`);}}
+      const rec=wound(D.proj||D,v,q,d,r,yaw0);evs.push({victim:'essai',vf:'beee',len:D.l/1000,cons:p.cons,armor:T.a,plate,rec});
+      const hit=Object.entries(rec.dmg).filter(([id,x])=>PART[id]&&(x.crush>1e-4||x.cut>.2||x.frac||x.stretch>.1)).map(([id,x])=>`${PART[id].name}${x.cut>.2&&/artère|veine|aorte/.test(PART[id].name)?' (ouverte)':x.frac?' (fracture)':x.stretch>.1&&x.crush<1e-4?' (déchiré par la cavité)':''}`);
+      notes.push(`${n>1?`${D.pel>1?(C.dart?'dard':'plomb'):'balle'} ${k+1} : `:''}${fmt(rec.E,1)} J cédés${rec.exit?`, ressort à ${Math.round(rec.vOut)} m/s`:', logée'}${rec.fragmented?(C.he?', éclate':', se fragmente'):''}${hit.length?' — '+hit.slice(0,5).join(', '):''}`);}
+    this.shot.set(evs);const t=this.host.querySelector('#dz-shott');if(t)t.innerHTML=`À ${this.gelR} m, contre un Bèè ${T.a?'('+T.name.toLowerCase()+')':'sans protection'} : ${notes.map(esc).join(' · ')||'rien'}.`;}
   // ---------- l'animation du tir : l'éclair, le recul, puis la balle au ralenti le long de sa trajectoire ----------
   fire(){this.anim={t0:performance.now()};const loop=()=>{if(!this.anim||!this.open)return;const t=(performance.now()-this.anim.t0)/1000;this.draw(t);if(t<3.2)requestAnimationFrame(loop);else{this.anim=null;this.draw(0);}};requestAnimationFrame(loop);}
   draw(t){if(!this.D)return;this.drawPlan(this.D,t);this.drawTraj(this.D,t);}
@@ -153,8 +178,8 @@ export class Designer{
 
   // ---------- le plateau ----------
   drawPlan(D,t){const F=this.fit('dz-plan');if(!F)return;const [x,W,H]=F;const p=D.p;const ms=new Set(D.mods);
-    const bg=x.createLinearGradient(0,0,0,H);bg.addColorStop(0,'#f7efe0');bg.addColorStop(.72,'#efe3cc');bg.addColorStop(1,'#d9c7a6');x.fillStyle=bg;x.fillRect(0,0,W,H);
-    const ground=H-26;x.fillStyle='rgba(120,90,50,.18)';x.fillRect(0,ground,W,H-ground);x.strokeStyle='rgba(110,80,40,.35)';x.beginPath();x.moveTo(0,ground);x.lineTo(W,ground);x.stroke();
+    const bg=x.createLinearGradient(0,0,0,H);bg.addColorStop(0,'#1c2a33');bg.addColorStop(.72,'#141d23');bg.addColorStop(1,'#0e1418');x.fillStyle=bg;x.fillRect(0,0,W,H);const sp=x.createRadialGradient(W*.4,H*.6,10,W*.4,H*.6,W*.6);sp.addColorStop(0,'rgba(255,230,190,.10)');sp.addColorStop(1,'rgba(255,230,190,0)');x.fillStyle=sp;x.fillRect(0,0,W,H);
+    const ground=H-26;x.fillStyle='rgba(90,70,45,.45)';x.fillRect(0,ground,W,H-ground);x.strokeStyle='rgba(160,130,90,.45)';x.beginPath();x.moveTo(0,ground);x.lineTo(W,ground);x.stroke();
     // les dimensions de l'arme (mm)
     const d=p.d,Dc=d*(D.pistol?1.25:1.45),COL=D.COL,wall=d*(.35+.00075*D.P)*(p.heavy?1.5:1),Dout=d+2*wall;const crewGun=D.have==='trepied';
     const act=COL*2.4+8,stock=crewGun?COL*1.1+14:Math.max(55,60+COL*1.6),dev=ms.has('manchon')?d*14:ms.has('frein')?d*3.2:ms.has('cacheflamme')?d*4:0;const Lw=stock+act+p.L+dev;
@@ -176,10 +201,10 @@ export class Designer{
       if(p.action!=='verrou'&&t<.8){const ex=bx+(stock+act*.45)*s+t*60,ey=axisY-20*s-Math.sin(t/.8*Math.PI)*40+t*t*60;x.fillStyle='#c9a043';x.fillRect(ex,ey,Math.max(3,D.caseLen*s),Math.max(2,Dc*s));}}
     // la cartouche en coupe, en médaillon
     this.cartridge(x,D,W-250,10,240,96);
-    x.fillStyle='#4a3a28';x.font='600 12px system-ui';const TW=W-280;x.fillText(`${MOUNTS[D.have].name.toLowerCase()} · ${D.crew} servant${D.crew>1?'s':''} · ${Math.round(D.mass*1000)} g chargée · ${fmt(Lw/10,1)} cm`,12,18,TW);
-    x.fillStyle='#7a6448';x.font='11px system-ui';x.fillText(`${ACTIONS[p.action].name.toLowerCase()}${p.action==='auto'?` · ${p.rof} coups/min`:''} · ${p.action==='auto'&&p.mag>=50?'bande':'chargeur'} de ${p.mag}${D.mods.length?' · '+D.mods.map(k=>MODS[k].name.toLowerCase()).join(', '):''}`,12,34,TW);
+    x.fillStyle='#e8dcc4';x.font='600 12px system-ui';const TW=W-280;x.fillText(`${MOUNTS[D.have].name.toLowerCase()} · ${D.crew} servant${D.crew>1?'s':''} · ${Math.round(D.mass*1000)} g chargée · ${fmt(Lw/10,1)} cm`,12,18,TW);
+    x.fillStyle='#a8b4ba';x.font='11px system-ui';x.fillText(`${ACTIONS[p.action].name.toLowerCase()}${p.action==='auto'?` · ${p.rof} coups/min`:''} · ${p.action==='auto'&&p.mag>=50?'bande':'chargeur'} de ${p.mag}${D.mods.length?' · '+D.mods.map(k=>MODS[k].name.toLowerCase()).join(', '):''}`,12,34,TW);
     // l'échelle
-    x.strokeStyle='#7a6448';x.beginPath();x.moveTo(12,ground+14);x.lineTo(12+u(.1),ground+14);x.stroke();x.fillStyle='#7a6448';x.fillText('10 cm',16+u(.1),ground+18);}
+    x.strokeStyle='#a8b4ba';x.beginPath();x.moveTo(12,ground+14);x.lineTo(12+u(.1),ground+14);x.stroke();x.fillStyle='#a8b4ba';x.fillText('10 cm',16+u(.1),ground+18);}
   // l'arme de profil : crosse (ou poignées de pièce), boîte de culasse, canon, bouche, chargeur, modules. Rend la bouche.
   gun(x,D,bx,ay,s,ground,ms,stock,act,dev){const p=D.p;const d=p.d,Dc=d*(D.pistol?1.25:1.45),COL=D.COL,wall=d*(.35+.00075*D.P)*(p.heavy?1.5:1),Dout=d+2*wall;const crewGun=D.have==='trepied';
     const X=v=>bx+v*s;const hR=Math.max(Dc*3.2+6,Dout*1.8);const r2=hR*s/2;

@@ -74,6 +74,8 @@ function xmat(c,base,edge,pw=2.5){return new THREE.ShaderMaterial({uniforms:{uCo
 function sharedMats(){return {
   hole:phys('#1a0204',{roughness:.6}),
   blood:phys('#6e0710',{roughness:.2,clearcoat:1,clearcoatRoughness:.08}),
+  flesh:phys('#8a1f22',{roughness:.5,clearcoat:.6,clearcoatRoughness:.2}),
+  char:new THREE.MeshBasicMaterial({color:new THREE.Color('#1a0a06'),transparent:true,opacity:.55,depthWrite:false}),
   pool:phys('#4f050a',{roughness:.12,clearcoat:1,clearcoatRoughness:.05,transparent:true,opacity:.92}),
   gauze:phys('#f7f3ea',{roughness:.95,sheen:1,sheenColor:C3('#ffffff'),sheenRoughness:.8}),
   tq:phys('#e0ad1f',{roughness:.7,sheen:.6,sheenColor:C3('#fff0b0')}),
@@ -299,7 +301,24 @@ function sceneFx(sc){if(sc._fx)return sc._fx;const g=init();const grp=new THREE.
     // le sang : chaque vaisseau ouvert jaillit (une artère bat, en jets ; une veine coule), une fois la balle passée
     const blood=b.bleeds.map(v=>{const n=v.art?36:18;const m=new THREE.InstancedMesh(g.geo.lo,g.mat.blood,n);m.renderOrder=36;m.frustumCulled=false;m.count=0;grp.add(m);
       const r0=mulberry(Math.round(v.p[0]*1e5+v.p[1]*3e5));const dirs=[];for(let i=0;i<n;i++){const a=r0()*6.283,u=r0()*2-1;dirs.push([Math.sqrt(1-u*u)*Math.cos(a),Math.abs(u)*.8+.2,Math.sqrt(1-u*u)*Math.sin(a)]);}return {v,m,n,dirs};});
-    return {b,dark,col,md,mc,bullet,glow,cav,frags,blood};});
+    // le gore : un nuage de sang à l'entrée (projeté vers le tireur), une gerbe plus grosse à la sortie avec des lambeaux ;
+    // les deux d'autant plus forts que la balle a cédé d'énergie
+    const E=b.R.E||0,vio=Math.min(1,E/40);const spray=(p,dir,n,sp,size,mat)=>{const m=new THREE.InstancedMesh(g.geo.lo,mat,n);m.renderOrder=36;m.frustumCulled=false;m.count=0;grp.add(m);
+      const r0=mulberry(Math.round(p[0]*7e5+p[2]*3e5)+n);const v=[];for(let i=0;i<n;i++){const d2=nrm([dir[0]+(r0()-.5)*1.4,dir[1]+(r0()-.5)*1.4+.15,dir[2]+(r0()-.5)*1.4]);v.push({d:d2,s:sp*(.3+r0()*.9),z:size*(.5+r0())});}return {m,p,v};};
+    const P0=P[0].p,P1=P[Math.min(1,P.length-1)].p,dirIn=nrm(sub(P1,P0));const Pe=P[P.length-1].p,Pb=P[Math.max(0,P.length-3)].p,dirOut=nrm(sub(Pe,Pb));
+    const gore={inS:b.R.stopped?null:spray(b.R.entry||P0,dirIn.map(v=>-v),Math.round(14+30*vio),.05+.08*vio,.0009,g.mat.blood),
+      outS:b.R.exit?spray(b.R.exit,dirOut,Math.round(24+60*vio),.08+.16*vio,.0013,g.mat.blood):null,
+      chunks:b.R.exit&&E>6?spray(b.R.exit,dirOut,Math.round(4+10*vio),.05+.1*vio,.0022,g.mat.flesh):null};
+    // la munition : explosive (boule de feu, onde de choc, brûlure), incendiaire (flammes le long du trajet), traçante
+    const cons=b.e.cons||'';const he=/^(he|hei|saphei|creuse)$/.test(cons)||!!b.R.he,inc=/^(inc|api|hei|saphei)$/.test(cons),trc=/^(trc|apt)$/.test(cons);
+    let boom=null;if(he&&b.R.fragAt){const fire=new THREE.Sprite(new THREE.SpriteMaterial({map:g.tex.glow,color:C3('#ffb04a'),blending:THREE.AdditiveBlending,depthTest:false,depthWrite:false,transparent:true}));fire.renderOrder=38;
+      const core=new THREE.Sprite(new THREE.SpriteMaterial({map:g.tex.glow,color:C3('#fff6d8'),blending:THREE.AdditiveBlending,depthTest:false,depthWrite:false,transparent:true}));core.renderOrder=39;
+      const shock=new THREE.Mesh(g.geo.sph,xmat('#ffd0a0',.02,.8,3));shock.renderOrder=37;const burn=new THREE.Mesh(g.geo.sph,g.mat.char);burn.renderOrder=24;
+      for(const o of [fire,core,shock,burn]){o.position.set(...b.R.fragAt);o.visible=false;grp.add(o);}
+      let k=0;for(let q=0;q<P.length;q++){const p=P[q].p;if(Math.hypot(...sub(p,b.R.fragAt))<.002){k=q;break;}}boom={fire,core,shock,burn,at:k||Math.floor(P.length/2)};}
+    const flames=inc?P.filter((q,i)=>i%Math.max(1,Math.floor(P.length/8))===0).map((q,i)=>{const s=new THREE.Sprite(new THREE.SpriteMaterial({map:g.tex.glow,color:C3(i%2?'#ff7a1a':'#ffc04a'),blending:THREE.AdditiveBlending,depthTest:false,depthWrite:false,transparent:true}));s.renderOrder=38;s.position.set(...q.p);s.visible=false;grp.add(s);return {s,at:P.indexOf(q),ph:i*1.7};}):[];
+    if(trc)glow.material.color=C3('#ff4a3a');
+    return {b,dark,col,md,mc,bullet,glow,cav,frags,blood,gore,boom,flames};});
   // la protection de la victime, sur le poitrail et la tête : plastron, dos, flancs, casque — la matière et son épaisseur
   const e0=sc.events[0];if(e0?.armor){const M=model(e0.vf);const reg=id=>M.B.REGIONS.find(r=>r.id===id)?.shape;const th=reg('thorax'),ab=reg('abdomen'),hd=reg('tete');
     const mat=m=>{const X=MATS[m]||{};return new THREE.MeshStandardMaterial({color:C3(X.col||'#888'),roughness:X.soft?.95:.35,metalness:m==='acier'?.75:m==='composite'?.25:0,transparent:true,opacity:X.soft?.55:.7,side:THREE.DoubleSide,depthWrite:false});};
@@ -337,7 +356,19 @@ export function updateSceneFx(sc,st,L,PLAY){const F=sceneFx(sc);
       const life=v.art?.9:1.4,spd=(v.art?.05:.018)*(.6+v.cut*.6);const beat=v.art?.55+.45*Math.max(0,Math.sin(since*7.5)):1;let k=0;
       for(let i=0;i<bl.n;i++){const ph=((since/life)+i/bl.n)%1;const tau=ph*life;if(since<tau)continue;const d=bl.dirs[i];const sp=spd*beat*(.5+.5*((i*37)%11)/10);
         DUM.position.set(v.p[0]+d[0]*sp*tau,v.p[1]+d[1]*sp*tau-.5*.09*tau*tau,v.p[2]+d[2]*sp*tau);DUM.scale.setScalar((v.art?.0011:.0014)*(1-ph*.5));DUM.updateMatrix();bl.m.setMatrixAt(k++,DUM.matrix);}
-      bl.m.count=k;bl.m.instanceMatrix.needsUpdate=true;}});
+      bl.m.count=k;bl.m.instanceMatrix.needsUpdate=true;}
+    // les gerbes : parties au passage de la balle, elles s'ouvrent, retombent, puis se posent
+    const sinceAt=at=>(s.done?b.T*b.slow+s.after:s.real*b.slow)-b.tt[Math.min(at,b.tt.length-1)]*b.slow;
+    const burst=(S,at)=>{if(!S)return;const t2=sinceAt(at);if(at>s.i&&!s.done||t2<0){S.m.count=0;return;}const tau=Math.min(t2,1.6);let k=0;
+      for(const q of S.v){DUM.position.set(S.p[0]+q.d[0]*q.s*tau,S.p[1]+q.d[1]*q.s*tau-.5*.12*tau*tau,S.p[2]+q.d[2]*q.s*tau);if(DUM.position.y<0)DUM.position.y=0;DUM.scale.setScalar(q.z*(1+tau*.4));DUM.updateMatrix();S.m.setMatrixAt(k++,DUM.matrix);}
+      S.m.count=k;S.m.instanceMatrix.needsUpdate=true;};
+    burst(it.gore.inS,0);burst(it.gore.outS,b.P.length-1);burst(it.gore.chunks,b.P.length-1);
+    // l'explosion : un éclair blanc, une boule de feu qui gonfle et s'éteint, une onde de choc, la chair brûlée qui reste
+    if(it.boom){const B=it.boom,t2=sinceAt(B.at);const on=t2>=0&&(B.at<=s.i||s.done);for(const o of [B.fire,B.core,B.shock,B.burn])o.visible=on;
+      if(on){const f=Math.min(1,t2/.5);B.core.scale.setScalar(.02+.05*Math.min(1,t2/.1));B.core.material.opacity=Math.max(0,1-t2/.45);B.fire.scale.setScalar(.03+.12*f);B.fire.material.opacity=Math.max(0,1-t2/1.8);
+        B.shock.scale.setScalar(.005+.09*Math.min(1,t2/.35));B.shock.material.uniforms.uEdge.value=Math.max(0,.8*(1-t2/.4));B.shock.visible=t2<.4;B.burn.scale.setScalar(.008+.012*f);}}
+    // les flammes d'une incendiaire : elles prennent derrière la balle et vacillent
+    for(const F of it.flames){const t2=sinceAt(F.at);const on=t2>=0&&(F.at<=s.i||s.done);F.s.visible=on;if(on){const fl=.6+.4*Math.sin(t2*18+F.ph)*Math.sin(t2*7.3+F.ph*2);F.s.scale.setScalar((.006+.006*Math.min(1,t2/.3))*fl);F.s.material.opacity=Math.max(.15,1-t2/2.5)*fl;}}});
   return F.grp;}
 function bulletGeo(){const pts=[new THREE.Vector2(0,-.5),new THREE.Vector2(.46,-.5),new THREE.Vector2(.5,-.46),new THREE.Vector2(.5,.02)];
   for(let i=1;i<=10;i++){const u=i/10;pts.push(new THREE.Vector2(.5*Math.sqrt(1-u*u)*(1-.05*u),.02+.48*u));}return new THREE.LatheGeometry(pts,20);}
