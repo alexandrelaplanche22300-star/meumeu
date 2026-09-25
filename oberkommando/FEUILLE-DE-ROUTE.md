@@ -5,7 +5,7 @@ fret, conception d'armes). La gestion doit être solide d'abord ; chaque étape 
 (`jeu/test/sim.mjs`, qui joue N jours et relève les chiffres) avant de passer à la suivante.
 
 ## Étape 1 — Boucher les trous de l'économie (ce que la simulation a montré)
-1. **Carrière** : la pierre s'épuise aujourd'hui sans remplaçant. Filons de pierre inépuisables mais lents, carrière dédiée.
+1. ~~Gisements~~ (fait) : pierre, cuivre, plomb, soufre, salpêtre ; poudrerie ; munitions en plomb, cuivre et poudre.
 2. **Faim** : chaque Meumeu mange (vivres par jour) ; les maisons et casernes commandent leurs vivres à leur dépôt comme
    une usine ; un Meumeu qui a faim travaille moins bien, puis tombe malade. Fermes, boulangerie (farine → pain), rations
    militaires pour le front.
@@ -20,7 +20,7 @@ fret, conception d'armes). La gestion doit être solide d'abord ; chaque étape 
 6. **Lignes régulières** : un train qui fait une tournée fixe (A → B → C) avec des consignes de chargement par arrêt.
 7. **Wagons spécialisés** (tombereau, citerne, couvert, plat) et longueur de train ; gares de triage ; signaux et cantons
    pour que plusieurs trains partagent une voie sans se percuter.
-8. **Camions** et routes pour le dernier kilomètre, entre la gare et le front.
+8. ~~Porteurs à pied~~ (fait) : seuls véhicules du jeu, les trains ; le dernier kilomètre se fait à pied.
 9. **Statistiques** : courbes de production, stocks, consommation, sur 7 et 30 jours.
 
 ## Étape 3 — L'armée branchée sur l'économie
@@ -40,7 +40,7 @@ fret, conception d'armes). La gestion doit être solide d'abord ; chaque étape 
     joueur (blindage vu → calibre plus gros) et ce que son économie peut produire.
 16. **Stratégie** : reconnaissance, choix d'objectifs (couper une voie, raser un dépôt, prendre un filon), offensives
     préparées par des stocks au front, repli quand le ravitaillement lâche.
-17. **Brouillard de guerre** et renseignement : on ne voit l'ennemi que par ses éclaireurs, avions, espions.
+17. **Brouillard de guerre** et renseignement : on ne voit l'ennemi que par ses éclaireurs, ses postes d'observation, ses espions.
 
 ## Étape 5 — Finition
 18. Tutoriel guidé pas à pas pour la chaîne complète (filon → dépôt → rail → usine → front).
