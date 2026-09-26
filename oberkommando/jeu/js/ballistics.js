@@ -95,7 +95,7 @@ function compute(p){if(ACTIONS[p.action]?.mortar&&p.mag!==1)p={...p,mag:1};const
     // la densité : l'explosif (1,6) prend la place du métal ; un noyau d'acier (7,85) remplace une part du plomb
     const rho=C.he?C.rho*(1-hef)+1.6*hef:C.core||C.mono||!coreF?C.rho:C.rho*(1-coreF)+7.85*coreF;m=vol*rho/1000;if(C.tracer)m*=.93;mp=m;dpr=dp;lpr=l;}
   const mLaunch=m*(sub<1?1.35:1)+(pel>1?m*.08:0);                           // le sabot, la bourre : poussés aussi, puis perdus
-  const c=p.c;const L0=3200*c/A_mm2;let eta=.32*(1-Math.exp(-p.L/Math.max(.01,L0)));
+  const c=p.c,burn=Math.max(.35,Math.min(2.5,p.burn??1));const P=p.prop==='fusee'?25:370*Math.pow(Math.max(.01,c/mLaunch)/.3,.35)*Math.pow(burn,.1);let eta=0;
   // la balle auto-propulsée (une fusée) : la poudre brûle dans la balle elle-même, qui sort lentement du tube et accélère
   // ensuite — Δv = ve·ln(m0/m1) (Tsiolkovski, ve ≈ 1500 m/s pour une poudre de fusée) ; un tube sans pression, léger,
   // presque sans recul (les gaz partent en arrière : le souffle arrière est dangereux) ; mais la poussée n'est jamais tout à
@@ -103,11 +103,17 @@ function compute(p){if(ACTIONS[p.action]?.mortar&&p.mag!==1)p={...p,mag:1};const
   const rocket=p.prop==='fusee';let boost=null,mc=0;
   let v0;if(rocket){mc=c*.7+.0004*d**3;const m1=mLaunch+mc,m0=m1+c;const dv=1500*Math.log(m0/m1);const Lm=c/.0016/(A_mm2*.8);const tb=.03+Lm/300;const a=dv/tb;
     v0=Math.min(dv,Math.sqrt(2*a*p.L/1000));boost={a,tr:Math.max(0,tb-v0/a),dv,tb,Lm,m1,mc};eta=0;}
-  else v0=Math.sqrt(2*eta*Q_POWDER*c/1000/(mLaunch/1000+c/3000))*(mods.has('manchon')?1.02:1);
+  else{
+     // Travail du gaz : P(x)=Pmax(1-e^(-x/Lb))e^(-x/Le), puis W=∫P(x)A dx - frottement.
+     // Lb décrit la combustion, Le la détente ; le travail ne dépasse pas l'énergie chimique disponible.
+     const L=p.L/1000,A=A_mm2/1e6,Lb=Math.max(.012,.06*Math.sqrt(Math.max(.05,c/.0031))*Math.pow(7.62/d,.35)/burn),Le=Math.max(.04,.36*Math.sqrt(Math.max(.05,c/.0031))*Math.pow(7.62/d,.2));
+     const k=1/Lb+1/Le,profile=Le*(1-Math.exp(-L/Le))-(1-Math.exp(-L*k))/k;
+     const work=Math.max(0,P*1e6*A*profile-Math.min(5,P*.2)*1e6*A*L),available=Q_POWDER*c/1000;
+     const muzzleWork=Math.min(work,available*.42);eta=muzzleWork/Math.max(1e-9,available);
+     v0=Math.sqrt(2*muzzleWork/Math.max(1e-9,mLaunch/1000+c/3000))*(mods.has('manchon')?1.02:1);
+   }
   const vTop=rocket?boost.dv:v0;const E0=.5*m/1000*vTop*vTop;
-  // la pression de pointe (MPa) : elle monte avec la charge rapportée à la balle — 370 MPa pour un fusil ordinaire
-  // (poudre ≈ 0,3 × la balle), 200 pour un pistolet, 700 et plus si l'on bourre l'étui
-  const P=rocket?25:370*Math.pow(Math.max(.01,c/mLaunch)/.3,.35);
+  // P est la pression de pointe estimée à partir de la charge rapportée au projectile.
   // l'étui qu'il faut pour cette charge, la cartouche entière, ce qu'elle pèse
   const pistol=c/(A_mm2*d)<.002;const Dc=d*(pistol?1.25:1.45);const caseLen=rocket?boost.Lm+l:(c/.85*1000)/(Math.PI*(Dc/2)**2*.8)+d;const caseMass=rocket?mc:4.2*c+.0012*Dc**3;const COL=rocket?caseLen:caseLen+l*.7;
   const rm=mLaunch+c+caseMass;const perCrate=Math.floor(CRATE_KG*1000/rm);
@@ -145,9 +151,9 @@ function compute(p){if(ACTIONS[p.action]?.mortar&&p.mag!==1)p={...p,mag:1};const
   const lead=C.soft&&v0>550;if(lead)moa+=(v0-550)/100;
   // la trajectoire, tous les mètres jusqu'à 600 m
   // (pour une fusée, la poussée continue après le tube : la balle accélère sur quelques mètres, allégée de sa poudre)
-  const table=[];{let x=0,v=v0,t=0,y=0,vy=0;const dt=.0002;let next=0;const tr=boost?.tr||0;
+  const table=[];{let x=0,v=v0,vx=v0,t=0,y=0,vy=0;const dt=.0002;let next=0;const tr=boost?.tr||0;
     while(x<=600&&(v>60||t<tr)){if(x>=next){table.push({x:next,v,t,drop:-y,E:.5*mp/1000*v*v});next+=1;}
-      const a=.5*RHO_AIR*v*v*cdG7(v/C_SOUND)*(Math.PI/4)/BC*(t<tr&&boost?mp/(boost.m1+c*(1-t/tr)):1);const vx=v;v=Math.max(0,v-a*dt+(t<tr?boost.a*dt:0));vy-=G*dt;x+=vx*dt;y+=vy*dt;t+=dt;}}
+      const drag=.5*RHO_AIR*v*cdG7(v/C_SOUND)*(Math.PI/4)/BC*(t<tr&&boost?mp/(boost.m1+c*(1-t/tr)):1);vx=Math.max(0,vx+((t<tr?boost.a:0)-drag*vx)*dt);vy+=(-G-drag*vy)*dt;x+=vx*dt;y+=vy*dt;v=Math.hypot(vx,vy);t+=dt;}}
   const at=x=>{if(!table.length)return {x,v:0,t:0,drop:0,E:0,beyond:true};const i=Math.min(table.length-1,Math.max(0,Math.floor(x)));const a=table[i],b=table[Math.min(table.length-1,i+1)];const f=Math.max(0,Math.min(1,x-a.x));
     return {x,v:a.v+(b.v-a.v)*f,t:a.t+(b.t-a.t)*f,drop:a.drop+(b.drop-a.drop)*f,E:a.E+(b.E-a.E)*f,beyond:x>table[table.length-1].x};};
   // la hausse : on règle la visée pour toucher juste à `zero` m ; la ligne de visée est 1,2 cm au-dessus de l'axe du canon

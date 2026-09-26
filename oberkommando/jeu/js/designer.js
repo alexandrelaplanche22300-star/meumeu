@@ -36,7 +36,8 @@ const HELP={
   nose:(D,p)=>`<b>Le nez</b> : sa forme dans l’air et dans la chair. ${esc(NOSES[p.nose].desc)}. Pointue : faible traînée (facteur ${NOSES.pointue.i}), bascule tôt dans le corps. Plate : freine vite (facteur ${NOSES.plate.i}) mais coupe net et ne bascule jamais.`,
   base:(D,p)=>`<b>Le culot</b> : ${p.base==='bt'?'en dépouille (conique), il réduit la traînée d’environ 10 % : la balle garde sa vitesse plus loin, la trajectoire est plus tendue':'plat : plus de volume donc un peu plus lourd, mais plus de traînée en vol'}. Dans le corps, un culot en dépouille aide la balle à basculer un peu plus tôt.`,
   cons:(D,p)=>{const C=CONSTRUCTIONS[p.cons];return `<b>${esc(C.name)}</b> : ${esc(C.desc)}.${C.frag<Infinity&&C.frag>0?` Elle se brise au-dessus de ${C.frag} m/s (elle part à ${Math.round(D.v0)} m/s).`:''}${C.expand?` Elle s’ouvre entre ${C.expand[0]} et ${C.expand[1]} m/s, jusqu’à ${fmt(C.expand[2],2)} fois son diamètre.`:''}${C.minD?` Il faut ${C.minD} mm de calibre au moins.`:''}${D.he?` <b>Charge explosive : ${mg(D.he.g)}</b>.`:' Pas de charge explosive.'}`;},
-  c:(D,p)=>`<b>La poudre</b> : ${mg(p.c)}. C’est l’énergie : ${Math.round(D.v0)} m/s au départ, ${fmt(D.E0,1)} J. Plus de poudre, c’est plus vite, mais la pression monte (${Math.round(D.P)} MPa ; au-delà de 460 le tube s’use vite, au-delà de 620 il peut éclater), l’étui grossit (${fmt(D.caseLen,1)} mm), le recul aussi (${fmt(D.recoil,2)} J). Un canon trop court ne brûle pas tout : ici ${Math.round(D.eta/.32*100)} % du possible.`,
+  c:(D,p)=>`<b>La poudre</b> : ${mg(p.c)}, vivacité ×${fmt(p.burn??1,2)}. C’est l’énergie : ${Math.round(D.v0)} m/s au départ, ${fmt(D.E0,1)} J. Plus de poudre, c’est plus vite, mais la pression monte (${Math.round(D.P)} MPa ; au-delà de 460 le tube s’use vite, au-delà de 620 il peut éclater), l’étui grossit (${fmt(D.caseLen,1)} mm), le recul aussi (${fmt(D.recoil,2)} J). Un canon trop court ne brûle pas tout : ici ${Math.round(D.eta/.32*100)} % du possible.`,
+  burn:(D,p)=>`<b>Vivacité effective de la poudre</b> : ×${fmt(p.burn??1,2)}. Elle règle la vitesse de combustion dans le modèle. Plus vive : la pression monte plus tôt, utile dans un tube court mais le pic de pression augmente ; plus progressive : la poussée dure plus longtemps et valorise un tube long. Le modèle intègre le travail des gaz le long du tube, W = ∫P(x)·A dx, puis calcule v = √(2W/m) en respectant l’énergie chimique disponible. La trajectoire applique la gravité et la traînée G7 par pas de temps.`,
   L:(D,p)=>`<b>Le canon</b> : ${p.L} mm. Plus long, la poudre pousse la balle plus longtemps (${Math.round(D.eta/.32*100)} % de l’énergie possible), moins d’éclair à la bouche, meilleure précision ; mais l’arme s’alourdit (${Math.round(D.mass*1000)} g), s’allonge, épaule plus lentement (${fmt(D.aim,2)} s pour viser). À l’échelle humaine : ${fmt(p.L*HUMAN/10,0)} cm.`,
   twist:(D,p)=>`<b>Le pas de rayure</b> : la balle fait un tour tous les ${p.twist} mm. Plus court, elle tourne plus vite : Sg ${fmt(D.Sg,2)}. Sous 1, elle bascule en vol ; entre 1,3 et 2,5, c’est l’idéal ; au-delà de 3 elle est surstabilisée — précise, mais elle reste droite plus longtemps dans le corps (blessure plus fine), et s’use plus vite dans le tube.`,
   heavy:(D,p)=>`<b>Canon lourd</b> : un tube plus épais, ${p.heavy?'monté':'non monté'}. Il chauffe moins vite (tient ${D.sustain} coups/min en continu), vibre moins (dispersion −15 %), dure plus longtemps ; mais il pèse bien plus lourd.`,
@@ -60,7 +61,7 @@ const HELP={
 export class Designer{
   constructor(host,{world,bureau,propose,ico,goodName,toArmor}){this.host=host;this.world=world;this.bureau=bureau;this.propose=propose;this.ico=ico;this.goodName=goodName;this.toArmor=toArmor;this.gelR=20;this.help='cons';this.anim=null;this.target='nue';this.shotKey='';
     host.addEventListener('input',e=>{if(e.target.closest('#designer'))this.read(e.target);});
-    host.addEventListener('change',e=>{if(e.target.id==='dz-from'){this.load(e.target.value);}else if(e.target.closest('#designer')&&e.target.type==='range')this.fire();});
+    host.addEventListener('change',e=>{if(e.target.id==='dz-from'){this.load(e.target.value);}else if(e.target.closest('#designer')&&(e.target.type==='range'||e.target.type==='number'))this.fire();});
     host.addEventListener('pointerover',e=>{const h=e.target.closest('[data-help]');if(h&&h.dataset.help!==this.help){this.help=h.dataset.help;this.renderHelp();}});
     host.addEventListener('focusin',e=>{const h=e.target.closest('[data-help]');if(h){this.help=h.dataset.help;this.renderHelp();}});
     host.addEventListener('click',e=>{const b=e.target.closest('[data-dz]');if(!b)return;const [k,v]=b.dataset.dz.split(':');
@@ -72,15 +73,15 @@ export class Designer{
   get open(){return !this.host.hidden;}
   show(fromId='mle1'){this.host.hidden=false;this.load(fromId);let last=performance.now();const loop=now=>{if(!this.open)return;const dt=Math.min(.1,(now-last)/1000);last=now;try{this.shot?.step(dt);}catch(e){console.error(e);}requestAnimationFrame(loop);};requestAnimationFrame(loop);}
   close(){this.host.hidden=true;this.anim=null;this.shot?.dispose();this.shot=null;this.shotKey='';}
-  load(id){const d=this.world().design(id)||this.world().design('mle1');this.ref=d;this.p=JSON.parse(JSON.stringify(d.p));this.p.mods??=[];this.p.zero??=50;this.p.prop??='cartouche';this.p.fill??='tolite';this.p.shell??='lisse';this.p.fuse??='impact';this.p.fragm??=4;
+  load(id){const d=this.world().design(id)||this.world().design('mle1');this.ref=d;this.p=JSON.parse(JSON.stringify(d.p));this.p.burn??=1;this.p.mods??=[];this.p.zero??=50;this.p.prop??='cartouche';this.p.fill??='tolite';this.p.shell??='lisse';this.p.fuse??='impact';this.p.fragm??=4;
     this.name=d.base?`${d.name.replace(/Mle \d+/,'')}Modèle ${Object.keys(this.world().s.designs).length}`.trim():`${d.name} (variante)`;this.build();this.render();this.fire();}
   say(t,tone){const el=this.host.querySelector('.dz-say');if(el){el.textContent=t;el.className='dz-say '+tone;}}
   // la page, une fois ; ensuite on ne change que les chiffres et les dessins
   build(){const p=this.p;const W=this.world();const ds=Object.values(W.s.designs).filter(d=>d.status!=='perdu');
     const seg=(k,opts)=>`<div class="seg" data-help="${k}">${Object.entries(opts).map(([v,o])=>`<button data-dz="${k}:${v}" class="${p[k]===v?'on':''}" title="${esc(o.desc||'')}">${esc(o.name)}</button>`).join('')}</div>`;
-    const range=(id,label,min,max,step,val,hint)=>`<label class="dz-r" data-help="${id}"><span>${label}<em id="dz-v-${id}"></em></span><input type="range" id="dz-${id}" min="${min}" max="${max}" step="${step}" value="${val}"><small>${hint}</small></label>`;
+    const range=(id,label,min,max,step,val,hint)=>{const lo=id==='c'?LIMITS.c[0]:min,hi=id==='c'?LIMITS.c[1]:max,nstep=id==='c'?.0001:step,nval=id==='c'?sToC(val):val;return `<label class="dz-r" data-help="${id}"><span>${label}<em id="dz-v-${id}"></em></span><div class="dz-range"><input type="range" id="dz-${id}" min="${min}" max="${max}" step="${step}" value="${val}"><input type="number" id="dz-num-${id}" min="${lo}" max="${hi}" step="${nstep}" value="${nval}" aria-label="${label} : valeur précise"></div><small>${hint}</small></label>`;};
     this.host.innerHTML=`<div class="dz" id="designer" role="dialog" aria-label="Bureau d’études">
-      <header class="dz-head"><div><b>Bureau d’études</b><small>une arme, de la poudre à la plaie — pour des Meumeu de 30 cm</small></div>
+      <header class="dz-head"><div><b>Bureau d’études</b><small>Concevez par sous-systèmes · comparez le résultat en direct · réglez les valeurs au curseur ou au chiffre exact</small></div>
         <div class="seg"><button class="on">Armes</button><button data-dz="armor">Protections</button></div>
         <label class="dz-name">Nom <input id="dz-name" value="${esc(this.name)}" maxlength="28"></label>
         <label class="dz-name">Partir de <select id="dz-from">${ds.map(d=>`<option value="${d.id}" ${d.id===this.ref.id?'selected':''}>${esc(d.name)}${d.f==='beee'?' (bèè)':''}${d.status==='prototype'?' — prototype':''}</option>`).join('')}</select></label>
@@ -102,20 +103,21 @@ export class Designer{
             <div class="dz-f"><span>Culot</span>${seg('base',BASES)}</div>
             <div class="dz-f" data-help="cons"><span>Construction</span>${FAMS.map(([fam,ks])=>`<div class="dz-fam"><small>${fam}</small><div class="seg wrap">${ks.filter(k=>CONSTRUCTIONS[k]).map(v=>`<button data-dz="cons:${v}" class="${p.cons===v?'on':''}" title="${esc(CONSTRUCTIONS[v].desc)}"><i class="tip" style="background:${TIPC[v]||'#c07a3e'}"></i>${esc(CONSTRUCTIONS[v].name)}</button>`).join('')}</div></div>`).join('')}</div>
           </details>
-          <details open><summary>La charge et le canon</summary>
+          <details><summary>La charge et le canon</summary>
             <div class="dz-f" data-help="prop"><span>Propulsion</span>${seg('prop',PROPS)}</div>
             ${range('c','Poudre',0,1000,1,cToS(p.c),'plus : plus vite — plus de pression, un étui et un recul plus gros')}
+            ${range('burn','Vivacité de la poudre',LIMITS.burn[0],LIMITS.burn[1],LIMITS.burn[2],p.burn??1,'vive : pic de pression plus précoce ; progressive : pousse plus loin dans le tube')}
             ${range('L','Canon',LIMITS.L[0],LIMITS.L[1],LIMITS.L[2],p.L,'long : brûle toute la poudre, plus précis ; plus lourd')}
             ${range('twist','Pas de rayure',LIMITS.twist[0],LIMITS.twist[1],LIMITS.twist[2],p.twist,'court : tient les balles longues ; trop long, elles basculent')}
             ${range('wallx','Épaisseur du tube',LIMITS.wallx[0],LIMITS.wallx[1],LIMITS.wallx[2],p.wallx??(p.heavy?1.5:1),'épais : plus précis, tient la chaleur, dure ; bien plus lourd')}
           </details>
-          <details open><summary>L’arme</summary>
+          <details><summary>L’arme</summary>
             <div class="dz-f"><span>Culasse</span>${seg('action',ACTIONS)}</div>
             ${range('rof','Cadence (automatique)',LIMITS.rof[0],LIMITS.rof[1],LIMITS.rof[2],p.rof,'plus : plus de suppression, plus de chaleur')}
             ${range('mag','Chargeur',LIMITS.mag[0],LIMITS.mag[1],LIMITS.mag[2],p.mag,'grand : moins de rechargements ; plus lourd ; 50 et plus en auto : une bande')}
             ${range('zero','Hausse',LIMITS.zero[0],LIMITS.zero[1],LIMITS.zero[2],p.zero,'la distance où la balle croise la ligne de visée')}
           </details>
-          <details open><summary>Modules</summary><div class="dz-mods" data-help="mods">${Object.entries(MODS).map(([k,M])=>`<button class="chip" data-dz="mod:${k}" data-help="mod-${k}" title="${esc(M.desc)}">${esc(M.name)}</button>`).join('')}</div></details>
+          <details><summary>Modules</summary><div class="dz-mods" data-help="mods">${Object.entries(MODS).map(([k,M])=>`<button class="chip" data-dz="mod:${k}" data-help="mod-${k}" title="${esc(M.desc)}">${esc(M.name)}</button>`).join('')}</div></details>
         </section>
         <section class="dz-col dz-mid">
           <div class="dz-big" id="dz-big"></div>
@@ -145,9 +147,9 @@ export class Designer{
           <div class="dz-go"><button data-dz="go" id="dz-go">Lancer le prototype</button><p class="dz-say quiet small"></p></div>
         </section></div></div>`;
     this.sync();}
-  read(el){const id=el.id.replace('dz-','');if(id==='name'){this.name=el.value;return;}if(id==='heavy'){this.p.heavy=el.checked;this.help='heavy';}else if(id==='c'){this.p.c=sToC(+el.value);this.help='c';}else if(id in LIMITS||id in this.p){this.p[id]=+el.value;this.help=id;}else return;this.sync();this.render();}
-  sync(){const p=this.p;const $=id=>this.host.querySelector('#dz-v-'+id);const set=(id,t)=>{const e=$(id);if(e)e.textContent=t;};
-    set('d',` ${fmt(p.d,1)} mm`);set('l',` ${fmt(p.l,1)} mm`);set('c',` ${mg(p.c)}`);set('L',` ${p.L} mm`);set('twist',` 1 tour / ${p.twist} mm`);set('rof',ACTIONS[p.action]?.auto?` ${p.rof} coups/min`:' — (automatique seulement)');set('mag',` ${p.mag} coups`);set('zero',` ${p.zero} m`);set('wallx',` ×${fmt(p.wallx??(p.heavy?1.5:1),2)}`);set('jacket',` ×${fmt(p.jacket??1,1)}`);set('core',` ${Math.round((p.core||0)*100)} %`);set('hef',CONSTRUCTIONS[p.cons].he?` ${Math.round((p.hef??.3)*100)} % du volume`:' — (munitions explosives)');
+  read(el){const numeric=el.id.startsWith('dz-num-'),id=el.id.replace(numeric?'dz-num-':'dz-','');if(numeric&&el.value==='')return;if(id==='name'){this.name=el.value;return;}if(id==='heavy'){this.p.heavy=el.checked;this.help='heavy';}else if(id==='c'){this.p.c=numeric?+el.value:sToC(+el.value);this.help='c';}else if(id in LIMITS||id in this.p){this.p[id]=numeric?Math.max(LIMITS[id][0],Math.min(LIMITS[id][1],+el.value)):+el.value;this.help=id;}else return;this.sync();this.render();}
+  sync(){const p=this.p;const $=id=>this.host.querySelector('#dz-v-'+id);const set=(id,t)=>{const e=$(id);if(e)e.textContent=t;};for(const id of Object.keys(LIMITS)){const r=this.host.querySelector('#dz-'+id),n=this.host.querySelector('#dz-num-'+id);if(r)r.value=id==='c'?cToS(p.c):p[id];if(n&&document.activeElement!==n)n.value=p[id];}
+    set('d',` ${fmt(p.d,1)} mm`);set('l',` ${fmt(p.l,1)} mm`);set('c',` ${mg(p.c)}`);set('burn',` ×${fmt(p.burn??1,2)}`);set('L',` ${p.L} mm`);set('twist',` 1 tour / ${p.twist} mm`);set('rof',ACTIONS[p.action]?.auto?` ${p.rof} coups/min`:' — (automatique seulement)');set('mag',` ${p.mag} coups`);set('zero',` ${p.zero} m`);set('wallx',` ×${fmt(p.wallx??(p.heavy?1.5:1),2)}`);set('jacket',` ×${fmt(p.jacket??1,1)}`);set('core',` ${Math.round((p.core||0)*100)} %`);set('hef',CONSTRUCTIONS[p.cons].he?` ${Math.round((p.hef??.3)*100)} % du volume`:' — (munitions explosives)');
     const C0=CONSTRUCTIONS[p.cons];const hc=this.host.querySelector('#dz-hectl');if(hc)hc.classList.toggle('off',!C0.he||!!C0.shaped);set('fragm',C0.he&&!C0.shaped?` ${fmt(p.fragm??4,1)} mg`:' — (explosive à éclats)');for(const [id,off] of [['fragm',!C0.he||!!C0.shaped],['hef',!C0.he],['core',!!(C0.core||C0.he||C0.pellets)]]){const e=this.host.querySelector('#dz-'+id);if(e)e.disabled=off;}
     const rof=this.host.querySelector('#dz-rof');if(rof)rof.disabled=p.action!=='auto';const ms=new Set(p.mods||[]);
     for(const b of this.host.querySelectorAll('[data-dz]')){const [k,v]=b.dataset.dz.split(':');if(['nose','base','action','cons','fill','shell','fuse','prop'].includes(k))b.classList.toggle('on',p[k]===v);if(k==='gel')b.classList.toggle('on',+v===this.gelR);if(k==='tgt')b.classList.toggle('on',v===this.target);if(k==='shotmode')b.classList.toggle('on',v===(this.shot?.mode||'xray'));if(k==='mod')b.classList.toggle('on',ms.has(v));}}

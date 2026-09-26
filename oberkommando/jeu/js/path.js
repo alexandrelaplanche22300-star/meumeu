@@ -5,9 +5,9 @@ export class Pather{
   constructor(N){this.N=N;const M=N*N;this.g=new Float32Array(M);this.from=new Int32Array(M);this.seen=new Int32Array(M);this.shut=new Int32Array(M);this.stamp=0;
     this.heap=new Int32Array(M*2);this.hf=new Float32Array(M*2);}
   // cost(k) : Infinity si bloqué, sinon le prix d'entrer dans la case (1 d'ordinaire). goal(k) : arrivé ?
-  find(si,sj,ti,tj,cost,goal,max=30000){const N=this.N;const st=++this.stamp;const s=sj*N+si;const g=this.g,from=this.from,seen=this.seen,shut=this.shut,H=this.heap,HF=this.hf;let n=0;
+  find(si,sj,ti,tj,cost,goal,max=this.N*this.N){const N=this.N;const st=++this.stamp;const s=sj*N+si;const g=this.g,from=this.from,seen=this.seen,shut=this.shut;let H=this.heap,HF=this.hf,n=0;
     const h=(k)=>{const i=k%N,j=(k/N)|0;const dx=Math.abs(i-ti),dy=Math.abs(j-tj);return dx+dy-.586*Math.min(dx,dy);};
-    const push=(k,f)=>{let c=n++;H[c]=k;HF[c]=f;while(c>0){const p=(c-1)>>1;if(HF[p]<=HF[c])break;[H[p],H[c]]=[H[c],H[p]];[HF[p],HF[c]]=[HF[c],HF[p]];c=p;}};
+    const push=(k,f)=>{if(n>=H.length){const nh=new Int32Array(H.length*2),nf=new Float32Array(HF.length*2);nh.set(H);nf.set(HF);H=this.heap=nh;HF=this.hf=nf;}let c=n++;H[c]=k;HF[c]=f;while(c>0){const p=(c-1)>>1;if(HF[p]<=HF[c])break;[H[p],H[c]]=[H[c],H[p]];[HF[p],HF[c]]=[HF[c],HF[p]];c=p;}};
     const pop=()=>{const top=H[0];n--;H[0]=H[n];HF[0]=HF[n];let c=0;for(;;){const l=c*2+1,r=l+1;let m=c;if(l<n&&HF[l]<HF[m])m=l;if(r<n&&HF[r]<HF[m])m=r;if(m===c)break;[H[m],H[c]]=[H[c],H[m]];[HF[m],HF[c]]=[HF[c],HF[m]];c=m;}return top;};
     g[s]=0;seen[s]=st;from[s]=-1;push(s,h(s));let best=s,bh=h(s),exp=0;
     while(n>0){const k=pop();if(shut[k]===st)continue;shut[k]=st;if(goal(k)){best=k;bh=0;break;}if(++exp>max)break;const hk=h(k);if(hk<bh){bh=hk;best=k;}

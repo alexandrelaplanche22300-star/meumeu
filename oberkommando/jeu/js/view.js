@@ -244,10 +244,11 @@ export class View{
     if(u.f==='beee'&&!down){ctx.strokeStyle='rgba(224,80,58,.75)';ctx.lineWidth=1.6*this.dpr;ctx.beginPath();ctx.ellipse(q.x,q.y,9*z,4.5*z,0,0,7);ctx.stroke();}
     if(u.h){const lost=1-u.h.blood/BLOOD;if(down||lost>.06)this.pool(q.x,q.y,lost,z,u.id);}
     if(D.img==='canon'){this.drawCannon(u,q,z);}
-    else{const act=down?'idle':u.anim==='aim'?'aim':u.anim==='action'?'action':u.anim==='walk'?'walk':'idle';let name=D.sheet;if(u.k==='villageois'){const t=u.task?.kind;name=t==='build'||t==='line'||t==='repair'?'meumeu_builder':u.carry?'meumeu_logistician':t==='work'?(W.building(u.task.b)?.k==='mine'?'meumeu_prospector':'meumeu_mechanic'):u.task?.type==='ore'?'meumeu_prospector':'meumeu_colonist';}
+    else{const act=down?'idle':u.anim==='aim'?'aim':u.anim==='action'?'action':u.anim==='walk'?'walk':'idle';let name=D.sheet;if(u.role==='munitions')name='meumeu_logistician';else if(u.serve)name='meumeu_assistant';else if(u.f==='meumeu'&&u.k==='soldat')name='meumeu_scout-commando';else if(u.f==='meumeu'&&u.k==='commando')name='meumeu_heavy-commando';if(u.k==='villageois'){const t=u.task?.kind;name=t==='build'||t==='line'||t==='repair'?'meumeu_builder':u.carry?'meumeu_logistician':t==='work'?(W.building(u.task.b)?.k==='mine'?'meumeu_prospector':'meumeu_mechanic'):u.task?.type==='ore'?'meumeu_prospector':'meumeu_colonist';}
       const sh=sheet(name,act,u.dir||'se')||sheet(name,'idle',u.dir||'se');const pose=down?'down':u.post==='couche'?'prone':u.post==='accroupi'?'crouch':'up';
-      const Wg=u.w&&!down?W.W(u.w):null;const away=u.dir==='ne'||u.dir==='nw';if(Wg&&away)this.drawGun(u,q,size,Wg,pose);
-      if(sh)this.body(sh,down?0:Math.floor(this.frame+(u.id%5)),q,size,pose,u.h?.wounds,u.dir,u.id,down?.25:0,u.armor?W.armorOf(u.armor)?.D:null,D.uniform||null);else{ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(q.x,q.y-8*z,5*z,0,7);ctx.fill();}
+      // Un servant montre son rôle auprès de la pièce, pas son fusil personnel : cela évite les canons superposés.
+      const bakedGun=u.f==='meumeu'&&(u.k==='soldat'||u.k==='commando');const Wg=u.w&&!down&&!u.serve&&!bakedGun?W.W(u.w):null;const away=u.dir==='ne'||u.dir==='nw';if(Wg&&away)this.drawGun(u,q,size,Wg,pose);
+      if(sh)this.body(sh,down?0:Math.floor(this.frame+(u.id%5)),q,size,pose,u.h?.wounds,u.dir,u.id,down?.25:0,u.armor?W.armorOf(u.armor)?.D:null,D.uniform||null);else this.drawUnitFallback(u,q,size,z,down);
       if(Wg&&!away)this.drawGun(u,q,size,Wg,pose);}
     const top=down?q.y-size*.35:u.post==='couche'?q.y-size*.4:u.post==='accroupi'?q.y-size*.78:q.y-size;
     if(u.carry&&u.carry.n>=1){const ic=icon(u.carry.k);if(ic)ctx.drawImage(ic,q.x-7*z,top-14*z,14*z,14*z);}
@@ -266,6 +267,10 @@ export class View{
     else{ctx.fillStyle='#2b2520';ctx.beginPath();ctx.ellipse(q.x,q.y-3*z,13*z,6*z,.2,0,7);ctx.fill();}ctx.restore();}
   pool(x,y,lost,z,seed){const ctx=this.ctx;const r=(4+Math.min(1,lost*1.8)*13)*z;const ox=((seed*7)%5-2)*z;ctx.save();ctx.fillStyle='rgba(92,8,10,.75)';ctx.beginPath();ctx.ellipse(x+ox,y+2*z,r,r*.45,0,0,7);ctx.fill();
     ctx.fillStyle='rgba(150,18,18,.55)';ctx.beginPath();ctx.ellipse(x+ox-r*.25,y+1.5*z,r*.45,r*.18,0,0,7);ctx.fill();ctx.restore();}
+  drawUnitFallback(u,q,size,z,down=false){const c=this.ctx,team=u.f==='beee'?'#a84e39':'#55734a',fur=u.f==='beee'?'#c28b58':'#e8d4b4';c.save();c.translate(q.x,q.y);c.globalAlpha=down?.78:1;
+    c.fillStyle='rgba(20,24,19,.24)';c.beginPath();c.ellipse(0,0,10*z,4*z,0,0,Math.PI*2);c.fill();c.fillStyle=team;c.beginPath();c.ellipse(0,-13*z,7*z,10*z,0,0,Math.PI*2);c.fill();c.strokeStyle='#392e24';c.lineWidth=1.3*z;c.stroke();
+    c.fillStyle=fur;c.beginPath();c.arc(0,-25*z,7*z,0,Math.PI*2);c.fill();c.stroke();c.fillStyle=team;c.beginPath();c.ellipse(-5*z,-30*z,3*z,4*z,-.5,0,Math.PI*2);c.ellipse(5*z,-30*z,3*z,4*z,.5,0,Math.PI*2);c.fill();
+    c.fillStyle='#332820';c.beginPath();c.arc(-2.5*z,-26*z,.8*z,0,Math.PI*2);c.arc(2.5*z,-26*z,.8*z,0,Math.PI*2);c.fill();c.strokeStyle='#6e5133';c.lineWidth=2.5*z;c.beginPath();c.moveTo(-3*z,-19*z);c.lineTo(3*z,-8*z);c.moveTo(3*z,-19*z);c.lineTo(-3*z,-8*z);c.stroke();c.restore();}
   // Dessine un personnage dans une posture, avec son sang : on compose d'abord le cadre à part (le sang ne tache que le personnage),
   // puis on le pose — accroupi, on le tasse ; couché ou à terre, on le couche sur le sol.
   body(sh,frame,q,size,pose,wounds,dir,seed,dim=0,arm=null,uniform=null){const ctx=this.ctx;const blood=wounds&&wounds.length;
@@ -287,14 +292,16 @@ export class View{
   // L'arme du soldat, d'après sa conception : crosse, boîte de culasse, canon, chargeur, lunette, bouche ; à l'échelle du
   // Meumeu (30 cm). En visée, à l'épaule, pointée vers où il regarde ; en marche, en bandoulière ; une pièce sur trépied est
   // posée au sol devant son tireur quand il ne bouge pas, et portée sur le dos quand il marche.
-  drawGun(u,q,size,D,pose){const ctx=this.ctx,p=D.p;const k=size/BODY_H;const dx=u.dir==='sw'||u.dir==='nw'?-1:1,dy=u.dir==='ne'||u.dir==='nw'?-1:1;
+  drawGun(u,q,size,D,pose){const ctx=this.ctx,p=D.p;const k=size/BODY_H;
     const Dc=p.d*(D.pistol?1.25:1.45),COL=D.COL,crew=D.have==='trepied',ms=new Set(D.mods||[]);const stock=crew?COL*1.1+14:Math.max(55,60+COL*1.6),act=COL*2.4+8,dev=ms.has('manchon')?p.d*14:ms.has('frein')?p.d*3.2:ms.has('cacheflamme')?p.d*4:0;
     const Lm=(stock+act+p.L+dev)/1000;const L=Lm*k;const th=Math.max(1.6,(Dc*3.2+6)/1000*k);const moving=u.anim==='walk';const aiming=u.anim==='aim'||u.anim==='action'||(u.cool>0&&!moving);
     let x0,y0,ang;const low=pose==='prone'?.03:pose==='crouch'?.13:.17;
-    if(crew&&!moving){x0=q.x-dx*.03*k;y0=q.y-.09*k;ang=dy*.12;}                                   // en batterie, au sol
-    else if(crew||!aiming){x0=q.x-dx*.05*k;y0=q.y-.05*k;ang=-1.05;}                                // porté en bandoulière, ou sur le dos
-    else{x0=q.x-dx*.02*k;y0=q.y-low*k;ang=dy*.22;}                                                  // à l'épaule
-    ctx.save();ctx.translate(x0,y0);if(dx<0)ctx.scale(-1,1);ctx.rotate(ang);ctx.lineJoin='round';
+    // Projection isométrique de la direction réellement visée : sx=fx-fy, sy=fx+fy.
+    const fx=u.fx??(u.dir==='ne'||u.dir==='se'?1:-1),fy=u.fy??(u.dir==='se'||u.dir==='sw'?1:-1);const sx=fx-fy,sy=fx+fy,n=Math.hypot(sx,sy)||1,ux=sx/n,uy=sy/n;ang=Math.atan2(sy,sx);
+    if(crew&&!moving){x0=q.x-ux*.02*k;y0=q.y-.10*k-uy*.02*k;}
+    else if(crew||!aiming){x0=q.x-ux*.03*k;y0=q.y-.12*k-uy*.03*k;ang+=Math.PI*.72;}
+    else{x0=q.x-ux*.035*k;y0=q.y-low*k-uy*.035*k;}
+    ctx.save();ctx.translate(x0,y0);ctx.rotate(ang);ctx.lineJoin='round';
     const f=v=>v/(stock+act+p.L+dev)*L;const h=th;
     // le trépied (en batterie)
     if(crew&&!moving){ctx.strokeStyle='#2b2f33';ctx.lineWidth=Math.max(1.2,h*.35);const hx=f(stock+act*.6);ctx.beginPath();ctx.moveTo(hx,h*.4);ctx.lineTo(hx+.08*k,.09*k);ctx.moveTo(hx,h*.4);ctx.lineTo(hx-.09*k,.09*k);ctx.stroke();}

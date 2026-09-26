@@ -2,7 +2,11 @@
 // la dessine, et on dessine un rien tant qu'elle n'est pas là.
 const cache=new Map();
 export let manifest=null;
-export async function loadManifest(){manifest=await (await fetch('assets/manifest.json')).json();return manifest;}
+const EMPTY_MANIFEST={buildings:{},vehicles:{},resources:{},characters:{},sheets:{},terrain:{},fx:{},props:{}};
+export async function loadManifest(){
+  try{const r=await fetch('assets/manifest.json');if(!r.ok)throw new Error('manifest http '+r.status);manifest=await r.json();}
+  catch(e){console.error('manifest.json introuvable ou invalide, le jeu continue sans visuels :',e);manifest=EMPTY_MANIFEST;}
+  return manifest;}
 export function img(path,abs=false){let e=cache.get(path);if(!e){e=new Image();e.src=abs?path:'assets/'+path;cache.set(path,e);}return e.complete&&e.naturalWidth?e:null;}
 export const building=(kind,stage)=>{const p=manifest.buildings[kind]?.[stage-1];return p?img(p):null;};
 export const vehicle=name=>{const p=manifest.vehicles[name];return p?img(p):null;};

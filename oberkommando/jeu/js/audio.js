@@ -67,10 +67,10 @@ export class Audio{
       case 'won':[262,330,392,523,659,784].forEach((f,k)=>this.tone(this.master,{f0:f,dur:1.4,gain:.12,at:k*.25}));break;}}
   // Les nappes : la nature (vent, oiseaux le jour), et la bataille (grondement lointain, crépitement) selon ce qu'il y a à l'écran.
   beds(){const c=this.ctx;const mk=(type,f,q)=>{const s=c.createBufferSource();s.buffer=this.noiseBuf;s.loop=true;const fl=c.createBiquadFilter();fl.type=type;fl.frequency.value=f;fl.Q.value=q;const g=c.createGain();g.gain.value=0;s.connect(fl);fl.connect(g);g.connect(this.master);s.start();return {g,fl};};
-    this.bed.wind=mk('bandpass',500,.6);this.bed.rumble=mk('lowpass',140,.8);this.bed.crackle=mk('highpass',3500,.5);}
-  ambience({battle=0,fire=0,night=false,wind=.5}){if(!this.ctx)return;const t=this.ctx.currentTime;const B=this.bed;
+    this.bed.wind=mk('bandpass',500,.6);this.bed.rumble=mk('lowpass',140,.8);this.bed.crackle=mk('highpass',3500,.5);this.bed.industry=mk('bandpass',420,.7);}
+  ambience({battle=0,fire=0,machines=0,night=false,wind=.5}){if(!this.ctx)return;const t=this.ctx.currentTime;const B=this.bed;
     B.wind.g.gain.setTargetAtTime(.05*wind*(night?1.3:1),t,1.5);B.wind.fl.frequency.setTargetAtTime(380+220*Math.sin(t*.2),t,2);
-    B.rumble.g.gain.setTargetAtTime(Math.min(.5,battle*.08),t,.8);B.crackle.g.gain.setTargetAtTime(Math.min(.12,fire*.02+battle*.01),t,.8);
+    B.rumble.g.gain.setTargetAtTime(Math.min(.5,battle*.08),t,.8);B.crackle.g.gain.setTargetAtTime(Math.min(.12,fire*.02+battle*.01),t,.8);B.industry.g.gain.setTargetAtTime(Math.min(.045,machines*.006),t,1.4);B.industry.fl.frequency.setTargetAtTime(280+Math.min(420,machines*24)+25*Math.sin(t*1.7),t,1.2);
     if(!night&&Math.random()<.004&&battle<1)this.bird();}
   bird(){const o=this.out({vol:.25,pan:Math.random()*2-1});const f=2200+Math.random()*1500;for(let k=0;k<3;k++)this.tone(o,{f0:f,f1:f*1.3,dur:.09,gain:.05,at:k*.13});}
 }

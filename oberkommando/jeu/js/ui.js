@@ -33,7 +33,7 @@ const bthumb=k=>{const B=BUILDINGS[k];if(k==='tente')return TENT_SVG;const p=man
 
 let world=new World();
 const audio=new Audio();
-const ui={zoneN:6,zoneHigh:true,speed:1,panelAt:0,lastPanel:'',pick:null,trainW:{},trainA:{},bb:true,bbCat:'vivre',modal:null};
+const ui={zoneN:6,zoneHigh:true,speed:1,panelAt:0,lastPanel:'',pick:null,trainW:{},trainA:{},trainRole:{},bb:true,bbCat:'vivre',modal:null};
 const view=new View($('#view'),world,{
   describe:t=>describe(t),
   unitLabel:u=>unitLabel(u),
@@ -190,6 +190,7 @@ function unitsPane(sel){const by={};for(const u of sel)by[u.k]=(by[u.k]||0)+1;co
   let h=`<section class="pane"><h2>${sel.length>1?(whole?esc(sq.name):`${sel.length} choisis`):esc(unitName(one))} <small>${Object.entries(by).map(([k,n])=>`${n} ${UNITS[k].name.toLowerCase()}${n>1?'s':''}`).join(' · ')}${one?.sq&&world.squad(one.sq)?' · '+esc(world.squad(one.sq).name):''}</small></h2>`;
   if(one){if(one.h)h+=healthHtml(one);else h+=`<div class="kv"><span>Solidité</span><b>${n0(one.hp)}/${one.max}</b></div><div class="kv"><span>Obus</span><b>${one.shells}</b></div>`;
     h+=weaponHtml(one)+armorHtml(one);
+     if(one.role==='munitions'&&!one.sq&&world.s.squads.length){h+=`<div class="row"><label class="small">Escouade à ravitailler <select data-join-target="${one.id}">${world.s.squads.map(sq=>`<option value="${sq.id}">${esc(sq.name)} · ${world.members(sq).length} soldats</option>`).join('')}</select></label><button class="small" data-join="${one.id}">Rallier</button></div>`;}
     // rééquiper un soldat déjà formé : une autre arme (prise au dépôt proche), un autre rôle
     if(UNITS[one.k].arm&&one.h){const dep=world.depots('meumeu',one.x,one.y)[0];const have=dep?dep.stock:{};const guns=world.designsOf('meumeu');const arms=world.armorsOf('meumeu');
       h+=`<div class="kv"><span>Arme</span><b><select data-sqw="${one.id}">${guns.map(d=>`<option value="${d.id}" ${d.id===one.w?'selected':''}>${esc(d.name)}${d.id!==one.w?` (${n0(have['a:'+d.id]||0)} au dépôt)`:''}</option>`).join('')}</select></b></div>
@@ -311,7 +312,7 @@ function buildingPane(b){const B=BUILDINGS[b.k];const beee=b.f==='beee';let h=`<
     h+=`<section class="pane"><h2>Former, construire ${b.queue.length?`<small>${b.queue.map(q=>`${(UNITS[q.k]||VEHICLES[q.k]).name.toLowerCase()} ${hours(q.left)}`).join(' · ')}</small>`:''}</h2>
       ${B.trains.some(k=>UNITS[k]?.arm)?`<label class="row small">Armés de <select data-trainw="${b.id}">${guns.map(d=>`<option value="${d.id}" ${d.id===wsel?'selected':''}>${esc(d.name)} — ${n0(have['a:'+d.id]||0)} en stock</option>`).join('')}</select></label>
         <label class="row small">Protégés par <select data-traina="${b.id}"><option value="">rien</option>${world.armorsOf('meumeu').map(a=>`<option value="${a.id}" ${a.id===asel?'selected':''}>${esc(a.name)} (${Math.round(deriveArmor(a.a).mass*1000)} g) — ${n0(have['p:'+a.id]||0)} en stock</option>`).join('')}</select></label>
-        ${(()=>{const Wd=world.W(wsel);const Ar=asel&&world.armorOf(asel);const kg=Wd.mass+(Ar?Ar.D.mass:0)+Wd.carry*Wd.rm/1000;return `<p class="quiet small">Dotation : ${Math.round(kg*1000)} g portés (${Math.round(kg/1.5*100)} % de son poids) · marche ×${fmt(Ar?Ar.D.move:1,2)}.</p>`;})()}`:''}
+        ${(()=>{const Wd=world.W(wsel);const Ar=asel&&world.armorOf(asel);const kg=Wd.mass+(Ar?Ar.D.mass:0)+Wd.carry*Wd.rm/1000;return `<p class="quiet small">Dotation : ${Math.round(kg*1000)} g portés (${Math.round(kg/1.5*100)} % de son poids) · marche ×${fmt(Ar?Ar.D.move:1,2)}.</p>`;})()}<label class="row small">Rôle des recrues armées <select data-trainrole="${b.id}"><option value="tireur" ${(ui.trainRole[b.id]||'tireur')==='tireur'?'selected':''}>Tireur</option><option value="munitions" ${ui.trainRole[b.id]==='munitions'?'selected':''}>Porteur de munitions</option></select></label><p class="quiet small">Ralliez le porteur à l’escouade qu’il ravitaille depuis sa fiche.</p>`:''}
       <div class="offers">${B.trains.map(k=>{const D=UNITS[k]||VEHICLES[k];const r=world.canTrain(b,k,wsel,asel||null);
       return `<div class="offer ${r.ok?'can':''}"><div class="ohead"><b>${D.name}</b><small class="quiet">${D.hours} h</small></div><p>${esc(D.why)}</p><div class="row between"><span class="costs">${costHtml(r.cost||D.cost,have)}</span><button class="small" data-train="${k}" ${r.ok?'':'disabled'} title="${esc(r.why.join(', '))}">${UNITS[k]?'Former':'Construire'}</button></div></div>`;}).join('')}</div><p class="quiet small">Clic droit sur la carte : point de ralliement.</p></section>`;}
   return h;}
@@ -352,6 +353,7 @@ function overviewPane(){const s=world.s;const cap=world.capital();const st=cap?.
     <p class="quiet small">Le but : la chute de toutes les villes bèè — et que la capitale tienne.</p>${s.won?`<p class="good"><b>Gagné au jour ${s.won.day}.</b></p>`:''}${s.lost?`<p class="bad"><b>La civilisation meumeu est tombée au jour ${s.lost.day}.</b></p>`:''}</section>`;
   h+=`<section class="pane"><h2>Civilisation</h2><div class="kv"><span>Villes</span><b>${ours.filter(b=>b.k==='centre'&&!b.ruin).map(b=>{const st=b.done?world.cityStats(b):null;return `<a data-goto="${b.id}">${esc(b.city)}</a>${st?` <small>${st.res}/${st.cap}</small>`:' <small>chantier</small>'}`;}).join(', ')}</b></div>
     <div class="kv"><span>Villageois</span><b>${s.units.filter(u=>u.f==='meumeu'&&u.k==='villageois').length}${idle.length?` · <a data-act="idle">${idle.length} sans rien à faire</a>`:''}</b></div>
+    <div class="kv"><span>Main-d’œuvre disponible</span><b>${Math.max(0,idle.length-s.buildings.reduce((n,b)=>n+(b.queue||[]).filter(q=>q.draftId!=null).length,0))} · ${s.units.filter(u=>u.f==='meumeu'&&u.k==='villageois'&&u.task).length} affectés</b></div>
     <div class="kv"><span>Armée</span><b>${army.length?Object.entries(army.reduce((o,u)=>(o[u.k]=(o[u.k]||0)+1,o),{})).map(([k,n])=>`${n} ${UNITS[k].name.toLowerCase()}${n>1?'s':''}`).join(', '):'aucune'}${army.length?` · <a data-act="army">choisir</a>`:''}</b></div>
     ${W.length?`<div class="kv"><span>Blessés</span><b><a data-modal="med">${W.length} · ${W.filter(x=>triage(x.u.h).k==='rouge').length} en urgence</a></b></div>`:''}
     <div class="kv"><span>Logistique</span><b>${s.vehicles.filter(v=>v.f==='meumeu').map(v=>`<a data-vehicle="${v.id}">${esc(v.name)}</a>`).join(', ')||'aucun véhicule'} · ${Object.values(s.rails).filter(r=>r.b).length} cases de voie · <a data-modal="eco">l’économie</a></b></div>
@@ -447,8 +449,8 @@ const MODN={gather_tree:'coupe du bois',gather_rock:'taille de pierre',gather_bu
 // l'économie : ce qui produit, où sont les stocks, ce qui roule
 function ecoModal(){const tab=ui.ecoTab||'fret';const bs=world.s.buildings.filter(b=>b.f==='meumeu'&&b.done);let body='';
   const dn=id=>{const d=world.building(id);return d?`<a data-selb="${d.id}">${esc(BUILDINGS[d.k].name)}</a> <small>${esc(world.cityName(d))}</small>`:'<span class="warn">aucun</span>';};
-  if(tab==='prod'){const prod=bs.filter(b=>{const B=BUILDINGS[b.k];return B.workers||B.factory||B.makes||B.lab||B.design;});
-    body=`<table class="medt eco"><thead><tr><th></th><th>Bâtiment</th><th>Au travail</th><th>Fait</th><th>Approvisionné par</th><th>Livre à</th><th>État</th></tr></thead><tbody>${prod.map(b=>{const B=BUILDINGS[b.k];const n=B.workers?world.workers(b).length:0;
+  if(tab==='prod'){const prod=bs.filter(b=>{const B=BUILDINGS[b.k];return B.workers||B.factory||B.makes||B.lab||B.design;});const civilians=world.s.units.filter(u=>u.f==='meumeu'&&u.k==='villageois').length,free=world.idle().length,reserved=bs.reduce((n,b)=>n+(b.queue||[]).filter(q=>q.draftId!=null).length,0),army=world.s.units.filter(u=>u.f==='meumeu'&&u.k!=='villageois').length,working=world.s.units.filter(u=>u.f==='meumeu'&&u.k==='villageois'&&u.task).length;
+    body=`<div class="eco-metrics"><div><small>Civils</small><b>${civilians}</b><span>main-d’œuvre totale</span></div><div><small>En poste</small><b>${working}</b><span>récolte, chantiers, services</span></div><div><small>Mobilisables</small><b>${Math.max(0,free-reserved)}</b><span>recrues disponibles</span></div><div><small>Armée</small><b>${army}</b><span>retirée de la main-d’œuvre</span></div></div><table class="medt eco"><thead><tr><th></th><th>Bâtiment</th><th>Au travail</th><th>Fait</th><th>Approvisionné par</th><th>Livre à</th><th>État</th></tr></thead><tbody>${prod.map(b=>{const B=BUILDINGS[b.k];const n=B.workers?world.workers(b).length:0;
       const what=B.factory?`${b.prod?`${ico(b.prod)} ${esc(world.productName(b.prod))}`:'<span class="warn">rien</span>'}${b.batch?` <small>${Math.round(Math.min(1,b.batch.done/b.batch.hours)*100)} %</small>`:''}`:B.makes?Object.entries(B.makes).map(([k,v])=>`${ico(k)} ${fmt(v*n*world.mod('ferme'),1)}/h`).join(' '):b.k==='mine'?(()=>{const nd=world.s.nodes[b.ore];return nd?`${ico(nd.res)} ${fmt(B.rate*n*world.mod('mine'),1)}/h · filon ${n0(nd.left)}`:'';})():B.hub?`récolte : ${({auto:'ce qui manque',bois:'bois',pierre:'pierre',vivres:'baies'})[b.res||'auto']}`:b.dev?`innovation ${Math.round((1-b.dev.left/b.dev.total)*100)} %`:b.proto?'prototype':'—';
       return `<tr><td>${bthumb(b.k)?`<img class="thumb" src="${bthumb(b.k)}" alt="">`:''}</td><td><a data-selb="${b.id}">${esc(B.name)}</a><small>${esc(world.cityName(b))}</small></td><td>${B.workers?`${n}/${B.workers}`:'—'}</td><td>${what}</td><td>${world.takesIn(b)?dn(b.sup):'—'}</td><td>${world.givesOut(b)?dn(b.out):'—'}</td><td class="${b.why?'warn':b.working?'good':'quiet'}">${esc(b.why||(b.working?'au travail':'à l’arrêt'))}</td></tr>`;}).join('')}</tbody></table>`;}
   else if(tab==='stocks'){const deps=bs.filter(b=>BUILDINGS[b.k].store);const cols=['bois','pierre','charbon','fer','cuivre','plomb','salpetre','vivres','pieces','poudre','explosifs','sante','soie'];
@@ -498,7 +500,8 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   if(d.eco){ui.ecoTab=d.eco;ui.modalHtml='';renderModal();return;}
   if(d.selb){const bd=world.building(+d.selb);if(bd){view.sel.clear();view.selV=null;view.selB=bd.id;view.lookAt(bd.i+1,bd.j+1);ui.modal=null;renderPanel(true);}return;}
   if(d.hub){const bd=world.building(view.selB);if(bd){bd.res=d.hub==='auto'?null:d.hub;for(const u of world.workers(bd))u.hubNode=null;}renderPanel(true);return;}
-  if(d.train){const bd=world.building(view.selB);const r=world.train(bd,d.train,ui.trainW[bd.id]||$(`[data-trainw="${bd.id}"]`)?.value,($(`[data-traina="${bd.id}"]`)?.value)||null);say(r.ok?r.text:r.why[0],r.ok?'good':'bad');audio.play(r.ok?'click':'bad');renderPanel(true);return;}
+  if(d.join){const u=world.unit(+d.join);const sid=+$('[data-join-target="'+d.join+'"]')?.value;const r=world.joinSquad(u,sid);say(r.ok?r.text:r.why[0],r.ok?'good':'bad');renderPanel(true);return;}
+  if(d.train){const bd=world.building(view.selB);const r=world.train(bd,d.train,ui.trainW[bd.id]||$(`[data-trainw="${bd.id}"]`)?.value,($(`[data-traina="${bd.id}"]`)?.value)||null,ui.trainRole[bd.id]||'tireur');say(r.ok?r.text:r.why[0],r.ok?'good':'bad');audio.play(r.ok?'click':'bad');renderPanel(true);return;}
   if(d.limit){const bd=world.building(view.selB);if(bd?.prod){const step=LIMIT_OF(bd.prod)>=50?20:2;world.setLimit(bd,(bd.limit||0)+(+d.limit)*step);}renderPanel(true);return;}
   if(d.prio){const bd=world.building(view.selB);if(bd){world.setPrio(bd,+d.prio);say(`${world.depotName(bd)} : priorité ${PRIO[+d.prio].toLowerCase()}.`);}renderPanel(true);return;}
   if(d.need){const bd=world.building(view.selB);const i=d.need.lastIndexOf(':');const k=d.need.slice(0,i);if(bd)world.setNeed(bd,k,(bd.need?.[k]||0)+(+d.need.slice(i+1)));renderPanel(true);return;}
@@ -558,7 +561,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   else if(a==='win-off'){$('#win').hidden=true;}
   renderPanel(true);});
 document.addEventListener('change',e=>{const sr=e.target.closest('[data-sqr],[data-sqw],[data-sqa]');if(sr){const d=sr.dataset;const u=world.unit(+(d.sqr||d.sqw||d.sqa));if(u){const r=d.sqr?world.setRole(u,sr.value):d.sqw?world.rearm(u,sr.value):world.rearmor(u,sr.value||null);if(!r.ok)say(r.why[0],'bad');ui.modalHtml='';renderModal();renderPanel(true);}return;}
-  const s=e.target.closest('[data-trainw]');if(s){ui.trainW[+s.dataset.trainw]=s.value;renderPanel(true);}const a=e.target.closest('[data-traina]');if(a){ui.trainA[+a.dataset.traina]=a.value;renderPanel(true);}
+  const s=e.target.closest('[data-trainw]');if(s){ui.trainW[+s.dataset.trainw]=s.value;renderPanel(true);}const a=e.target.closest('[data-traina]');if(a){ui.trainA[+a.dataset.traina]=a.value;renderPanel(true);}const r=e.target.closest('[data-trainrole]');if(r){ui.trainRole[+r.dataset.trainrole]=r.value;renderPanel(true);}
   const t=e.target;const bd=world.building(view.selB);
   if(t.matches('[data-prod]')&&bd){const r=world.setProduct(bd,t.value||null);say(r.ok?r.text:r.why[0],r.ok?'good':'bad');audio.play(r.ok?'click':'bad');renderPanel(true);}
   else if(t.matches('[data-link]')&&bd&&t.value){const r=world.setLink(bd,t.dataset.link,+t.value);say(r.ok?r.text:r.why[0],r.ok?'good':'bad');renderPanel(true);}
@@ -623,7 +626,7 @@ function events(){for(const e of world.events.splice(0)){view.onEvent(e);const P
   if(Math.random()<.15){const u=world.s.units.find(u=>u.anim==='action'&&u.f==='meumeu'&&Math.random()<.2);if(u){const P=where(u.x,u.y);if(P.vol>.3)audio.play(u.task?.kind==='gather'||u.task?.kind==='work'?'chop':'hammer',P);}}
   for(const F of world.s.falls)if(F.kind==='bomb'&&F.t<.02){audio.play('whistle',where(F.x1,F.y1));break;}}
 function ambience(){const [i0,i1,j0,j1]=view.vis||[0,0,0,0];const inv=(x,y)=>x>=i0&&x<=i1&&y>=j0&&y<=j1;const s=world.s;
-  const battle=s.units.filter(u=>u.anim==='aim'&&inv(u.x,u.y)).length;const fire=s.buildings.filter(b=>b.fire>0&&inv(b.i,b.j)).length;audio.ambience({battle,fire,night:world.isNight()});}
+  const battle=s.units.filter(u=>u.anim==='aim'&&inv(u.x,u.y)).length;const fire=s.buildings.filter(b=>b.fire>0&&inv(b.i,b.j)).length;const machines=s.buildings.filter(b=>b.f==='meumeu'&&b.done&&b.working&&BUILDINGS[b.k].factory&&inv(b.i,b.j)).length;audio.ambience({battle,fire,machines,night:world.isNight()});}
 
 function setWorld(w){world=w;view.world=w;view.tiles=null;view.overview=null;view.shadeCv=null;view.sel.clear();view.selB=null;view.selV=null;view.parts=[];view.decals=[];view.streaks=[];view.toppling=[];ui.pick=null;ui.modal=null;for(const c of [...xray.cards])xray.remove(c);const c=w.capital();if(c)view.lookAt(c.i+2,c.j+2);$('#win').hidden=true;renderPanel(true);}
 

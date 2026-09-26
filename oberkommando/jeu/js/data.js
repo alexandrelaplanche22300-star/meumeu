@@ -103,7 +103,7 @@ export const BUILDINGS={
     why:'Un grand dépôt, sans voie : au cœur d’un quartier d’usines, au pied d’une mine. Réglez sa priorité et ses demandes : le fret le remplit.'},
   labo:{name:'Laboratoire',sprite:'still',size:[3,3],cost:{bois:80,pierre:70},hours:14,unique:true,hp:500,lab:true,
     why:'Les idées des Meumeu y deviennent des innovations : chaque idée se développe ici, contre des ressources et du temps.'},
-  caserne:{name:'Caserne',sprite:'school',size:[3,3],cost:{bois:60,pierre:50},stock0:{'a:mle1':4,vivres:60,pieces:8},hours:12,hp:800,trains:['soldat','commando'],
+  caserne:{name:'Caserne',sprite:'school',size:[3,3],cost:{bois:60,pierre:50},stock0:{'a:mle1':4,'m:mle1':2,vivres:60,pieces:8},hours:12,hp:800,trains:['soldat','commando'],
     why:'On y forme soldats et commandos, armés d’une conception adoptée : il faut l’arme et ses munitions dans un dépôt proche. Ils rechargent dans les dépôts : une armée loin de ses dépôts finit à sec.'},
   poudrerie:{name:'Usine chimique',sprite:'motor',size:[2,2],cost:{bois:40,pierre:50,pieces:6},hours:10,workers:3,hp:350,factory:{coal:.15,mod:'armement'},
     why:'Le salpêtre et le charbon, traités, broyés, mêlés : la poudre des cartouches, ou des explosifs (obus, grenades, charges). Une seule production à la fois. Loin des maisons : ça saute.'},
@@ -244,8 +244,8 @@ export const FIRE={hours:6,dps:6};  // un bâtiment qui brûle perd des points j
 // Ensuite une vague tous les `every` jours, plus grosse chaque fois ; leurs bombardiers `air` jours après la déclaration.
 export const BEEE={cities:2,peace:[14,18],every:2.2,wave:3,grow:2,air:5,airEvery:1.6,garrison:8,buildEvery:18,cap:40,
   units:{
-    soldat:{name:'Soldat bèè',sheet:'beee_colonist',uniform:'rgba(112,76,42,.62)',speed:7.5,arm:'bee_fusil',skill:2.4},
-    commando:{name:'Commando bèè',sheet:'beee_colonist',uniform:'rgba(70,52,36,.72)',speed:8,arm:'bee_pm',skill:1.8,grenades:3,smoke:1},
+    soldat:{name:'Soldat bèè',sheet:'beee_colonist',uniform:'rgba(112,76,42,.62)',speed:7.5,arm:'bee_fusil',skill:3.3},
+    commando:{name:'Commando bèè',sheet:'beee_colonist',uniform:'rgba(70,52,36,.72)',speed:8,arm:'bee_pm',skill:3,grenades:3,smoke:1},
     canon:{name:'Canon bèè',img:'canon',speed:4.5,range:13,cd:10,vsB:3,dmg:40,hp:150,shell:true},
   }};
 
