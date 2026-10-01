@@ -36,11 +36,11 @@ export const VEHDEF={
     armes:[{id:'mg1',piece:'tourelle',w:'mg_lourde_mle1',arc:360,tour:45,coups:1500,jumelle:true,pos:[-.41,.12,.9],tube:.42},{id:'mg2',piece:'tourelle',w:'mg_lourde_mle1',arc:360,tour:45,coups:1500,jumelle:true,pos:[-.41,-.12,.9],tube:.42}],
     cout:{fer:55,pieces:42,cuivre:6,bois:4,'a:mg_lourde_mle1':2},heures:36,
     why:'Deux mitrailleuses lourdes jumelées dans une tourelle en dôme. Le blindage arrête les balles de fusil et de mitrailleuse bèè ; le fusil antichar le perce.'},
-  char:{name:'Char léger',modele:'armored_vehicle',avant:'+z',long:2.4,large:1.4,roues:'chenilles',pivot:38,vmax:14,t0:4.5,frein:2.2,
+  char:{name:'Automitrailleuse à canon',modele:'armored_vehicle',avant:'+z',long:2.4,large:1.4,roues:'roues',r:3.0,vmax:18,t0:4.5,frein:2.2,   // (V12.4 : le modèle a quatre roues — c'est une automitrailleuse à canon, pas un char)
     blindage:{avant:[3.6,35],flanc:[2.0,0],arriere:[1.6,0],dessus:[.8,85],tourelle:[3.0,20],tourelle_flanc:[2.0,10]},hp:260,places:{servants:2,passagers:0},soute:2,
     armes:[{id:'canon',piece:'tourelle',w:'canon_char_mle1',arc:360,tour:30,coups:60,hausse:[-6,18],pos:[-.04,0,.94],tube:.7},{id:'coax',piece:'tourelle',w:'mg_lourde_mle1',arc:360,tour:30,coups:2000,coax:'canon',pos:[-.04,.12,.94],tube:.55}],
     cout:{fer:120,pieces:85,cuivre:12,charbon:10,'a:canon_char_mle1':1,'a:mg_lourde_mle1':1},heures:70,
-    why:'Un canon court (obus explosifs contre les nids et les groupes) et une mitrailleuse coaxiale, en tourelle. L’avant incliné tient le fusil antichar bèè au-delà de quelques dizaines de mètres ; les flancs non.'},
+    why:'Une automitrailleuse lourde, sur quatre roues : un canon court (obus explosifs contre les nids et les groupes) et une mitrailleuse coaxiale, en tourelle. L’avant incliné tient le fusil antichar bèè au-delà de quelques dizaines de mètres ; les flancs non.'},
   automoteur:{name:'Automoteur à casemate',modele:'guncarrier_casemate',avant:'-z',long:2.6,large:1.45,roues:'chenilles',pivot:30,vmax:12,t0:5,frein:2.5,
     blindage:{avant:[4.5,40],flanc:[1.6,0],arriere:[1.2,0],dessus:[.5,85]},hp:300,places:{servants:3,passagers:0},soute:2,
     // (chaque tube tourne dans sa rotule, à la plaque avant — 1,12 case devant le centre, à 0,3 case de l'axe, comme les pivots du modèle ; la bouche au nez, 0,18 plus loin)
@@ -229,7 +229,7 @@ export const VEHICULES={
     for(const m of v.mounts||[])crate(m.w,0,Wd=>{if((m.pouch||0)>=Wd.p.mag*2)return false;m.pouch=(m.pouch||0)+(Wd.perCrate||Wd.p.mag);return true;});
     const near=[...(v.crew||[]),...this.s.units.filter(u=>u.f===v.f&&!u.inVeh&&u.hp>0&&Math.hypot(u.x-v.x,u.y-v.y)<2.5)];
     for(const u of near){if(!u.w)continue;crate(u.w,0,Wd=>{const carry=Wd.carry||Wd.p.mag*4;if((u.pouch||0)+(u.mag||0)>=carry*.5)return false;u.pouch=Math.min(carry,(u.pouch||0)+(Wd.perCrate||Wd.p.mag));return true;});}},
-  combatVehicleTick(v,dt){const V=VEHDEF[v.k];if(v.hp<=0){v.spd=0;return;}this.vehSouteSupply(v);
+  combatVehicleTick(v,dt){const V=VEHDEF[v.k];if(v.k==='char'&&v.name?.startsWith('Char léger'))v.name=v.name.replace('Char léger','Automitrailleuse à canon');if(v.hp<=0){v.spd=0;return;}this.vehSouteSupply(v);
     if(v.fire>0){v.fire-=dt;v.hp-=dt*35;if(v.hp<=0){this.vehDestroyed(v,'brûlé');return;}}
     if(v.comp?.moteur||v.comp?.train){if(v.state==='go'){v.state='idle';v.path=null;v.itin=null;}v.why=v.comp.moteur?'moteur détruit : immobilisé':'train de roulement brisé : immobilisé';}
     const drv=this.vehDriver(v);

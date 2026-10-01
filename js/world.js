@@ -1033,7 +1033,9 @@ export class World{
   // quelque chose dans l'heure réagit trois fois plus vite ; un éclaireur aussi.
   detectTick(dt){this.detT=(this.detT||0)+dt;if(this.detT<.06)return;const step=this.detT;this.detT=0;this.gridBuild();const base=this.sight();const t=this.s.t;const night=this.light()<.4;
     const act=this.s.units.filter(u=>active(u)&&u.hp>0);
-    const towers=this.s.buildings.filter(b=>b.done&&!b.ruin&&BUILDINGS[b.k].defense).map(b=>{const [w,h]=this.sizeOf(b);return {x:b.i+w/2,y:b.j+h/2,f:b.f,k:'tour',tower:true};});
+    const towers=this.s.buildings.filter(b=>b.done&&!b.ruin&&BUILDINGS[b.k].defense).map(b=>{const [w,h]=this.sizeOf(b);return {x:b.i+w/2,y:b.j+h/2,f:b.f,k:'tour',tower:true};})
+    // (un engin de combat dont l'équipage vit guette tout autour de lui, comme une tour : l'équipage à bord ne comptait plus comme observateur)
+    for(const v of this.s.vehicles)if(VEHDEF[v.k]&&v.hp>0&&(v.crew||[]).some(u=>u.hp>0&&u.h?.state!=='hors'))towers.push({x:v.x,y:v.y,f:v.f,k:'tour',tower:true,veh:v.id});
     // chaque guetteur : son acuité (un villageois au travail regarde à peine), la direction où il regarde (le cône), son éveil
     // (en ronde il tourne la tête, en alerte il scrute partout), et la nuit son infrarouge s'il en a un (projecteur allumé, batterie chargée)
     const alerts=this.s.beee.alerts||[];

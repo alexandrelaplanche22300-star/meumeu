@@ -103,6 +103,12 @@ export const BEEE_AI={
           const w=this.bestRifle('beee'),Wd=this.W(w);if(this.take('beee',cx,cy,'a:'+w,1,160)<1)break;const cr=this.take('beee',cx,cy,'m:'+w,1,160);
           u.k='soldat';u.w=w;u.mag=Wd.p.mag;u.pouch=Math.max(Wd.p.mag*2,Math.round(cr*(Wd.perCrate||20)));u.carry=null;u.city=c.id;u.home=c.centre;u.task={kind:'guard',tx:cx+(this.rand()-.5)*8,ty:cy+(this.rand()-.5)*8};u.path=null;n++;}
         if(n&&!this.s.fog)this.log(c.name,`${c.name} arme ${n} civils pour se défendre.`,'warn');}}
+    // Le ravitaillement des usines, simplifié (V12.4) : toutes les deux heures, chaque usine reçoit à son dépôt d'approvisionnement de quoi faire deux
+    // fournées (ses matières et son charbon), prises dans tous les dépôts du pays. Avant, seuls les porteurs et les dépôts à 14 cases la servaient : au jour 72
+    // d'une partie, toutes les usines d'armement étaient froides (« plus de charbon ») alors que le pays avait 213 charbon et 2 583 fer.
+    if(this.s.t-(B0.supT??-99)>=2){B0.supT=this.s.t;for(const b of this.s.buildings){if(b.f!=='beee'||!b.done||b.ruin||!BUILDINGS[b.k].factory||!b.prod)continue;const S=this.building(b.sup);if(!S)continue;const R=this.recipe(b,b.prod);if(!R)continue;
+      const want={...Object.fromEntries(Object.entries(R.in).map(([k,v])=>[k,v*2]))};const coal=this.coalRate(b)*Math.max(2,BUILDINGS[b.k].workers||2)*(R.hours||4)*2;if(coal>0)want.charbon=(want.charbon||0)+coal;
+      const [sx,sy]=this.bc(S);for(const [k,w] of Object.entries(want)){const have=S.stock[k]||0;if(have>=w)continue;const got=this.take('beee',sx,sy,k,w-have,400);if(got>0)this.put(S,k,got);}}}
     // L'intendance : le plan (ce qui manque, en remontant la chaîne), puis chaque villageois au poste qui vaut le plus.
     const stock=this.have('beee',base.i+1,base.j+1);const plan=this.beeePlan();this.beeeLabour(plan);this.beeePorters(plan);this.beeeTrains();this.beeeSiting(plan);
     const stillBuilding=this.beeeBuildings().some(b=>!b.done&&!['camp','mine','centre','maison','gare'].includes(b.k)&&distance(b.i,b.j,base.i,base.j)<32);   // l'expansion (camps, mines, colonies) ne bloque pas l'industrie
