@@ -774,7 +774,7 @@ export class World{
     this.checkEnd();}
 
   // ---------- les Meumeu, les soldats ----------
-  unitTick(u,dt){const D=UDEF(u);const dts=this.dts;u.cool=Math.max(0,(u.cool||0)-dts);u.reload=Math.max(0,(u.reload||0)-dts);u.supp=(u.supp||0)*Math.exp(-dts/5);if(u.stun>0){u.stun=Math.max(0,u.stun-dts);if(!u.stun&&u.why==='sonné')u.why=null;}
+  unitTick(u,dt){const D=UDEF(u);const dts=this.dts;u.cool=Math.max(0,(u.cool||0)-dts);u.reload=Math.max(0,(u.reload||0)-dts);u.supp=(u.supp||0)*Math.exp(-dts/(D.choc?2:5));if(u.stun>0){u.stun=Math.max(0,u.stun-dts*(D.choc?2:1));if(!u.stun&&u.why==='sonné')u.why=null;}
     // le corps : le sang coule, on tombe, on meurt
     if(u.h){const ch=tickHealth(u.h,dts);if(ch)this.stateChange(u,ch);if(u.h.log?.length&&u.h.log[u.h.log.length-1].t==null)u.h.log[u.h.log.length-1].t=this.s.t;if(!alive(u))return;
       if(u.h.state==='hors'){u.anim='down';u.task=u.task?.kind==='carried'?u.task:null;u.path=null;u.post='couche';return;}}
@@ -1119,7 +1119,7 @@ export class World{
     let miss=0;if(W.crew>1){const mv=this.s.t-(u.moved||-9)<.03,rest=this.trenchRest(u,W);u.deployT=mv?0:(u.deployT||0)+this.dts*(rest<1?1.45:1);if(u.deployT<W.setup){u.why=rest<1?'mise en batterie dans la tranchée':'mise en batterie';return true;}if(u.why?.startsWith('mise en batterie'))u.why=null;miss=Math.max(0,W.crew-1-this.servants(u).length);if(miss)u.why=`${miss} servant${miss>1?'s':''} manquant${miss>1?'s':''} · pointage et rechargement très lents`;}
     if(u.mag<=0){if(u.pouch>0){const n=Math.min(W.p.mag,u.pouch);u.mag=n;u.pouch-=n;u.reload=u.reloadTotal=(W.p.mag>12?4:W.p.action==='verrou'?3:2.5)*(1+miss*2.5);u.burst=0;this.emit({type:'reload',x:u.x,y:u.y});return true;}u.dry=true;return false;}
     u.dry=false;if(u.cool>0)return true;if(u.f==='meumeu')this.practice('tir',.03);
-    if(u.aimAt!==(e.id??e.wall??'b')){u.aimAt=e.id??e.wall??'b';u.cool=(W.crew>1?Math.min(W.aim,12):W.aim)*(u.post==='couche'?1.2:1);return true;}
+    if(u.aimAt!==(e.id??e.wall??'b')){u.aimAt=e.id??e.wall??'b';u.cool=(W.crew>1?Math.min(W.aim,12):W.aim)*(u.post==='couche'?1.2:1)*(UDEF(u).choc?.7:1);return true;}
     // le coup part
     // l'entretien d'une mitrailleuse servie : le tube s'use à chaque coup ; tous les huitièmes de sa vie de tube, l'entretien prend une pièce au dépôt le plus
     // proche (40 cases) ; sans pièce, l'arme usée s'enraye de plus en plus souvent — une mitrailleuse coûte cher à tenir, pas seulement à fabriquer

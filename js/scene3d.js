@@ -123,8 +123,8 @@ export class Scene3D{
     this.pools.avion=mk('silbervogel_bomber_3d_model',{cap:60});
     this.pools.meumeu=mk('meumeu',{cap:1200,anim:ch('meumeu')});
     // V12.4 : les modèles donnés par le joueur — le soldat meumeu (casque compris) et la troupe de choc (chevalier à cape) ; à défaut, la peluche
-    this.pools.soldat=this.M.meumeu_soldat?mk('meumeu_soldat',{cap:1200,anim:{...ch('meumeu_soldat'),AK:[.07,.20,1.6,.035]}}):this.pools.meumeu;
-    this.pools.choc=this.M.plush_cow_knight?mk('plush_cow_knight',{cap:400,anim:{...ch('plush_cow_knight'),AK:[.20,.34,.8,0]}}):this.pools.soldat;this.pools.bee=mk('goat_plush_toy',{cap:1500,anim:ch('goat_plush_toy')});
+    this.pools.soldat=this.M.meumeu_soldat?mk('meumeu_soldat',{cap:1200,anim:ch('meumeu_soldat')}):this.pools.meumeu;
+    this.pools.choc=this.M.plush_cow_knight?mk('plush_cow_knight',{cap:400,anim:ch('plush_cow_knight')}):this.pools.soldat;this.pools.bee=mk('goat_plush_toy',{cap:1500,anim:ch('goat_plush_toy')});
     this.pools.obus3d=new Pool(PROJ_GEO.obus(),{cap:300});this.scene.add(this.pools.obus3d.mesh);this.pools.fusee3d=new Pool(PROJ_GEO.fusee(),{cap:300});this.scene.add(this.pools.fusee3d.mesh);
     this.booms=[];this.boomGeo={ball:new THREE.IcosahedronGeometry(1,2),ring:new THREE.RingGeometry(.86,1,56).rotateX(-PI/2),dome:new THREE.SphereGeometry(1,16,8,0,PI*2,0,PI/2)};
     this.pools.fusil=mk('gewehr_43_rifle',{cap:1500});this.pools.mg=mk('heavy_machine_gun',{cap:200});
@@ -162,7 +162,7 @@ export class Scene3D{
     if(crew){const back=kick*H*.22;e.pool.add(u.x-hx*back,(e.m.gh||0)*sMm,u.y-hz*back,th,sMm,sMm,sMm);return;}
     // une arme d'épaule : la crosse contre l'épaule, le garde-main dans les mains levées ; baissée en marche, inclinée au rechargement, relevée par le coup
     const aiming=st.aiming,rl=st.reloading,rp=st.rp||0;
-    let hh=(pose==='prone'?.10:pose==='crouch'?.42:aiming?.52:walking?.42:.44)*H,back=(aiming?.02:-.04)*H,side=(aiming?.05:.04)*H,roll=aiming?0:.25;
+    let hh=(pose==='prone'?.10:pose==='crouch'?.43:aiming?.56:walking?.44:.50)*H,back=(aiming?.08:.04)*H,side=(aiming?.08:.10)*H,roll=aiming?0:.42;
     if(rl){const k=Math.sin(rp*PI);hh-=k*.10*H;roll=-.55*k+.1*(1-k);back+=k*.03*H;}
     roll+=kick*.30;back+=kick*.11*H;hh+=kick*.02*H;
     e.pool.add(u.x-hx*back-hz*side,hh,u.y-hz*back+hx*side,th,sMm,sMm,sMm,{roll});

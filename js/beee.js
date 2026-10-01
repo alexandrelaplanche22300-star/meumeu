@@ -47,7 +47,7 @@ export const BEEE_AI={
     const dead=this.s.corpses.filter(c=>c.f==='beee').length;L=Math.min(5,L+Math.floor(dead/40));
     if(L>(B.lvl||0)){B.lvl=L;this.emit({type:'escalade',lvl:L});}},
   // les réglages de l'offensive selon le niveau : colonnes simultanées, armée minimale, marge d'écrasement, garde laissée aux villes, jours entre deux départs
-  raidK(){const L=this.beeeLevel();return {maxcol:1+(L>=3?1:0)+(L>=5?1:0),armyMin:Math.max(24,30-2*L),odds:2.5+(this.s.beee.nightBlind!=null&&this.s.t-this.s.beee.nightBlind<48?.5:0),keep:Math.max(.3,.5-.04*L),gap:Math.max(.25,.6-.07*L)};},
+  raidK(){const L=this.beeeLevel();return {maxcol:1+(L>=3?1:0)+(L>=5?1:0),armyMin:Math.max(24,30-2*L),odds:2.5,keep:Math.max(.3,.5-.04*L),gap:Math.max(.25,.6-.07*L)};},
   beeeReady(){return [FOOD,'atelier','poudrerie','caserne','arsenal'].every(k=>this.s.buildings.some(b=>b.f==='beee'&&b.k===k&&b.done&&!b.ruin));},
   meumeuReady(){return [FOOD,'atelier'].every(k=>this.s.buildings.some(b=>b.f==='meumeu'&&b.k===k&&b.done&&!b.ruin));},
   beeeCrowded(b){return this.s.buildings.some(o=>o!==b&&o.f==='beee'&&o.k==='centre'&&!o.ruin&&distance(o.i,o.j,b.i,b.j)<SPACE);},
@@ -107,7 +107,7 @@ export const BEEE_AI={
     // soldats armés (fusil bèè, une caisse de cartouches), tant que l'armée est sous 120 + 40 × villes. Une aide donnée à l'IA, pour des vagues massives.
     {const sol=this.s.units.filter(u=>u.f==='beee'&&u.k==='soldat'&&u.hp>0&&u.h?.state!=='hors').length,live_=cities.filter(c=>!c.fallen),capS=120+40*live_.length,L=this.beeeLevel();let room=capS-sol;
       for(const c of live_){if(room<=0)break;if(this.s.t-(c.reinfT??-99)<8)continue;const bk=this.beeeBuildings('caserne').find(b=>b.done&&!b.ruin&&this.distB(b,c.x,c.y)<28);if(!bk)continue;c.reinfT=this.s.t;
-        const n=Math.min(room,1+L),w=this.bestRifle('beee'),Wd=this.W(w),[bx,by]=[bk.i+1,bk.j+3];for(let k=0;k<n;k++){const [x,y]=this.freeSpot(bx+(this.rand()-.5)*4,by+(this.rand()-.5)*3,3);const u=this.addUnit('beee','soldat',x,y,{w});
+        const n=Math.min(room,2+L),w=this.bestRifle('beee'),Wd=this.W(w),[bx,by]=[bk.i+1,bk.j+3];for(let k=0;k<n;k++){const [x,y]=this.freeSpot(bx+(this.rand()-.5)*4,by+(this.rand()-.5)*3,3);const u=this.addUnit('beee','soldat',x,y,{w});
           u.mag=Wd.p.mag;u.pouch=Math.max(Wd.p.mag*3,Wd.perCrate||0);u.city=c.id;u.home=c.centre;u.task={kind:'guard',tx:c.x+3+(this.rand()-.5)*8,ty:c.y+3+(this.rand()-.5)*8};}room-=n;}}
     // Le ravitaillement des usines, simplifié (V12.4) : toutes les deux heures, chaque usine reçoit à son dépôt d'approvisionnement de quoi faire deux
     // fournées (ses matières et son charbon), prises dans tous les dépôts du pays. Avant, seuls les porteurs et les dépôts à 14 cases la servaient : au jour 72

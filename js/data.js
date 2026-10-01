@@ -11,7 +11,7 @@
 export const HOUR_REAL=4;      // base de la simulation ; le ralenti du cycle est appliqué par l'interface
 export const DAY=24;
 export const NIGHT=[17,8];   // quinze heures de noir : temps de gagner l'objectif et de décrocher
-export const MAP_N=440;        // cases de côté : assez pour que le rail soit indispensable (capitale ↔ Bèè : ~330 cases)
+export const MAP_N=600;        // cases de côté (V12.4 : 440 → 600, demande du joueur : un front grand et dur à tenir ; capitale ↔ Bèè : ~450 cases)
 // un chantier, un soldat, un canon puisent dans les dépôts à moins de RADIUS cases (un dépôt sert tout un quartier)
 export const RADIUS=32;
 export const CARRY=10;         // ce qu'un Meumeu porte d'un coup
@@ -175,8 +175,8 @@ export const UNITS={
   // V12.4 : la troupe de choc, formée à la caserne d'élite et payée en vivres (la formation nourrit longtemps) : plus de vie (elle tient une plus grande
   // perte de sang), plus dure aux blessures (saigne moins, tombe moins de choc, souffre moins), et le poids de son arme et de sa protection ne la gêne
   // qu'à moitié. choc.vit : seuils de perte de sang × vit ; choc.tough : saignements, risque de choc et douleur × tough ; choc.load : part du poids ressentie
-  choc:{name:'Troupe de choc',sheet:'meumeu_heavy-commando',speed:8.5,arm:true,skill:1.5,smoke:2,cost:{vivres:90,pieces:6},hours:10,pop:1,choc:{vit:1.3,tough:.6,load:.5},
-    why:'L’élite d’assaut : plus de vie, plus dure aux blessures (saigne moins, tombe moins), et le poids de son arme et de sa protection ne la gêne qu’à moitié. Sa formation se paie en vivres.'},
+  choc:{name:'Troupe de choc',sheet:'meumeu_heavy-commando',speed:8.5,arm:true,skill:1.5,smoke:2,cost:{vivres:20},hours:10,drill:24,pop:1,choc:{vit:1.3,tough:.6,load:.5},
+    why:'L’élite d’assaut, formée 24 h à la caserne d’élite (peu de vivres, beaucoup de temps) : plus de vie, saigne moins, tombe moins ; poids et recul ressentis de moitié ; sang-froid (se remet 2,5× plus vite de la suppression, 2× plus vite d’un étourdissement) ; visée rapide (change de cible 30 % plus vite) ; vue 15 % plus longue ; deux fumigènes.'},
   infirmier:{name:'Infirmier',sheet:'meumeu_assistant',speed:9,medic:true,kits:6,cost:{vivres:30,sante:2},hours:4,pop:1,
     why:'Les premiers secours sous le feu : garrots, pansements, pansement thoracique, plasma. Il porte les blessés à la tente, puis de la tente à l’hôpital.'},
   medecin:{name:'Médecin',sheet:'meumeu_scientist',speed:8.5,medic:true,doctor:true,kits:10,tents:1,cost:{vivres:40,sante:4,pieces:2},hours:8,pop:1,
