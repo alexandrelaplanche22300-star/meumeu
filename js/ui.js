@@ -790,7 +790,8 @@ function moans(){const [i0,i1,j0,j1]=view.vis||[0,0,0,0];const down=world.s.unit
 function where(x,y){const q=view.toScreen(x,y);const w=view.canvas.width,h=view.canvas.height;const off=Math.hypot((q.x-w/2)/w,(q.y-h/2)/h);const on=q.x>-w*.2&&q.x<w*1.2&&q.y>-h*.2&&q.y<h*1.2;
   return {vol:on?Math.max(.08,1-off*.9)*Math.min(1,.5+view.zoom*.5):Math.max(0,.25-off*.08),pan:(q.x-w/2)/(w/2),far:!on};}
 function alertBox(text,x,y,tone='bad'){const box=$('#alert');box.innerHTML=`${text}${x!=null?` <button class="small" data-gotoxy="${x},${y}">Voir</button>`:''}`;box.className='alert '+tone;box.hidden=false;clearTimeout(ui.alertT);ui.alertT=setTimeout(()=>box.hidden=true,9000);}
-function woundCard(e){if(xray.mode==='off')return;const shooterUnit=e.shooter!=null?world.unit(e.shooter):null,ours=e.vf==='meumeu'||shooterUnit?.f==='meumeu';if(!ours)return;
+function woundCard(e){return;   // (retiré à la demande du joueur : les fenêtres de radiographie des tirs « Envoyé / Reçu » ralentissaient les combats)
+  if(xray.mode==='off')return;const shooterUnit=e.shooter!=null?world.unit(e.shooter):null,ours=e.vf==='meumeu'||shooterUnit?.f==='meumeu';if(!ours)return;
   const selected=view.sel.has(e.victim)||(e.shooter!=null&&view.sel.has(e.shooter)),mine=xray.mode==='sel'?selected||!!e.frag&&e.vf==='meumeu':selected||e.vf==='meumeu'||!!e.frag&&shooterUnit?.f==='meumeu'||!where(e.x,e.y).far;if(!mine)return;
   const hiddenIntel=e.vf==='beee'&&!world.visibleAt('meumeu',e.x,e.y);
   const vD=e.vf==='beee'?BEEE.units[e.vk]:UNITS[e.vk];const victim=e.name||(e.vf==='beee'?(vD?.name||'Bèè'):(vD?.name||'Meumeu'));const shooter=e.frag?`${{grenade:'Charge',obus:'Obus',bombe:'Bombe'}[e.frag]}${e.sname?' de '+e.sname:''}`:(e.sname||(e.vf==='meumeu'?'Un Bèè':'Un Meumeu'));
