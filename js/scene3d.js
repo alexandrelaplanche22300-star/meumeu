@@ -320,7 +320,8 @@ export class Scene3D{
       const carry=u.carry&&u.carry.n>=1&&!down;const carrier=this.shellCarrier.get(u.id);
       // la pose des bras : arme tenue (à l'épaule en visée, baissée en marche, à mi-hauteur au rechargement), charge portée devant soi, obus porté à la pièce
       let arm=0;
-      if(!down){if(crewGun)arm=.65;else if(Wg)arm=reloading?.35+.3*Math.sin(rp*PI):aiming?1:walking?.6:.72;else if(carrier&&u.serve)arm=.95;else if(carry||u.crates>0)arm=.45;else if(u.k!=='villageois'&&pose==='up'&&(bee||u.w))arm=.6;}
+      // (les bras restent le long du corps : les lever par déformation donnait des « bras de manchot » ; seule la visée les relève un peu)
+      if(!down){if(Wg&&!crewGun)arm=aiming?.3:0;else if(carry||u.crates>0||carrier&&u.serve)arm=.3;}
       if(pose==='up'){pool.add(ux,0,uy,y,sc,sc,sc,{tint,ph,amp,arm,kick});}
       else if(pose==='crouch'){pool.add(ux,0,uy,y,sc,sc*.72,sc,{tint,ph:0,amp:0,arm,kick});}
       else{const r=Hmod*sc*.22;pool.add(u.x,r,u.y,y,sc,sc,sc,{tint:down?0x9a8a80:tint,pitch:down?-PI/2:PI/2});}
