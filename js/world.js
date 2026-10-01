@@ -1126,6 +1126,8 @@ export class World{
       [ix,iy]=res.hit?[x,y]:[res.px??x,res.py??y];
       this.s.shots.push({kind:'round',f:u.f,by:u.id,w:u.w,x0:u.x,y0:u.y,x1:ix,y1:iy,t:0,dur:Math.max(.01,fl.t)/HOUR_REAL,res,target:isB?{b:e.id}:e.wall!=null?{wall:e.wall}:isV?{v:e.id}:{u:e.id},R,tracer:!!CONSTRUCTIONS[W.p.cons].tracer});}
     this.shotNoise(u,W,ix,iy);
+    // (nos balles sur une ville bèè : comme un bombardement, ils cherchent le tireur au son et à l'éclair — avant, seuls les obus déclenchaient une riposte)
+    if(u.f==='meumeu'&&e.f==='beee'&&!isB)this.beeeShelled(ix,iy,u,{radius:.5});
     this.emit({type:'shot',by:u.id,moving:this.s.t-(u.moved??-9)<.05,x:u.x+(u.fx||0)*.32,y:u.y+(u.fy||0)*.32,x1:ix,y1:iy,f:u.f,cal:W.p.d,v0:W.v0,dB:u.lastDb,E:W.E0,sup:W.vTop>340,tr:!!CONSTRUCTIONS[W.p.cons].tracer,rk:W.rocket,flash:W.flash,inc:!!CONSTRUCTIONS[W.p.cons].inc,tip:TIPC[W.p.cons]||null,he:!!W.he,action:W.p.action,feed:W.p.feed||'',barrels:W.barrels||1,rof:W.rpm,caseMat:W.caseless?null:(W.p.caseMat||'laiton'),eject:!W.rocket&&W.p.action!=='verrou',fins:W.fins||0,ig:W.boost?.ig||0,seek:!!GUIDES[W.p.guide]?.seek,stages:W.p.stages||1});if(W.rocket)this.backblast(u,x-u.x,y-u.y,W);u.xp=(u.xp||0)+.05;return true;}
   // Où va la balle : la dispersion (l'arme, le tireur, sa posture, le feu qu'il subit, sa blessure, le recul de la rafale),
   // l'erreur d'estimation de la distance (la chute), puis ce qu'elle rencontre : le couvert (et s'il le perce), le corps.
@@ -1630,7 +1632,7 @@ export class World{
     const B=this.s.beee,prev=B.counterBattery,shots=prev?.by===by&&this.s.t-prev.at<36?Math.min(8,prev.shots+1):1;
     const error=Math.max(.5,4-shots*.55),angle=this.rand()*Math.PI*2;
     B.counterBattery={by,x:u.x+Math.cos(angle)*error,y:u.y+Math.sin(angle)*error,at:this.s.t,shots,city:city.id,threat:UDEF(u).img?3:Math.min(5,1+this.W(u.w).p.d/5)};
-    if(shots===1)this.log(city.name,`Des obus frappent la ville : les Bèè cherchent la batterie ennemie.`, 'warn');}
+    if(shots===1)this.log(city.name,UDEF(u).img||this.W(u.w)?.he?`Des obus frappent la ville : les Bèè cherchent la batterie ennemie.`:`On tire sur la ville : les Bèè cherchent le tireur.`, 'warn');}
   // Une ville bèè bombardée de loin : on repère la batterie au son et à l'éclair — l'estimation se resserre à chaque coup.
   // Le danger se cumule (la taille de la charge, la cadence) et s'oublie en quelques heures de calme.
   beeeShelled(x,y,u,E){if(!this.atWar)return;const dist=d2(u.x,u.y,x,y);if(dist<10)return;
