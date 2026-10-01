@@ -429,12 +429,17 @@ export const WAR={
           if(b.rallyMax==null)b.rallyMax=(10+Math.max(...up.map(u=>d2(u.x,u.y,R[0],R[1])))/4.5)*(b.patience||1);
           const here=up.filter(u=>d2(u.x,u.y,R[0],R[1])<7).length;const night=this.light()<.35;
           b.rallyStarted??=b.age;if(b.age-b.rallyStarted>b.rallyMax+24&&here<Math.ceil(up.length*.9)){this.bandRetreat(b,up,c,true);break;}
+          // (ils ont appris que nous voyons la nuit : on attend le jour pour partir)
+          if(here>=Math.ceil(up.length*.9)&&B.nightBlind!=null&&this.light()<.5){b.rallyStarted=b.age;break;}
           if(here>=Math.ceil(up.length*.9)){this.bandSet(b,'approche','rassemblés : en avant');
             this.s.fog||this.log(this.cityName(target),`L’armée bèè rassemblée (${up.length}) s’ébranle vers ${this.cityName(target)}${this.light()<.6?' à l’aube':''} !`,'bad');
             for(const o of B.bands)if(o.state==='attente'&&o.waitFor===b.id)this.bandSet(o,'approche','la diversion part');}
           break;}
         case 'attente':{const main=B.bands.find(o=>o.id===b.waitFor);if(!main||main.state!=='rassemblement'){this.bandSet(b,'approche');break;}if(enemy)this.bandDeploy(b,up,c,enemy,stand);break;}
         case 'approche':{for(const u of up)u.charge=false;
+          // pris sous un feu qu'ils ne voient pas : de nuit, c'est que nous voyons dans le noir — repli, et ils retiennent la leçon (les colonnes ne
+          // partiront plus que de jour) ; de jour, ils avancent en tirant au lieu de marcher l'arme à la bretelle
+          if(!enemy&&supp>.2&&b.kind!=='defense'){if(this.light()<.4){B.nightBlind=this.s.t;this.s.fog||this.log(this.cityName(target),'La colonne bèè, fauchée dans le noir, se replie : ils reviendront de jour.','good');this.bandRetreat(b,up,c,true);break;}for(const u of up)u.charge=true;}
           // au contact, ou dès qu'on leur tire dessus : ils se déploient là, à distance de tir, au lieu de marcher sous le feu
           if(enemy&&(d2(enemy.x,enemy.y,c[0],c[1])<range*1.35||supp>.2)){this.bandDeploy(b,up,c,enemy,Math.min(stand,d2(enemy.x,enemy.y,c[0],c[1])));break;}
           if(goal&&b.kind!=='defense'&&b.kind!=='contre'&&d2(goal[0],goal[1],c[0],c[1])<(b.kind==='rail'?2.5:Math.max(3,range*.7))&&!enemy){this.bandSet(b,'objectif');if(b.kind!=='rail')for(const u of up)this.bandToObjective(u,b);break;}

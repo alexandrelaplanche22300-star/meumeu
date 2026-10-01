@@ -9,7 +9,7 @@
 //  terminale  : pas à pas dans le corps : traînée et résistance des tissus, basculement après un « cou » (quelques longueurs de balle),
 //               fragmentation au-dessus d'une vitesse seuil, expansion, os qui cassent, dévient et projettent des éclats ;
 //               cavité permanente (ce qui est écrasé) et cavité temporaire (ce qui est étiré : foie, rate, reins, cerveau).
-import {PARTS,TISSUE,partAt,regionAt,distTo,BODY_KG,BODY_H,INELASTIC,VESSELS} from './body.js';
+import {PARTS,TISSUE,partAt,regionAt,distTo,shapeNear,BODY_KG,BODY_H,INELASTIC,VESSELS} from './body.js';
 import {charge,arcTable,FILLS,SHELLS,FUSES} from './explosive.js';
 import {MATS} from './armor.js';
 
@@ -519,6 +519,8 @@ function cone(dir,ang,rnd){const up=Math.abs(dir[1])<.9?[0,1,0]:[1,0,0];const u=
 function track(pr,medium,R,rnd){const ds=Math.max(.0002,pr.d0/10000);let inside=false,outFor=0,sIn=0;const pts=[];let vIn=pr.v;const recEvery=Math.max(1,Math.round(.002/ds));
   const C=pr.D?CONSTRUCTIONS[pr.D.p.cons]:null;const maxSteps=Math.ceil(1.5/ds);
   for(let step=0;step<maxSteps;step++){const med=medium(pr.p);
+    // (dans l'air avant l'entrée : à grands pas de 2 mm tant que le pas suivant reste dans l'air — puis à pas fins, l'entrée garde sa précision)
+    if(!med&&!inside){const big=Math.max(ds,.002);const nx=add(pr.p,pr.dir,big);if(big>ds&&!medium(nx)){pr.p=nx;continue;}}
     if(!med){if(inside){outFor+=ds;if(outFor>pr.d0/1000*3+.004){pr.exit=pr.p.slice();break;}}pr.p=add(pr.p,pr.dir,ds);continue;}
     if(!inside){inside=true;vIn=pr.v;if(pr.main&&!R.entry){R.entry=pr.p.slice();R.vIn=pr.v;}}outFor=0;
     const T=TISSUE[med.kind]||TISSUE.muscle;const m=pr.m/1000;
@@ -535,13 +537,13 @@ function track(pr,medium,R,rnd){const ds=Math.max(.0002,pr.d0/10000);let inside=
     // ce qui est écrasé ; les vaisseaux coupés ; les os cassés
     const part=med.part;const key=part?part.id:med.region?.id||'?';const rec=R.dmg[key]??={crush:0,stretch:0,cut:0,frac:0,E:0,at:pr.p.slice()};rec.crush+=area*ds*1e6;rec.E+=dE;
     if(part&&part.kind==='heart')rec.cut=Math.max(rec.cut,Math.min(1,.3+(dEff/1000)/(2*part.shape.r[0])));
-    for(const q of VESSELS){const dd=distTo(q,pr.p);if(dd<dEff/2000){const rv=R.dmg[q.id]??={crush:0,stretch:0,cut:0,frac:0,E:0,at:pr.p.slice()};rv.cut=Math.max(rv.cut,Math.min(1,.3+(dEff/1000)/(2*q.shape.r)*(1-dd/(dEff/2000))));}}
+    for(const q of VESSELS){if(!shapeNear(q.shape,pr.p,dEff/2000))continue;const dd=distTo(q,pr.p);if(dd<dEff/2000){const rv=R.dmg[q.id]??={crush:0,stretch:0,cut:0,frac:0,E:0,at:pr.p.slice()};rv.cut=Math.max(rv.cut,Math.min(1,.3+(dEff/1000)/(2*q.shape.r)*(1-dd/(dEff/2000))));}}
     if(part&&part.kind==='bone'&&dE>.004*R.E0&&pr.v>120&&!pr.bones?.has(part.id)){(pr.bones??=new Set()).add(part.id);rec.frac=1;
       if(pr.main){// l'os casse, dévie la balle, et projette ses propres éclats
         pr.dir=cone(pr.dir,(C?.core?.03:.1)*(pr.v<500?1.6:1),rnd);const n=2+Math.floor(rnd()*4);const mb=pr.m*.03;for(let k=0;k<n;k++)R.spawn.push({p:pr.p.slice(),dir:cone(pr.dir,.8,rnd),v:pr.v*.35,m:mb,d:pr.d0*.5,d0:pr.d0*.5,l:pr.d0*.5,cd:1,yaw:0,neck:Infinity,bone:1});}}
     // la cavité temporaire : l'énergie cédée par centimètre étire autour du trajet
     const eCm=dE/(ds*100);const rtc=.0055*Math.sqrt(Math.max(0,eCm));
-    if(rtc>dEff/1000){for(const q of INELASTIC){const dd=distTo(q,pr.p);if(dd<rtc){const r2=R.dmg[q.id]??={crush:0,stretch:0,cut:0,frac:0,E:0,at:pr.p.slice()};r2.stretch+=(1-dd/rtc)*ds/q.size*(q.kind==='heart'?.5:1);}}
+    if(rtc>dEff/1000){for(const q of INELASTIC){if(!shapeNear(q.shape,pr.p,rtc))continue;const dd=distTo(q,pr.p);if(dd<rtc){const r2=R.dmg[q.id]??={crush:0,stretch:0,cut:0,frac:0,E:0,at:pr.p.slice()};r2.stretch+=(1-dd/rtc)*ds/q.size*(q.kind==='heart'?.5:1);}}
       if(pr.main&&step%recEvery===0)R.tc.push({p:pr.p.slice(),r:rtc});}
     R.E+=dE;if(med.region)R.regions.add(med.region.id);
     // la fragmentation : une balle qui bascule (ou s'expanse) trop vite se brise

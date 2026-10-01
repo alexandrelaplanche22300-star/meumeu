@@ -138,12 +138,22 @@ export function depth(s,p){
   if(s.t==='sph'){const d=Math.hypot(p[0]-s.c[0],p[1]-s.c[1],p[2]-s.c[2]);return s.r-d;}
   if(s.t==='cap')return s.r-segDist(p,s.a,s.b);
   const q=[(p[0]-s.c[0])/s.r[0],(p[1]-s.c[1])/s.r[1],(p[2]-s.c[2])/s.r[2]];const n=Math.hypot(q[0],q[1],q[2]);return (1-n)*Math.min(s.r[0],s.r[1],s.r[2]);}
-export function inShape(part,p){const d=depth(part.shape,p);if(d<0)return false;if(part.shell&&d>part.shell)return false;
+// La boîte englobante d'une forme (calculée une fois) : un point hors de la boîte n'est pas dans la forme — on évite le calcul exact (mesuré : un quart
+// du temps d'un combat passait dans depth(), chaque pas de chaque balle testant toutes les parties du corps). shapeNear(s,p,t) : le point PEUT être
+// à moins de t de la forme (pour l'ellipsoïde, la « profondeur » approchée vaut (n−1)·r_min : la marge par axe est t·r_axe/r_min, prudente).
+const BBOX=new WeakMap();
+function bboxOf(s){let b=BBOX.get(s);if(b)return b;
+  if(s.t==='sph')b=[s.c[0]-s.r,s.c[1]-s.r,s.c[2]-s.r,s.c[0]+s.r,s.c[1]+s.r,s.c[2]+s.r,1,1,1];
+  else if(s.t==='cap')b=[Math.min(s.a[0],s.b[0])-s.r,Math.min(s.a[1],s.b[1])-s.r,Math.min(s.a[2],s.b[2])-s.r,Math.max(s.a[0],s.b[0])+s.r,Math.max(s.a[1],s.b[1])+s.r,Math.max(s.a[2],s.b[2])+s.r,1,1,1];
+  else{const m=Math.min(s.r[0],s.r[1],s.r[2]);b=[s.c[0]-s.r[0],s.c[1]-s.r[1],s.c[2]-s.r[2],s.c[0]+s.r[0],s.c[1]+s.r[1],s.c[2]+s.r[2],s.r[0]/m,s.r[1]/m,s.r[2]/m];}
+  BBOX.set(s,b);return b;}
+export function shapeNear(s,p,t=0){const b=bboxOf(s);return p[0]>=b[0]-t*b[6]&&p[0]<=b[3]+t*b[6]&&p[1]>=b[1]-t*b[7]&&p[1]<=b[4]+t*b[7]&&p[2]>=b[2]-t*b[8]&&p[2]<=b[5]+t*b[8];}
+export function inShape(part,p){if(!shapeNear(part.shape,p))return false;const d=depth(part.shape,p);if(d<0)return false;if(part.shell&&d>part.shell)return false;
   if(part.ribs&&((p[1]/RIB%1)+1)%1>.52)return false;                           // entre deux côtes, rien
   if(part.holes&&((p[0]*103+p[2]*138)%1+1)%1<part.holes)return false;          // le bassin, le museau ont des trous
   return true;}
 // la région de l'enveloppe qui contient le point (la plus profonde), ou null
-export function regionAt(p){let best=null,bd=0;for(const r of REGIONS){const d=depth(r.shape,p);if(d>=0&&(best===null||d>bd)){best=r;bd=d;}}return best;}
+export function regionAt(p){let best=null,bd=0;for(const r of REGIONS){if(!shapeNear(r.shape,p))continue;const d=depth(r.shape,p);if(d>=0&&(best===null||d>bd)){best=r;bd=d;}}return best;}
 // la structure interne la plus importante au point (un vaisseau passe avant un organe, un organe avant l'os, etc.)
 export function partAt(p){let best=null;for(const s of PARTS){if(best&&s.prio<best.prio)continue;if(inShape(s,p)&&(!best||s.prio>best.prio))best=s;}return best;}
 // la distance d'un point à la surface d'une structure (pour la cavité temporaire)

@@ -121,13 +121,15 @@ export const STRATEGY={
   // Les défenseurs autour d'un point, d'après les relevés datés. Chaque relevé compte les soldats à 18 cases DE SON bâtiment : les mêmes
   // soldats figurent dans tous les relevés d'une base (mesuré : jusqu'à 7 fois trop dans la somme). On garde le plus fort relevé, plus les
   // ouvrages de défense (chacun est un bâtiment distinct).
-  defendersAt(x,y){let seen=0,works=0;for(const I of Object.values(this.s.beee.known||{})){if(typeof I!=='object'||I.ruin||this.t-I.t>DAY*3)continue;if(Math.hypot(I.x-x,I.y-y)<20){seen=Math.max(seen,I.troops);works+=I.defense;}}return seen+works;},
+  defendersAt(x,y){let seen=0,works=0;for(const I of Object.values(this.s.beee.known||{})){if(typeof I!=='object'||I.ruin||this.t-I.t>DAY*3)continue;if(Math.hypot(I.x-x,I.y-y)<35){seen=Math.max(seen,I.troops);works+=I.defense;}}
+    // (et les pertes que leur a coûtées ce secteur : ce qui les a tués était là, même s'ils ne l'ont pas vu)
+    const lost=(this.s.beee.lossAt||[]).filter(p=>this.t-p.t<DAY*3&&Math.hypot(p.x-x,p.y-y)<45).length;return Math.max(seen,Math.ceil(lost*.35))+works;},
   beeePlanRaid(from,guard,aimed=[],small=false){const avail=guard.length;if(avail<4)return null;const weights={centre:5,gare:7,mine:5,arsenal:6,poudrerie:6,entrepot:5,camp:3,moulin:4,atelier:4,manufacture:5,caserne:4,tour:1};
     const candidates=[];for(const I of Object.values(this.s.beee.known||{})){if(typeof I!=='object'||I.ruin||!I.done||this.t-I.t>DAY*4||aimed.some(p=>Math.hypot(p[0]-I.x,p[1]-I.y)<25))continue;
       // un relevé plus vieux dit moins bien ce qui garde la base : la marge grandit avec son âge (un demi-soldat par jour)
       const def=this.defendersAt(I.x,I.y),need=small?Math.max(4,Math.ceil(def*1.6+2+(this.t-I.t)/DAY*.5)):Math.max(this.raidK().armyMin,Math.ceil(def*this.raidK().odds+4+(this.t-I.t)/DAY*.5));if(need>avail)continue;   // small : les commandos de sabotage gardent l'ancien calcul
       const target=this.building(I.id);if(!target)continue;const distance=Math.hypot(I.x-from.x,I.y-from.y),age=(this.t-I.t)/DAY;
-      candidates.push({target,at:[I.x,I.y],def,need,aim:I.capital?'finale':distance<90?'avant-poste':'affaiblir',s:(weights[I.k]||2)/(1+distance/90)/(1+def*.25)/(1+age*.5),size:Math.min(avail,Math.max(need+6,Math.ceil(avail*.9)))});}
+      candidates.push({target,at:[I.x,I.y],def,need,aim:I.capital?'finale':distance<90?'avant-poste':'affaiblir',s:(weights[I.k]||2)/(1+distance/90)/(1+def*.25)/(1+age*.5),size:avail});}
     candidates.sort((a,b)=>b.s-a.s);return candidates[0]||null;
   },
   beeeRally(pool,at){const x=pool.reduce((n,u)=>n+u.x,0)/pool.length,y=pool.reduce((n,u)=>n+u.y,0)/pool.length,d=Math.hypot(at[0]-x,at[1]-y)||1;return this.freeSpot(x+(at[0]-x)*Math.min(.35,18/d),y+(at[1]-y)*Math.min(.35,18/d),8);},

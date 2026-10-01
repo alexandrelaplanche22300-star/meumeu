@@ -762,7 +762,7 @@ export class World{
       if(u.f==='beee'&&!u.band&&u.task?.kind!=='assault'&&!(u.supp>.05)&&!(u.reload>0)&&!u.salvoQ&&far(u.x,u.y))lod(u,d=>{const x0=u.x,y0=u.y,p0=u.walkPh;this.unitTick(u,d);u.ix=x0;u.iy=y0;u.iph=p0;u.it=s.t;u.itd=d;});
       else{if(u.it!==undefined)u.it=undefined;this.unitTick(u,dt);}}}
     this.faunaTick(dt);
-    s.units=s.units.filter(u=>{if(alive(u))return true;this.uIndex.delete(u.id);if(u.sq)this.leave(u);return false;});
+    s.units=s.units.filter(u=>{if(alive(u))return true;if(u.f==='beee'&&s.beee){const L=s.beee.lossAt??=[];L.push({x:u.x,y:u.y,t:s.t});if(L.length>400)L.splice(0,L.length-400);}this.uIndex.delete(u.id);if(u.sq)this.leave(u);return false;});
     for(const b of [...s.buildings]){if(b.f==='beee'&&!(b.fire>0)&&far(b.i,b.j))lod(b,d=>this.buildingTick(b,d));else this.buildingTick(b,dt);}
     for(const v of [...s.vehicles])this.vehicleTick(v,dt);
     this.detectTick(dt);this.intelTick(dt);this.noiseTick(dt);this.stepsTick(dt);this.chargesTick();this.salvoTick();this.shotsTick(dt);this.fallsTick(dt);this.flakTick(dt);this.defenseTick();this.squadTick();this.crewTick();this.operationTick();this.beeeTick(dt);this.bandsTick(dt);this.innovTick(dt);

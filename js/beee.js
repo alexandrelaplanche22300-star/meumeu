@@ -47,7 +47,7 @@ export const BEEE_AI={
     const dead=this.s.corpses.filter(c=>c.f==='beee').length;L=Math.min(5,L+Math.floor(dead/40));
     if(L>(B.lvl||0)){B.lvl=L;this.emit({type:'escalade',lvl:L});}},
   // les réglages de l'offensive selon le niveau : colonnes simultanées, armée minimale, marge d'écrasement, garde laissée aux villes, jours entre deux départs
-  raidK(){const L=this.beeeLevel();return {maxcol:1+(L>=3?1:0)+(L>=5?1:0),armyMin:Math.max(24,30-2*L),odds:Math.max(1.4,2.2-.15*L),keep:Math.max(.3,.5-.04*L),gap:Math.max(.25,.6-.07*L)};},
+  raidK(){const L=this.beeeLevel();return {maxcol:1+(L>=3?1:0)+(L>=5?1:0),armyMin:45+8*L,odds:2.5+(this.s.beee.nightBlind!=null?.5:0),keep:Math.max(.3,.5-.04*L),gap:Math.max(.25,.6-.07*L)};},
   beeeReady(){return [FOOD,'atelier','poudrerie','caserne','arsenal'].every(k=>this.s.buildings.some(b=>b.f==='beee'&&b.k===k&&b.done&&!b.ruin));},
   meumeuReady(){return [FOOD,'atelier'].every(k=>this.s.buildings.some(b=>b.f==='meumeu'&&b.k===k&&b.done&&!b.ruin));},
   beeeCrowded(b){return this.s.buildings.some(o=>o!==b&&o.f==='beee'&&o.k==='centre'&&!o.ruin&&distance(o.i,o.j,b.i,b.j)<SPACE);},
@@ -437,7 +437,7 @@ export const BEEE_AI={
     const soldiers=this.s.units.filter(u=>u.f==='beee'&&u.k==='soldat'&&live(u)).length;
     const inside=barracks.inside?.length||0,civ=this.beeeCivilians().length;
     const idle=this.beeeCivilians().filter(u=>!u.task).length;// la part de soldats suit l'escalade : au début, surtout des civils (bâtisseurs, cueilleurs : l'expansion en dépend), puis l'armée grossit (mesuré : 8 villes au jour 24 avec 40-60 % de soldats, 11 avec 22 %)
-    const armed=[.22,.35,.55][Math.min(2,Math.floor(this.beeeLevel()/2))]+(idle>civ*.12?.1:0);
+    const armed=[.32,.45,.62][Math.min(2,Math.floor(this.beeeLevel()/2))]+(idle>civ*.12?.1:0);
     const waiting=(barracks.inside||[]).filter(u=>(u.drillT||0)>=8).length;   // des recrues formées attendent une arme : on n'en appelle pas d'autres
     const famine=(this.s.beee.hunger||0)>1.1&&(this.s.beee.plan?.nat?.vivres||0)<(this.s.beee.plan?.T?.vivres||60)/3;   // pas d'enrôlement pendant la famine
     if(!famine&&inside<14&&waiting<6&&soldiers+inside<Math.min(BEEE.cap+55*(nC-1),Math.floor((civ+soldiers+inside)*armed)+1)&&civ>12){
