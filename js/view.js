@@ -1001,7 +1001,9 @@ export class View{
     cv.addEventListener('pointermove',e=>{const [sx,sy]=this.pos(e);const w=this.toWorld(sx,sy);const cell=[Math.floor(w.x),Math.floor(w.y)];
       if(this.drag){const D=this.drag;if(Math.hypot(sx-D.x0,sy-D.y0)>6*this.dpr)D.moved=true;
         // V12.4 : en 3D, le bouton du milieu ORIENTE la caméra (gauche-droite : tourner ; haut-bas : incliner) ; Maj + milieu (et en 2D, le milieu) : déplacer
-        if(D.moved&&D.btn===1&&this.o3&&!e.shiftKey){this.yaw=((this.yaw||0)+(e.clientX-D.px)*.006)%(Math.PI*2);this.elev=Math.max(.12,Math.min(1.45,(this.elev??ELEV0)+(e.clientY-D.py)*.004));}
+        if(D.moved&&D.btn===1&&this.o3&&!e.shiftKey){D.piv??=[sx,sy,this.toWorld(D.x0,D.y0)];this.yaw=((this.yaw||0)+(e.clientX-D.px)*.006)%(Math.PI*2);this.elev=Math.max(.12,Math.min(1.45,(this.elev??ELEV0)+(e.clientY-D.py)*.004));
+          // (on tourne autour du point saisi : il reste sous la souris de départ)
+          {const P=D.piv[2],w=this.toWorld(D.x0,D.y0);this.cx+=P.x-w.x;this.cy+=P.y-w.y;}}
         else if(D.moved&&D.btn===1){const w0=this.toWorld(sx-(e.clientX-D.px)*this.dpr,sy-(e.clientY-D.py)*this.dpr),w1=this.toWorld(sx,sy);this.cx+=w0.x-w1.x;this.cy+=w0.y-w1.y;}
         else if(this.lining?.a&&D.btn===0)this.lining.cells=this.lining.kind==='rail'?this.world.railRoute(this.lining.a[0],this.lining.a[1],cell[0],cell[1]):this.world.lineCells(this.lining.a[0],this.lining.a[1],cell[0],cell[1]);
         else if(D.moved&&D.btn===0&&!this.placing&&!this.lining)D.box={x0:D.x0,y0:D.y0,x1:sx,y1:sy};
