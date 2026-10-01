@@ -234,7 +234,7 @@ export const BEEE_AI={
     if(plan.pop<(cities.length+founding)*16&&idle<6){B.colonyWhy='pas assez de monde';return;}
     // les chantiers en retard (ils attendent plus de bois ou de pierre que le pays n'en a) : on les finit avant d'en ouvrir d'autres
     if(['bois','pierre','pieces'].some(k=>(plan.site?.[k]||0)>(plan.nat[k]||0)*1.2+20)){B.colonyWhy='chantiers en retard';B.colonyT=t+6;return;}
-    const lack=k=>plan.D[k]||0,hungry=(B.foodCan||0)<(B.foodEat||0)*1.15;const ours=this.s.buildings.filter(b=>b.f==='meumeu'&&!b.ruin&&B.known?.[b.id]);   // seulement ce qu'ils ont repéré : ils ne savent pas où nous sommesconst all=ctrs.map(b=>[b.i,b.j]);
+    const lack=k=>plan.D[k]||0,hungry=(B.foodCan||0)<(B.foodEat||0)*1.15;const ours=this.s.buildings.filter(b=>b.f==='meumeu'&&!b.ruin&&B.known?.[b.id]);/* seulement ce qu'ils ont repéré : ils ne savent pas où nous sommes */const all=ctrs.map(b=>[b.i,b.j]);
     const cx=all.reduce((a,p)=>a+p[0],0)/all.length,cy=all.reduce((a,p)=>a+p[1],0)/all.length;let best=null,bs=-1e9;
     for(const c of this.beeeCadastre()){if(c.fail>t)continue;const dc=Math.min(...all.map(([x,y])=>distance(x,y,c.i,c.j)));if(dc<SPACE||dc>SUPPLY_HOP+38*LV)continue;   // avec le rail, une colonie n'a plus à coller à sa mère : de 58 cases (niveau 0) à 250 (niveau 5)
       if(dc>SUPPLY_HOP&&(LV<1||B.conq))continue;   // au-delà de la portée des porteurs : seulement par une conquête ferroviaire (une à la fois)
