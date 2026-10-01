@@ -1,0 +1,27 @@
+﻿<!doctype html><meta charset="utf-8"><title>Pose</title>
+<style>html,body{margin:0;background:#20221c;overflow:hidden}canvas{position:absolute;left:0;top:0}</style><canvas id="gl"></canvas><canvas id="ov"></canvas>
+<script type="module">
+// Page d'essai (temporaire, hors livraison) : un véhicule découpé en pièces, posé comme en jeu — tourelle tournée, armes relevées, roues tournées —
+// pour vérifier qu'aucune pièce ne se détache de son pivot. ?m=<nom>&yaw=40&pitch=12&spin=45&front=+x
+import * as THREE from './js/lib/three.module.js';
+import {loadModel,materialOf} from './js/mesh3d.js';
+const Q=new URLSearchParams(location.search);const W=innerWidth,H=innerHeight;const gl=document.getElementById('gl'),ov=document.getElementById('ov');gl.width=ov.width=W;gl.height=ov.height=H;
+const R=new THREE.WebGLRenderer({canvas:gl,antialias:true});R.setSize(W,H,false);R.setScissorTest(true);
+const M=await loadModel(Q.get('m'),'_veh/');const D=Math.PI/180,yaw=+(Q.get('yaw')||0)*D,pitch=+(Q.get('pitch')||0)*D,spin=+(Q.get('spin')||0)*D;const front=Q.get('front')||'+x';
+const side=front[1]==='x'?new THREE.Vector3(0,0,1):new THREE.Vector3(1,0,0);   // l'essieu des roues : perpendiculaire à l'avant
+const scene=new THREE.Scene();scene.add(new THREE.AmbientLight(0xffffff,.6));const sun=new THREE.DirectionalLight(0xffffff,.9);sun.position.set(2,4,3);scene.add(sun);
+const P=Object.fromEntries(M.parts.map(p=>[p.name,p]));const mk=p=>{const g=new THREE.Group();g.position.set(...p.pivot);const m=new THREE.Mesh(p.geo,materialOf(true));m.position.set(-p.pivot[0],-p.pivot[1],-p.pivot[2]);g.add(m);return g;};
+const root=new THREE.Group();scene.add(root);root.add(new THREE.Mesh(P.caisse.geo,materialOf(true)));const marks=[];
+for(const p of M.parts){if(p.name==='caisse')continue;const g=mk(p);marks.push(p.pivot);
+  if(p.name.startsWith('roue'))g.setRotationFromAxisAngle(side,spin);
+  if(p.name==='tourelle'){g.rotation.y=yaw;root.add(g);for(const q of M.parts)if(['armes','canon'].includes(q.name)){const c=mk(q);c.position.sub(new THREE.Vector3(...p.pivot));c.setRotationFromAxisAngle(side,front[0]==='+'?-pitch:pitch);g.add(c);}continue;}
+  if(['armes','canon'].includes(p.name)&&P.tourelle)continue;
+  if(['affut','canons'].includes(p.name)){g.rotation.y=yaw;}
+  root.add(g);}
+const box=new THREE.Box3().setFromObject(root);const ctr=new THREE.Vector3();box.getCenter(ctr);const sz=new THREE.Vector3();box.getSize(sz);const S=Math.max(sz.x,sz.y,sz.z)*.6;
+const views=[[1,.8,1.2],[-1,.7,-1.1],[0,1,.0001],[front[1]==='x'?0:1,.15,front[1]==='x'?1:0]];const g2=ov.getContext('2d');
+views.forEach((d,i)=>{const x=(i%2)*W/2,y=(i>>1)*H/2,w=W/2,h=H/2,asp=w/h;const cam=new THREE.OrthographicCamera(-S*asp,S*asp,S,-S,-10,10);cam.position.copy(ctr).addScaledVector(new THREE.Vector3(...d).normalize(),4);cam.lookAt(ctr);cam.updateMatrixWorld();
+  R.setViewport(x,H-y-h,w,h);R.setScissor(x,H-y-h,w,h);R.setClearColor(0x2a2c23);R.render(scene,cam);
+  for(const m of marks){const v=new THREE.Vector3(...m).project(cam);g2.fillStyle='#ff3b3b';g2.beginPath();g2.arc(x+(v.x+1)/2*w,y+(1-v.y)/2*h,3,0,7);g2.fill();}});
+document.title='prêt';
+</script>

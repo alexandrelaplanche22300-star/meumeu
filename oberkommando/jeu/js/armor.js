@@ -3,13 +3,13 @@
 // épaisse si elle arrive de biais, moins si la plaque a déjà été frappée). Plus forte, elle passe, ralentie et déjà basculée ;
 // plus faible, elle s'arrête — et le choc passe quand même. Chaque millimètre se paie : le poids ralentit le soldat et le fait
 // viser moins vite. Huit matériaux, chacun son défaut :
-//  · les tissus (toile, cuir, lin collé en couches, soie de falaise) : légers, souples ; ils arrêtent les balles lentes et
+//  · les tissus (toile, cuir, lin collé en couches, toile balistique) : légers, souples ; ils arrêtent les balles lentes et
 //    les éclats, mais une balle rapide les tranche (vs : sous cette vitesse ils tiennent ; vcut : au-dessus, ils ne font rien) ;
 //  · la plaque d'acier : encaisse coup sur coup, mais lourde ;
 //  · la céramique : deux fois et demie l'acier à poids égal, mais elle se fissure — chaque balle arrêtée l'use ;
-//  · le composite : une face de céramique collée sur un dos de soie — le meilleur des deux, cher à faire ;
+//  · le composite : une face de céramique collée sur un dos de toile — le meilleur des deux, cher à faire ;
 //  (le composite est le meilleur)
-import {BODY_KG,regionAt} from './body.js';
+import {BODY_KG,regionAt,REGIONS,depth} from './body.js';
 
 export const MATS={
   toile:{name:'Toile épaisse',k:.2,rho:1.1,brittle:0,soft:1,vs:260,vcut:420,cost:{pieces:.4,vivres:.6},col:'#cdbb8f',desc:'des couches de toile piquée : arrête les éclats et les balles de pistolet lentes (sous 260 m/s) ; rien au-delà de 420'},
@@ -17,13 +17,13 @@ export const MATS={
   lin:{name:'Lin collé en couches',k:.3,rho:1.3,brittle:.03,soft:1,vs:340,vcut:500,cost:{vivres:1.2,pieces:.2},col:'#e6dcc4',desc:'des feuilles de lin collées en carapace, comme les cuirasses antiques : arrête les éclats et les balles lentes'},
   acier:{name:'Plaque d’acier trempé',col:'#7c8792',k:1,rho:7.85,brittle:.04,cost:{fer:1.2},desc:'encaisse coup sur coup ; lourd'},
   ceramique:{name:'Céramique',col:'#e9e6df',k:2.4,rho:3.1,brittle:.34,cost:{pierre:2},desc:'arrête bien plus que l’acier à poids égal, mais se fissure à chaque balle'},
-  soie:{name:'Soie de falaise tissée',k:.35,rho:1.35,brittle:0,soft:1,vs:520,vcut:650,col:'#6fb3a8',cost:{soie:1},desc:'légère : arrête les balles lentes (sous 520 m/s) et les éclats ; une balle de fusil (au-delà de 650 m/s) la tranche'},
-  composite:{name:'Composite (céramique sur soie)',k:2.9,rho:2.3,brittle:.2,col:'#4f5f4a',cost:{pierre:1.2,soie:.4},desc:'une face de céramique qui brise la pointe, un dos de soie qui retient les morceaux : la meilleure protection, chère en soie ; longue à fabriquer'},
+  soie:{name:'Toile balistique tissée',k:.35,rho:1.35,brittle:0,soft:1,vs:520,vcut:650,col:'#6fb3a8',cost:{fer:1},desc:'légère : arrête les balles lentes (sous 520 m/s) et les éclats ; une balle de fusil (au-delà de 650 m/s) la tranche'},
+  composite:{name:'Composite (céramique sur toile)',k:2.9,rho:2.3,brittle:.2,col:'#4f5f4a',cost:{pierre:1.2,fer:.6},desc:'une face de céramique qui brise la pointe, un dos de toile balistique qui retient les morceaux : la meilleure protection, chère ; longue à fabriquer'},
 };
 export const ZONES={casque:{name:'Casque',area:.0085,max:4},plastron:{name:'Plastron',area:.011,max:8},dos:{name:'Dos',area:.011,max:8},flancs:{name:'Flancs et épaules',area:.008,max:6}};
 export const DEFAULT_ARMORS=[
   {id:'casque',f:'meumeu',name:'Casque Mle 1',status:'adopte',base:true,a:{casque:['acier',.8],plastron:['acier',0],dos:['acier',0],flancs:['acier',0]}},
-  {id:'gilet',f:'meumeu',name:'Gilet de soie',status:'adopte',base:true,a:{casque:['acier',.8],plastron:['soie',4],dos:['soie',4],flancs:['soie',3]}},
+  {id:'gilet',f:'meumeu',name:'Gilet balistique',status:'adopte',base:true,a:{casque:['acier',.8],plastron:['soie',4],dos:['soie',4],flancs:['soie',3]}},
   {id:'bee_casque',f:'beee',name:'Casque bèè',status:'adopte',base:true,a:{casque:['acier',1],plastron:['acier',0],dos:['acier',0],flancs:['acier',0]}},
   {id:'bee_plaque',f:'beee',name:'Plastron bèè',status:'adopte',base:true,a:{casque:['acier',1],plastron:['acier',1.2],dos:['acier',0],flancs:['acier',0]}},
 ];
@@ -32,10 +32,14 @@ export function deriveArmor(a){const key=JSON.stringify(a);let D=cache.get(key);
   for(const [z,Z] of Object.entries(ZONES)){const [m,t]=a[z]||['acier',0];const M=MATS[m];const kg=Z.area*t*M.rho;mass+=kg;zones[z]={mat:m,t,eq:t*M.k,kg};
     for(const [r,v] of Object.entries(M.cost))cost[r]=(cost[r]||0)+v*kg/.05;}
   for(const k in cost)cost[k]=+cost[k].toFixed(2);cost.pieces=+(.3+mass*4).toFixed(2);
-  D={a,mass,zones,cost,hours:2+mass*25,move:Math.max(.35,1-mass/BODY_KG*1.8),aim:1+mass/BODY_KG*1.2};cache.set(key,D);return D;}
+  D={a,mass,zones,cost,hours:2+mass*25,move:Math.max(.55,1-mass/BODY_KG*.55),aim:1+mass/BODY_KG*.45};cache.set(key,D);return D;}   // un gilet de 14 % du poids du corps : marche −8 %, visée +6 % (un fantassin porte le tiers de son poids)
 // où la balle entre-t-elle ? le casque couvre le haut du crâne (pas le museau) ; le plastron le devant du poitrail et du ventre,
 // le dos l'arrière ; les flancs les côtés et le haut des bras
-export function plateZone(p){const r=regionAt(p);if(!r)return null;const id=r.id;
+// (World.bodyRay rend le point d'entrée reculé d'un millimètre HORS du corps, pour que le trajet voie l'entrée : sans tolérance,
+// regionAt() y répond « rien » et aucune plaque ne s'engageait jamais — mesuré : 0 balle arrêtée sur 1 464 touchées par un Mle 1
+// contre un plastron d'acier de 1,2 mm. On prend donc la région la plus proche à moins de 2,5 mm.)
+function nearRegion(p){let r=regionAt(p);if(r)return r;let bd=-.0025;for(const q of REGIONS){const d=depth(q.shape,p);if(d>=bd){r=q;bd=d;}}return r;}
+export function plateZone(p){const r=nearRegion(p);if(!r)return null;const id=r.id;
   if(id==='tete'&&p[1]>.25)return 'casque';if(id==='thorax'||id==='abdomen'){if(Math.abs(p[0])>.042&&Math.abs(p[2])<.03)return 'flancs';return p[2]>=0?'plastron':'dos';}
   if(id.startsWith('bras')&&p[1]>.15)return 'flancs';return null;}
 // une fibre tissée arrête bien une balle lente ; une balle rapide la tranche

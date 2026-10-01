@@ -1,10 +1,10 @@
-// La carte d'une partie, tirée au sort : un seul continent, sans mer — des plaines, des prairies, des forêts, des terres sèches,
+// La carte d'une partie, tirée au sort : un seul continent, sans mer — des plaines, des prairies, des forêts, des clairières,
 // des collines rocheuses. Au milieu, une chaîne de montagnes le traverse en diagonale, percée de trois cols : les passages
 // où la guerre passera. La capitale meumeu est dans un coin, les villes bèè dans le coin opposé : on ne se voit pas au début.
 // Les gisements sont répartis également entre les deux camps (voir plus bas) : l'armement et le rare demandent le rail.
 import {MAP_N,T,NODES,RARE,ORE_LEFT,COMMON_ORES} from './data.js';
 
-export function rng(seed){let s=(seed>>>0)||1;return ()=>{s^=s<<13;s>>>=0;s^=s>>17;s^=s<<5;s>>>=0;return s/4294967296;};}
+export function rng(seed){let s=(seed>>>0)||1;const next=()=>{s^=s<<13;s>>>=0;s^=s>>17;s^=s<<5;s>>>=0;return s/4294967296;};next.state=v=>{if(v!==undefined)s=(v>>>0)||1;return s;};return next;}
 function noise2(r){const P=256,g=new Float32Array(P*P);for(let i=0;i<g.length;i++)g[i]=r();
   const at=(x,y)=>g[((y&255)<<8)|(x&255)];
   return (x,y)=>{const xi=Math.floor(x),yi=Math.floor(y),tx=x-xi,ty=y-yi,sx=tx*tx*(3-2*tx),sy=ty*ty*(3-2*ty);
@@ -13,17 +13,20 @@ function fbm(n,x,y,oct){let a=0,w=.5,f=1,s=0;for(let o=0;o<oct;o++){a+=w*n(x*f,y
 
 export function generate(seed){const N=MAP_N;const r=rng(seed*9973+17);for(let k=0;k<8;k++)r();const n1=noise2(r),n2=noise2(r),n3=noise2(r),n4=noise2(r);
   const terrain=new Uint8Array(N*N);
-  // la chaîne du milieu : le long de l'anti-diagonale (i + j = N), trois cols tirés au sort
-  const passes=[];for(let k=0;k<3;k++)passes.push(.2+k*.3+(r()-.5)*.12);
-  const ridge=(i,j)=>1-Math.abs(fbm(n2,i/N*5,j/N*5,4)*2-1);
+  // Le relief : pas de muraille en diagonale, des massifs naturels — un bruit déformé donne de grandes zones de hauteurs,
+  // un bruit « de crête » y trace des chaînes sinueuses ; la neige n'est que sur les plus hauts sommets. Rien près des capitales.
+  const passes=[];
+  const ridge=(x,y)=>1-Math.abs(fbm(n2,x,y,4)*2-1);
   for(let j=0;j<N;j++)for(let i=0;i<N;i++){const x=i/N,y=j/N,k=j*N+i;
-    const across=(x+y-1)/Math.SQRT2,along=(x-y+1)/2;const wob=.012*Math.sin(along*23)+.02*(fbm(n1,x*4,y*4,3)-.5);
-    const inPass=passes.some(p=>Math.abs(along-p)<.028);const range=Math.abs(across+wob)<.03&&!inPass&&along>.04&&along<.96;
-    const hill=fbm(n1,x*5,y*5,5);const dry=fbm(n3,x*6,y*6,4);let t;
-    t=dry>.6?T.sand:dry>.54?T.scrub:dry>.47?T.dirt:dry>.4?T.meadow:T.grass;
-    if(range)t=hill>.55&&ridge(i,j)>.7?T.snow:T.rock;
-    // des collines rocheuses çà et là, loin des coins où l'on commence
-    else if(hill>.66&&ridge(i,j)>.9&&Math.min(Math.hypot(x-.12,y-.88),Math.hypot(x-.86,y-.16))>.16)t=T.rock;
+    // déformation plus forte et bruits plus fins : des taches de quelques dizaines de cases aux bords déchiquetés, pas de grandes plaques
+    const wx=x+.26*(fbm(n4,x*5,y*5,3)-.5),wy=y+.26*(fbm(n4,x*5+7.3,y*5+2.9,3)-.5);
+    const mass=fbm(n1,wx*5.6,wy*5.6,4),rg=ridge(wx*11,wy*11);const dry=fbm(n3,wx*15,wy*15,5);
+    const far=Math.min(Math.hypot(x-.12,y-.88),Math.hypot(x-.87,y-.13));
+    // des plaines et des forêts : herbe, prairies, quelques clairières de terre, de rares landes caillouteuses ; ni dunes ni sable
+    let t=dry>.69?T.scrub:dry>.62?T.dirt:dry>.45?T.meadow:T.grass;
+    const high=mass>.63&&far>.13;if(high&&rg>.925)t=(mass>.7&&rg>.97)?T.snow:T.rock;else if(high&&rg>.86)t=T.scrub;
+    // autour de la capitale meumeu : de bonnes terres, ni landes ni roche (la vallée grasse du départ)
+    if(Math.hypot(x-.12,y-.88)<.04&&(t===T.scrub||t===T.dirt||t===T.rock||t===T.snow))t=T.meadow;
     terrain[k]=t;}
   const land=k=>terrain[k]>=T.sand&&terrain[k]<=T.scrub;
   // les terres d'un seul tenant (sans les montagnes) : la plus grande est le continent
@@ -44,7 +47,7 @@ export function generate(seed){const N=MAP_N;const r=rng(seed*9973+17);for(let k
   const add=(type,i,j,extra={})=>{if(i<1||j<1||i>=N-1||j>=N-1)return null;const k=j*N+i;if(nodeAt[k]>=0||!land(k))return null;const L=(extra.res&&ORE_LEFT[extra.res])||NODES[type].left;const nd={id:nodes.length,type,i,j,left:L,max:L,...extra};nodes.push(nd);nodeAt[k]=nd.id;return nd;};
   const towns=[capital,...beee];const nearTown=(i,j,d)=>towns.some(([a,b])=>Math.hypot(a-i,b-j)<d);
   for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i;if(!land(k)||nearTown(i,j,7))continue;const f=fbm(n4,i/N*11,j/N*11,3);
-    if((terrain[k]===T.grass||terrain[k]===T.meadow)&&f>.55&&r()<.6)add('tree',i,j);
+    if((terrain[k]===T.grass||terrain[k]===T.meadow)&&f>.52&&r()<.62)add('tree',i,j);
     else if(terrain[k]===T.dirt&&f>.62&&r()<.3)add('tree',i,j);
     else if(terrain[k]===T.scrub&&r()<.05)add('rock',i,j);
     else if(terrain[k]===T.meadow&&f<.4&&r()<.025)add('bush',i,j);}
@@ -67,18 +70,46 @@ export function generate(seed){const N=MAP_N;const r=rng(seed*9973+17);for(let k
   // autour d'une ville : dans l'anneau [r0, r1], vers l'angle `ang` (± spread)
   const near=([ci,cj],res,r0,r1,ang,spread=.6,gap=10)=>place(res,(i,j)=>{const d=Math.hypot(i-ci,j-cj);return d>r0&&d<r1&&(ang==null||angDiff(Math.atan2(j-cj,i-ci),ang)<spread);},gap);
   const arm=['fer','cuivre','plomb','salpetre'];
-  for(const T0 of [capital,beee[0]]){const toMid=Math.atan2(mid[1]-T0[1],mid[0]-T0[0]);
-    ['pierre','charbon'].forEach((res,n)=>near(T0,res,10,18,toMid+(n-.5)*1.6,.9,7)||near(T0,res,9,22,null,1,6)||near(T0,res,8,28,null,1,4));
+  // Les Meumeu ont leurs gisements à portée ; ceux des Bèè sont dispersés (au-delà du démarrage, une fois et demie plus loin) :
+  // ils doivent fonder des villes au loin pour s'armer.
+  for(const T0 of [capital,beee[0]]){const toMid=Math.atan2(mid[1]-T0[1],mid[0]-T0[0]);const X=T0===capital?1:1.55;
+    // la pierre et le charbon de la capitale : pas trop près (au ras des premiers bâtiments, leur mine ne se pose pas) — 14 à 21 cases comme avant le terrain plus fin
+    ['pierre','charbon'].forEach((res,n)=>{const cc=T0===capital;near(T0,res,cc?14:10,cc?21:18,toMid+(n-.5)*1.6,.9,7)||near(T0,res,cc?13:9,cc?24:22,null,1,6)||near(T0,res,cc?12:8,28,null,1,4);});
     near(T0,'fer',16,26,null,1,6)||near(T0,'fer',14,32,null,1,4);
-    shuffle(arm).forEach((res,n)=>near(T0,res,35,65,toMid+(n-1.5)*.55,.35)||near(T0,res,35,70,toMid,1.2));
-    for(const res of ['charbon','fer','pierre','fer'])near(T0,res,50,85,null);
-    for(const res of order)near(T0,res,70,110,toMid,.9);}
+    // Les Meumeu ont l'essentiel à portée (ni collé, ni loin) : de quoi s'armer vite face au nombre qui monte
+    if(T0===capital)for(const res of ['cuivre','plomb','salpetre','charbon'])near(T0,res,18,32,null,1,6)||near(T0,res,16,40,null,1,4);
+    near(T0,'fer',25*X,42*X,null,1,8);
+    near(T0,'fer',36*X,58*X,toMid,1.2,9);
+    shuffle(arm).forEach((res,n)=>near(T0,res,35*X,65*X,toMid+(n-1.5)*.55,.35)||near(T0,res,35*X,70*X,toMid,1.2));
+    for(const res of ['charbon','fer','pierre','fer','fer'])near(T0,res,50*X,95*X,null);
+    for(const res of order)near(T0,res,70*X,110*X,toMid,.9);}
   for(const T0 of beee.slice(1))for(const res of ['pierre','charbon','fer'])near(T0,res,10,20,null);
   const dC=(i,j)=>Math.hypot(i-capital[0],j-capital[1]),dB=(i,j)=>Math.min(...beee.map(([a,b])=>Math.hypot(a-i,b-j)));
   for(const res of [...COMMON_ORES,...COMMON_ORES,...order])place(res,(i,j)=>Math.abs(dC(i,j)-dB(i,j))<40&&dC(i,j)>70);
-  const G=5,cell=N/G;let cyc=shuffle(COMMON_ORES),ci=0;
+  // un peu partout, éparpillés : deux passes sur une grille de 7 × 7
+  for(let pass=0;pass<2;pass++){const G=7,cell=N/G;let cyc=shuffle(COMMON_ORES),ci=0;
   for(let gy=0;gy<G;gy++)for(let gx=0;gx<G;gx++){const res=cyc[ci++%cyc.length];if(ci%cyc.length===0)cyc=shuffle(COMMON_ORES);
-    place(res,(i,j)=>i>=gx*cell&&i<(gx+1)*cell&&j>=gy*cell&&j<(gy+1)*cell&&dC(i,j)>25&&dB(i,j)>25,14);}
+    place(res,(i,j)=>i>=gx*cell&&i<(gx+1)*cell&&j>=gy*cell&&j<(gy+1)*cell&&dC(i,j)>25&&dB(i,j)>25,14);}}
   // près des villes, les filons sont petits (de quoi démarrer) ; les gros sont loin : il faut s'étendre
-  for(const d of deposits){const near=Math.min(dC(d.i,d.j),dB(d.i,d.j));if(near<32){d.left=d.max=Math.round(d.max*.35);}}
-  return {N,terrain,nodes,nodeAt,comp,main,capital,beee,deposits,passes};}
+  // près de chez soi, des filons de démarrage (quelques jours de mine) ; à mi-distance, moyens ; loin, riches — et plus on s'éloigne
+  // de sa capitale, plus ils sont riches : on est poussé à fonder des villes, des dépôts ferroviaires, des mines au loin
+  const START_LEFT={fer:1400,charbon:1400,pierre:1800,cuivre:1000,plomb:1000,salpetre:1000};
+  for(const d of deposits){const near=Math.min(dC(d.i,d.j),dB(d.i,d.j));
+    if(near<32)d.left=d.max=Math.min(d.max,START_LEFT[d.res]||800);
+    else if(near<60)d.left=d.max=Math.round(d.max*.5);
+    else if(near>80)d.left=d.max=Math.round(d.max*Math.min(2.2,1+(near-80)/100));}
+  // La fertilité du sol (0–100) : les limons des plaines, des poches de terre noire ; les landes et la roche, presque rien.
+  // Les Meumeu démarrent dans une vallée grasse ; les Bèè sur un plateau maigre et caillouteux — les meilleures terres sont
+  // ailleurs, au milieu et vers nous : c'est pour elles aussi qu'ils s'étendront. (Un tirage à part : le reste de la carte ne bouge pas.)
+  const rf=rng(seed*7919+3);const nf=noise2(rf);const fert=new Uint8Array(N*N);const blobs=[];
+  const blobAt=(ok,rad)=>{for(let t=0;t<600;t++){const i=10+Math.floor(rf()*(N-20)),j=10+Math.floor(rf()*(N-20));if(comp[j*N+i]!==main||!ok(i,j)||blobs.some(b=>Math.hypot(b.i-i,b.j-j)<b.r+rad+6))continue;blobs.push({i,j,r:rad});return;}};
+  for(let n=0;n<2;n++)blobAt((i,j)=>dC(i,j)>14&&dC(i,j)<38,9+rf()*4);
+  for(let n=0;n<4;n++)blobAt((i,j)=>Math.abs(dC(i,j)-dB(i,j))<70&&dC(i,j)>60&&dB(i,j)>60,10+rf()*7);
+  for(let n=0;n<5;n++)blobAt((i,j)=>dB(i,j)>75&&dC(i,j)>55,9+rf()*7);
+  for(let n=0;n<3;n++)blobAt((i,j)=>dB(i,j)>55&&dB(i,j)<100&&dC(i,j)>90,8+rf()*5);
+  const TF={[T.grass]:1,[T.meadow]:1.1,[T.dirt]:.6,[T.scrub]:.3};
+  for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i;const tf=TF[terrain[k]]||0;if(!tf)continue;let v=(fbm(nf,i/N*7,j/N*7,4)-.28)*170;
+    for(const b of blobs){const d=Math.hypot(b.i-i,b.j-j);if(d<b.r)v+=48*Math.pow(1-d/b.r,.6);}
+    const c=dC(i,j),e=dB(i,j);if(c<55)v=Math.max(v,78*(1-c/70))+14*(1-c/55);if(e<60)v=Math.min(v,30+30*e/60);
+    let fv=v*tf;if(c<50)fv=Math.max(fv,82*(1-c/70));fert[k]=Math.max(0,Math.min(100,Math.round(fv)));}
+  return {N,terrain,nodes,nodeAt,comp,main,capital,beee,deposits,passes,fert,blobs};}

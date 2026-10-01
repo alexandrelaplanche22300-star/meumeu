@@ -22,7 +22,7 @@ const SRGB=c=>new THREE.Color().setRGB(c[0]/255,c[1]/255,c[2]/255,THREE.SRGBColo
 const V3=p=>new THREE.Vector3(p[0],p[1],p[2]);
 const Y=new THREE.Vector3(0,1,0),Z=new THREE.Vector3(0,0,1);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const sp2=f=>f==='beee'?'beee':'meumeu';
+const sp2=f=>f==='wild'?'wild':f==='beee'?'beee':'meumeu';
 
 // ---------- le contexte ----------
 let G=null,dead=false;

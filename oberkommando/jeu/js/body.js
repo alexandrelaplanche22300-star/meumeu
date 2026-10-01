@@ -114,10 +114,16 @@ function build(sp){const bee=sp==='beee';
   for(const r of REGIONS)r.vol=volOf(r.shape);
   return {sp,REGIONS,PARTS,PART:Object.fromEntries(PARTS.map(p=>[p.id,p])),REGION:Object.fromEntries(REGIONS.map(r=>[r.id,r])),
     INELASTIC:PARTS.filter(p=>p.inelastic||p.kind==='heart'),VESSELS:PARTS.filter(p=>p.kind==='artery'||p.kind==='vein')};}
-export const BODIES={meumeu:build('meumeu'),beee:build('beee')};
+// Une anatomie quadrupède pour la faune : les organes et vaisseaux suivent les volumes physiques,
+// les membres avant et arrière se séparent le long du corps. La même géométrie sert au tir et à la vue 3D.
+function quadruped(base){const point=([x,y,z])=>[x,.08+(y-.12)*.5+z*.14,(y-.12)*.95+z*.4];
+  const shape=s=>s.t==='cap'?{...s,a:point(s.a),b:point(s.b)}:s.t==='sph'?{...s,c:point(s.c)}:{...s,c:point(s.c),r:[s.r[0],s.r[1]*.5+s.r[2]*.14,s.r[1]*.95+s.r[2]*.4]};
+  const REGIONS=base.REGIONS.map(r=>({...r,shape:shape(r.shape)}));const PARTS=base.PARTS.map(p=>({...p,shape:shape(p.shape)}));
+  return {sp:'wild',REGIONS,PARTS,PART:Object.fromEntries(PARTS.map(p=>[p.id,p])),REGION:Object.fromEntries(REGIONS.map(r=>[r.id,r])),INELASTIC:PARTS.filter(p=>p.inelastic||p.kind==='heart'),VESSELS:PARTS.filter(p=>p.kind==='artery'||p.kind==='vein')};}
+export const BODIES={meumeu:build('meumeu'),beee:build('beee')};BODIES.wild=quadruped(BODIES.beee);
 // le corps en cours : la balistique, la santé et les rendus travaillent sur celui-ci ; on change d'espèce avant chaque tir
 export let SPECIES='meumeu',REGIONS=BODIES.meumeu.REGIONS,PARTS=BODIES.meumeu.PARTS,PART=BODIES.meumeu.PART,REGION=BODIES.meumeu.REGION,INELASTIC=BODIES.meumeu.INELASTIC,VESSELS=BODIES.meumeu.VESSELS;
-export function setSpecies(f){const B=BODIES[f==='beee'?'beee':'meumeu'];if(B.sp===SPECIES)return;SPECIES=B.sp;REGIONS=B.REGIONS;PARTS=B.PARTS;PART=B.PART;REGION=B.REGION;INELASTIC=B.INELASTIC;VESSELS=B.VESSELS;}
+export function setSpecies(f){const B=BODIES[f==='wild'?'wild':f==='beee'?'beee':'meumeu'];if(B.sp===SPECIES)return;SPECIES=B.sp;REGIONS=B.REGIONS;PARTS=B.PARTS;PART=B.PART;REGION=B.REGION;INELASTIC=B.INELASTIC;VESSELS=B.VESSELS;}
 export const MUSCLE_BLEED=.06;    // mL/s par cm³ de muscle broyé, à l'échelle d'un Meumeu
 // la densité (g/cm³) et la résistance de chaque nature, pour la balle qui la traverse
 export const TISSUE={muscle:{rho:1.04,k:1},lung:{rho:.45,k:.6},organ:{rho:1.05,k:1},cns:{rho:1.04,k:1},bone:{rho:1.9,k:2.6},artery:{rho:1.05,k:1},vein:{rho:1.05,k:1},heart:{rho:1.05,k:1.05},

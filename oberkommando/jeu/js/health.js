@@ -23,12 +23,20 @@ export const TQ_LIMIT=10*HOUR;     // un garrot au-delà de 10 heures : le membr
 export const SEPSIS=36*HOUR;       // une panse ou un intestin percés, sans chirurgie : la péritonite tue en un jour et demi
 export function newHealth(){return {blood:BLOOD,bleeds:[],wounds:[],state:'ok',legs:0,arms:0,pneumo:0,sealed:false,conc:0,shock:0,cause:null,down:0,dead:null,log:[],splint:0,eyes:0,gut:0,sepsis:0,lost:[],pain:0,morph:0};}
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+// Une brûlure n'est pas une balle : pas de trajectoire dans les organes, mais une surface de fourrure/peau atteinte,
+// une douleur et un choc immédiats. `severity` va de 0 à 1 ; le gel chimique reste collé et compte plus lourd.
+export function applyBurn(h,severity,rnd=Math.random,chemical=false){if(!h||h.state==='mort')return null;const s=clamp(severity*(chemical?1.15:1));if(s<=.03)return null;
+  const sev=Math.max(1,Math.min(6,Math.ceil(s*6)));h.burns=Math.min(1.5,(h.burns||0)+s);h.pain=Math.min(10,(h.pain||0)+1+s*7);h.shock=Math.max(h.shock||0,s*55);
+  const text=`brûlures ${chemical?'chimiques ':''}${s>.72?'profondes':s>.38?'graves':'superficielles'}`;const w={sev,text,from:chemical?'gel incendiaire':'incendie',entry:null,exit:null,t:0,parts:[{name:'fourrure et peau',sev,note:text}]};h.wounds.push(w);if(h.wounds.length>12)h.wounds.shift();
+  let now=null;if(s>.88&&rnd()<Math.min(.7,(s-.82)*3)){h.state='mort';h.cause=chemical?'brûlures chimiques massives':'brûlures massives';h.dead={t:0};now='mort';}
+  else if(s>.42){h.state='hors';h.cause=chemical?'brûlures chimiques':'brûlures';h.conc=Math.max(h.conc,6+s*18);now='hors';}else if(h.state==='ok')h.state='blesse';
+  h.log?.push({dt:0,what:text,bad:1});return {sev,now,text,wound:w};}
 // la gravité, de 1 (égratignure) à 6 (mortelle) — à la manière de l'échelle AIS
 export const SEV=['','légère','modérée','sérieuse','grave','critique','mortelle'];
 
 // Appliquer une blessure calculée par la balistique. `rec` : le résultat de wound() ; `rnd` : le hasard du monde.
 // Renvoie un résumé : gravité, texte, parties touchées, et ce qui arrive tout de suite.
-export function applyWound(h,rec,rnd,from='tir'){if(h.state==='mort')return null;const out={sev:1,parts:[],now:null,bleed:0,text:''};let kill=null,downNow=null;
+export function applyWound(h,rec,rnd,from='tir'){if(h.state==='mort')return null;const out={sev:1,parts:[],now:null,bleed:0,text:''};let kill=null,downNow=null;const nb0=h.bleeds.length;
   const add=(name,sev,note='')=>{out.parts.push({name,sev,note});out.sev=Math.max(out.sev,sev);};
   for(const [k,d] of Object.entries(rec.dmg)){const p=PART[k];
     if(!p){const r=REGION[k];if(!r||d.crush<1e-4)continue;const cm3=d.crush;const rate=MUSCLE_BLEED*cm3;if(rate>0)h.bleeds.push({name:r.name,rate,limb:r.limb||null,internal:false});out.bleed+=rate;
@@ -58,9 +66,11 @@ export function applyWound(h,rec,rnd,from='tir'){if(h.state==='mort')return null
       case 'airway':{if(frac<=0&&d.cut<=0)break;const rate=p.bleed;h.bleeds.push({name:p.name,rate,internal:true});out.bleed+=rate;h.pneumo=Math.max(h.pneumo,1);h.drained=false;add(p.name,4,'percée · il étouffe');break;}
       case 'eye':{if(frac<=0)break;h.eyes=(h.eyes||0)+1;add(p.name,3,'crevé : il vise mal');break;}}}
   // tout de suite : la mort, le choc de ce qu'on a reçu, ou rien encore
+  // la troupe de choc (h.tough < 1) : ses nouvelles plaies saignent moins, le choc la fait moins tomber, elle souffre moins
+  const T=h.tough||1;if(T!==1){for(let i=nb0;i<h.bleeds.length;i++)h.bleeds[i].rate*=T;out.bleed*=T;}
   const ePerKg=rec.E/BODY_KG;const torso=['thorax','abdomen','bassin','tete','cou'].some(r=>rec.regions.has(r));
-  const pIncap=clamp((ePerKg-3)/22)*(torso?1:.45)+(h.heart?.7:0)+(out.bleed>BLOOD*.02?.4:0);
-  h.pain=Math.min(10,(h.pain||0)+out.sev);
+  const pIncap=(clamp((ePerKg-3)/22)*(torso?1:.45)+(h.heart?.7:0)+(out.bleed>BLOOD*.02?.4:0))*T;
+  h.pain=Math.min(10,(h.pain||0)+out.sev*T);
   if(kill){h.state='mort';h.cause=kill;h.dead={t:0};out.now='mort';}
   else if(downNow||h.conc>0){h.state='hors';h.cause=downNow||'commotion';out.now='hors';}
   else if(rnd()<pIncap){h.state='hors';h.cause='choc';h.shock=15+rnd()*45;out.now='hors';}
@@ -87,7 +97,7 @@ export function tickHealth(h,dts){if(h.state==='mort'||(h.state==='ok'&&!h.bleed
   const legsOk=h.legs<=(h.splint||0)&&!h.para;
   if(br<.002&&!h.pneumo&&legsOk&&!h.arms&&!h.bleeds.some(b=>b.internal&&!b.clamped)&&!(h.gut&&!h.gutFixed)){h.blood=Math.min(BLOOD,h.blood+BLOOD*.02*dts/HOUR);h.rest=(h.rest||0)+dts;
     if(h.state==='blesse'&&h.rest>REST&&h.blood>BLOOD*.95&&!h.legs&&!h.lost.length){h.state='ok';h.wounds=[];h.bleeds=[];h.rest=0;h.pain=0;return 'ok';}}else h.rest=0;
-  const loss=1-h.blood/BLOOD;
+  const loss=(1-h.blood/BLOOD)/(h.vit||1);   // plus de vie (h.vit > 1) : les mêmes seuils pour une perte de sang plus grande
   if(h.pneumo&&!h.sealed)h.pneumo+=dts;if(h.conc>0)h.conc-=dts;if(h.shock>0)h.shock-=dts*(h.morph>0?3:1);
   if(loss>.5||(h.pneumo>420&&!h.sealed)||h.sepsis>=1){h.state='mort';h.cause=loss>.5?'hémorragie':h.sepsis>=1?'péritonite':'asphyxie';}
   else if(loss>.36||(h.pneumo>150&&!h.sealed)||!legsOk||h.conc>0||h.shock>0||h.sepsis>.75){if(h.state!=='hors'){h.state='hors';h.cause=loss>.36?'hémorragie':h.pneumo>150?'détresse respiratoire':h.sepsis>.75?'fièvre, infection':!legsOk?(h.para?'paralysé':'jambe brisée'):h.cause||'choc';}}
@@ -95,8 +105,8 @@ export function tickHealth(h,dts){if(h.state==='mort'||(h.state==='ok'&&!h.bleed
   if(h.state==='hors')h.down+=dts;
   return h.state!==before?h.state:null;}
 // Ce que la blessure retire : précision, vitesse. (Un bras cassé, un œil crevé, c'est viser mal ; la douleur et le sang perdu aussi.)
-export function malus(h){const loss=1-h.blood/BLOOD;const pain=h.morph>0?0:(h.pain||0)*.05;
-  return {aim:1+h.arms*1.5+(h.eyes||0)*.9+loss*3+(h.pneumo?.5:0)+pain,move:!(h.legs<=(h.splint||0))||h.para?0:(h.legs?.3:1)*(1-loss*1.2-(h.pneumo?.3:0))};}
+export function malus(h){const loss=(1-h.blood/BLOOD)/(h.vit||1);const pain=h.morph>0?0:(h.pain||0)*.05,burn=h.burns||0;
+  return {aim:1+h.arms*1.5+(h.eyes||0)*.9+loss*3+(h.pneumo?.5:0)+pain+burn,move:!(h.legs<=(h.splint||0))||h.para?0:(h.legs?.3:1)*(1-loss*1.2-(h.pneumo?.3:0)-burn*.25)};}
 // ---------- les soins ----------
 // Premiers secours (l'infirmier, et le médecin) : garrot sur les membres, pansement compressif ailleurs, pansement thoracique, plasma.
 export function firstAid(h,kit=1){const done=[];for(const b of h.bleeds){if(b.tq||b.dressed||b.clamped)continue;if(b.limb){b.tq=true;b.tqT=0;done.push(`garrot (${b.name})`);}else{b.dressed=true;done.push(`pansement (${b.name})`);}}
@@ -116,10 +126,10 @@ export function doctorCare(h,kit,surgery=false){const done=firstAid(h,kit);
   return done;}
 // ce qui reste à faire, et qui peut le faire
 export function needsCare(h){return h.state!=='mort'&&(h.bleeds.some(b=>!b.tq&&!b.dressed&&!b.clamped&&b.rate>.005)||(h.pneumo&&!h.sealed&&!h.drained));}
-export function needsDoctor(h){return h.state!=='mort'&&(needsCare(h)||(h.pneumo&&!h.drained)||(h.legs+h.arms>(h.splint||0)&&!h.para)||(h.shock>0&&!(h.morph>0))||h.blood<BLOOD*.7);}
+export function needsDoctor(h){return h.state!=='mort'&&(needsCare(h)||(h.pneumo&&!h.drained)||(h.legs+h.arms>(h.splint||0)&&!h.para)||(h.shock>0&&!(h.morph>0))||h.blood<BLOOD*.7||(h.burns||0)>.2);}
 export function needsSurgery(h){return h.state!=='mort'&&(h.bleeds.some(b=>(b.internal&&!b.clamped&&b.rate>.003)||(b.tq&&!b.lost))||(h.gut&&!h.gutFixed));}
 // À l'hôpital : on opère (plus de saignement interne), le sang revient, les os se ressoudent.
-export function heal(h,hours){doctorCare(h,3,true);h.bleeds=[];h.pneumo=0;h.sealed=false;h.drained=false;h.shock=0;h.conc=0;h.sepsis=0;h.gut=0;h.blood=Math.min(BLOOD,h.blood+BLOOD*.08*hours);
+export function heal(h,hours){doctorCare(h,3,true);h.bleeds=[];h.pneumo=0;h.sealed=false;h.drained=false;h.shock=0;h.conc=0;h.sepsis=0;h.gut=0;h.burns=Math.max(0,(h.burns||0)-hours/72);h.blood=Math.min(BLOOD,h.blood+BLOOD*.08*hours);
   h.bone=(h.bone||0)+hours;if(h.bone>72){h.legs=0;h.arms=0;h.splint=0;}
   // la convalescence : selon la pire blessure, d'une heure (une égratignure) à deux jours (une blessure critique)
   h.hosp=(h.hosp||0)+hours;const worst=Math.max(0,...h.wounds.map(w=>w.sev||1));h.stay=[0,1,3,8,16,30,48][worst]||0;

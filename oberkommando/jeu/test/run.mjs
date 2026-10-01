@@ -142,7 +142,8 @@ if(on(9)){say('\n=== banc 9 : la paix armée, puis la guerre — trente jours sa
   const W=new World(5);const days=[];let ev={};const t0=performance.now();let firstShot=null;
   for(let t=0;t<30*DAY;t+=.25){W.update(.25);for(const e of W.events.splice(0)){ev[e.type]=(ev[e.type]||0)+1;if(e.type==='shot'&&firstShot==null)firstShot=W.day;if(e.type==='tension'||e.type==='war')days.push(`j${W.day}`);}}
   say(`  ${Math.round(performance.now()-t0)} ms · guerre prévue au jour ${W.s.beee.warDay} · annonces ${days.join(', ')} · premier coup de feu au jour ${firstShot} · vagues ${W.s.beee.waves} · raids ${ev['air-raid']||0} · tirs ${ev.shot||0} · blessures ${ev.wound||0} · morts ${ev.death||0} · Bèè ${W.s.units.filter(u=>u.f==='beee').length} · la capitale ${W.s.lost?'TOMBÉE au jour '+W.s.lost.day:'tient'}`);
-  const js=W.save();const W2=new World(1);W2.load(js);W2.update(1);say(`  sauvegarde : ${Math.round(js.length/1024)} Ko, rechargée, ${W2.s.units.length} unités`);}
+  // (le test appelait load(), renommé restore() en V10 : le banc plantait avant les suivants)
+  if(W.save){const js=W.save();const W2=new World(1);W2.restore(js);W2.update(1);say(`  sauvegarde : ${Math.round(js.length/1024)} Ko, rechargée, ${W2.s.units.length} unités`);}}
 
 if(on(10)){say('\n=== banc 10 : une vague contre une capitale défendue ===');
   for(const def of [false,true]){const W=new World(4);W.s.beee.warDay=1;const cap=W.capital();
