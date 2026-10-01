@@ -80,7 +80,7 @@ export class View{
   // (le sol en vraie texture : chaque case reçoit sa tuile, réduite ; faute de tuiles, sa couleur)
   tileMeanOf(t){const C=this.tileMean??={};if(C[t])return C[t];let r=0,g=0,b=0,n=0;try{for(const cv of this.tiles[t].slice(0,4)){const d=cv.getContext('2d').getImageData(0,0,cv.width,cv.height).data;for(let k=0;k<d.length;k+=4)if(d[k+3]>200){r+=d[k];g+=d[k+1];b+=d[k+2];n++;}}}catch(e){}
     return C[t]=n?[r/n,g/n,b/n]:TERRAIN[t].tint;}
-  makeOverview(){const W=this.world,N=W.N,G=W.G;const s=Math.max(4,Math.min(this.tiles?14:8,Math.floor(3800/N)));   // (V12.4 : la carte de 600 cases faisait une image de 8 400 px, au-delà de ce que la carte graphique accepte : écran vide et saccades — jamais plus de ~3 800 px)
+  makeOverview(){const W=this.world,N=W.N,G=W.G;const s=Math.max(4,Math.min(this.tiles?14:8,Math.floor(7600/N)));   // (12 px par case sur la carte de 600 : 7 200 px, sous la limite de 8 192 de la carte graphique ; à 6 px, les textures devenaient de la bouillie)   // (V12.4 : la carte de 600 cases faisait une image de 8 400 px, au-delà de ce que la carte graphique accepte : écran vide et saccades — jamais plus de ~3 800 px)
     const c=document.createElement('canvas');c.width=N*s;c.height=N*s/2;const x=c.getContext('2d');x.imageSmoothingEnabled=true;/* (pas de flou : appliqué à chacune des 360 000 cases, il figeait le jeu au démarrage) */
     for(let j=0;j<N;j++)for(let i=0;i<N;i++){const t=G.terrain[j*N+i];const px=(i-j+N)*s/2,py=(i+j)*s/4;
       if(this.tiles){x.drawImage(this.tiles[t][(j&3)*4+(i&3)],px-s/2-.5,py-.5,s+1,s/2+1);continue;}
