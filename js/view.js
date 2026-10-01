@@ -292,7 +292,7 @@ export class View{
     if(fog)this.drawIntel();else this.drawHeard();
     this.stepParts(dt);this.drawShots();this.drawStreaks(dt);this.drawParts(false);this.drawSmokes();this.drawFx(dt);this.drawLogistics();this.drawFocus();
     for(const v of s.vehicles)if(v.alt>0&&inView(v.x,v.y,12))this.drawVehicle(v);
-    this.drawCones();this.drawCharges();this.drawParts(true);this.drawLinks();
+    this.drawNightVision();this.drawCones();this.drawCharges();this.drawParts(true);this.drawLinks();
     if(this.placing&&this.hover)this.drawGhost();if(this.lining?.cells)this.drawLinePlan();
     if(this.drag?.box){const {x0,y0,x1,y1}=this.drag.box;ctx.fillStyle='rgba(255,211,106,.12)';ctx.strokeStyle='#ffd36a';ctx.lineWidth=1.5*this.dpr;ctx.fillRect(Math.min(x0,x1),Math.min(y0,y1),Math.abs(x1-x0),Math.abs(y1-y0));ctx.strokeRect(Math.min(x0,x1),Math.min(y0,y1),Math.abs(x1-x0),Math.abs(y1-y0));}
     this.marks=this.marks.filter(m=>(m.age+=dt)<.6);for(const m of this.marks){const q=this.toScreen(m.x,m.y);ctx.strokeStyle=m.bad?`rgba(235,90,70,${1-m.age/.6})`:`rgba(255,211,106,${1-m.age/.6})`;ctx.lineWidth=2.5*this.dpr;ctx.beginPath();ctx.ellipse(q.x,q.y,(6+m.age*30)*z,(3+m.age*15)*z,0,0,7);ctx.stroke();}
@@ -702,6 +702,18 @@ export class View{
   // nos soldats choisis : ce qu'il voit — plein devant, moins sur les côtés, presque rien derrière — en trois limites : un
   // Meumeu debout, accroupi, couché (l'aplat : debout). Vert-gris : calme ; jaune : en ronde, il tourne la tête ; rouge : en alerte.
   // Autour de chacun de nos tireurs : jusqu'où s'entendra son prochain coup (et, pointillé, le claquement d'une balle supersonique).
+  // La nuit : ce que voit chacune de nos unités — sa vue nue tout autour (face, flancs, dos), sa lunette et son infrarouge dans l'axe.
+  // Même calcul que la perception (World.eyeProfile / visualRange), échantillonné sur 32 directions.
+  drawNightVision(){const W=this.world,s=W.s;if(!(W.light()<.4))return;const ctx=this.ctx,[i0,i1,j0,j1]=this.vis;let n=0;
+    ctx.save();
+    for(const u of s.units){if(u.f!=='meumeu'||!(u.hp>0)||u.h?.state==='hors'||u.inVeh||u.inBarracks)continue;if(u.x<i0-8||u.x>i1+8||u.y<j0-8||u.y>j1+8)continue;if(++n>260)break;
+      const P=W.eyeProfile(u),fx=u.fx??1,fy=u.fy??0,fl=Math.hypot(fx,fy)||1;const pts=[];let nvOn=false;
+      for(let k=0;k<32;k++){const a=k/32*Math.PI*2,dx=Math.cos(a),dy=Math.sin(a),c=(fx*dx+fy*dy)/fl;
+        const cone=u.tower?1:c>=.5?1:c>=-.2?[.55,.72,.88][P.wide]:[.22,.38,.62][P.wide];let r=P.base*cone;if(c>=P.cos)r=Math.max(r,P.optic);if(c>=P.nvCos&&P.nv>r){r=P.nv;nvOn=true;}
+        if(u.lamp)r=Math.max(r,5);r=Math.max(1.6,r);const q=this.toScreen(u.x+dx*r,u.y+dy*r);pts.push(q);}
+      ctx.beginPath();pts.forEach((q,i)=>i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.closePath();
+      ctx.fillStyle=nvOn?'rgba(120,255,150,.07)':'rgba(255,235,170,.06)';ctx.fill();ctx.strokeStyle=nvOn?'rgba(120,255,150,.45)':'rgba(255,235,170,.32)';ctx.lineWidth=1*this.dpr;ctx.stroke();}
+    ctx.restore();}
   drawCones(){const W=this.world,s=W.s;const sel=[];for(const id of this.sel){const u=W.unit(id);if(u&&u.f==='meumeu'&&u.hp>0)sel.push(u);}if(!sel.length)return;
     const night=W.light()<.4;if(!(this.cones||night&&sel.some(u=>u.holdFire||u.charges>0||u.scoutRole||u.camoSuit||u.task?.kind==='sabotage')))return;
     const ctx=this.ctx,z=this.z(),dpr=this.dpr,base=W.sight(),alerts=s.beee.alerts||[];const [i0,i1,j0,j1]=this.vis;
