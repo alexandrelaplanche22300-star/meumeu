@@ -146,7 +146,7 @@ export const STRATEGY={
     // restant en vaut une, et jusqu'à trois à la fois.
     const cols=B.bands.filter(b=>b.state!=='repli'&&b.kind!=='defense'&&b.kind!=='contre'&&b.aim!=='diversion');
     const K=this.raidK();if(!offense||this.t<(B.nextWave||0)||cols.length>=K.maxcol)return;
-    const groups=cities.map(c=>({c,g:this.beeeGuards(c)})).map(q=>({...q,g:q.g.slice(0,Math.max(0,q.g.length-Math.max(4,Math.ceil(this.beeeGarrisonMin(q.c)*K.keep))))})).sort((a,b)=>b.g.length-a.g.length),from=groups[0]?.c;if(!from)return;
+    const groups=cities.map(c=>({c,g:this.beeeTroops(c).filter(u=>u.task?.kind!=='assault')})).map(q=>({...q,g:q.g.slice(0,Math.max(0,q.g.length-Math.max(3,Math.ceil(this.beeeGarrisonMin(q.c)*K.keep))))})).sort((a,b)=>b.g.length-a.g.length),from=groups[0]?.c;if(!from)return;
     const mobile=groups.filter(q=>distance(q.c,from)<240).flatMap(q=>q.g);if(mobile.length<K.armyMin)return;   // pas d'armée tant qu'elle ne serait pas massive : on rassemble, on ne fait pas partir de petits groupes
     const plan=this.beeePlanRaid(from,mobile);if(!plan){B.nextWave=this.t+4;return;}
     const main=mobile.slice().sort((a,b)=>Math.hypot(a.x-plan.at[0],a.y-plan.at[1])-Math.hypot(b.x-plan.at[0],b.y-plan.at[1])).slice(0,plan.size),band=this.makeBand(main,plan.target,from);

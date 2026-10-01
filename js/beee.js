@@ -103,6 +103,12 @@ export const BEEE_AI={
           const w=this.bestRifle('beee'),Wd=this.W(w);if(this.take('beee',cx,cy,'a:'+w,1,160)<1)break;const cr=this.take('beee',cx,cy,'m:'+w,1,160);
           u.k='soldat';u.w=w;u.mag=Wd.p.mag;u.pouch=Math.max(Wd.p.mag*2,Math.round(cr*(Wd.perCrate||20)));u.carry=null;u.city=c.id;u.home=c.centre;u.task={kind:'guard',tx:cx+(this.rand()-.5)*8,ty:cy+(this.rand()-.5)*8};u.path=null;n++;}
         if(n&&!this.s.fog)this.log(c.name,`${c.name} arme ${n} civils pour se défendre.`,'warn');}}
+    // Les renforts (V12.4, demande du joueur : « beaucoup plus de soldats bèè ») : toutes les 8 h, chaque ville qui a une caserne voit arriver 1 + niveau
+    // soldats armés (fusil bèè, une caisse de cartouches), tant que l'armée est sous 120 + 40 × villes. Une aide donnée à l'IA, pour des vagues massives.
+    {const sol=this.s.units.filter(u=>u.f==='beee'&&u.k==='soldat'&&u.hp>0&&u.h?.state!=='hors').length,live_=cities.filter(c=>!c.fallen),capS=120+40*live_.length,L=this.beeeLevel();let room=capS-sol;
+      for(const c of live_){if(room<=0)break;if(this.s.t-(c.reinfT??-99)<8)continue;const bk=this.beeeBuildings('caserne').find(b=>b.done&&!b.ruin&&this.distB(b,c.x,c.y)<28);if(!bk)continue;c.reinfT=this.s.t;
+        const n=Math.min(room,1+L),w=this.bestRifle('beee'),Wd=this.W(w),[bx,by]=[bk.i+1,bk.j+3];for(let k=0;k<n;k++){const [x,y]=this.freeSpot(bx+(this.rand()-.5)*4,by+(this.rand()-.5)*3,3);const u=this.addUnit('beee','soldat',x,y,{w});
+          u.mag=Wd.p.mag;u.pouch=Math.max(Wd.p.mag*3,Wd.perCrate||0);u.city=c.id;u.home=c.centre;u.task={kind:'guard',tx:c.x+3+(this.rand()-.5)*8,ty:c.y+3+(this.rand()-.5)*8};}room-=n;}}
     // Le ravitaillement des usines, simplifié (V12.4) : toutes les deux heures, chaque usine reçoit à son dépôt d'approvisionnement de quoi faire deux
     // fournées (ses matières et son charbon), prises dans tous les dépôts du pays. Avant, seuls les porteurs et les dépôts à 14 cases la servaient : au jour 72
     // d'une partie, toutes les usines d'armement étaient froides (« plus de charbon ») alors que le pays avait 213 charbon et 2 583 fer.

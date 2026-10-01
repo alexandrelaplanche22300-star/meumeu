@@ -413,7 +413,7 @@ export const WAR={
       // plus une cartouche dans le groupe : on décroche (on ne reste pas planté devant l'ennemi)
       if(b.state!=='repli'&&up.every(u=>!(u.mag>0)&&!(u.pouch>0)&&!UDEF(u).img)){this.bandSet(b,'repli','plus de munitions');this.bandRetreat(b,up,c,true);continue;}
       // ils ne décrochent qu'après une vraie défaite
-      if(b.state!=='repli'&&(b.morale<.35||lost>=.45)){this.bandRetreat(b,up,c);continue;}
+      if(b.state!=='repli'&&(b.kind==='defense'||b.kind==='contre'?(b.morale<.35||lost>=.45):(b.morale<.2||lost>=.7))){this.bandRetreat(b,up,c);continue;}   // (un assaut ne se replie plus à mi-chemin : 70 % de pertes)
       const range=this.bandRange(up),stand=range*.92;
       // plus d'objectif : on en choisit un autre, ou l'on rentre
       if(!goal&&b.aim==='installation'&&!b.settled&&target){b.settled=true;const [sx,sy]=this.bc(target);const camp=this.beeeBuild?.('camp',Math.round(sx),Math.round(sy),10);
