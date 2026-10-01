@@ -4,17 +4,20 @@
 // c'est plus vite, mais la pression use le tube et l'étui grossit l'arme ; l'automatique arrose, et vide les dépôts.
 // Tout se voit en direct : le plateau (l'arme à l'échelle, ses servants), la trajectoire au ralenti, la précision à chaque
 // distance, la perforation, le bloc de gélatine ; et chaque réglage s'explique, avec ses chiffres, dans « Ce que ça change ».
-import {derive,gel,wound,NOSES,BASES,CONSTRUCTIONS,ACTIONS,MODS,MOUNTS,HUMAN,PROPS,fmt} from './ballistics.js';
+import {derive,gel,wound,NOSES,BASES,CONSTRUCTIONS,ACTIONS,MODS,MOUNTS,HUMAN,PROPS,fmt,CASEMATS,RIMS,STOCKS,FINISHES,GUIDES,FEEDS,TUBES,CARRIAGES,SUPS,CX,CX0,cxKey,cxParse,editKit,irOf,irCostOf,PORTS,portOf,toggleMod,fitMods,shieldOf,SHIELD_MATS} from './ballistics.js';
+import {layout,drawWeapon,drawRound,TIPC} from './gunart.js';
+import {GunViewer} from './gun3d.js';
 import {setSpecies,regionAt,PART} from './body.js';
-import {MATS,deriveArmor,armorHit,plateZone} from './armor.js';
+import {MATS,deriveArmor,armorHit,plateZone,stopsAt} from './armor.js';
 import {ShotView} from './xray.js';
 import {FILLS,SHELLS,FUSES,ZB,arcTable,CHARGES} from './explosive.js';
 // les cibles du tir d'essai : un Bèè nu, ou protégé
 const TARGETS={nue:{name:'Sans protection',a:null},toile:{name:'Gilet de toile',a:{casque:['acier',0],plastron:['toile',5],dos:['toile',5],flancs:['toile',3]}},
-  soie:{name:'Gilet de soie',a:{casque:['acier',.8],plastron:['soie',4],dos:['soie',4],flancs:['soie',3]}},acier:{name:'Plastron d’acier',a:{casque:['acier',1],plastron:['acier',1.2],dos:['acier',0],flancs:['acier',0]}},
+  soie:{name:'Gilet balistique',a:{casque:['acier',.8],plastron:['soie',4],dos:['soie',4],flancs:['soie',3]}},acier:{name:'Plastron d’acier',a:{casque:['acier',1],plastron:['acier',1.2],dos:['acier',0],flancs:['acier',0]}},
   composite:{name:'Composite',a:{casque:['acier',1],plastron:['composite',2],dos:['composite',2],flancs:['soie',3]}}};
 import {LIMITS,crateCost,weaponCost,protoCost,PROTO_HOURS} from './designs.js';
 import {rng} from './gen.js';
+import {PRESETS,FAMS,CHOICE,presetP} from './presets.js';
 
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const C_LO=Math.log(LIMITS.c[0]),C_HI=Math.log(LIMITS.c[1]);
@@ -24,21 +27,31 @@ const mg=g=>g<1?`${fmt(g*1000,0)} mg`:`${fmt(g,g<10?2:1)} g`;
 const cm=m=>Math.abs(m)<.1?`${fmt(m*100,1)} cm`:`${fmt(m*100,0)} cm`;
 
 // Les munitions, par famille : ce qui sert à quoi
-const FAMS=[['Ordinaires',['fmj','fmjm','plombnu','duplex','trc']],['Expansives',['sp','hp','monolithique','frangible','slug']],
-  ['Perforantes',['ap','apt','tungstene','sabot','apfsds']],['Incendiaires, explosives',['inc','api','he','hei','saphei','creuse']],['Gerbes',['chevrotine','flechette']]];
 // La couleur de pointe (le code des arsenaux) : on reconnaît la munition à l'œil
-const TIPC={ap:'#15181b',apt:'#15181b',apv:'#6a4bc4',tungstene:'#9aa4ad',inc:'#2d6fd6',api:'#2d6fd6',trc:'#d23a2e',he:'#f0c419',hei:'#e0801f',saphei:'#e0801f',creuse:'#f0c419',sp:'#8d9196',frangible:'#58a55c',apfsds:'#15181b',sabot:'#15181b'};
+// les valeurs par défaut des réglages de forme (une conception ancienne ne les a pas)
+const GEO={neck:1.1,shoulder:30,meplat:0,cavity:0,bands:0,coreD:.55,sightMag:2,sightRadius:32,sightHeight:1.2,fins:0,finSize:1,cant:0,ignite:0,stages:1,barrels:4,supVol:250,supBaffles:5,irW:35,irWh:200,irQ:1,irBeam:43,irMode:0,irFilt:1,shieldT:1.8,shieldSize:1};
 
 // ---------- ce que change chaque réglage : le mécanisme, et les chiffres de cette arme ----------
 const HELP={
-  d:(D,p)=>`<b>Le calibre</b> : le diamètre de la balle. Plus large, elle est plus lourde à longueur égale (ici ${mg(D.m)}), creuse une cavité plus grande et casse plus d’os ; mais sa section freine dans l’air (coefficient balistique ${fmt(D.BC,0)}) et, à masse égale, elle perce moins. Au-delà de 6 mm l’épaule ne suffit plus, au-delà de 8,5 mm il faut un trépied. À l’échelle humaine : ${fmt(p.d*HUMAN,1)} mm.`,
-  l:(D,p)=>`<b>La longueur</b> de la balle : plus longue, plus lourde (${mg(D.m)}) et plus effilée — elle garde sa vitesse et perce mieux. Mais elle doit être tenue par la rayure : stabilité Sg ${fmt(D.Sg,2)} (${D.Sg<1?'<b class="bad">elle bascule en vol</b>':D.Sg<1.3?'juste':D.Sg>3?'surstabilisée : elle file droit, mais bascule tard dans le corps':'bonne'}). Dans le corps, une balle longue bascule plus tôt (après ${NOSES[p.nose].neck} longueurs pour ce nez).`,
+  supArch:(D,p)=>{const S=D.sup;if(!S)return '<b>Silencieux</b> : ajoutez le module « Silencieux » pour le régler.';const A=SUPS[S.arch];return `<b>${esc(A.name)}</b> : ${esc(A.desc)}. Il retire <b>${fmt(S.R,1)} dB</b> à la bouche (${D.dB0} → ${D.dB} dB)${D.dB<=D.actDb+1?' — on n’entend plus que la culasse':''}.${D.crackDb?` La balle est supersonique : son claquement (${D.crackDb} dB) s’entend toujours, le long de la trajectoire ; les Bèè le situent mal, mais ils l’entendent. Une munition subsonique (moins de poudre, une balle plus lourde) l’efface.`:' La balle est subsonique : pas de claquement.'}${S.life?` Ses essuies s’usent : après ${S.life} coups, il ne retire plus que ${Math.round(S.floor*100)} % ; on les change au dépôt.`:''}${S.wet?` Les ${S.wet} premiers coups sont presque muets (×${S.wetK}) ; on le regraisse au dépôt.`:''}`;},
+  supVol:(D,p)=>HELP.supArch(D,p),supBaffles:(D,p)=>HELP.supArch(D,p),
+  shieldMat:(D,p)=>{const S=D.shield;if(!S)return '<b>Bouclier</b> : ajoutez le module « Bouclier » pour le régler.';const M=MATS[S.mat];return `<b>${esc(M.name)}</b> : ${esc(M.desc)}. Équivalent : ${fmt(M.k,2)} mm d’acier par millimètre (ici ${fmt(S.eq,1)} mm), densité ${fmt(M.rho,1)}.${M.brittle>=.1?' Fragile : chaque balle arrêtée la fissure, il faut la redresser au dépôt.':''}`;},
+  shieldT:(D,p)=>HELP.shieldMat(D,p),shieldH:(D,p)=>HELP.shieldSize(D,p),shieldW:(D,p)=>HELP.shieldSize(D,p),shieldSize:(D,p)=>{const S=D.shield;return S?`<b>Taille de la plaque</b> : ${fmt(S.h*100,0)} × ${fmt(S.w*100,0)} cm, ${Math.round(S.kg*1000)} g. Elle protège ce qui est derrière elle, jusqu’à ${fmt(S.h*100,0)} cm : un servant debout (buste à 15 cm) est couvert, un tireur accroupi ou couché l’est mieux encore. Les tirs de côté et de dos la contournent.`:HELP.shieldMat(D,p);},
+  irW:(D,p)=>{const I=D.ir;if(!I)return '<b>Visée infrarouge</b> : ajoutez le module pour la régler.';return `<b>Visée infrarouge</b> : de nuit, dans son faisceau (un cône devant l’arme), le tireur voit à <b>${Math.round(I.range*4)} m</b> — lampe de ${I.W} W, tube ${fmt(I.q,2)}× — sans que les Bèè puissent voir cette lumière. Plus la lampe est puissante et le tube fin, plus on voit loin ; un faisceau étroit porte plus loin mais éclaire moins de terrain. Batterie : <b>${fmt(I.hours,0)} h</b> d’utilisation (dix fois plus qu’avant : plusieurs nuits), rechargée au dépôt. Lampe et lunette ${Math.round(I.lampKg*1000)} g sur l’arme, pack de ${Math.round(I.packKg*1000)} g dans le dos (${Math.round(Math.min(35,I.packKg/1.5*120))} % de vitesse en moins). Chaque arme demande du cuivre, ${fmt(I.Wh*.015,1)} plomb pour la batterie et des pièces.`;},
+  irWh:(D,p)=>HELP.irW(D,p),irQ:(D,p)=>HELP.irW(D,p),irBeam:(D,p)=>HELP.irW(D,p),irFilt:(D,p)=>HELP.irW(D,p),
+  d:(D,p)=>`<b>Le calibre</b> : le diamètre de la balle. Plus large, elle est plus lourde à longueur égale (ici ${mg(D.m)}), creuse une cavité plus grande et casse plus d’os ; mais sa section freine dans l’air (coefficient balistique ${fmt(D.BC,0)}) et, à masse égale, elle perce moins. Au-delà de 7,5 mm l’épaule ne suffit plus, au-delà de 11 mm il faut un trépied. À l’échelle humaine : ${fmt(p.d*HUMAN,1)} mm.`,
+  l:(D,p)=>`<b>La longueur de la balle</b> : ${fmt(p.l,1)} mm. Le canon reste à ${p.L} mm ; l’étui et la culasse peuvent grossir. Si la balle est trop courte pour ce nez, sa pointe s’écrase et perd en aérodynamique. Stabilité Sg ${fmt(D.Sg,2)} (${D.Sg<1?'<b class="bad">elle bascule en vol</b>':D.Sg<1.3?'juste':D.Sg>3?'surstabilisée':'bonne'}).`,
+  noseScale:(D,p)=>`<b>Profil du nez</b> : pointe ×${fmt(p.noseScale??1,2)}. Sa longueur réelle est ${fmt(D.noseLen,1)} mm, limitée par les ${fmt(p.l,1)} mm de la balle. Sa masse et sa traînée changent, sans modifier le canon.`,
+  boat:(D,p)=>`<b>Dépouille du culot</b> : ${Math.round((p.boat??0)*100)} %. Le profil arrière aminci perd un peu de volume et de masse, mais freine moins dans l’air. La coupe montre la forme choisie.`,
+  rocketBurn:(D,p)=>D.rocket?`<b>Durée de combustion</b> : ×${fmt(p.rocketBurn??1,2)} ; poussée ${fmt(D.boost.tr*1000,0)} ms après la bouche. Plus longue : accélération moins brutale et trajectoire différente.`:'Disponible pour la propulsion par fusée.',
+  nozzle:(D,p)=>D.rocket?`<b>Tuyère</b> : rendement ×${fmt(p.nozzle??1,2)} ; vitesse en fin de poussée ${Math.round(D.vTop)} m/s. Une poussée forte accroît aussi la dispersion.`:'Disponible pour la propulsion par fusée.',
   nose:(D,p)=>`<b>Le nez</b> : sa forme dans l’air et dans la chair. ${esc(NOSES[p.nose].desc)}. Pointue : faible traînée (facteur ${NOSES.pointue.i}), bascule tôt dans le corps. Plate : freine vite (facteur ${NOSES.plate.i}) mais coupe net et ne bascule jamais.`,
   base:(D,p)=>`<b>Le culot</b> : ${p.base==='bt'?'en dépouille (conique), il réduit la traînée d’environ 10 % : la balle garde sa vitesse plus loin, la trajectoire est plus tendue':'plat : plus de volume donc un peu plus lourd, mais plus de traînée en vol'}. Dans le corps, un culot en dépouille aide la balle à basculer un peu plus tôt.`,
   cons:(D,p)=>{const C=CONSTRUCTIONS[p.cons];return `<b>${esc(C.name)}</b> : ${esc(C.desc)}.${C.frag<Infinity&&C.frag>0?` Elle se brise au-dessus de ${C.frag} m/s (elle part à ${Math.round(D.v0)} m/s).`:''}${C.expand?` Elle s’ouvre entre ${C.expand[0]} et ${C.expand[1]} m/s, jusqu’à ${fmt(C.expand[2],2)} fois son diamètre.`:''}${C.minD?` Il faut ${C.minD} mm de calibre au moins.`:''}${D.he?` <b>Charge explosive : ${mg(D.he.g)}</b>.`:' Pas de charge explosive.'}`;},
-  c:(D,p)=>`<b>La poudre</b> : ${mg(p.c)}. C’est l’énergie : ${Math.round(D.v0)} m/s au départ, ${fmt(D.E0,1)} J. Plus de poudre, c’est plus vite, mais la pression monte (${Math.round(D.P)} MPa ; au-delà de 460 le tube s’use vite, au-delà de 620 il peut éclater), l’étui grossit (${fmt(D.caseLen,1)} mm), le recul aussi (${fmt(D.recoil,2)} J). Un canon trop court ne brûle pas tout : ici ${Math.round(D.eta/.32*100)} % du possible.`,
+  c:(D,p)=>`<b>La poudre</b> : ${mg(p.c)}, vivacité ×${fmt(p.burn??1,2)}. C’est l’énergie : ${Math.round(D.v0)} m/s au départ, ${fmt(D.E0,1)} J. Plus de poudre, c’est plus vite, mais la pression monte (${Math.round(D.P)} MPa ; au-delà de 460 le tube s’use vite, au-delà de 620 il peut éclater), l’étui grossit (${fmt(D.caseLen,1)} mm), le recul aussi (${fmt(D.recoil,2)} J). Un canon trop court ne brûle pas tout : ici ${Math.round(D.eta/.32*100)} % du possible.`,
+  burn:(D,p)=>`<b>Vivacité effective de la poudre</b> : ×${fmt(p.burn??1,2)}. Elle règle la vitesse de combustion dans le modèle. Plus vive : la pression monte plus tôt, utile dans un tube court mais le pic de pression augmente ; plus progressive : la poussée dure plus longtemps et valorise un tube long. Le modèle intègre le travail des gaz le long du tube, W = ∫P(x)·A dx, puis calcule v = √(2W/m) en respectant l’énergie chimique disponible. La trajectoire applique la gravité et la traînée G7 par pas de temps.`,
   L:(D,p)=>`<b>Le canon</b> : ${p.L} mm. Plus long, la poudre pousse la balle plus longtemps (${Math.round(D.eta/.32*100)} % de l’énergie possible), moins d’éclair à la bouche, meilleure précision ; mais l’arme s’alourdit (${Math.round(D.mass*1000)} g), s’allonge, épaule plus lentement (${fmt(D.aim,2)} s pour viser). À l’échelle humaine : ${fmt(p.L*HUMAN/10,0)} cm.`,
-  twist:(D,p)=>`<b>Le pas de rayure</b> : la balle fait un tour tous les ${p.twist} mm. Plus court, elle tourne plus vite : Sg ${fmt(D.Sg,2)}. Sous 1, elle bascule en vol ; entre 1,3 et 2,5, c’est l’idéal ; au-delà de 3 elle est surstabilisée — précise, mais elle reste droite plus longtemps dans le corps (blessure plus fine), et s’use plus vite dans le tube.`,
+  twist:(D,p)=>`<b>Le pas de rayure</b> : la balle fait un tour tous les ${p.twist} mm. Plus court, elle tourne plus vite : Sg ${fmt(D.Sg,2)}. Sous 1, elle bascule en vol ; entre 1,3 et 2,5, c’est l’idéal ; au-delà de 3 elle est surstabilisée — précise, mais elle reste droite plus longtemps dans le corps (blessure plus fine).`,
   heavy:(D,p)=>`<b>Canon lourd</b> : un tube plus épais, ${p.heavy?'monté':'non monté'}. Il chauffe moins vite (tient ${D.sustain} coups/min en continu), vibre moins (dispersion −15 %), dure plus longtemps ; mais il pèse bien plus lourd.`,
   action:(D,p)=>`<b>La culasse</b> : ${esc(ACTIONS[p.action].desc)}. ${p.action==='verrou'?'Le tireur manœuvre à la main : précis, fiable, lent':p.action==='semi'?'Les gaz réarment : un coup par pression':'Les gaz réarment en boucle : des rafales, de la suppression — mais la chaleur, le recul qui disperse, et les caisses qui fondent'}. Cadence : ${D.rpm} coups/min.`,
   rof:(D,p)=>`<b>La cadence</b> en automatique : ${p.rof} coups/min. Plus haute, plus de balles dans la zone (l’ennemi se couche), mais le tube chauffe (il tient ${D.sustain} coups/min en continu) et un chargeur de ${p.mag} dure ${fmt(p.mag/p.rof*60,1)} s.`,
@@ -53,74 +66,168 @@ const HELP={
   shell:(D,p)=>`<b>La coque</b> : ${esc((SHELLS[p.shell]||SHELLS.lisse).name)} — ${esc((SHELLS[p.shell]||SHELLS.lisse).desc)}.`,
   fuse:(D,p)=>`<b>La fusée</b> : ${esc((FUSES[p.fuse]||FUSES.impact).name)} — ${esc((FUSES[p.fuse]||FUSES.impact).desc)}.`,
   hef:(D,p)=>D.he?`<b>La charge explosive</b> : ${Math.round(D.hef*100)} % du volume de la balle, soit ${D.he.g<1?Math.round(D.he.g*1000)+' mg':fmt(D.he.g,2)+' g'}. Le souffle tue à ${cm(D.he.blast)} ; la coque (${mg(D.he.casing)}) éclate en ${D.he.n} éclats lancés à ${Math.round(D.he.vg)} m/s, mortels à ${cm(D.he.lethal)}. Plus d’explosif : plus de souffle, des éclats plus rapides — mais moins nombreux, et une balle plus légère qui perce moins.`:'<b>La charge explosive</b> : seulement pour les munitions explosives (explosive, explosive-incendiaire, semi-perforante, charge creuse).',
+  caseD:(D,p)=>`<b>Le diamètre de l’étui</b> : ${fmt(D.Dc,1)} mm (×${fmt(D.Dc/p.d,2)}). La poudre prend la place qu’il faut : un étui gras est court (${fmt(D.caseLen,1)} mm ici), une cartouche trapue, une culasse courte — mais plus lourde de laiton (${mg(D.caseMass)} l’étui) ; un étui fin est long, la culasse s’allonge.`,
+  neck:(D,p)=>`<b>Le collet</b> : ${fmt(D.neckL,1)} mm. C’est lui qui tient la balle droite dans l’axe : long, elle part plus droit (dispersion ${fmt(D.moa,1)} MOA), mais l’étui et l’arme s’allongent.`,
+  shoulder:(D,p)=>`<b>L’épaulement</b> : ${Math.round(D.shAng)}°. Raide, il perd moins de place et l’étui raccourcit ; doux, il glisse mieux dans la chambre. Une cartouche de pistolet n’en a pas : étui droit.`,
+  caseMat:(D,p)=>{const M=CASEMATS[p.caseMat]||CASEMATS.laiton;return `<b>${esc(M.name)}</b> : ${esc(M.desc)}. L’étui pèse ${mg(D.caseMass)} ; le coup ${fmt(D.rm,3)} g, ${D.carry} coups par soldat.${D.caseless?` Le tube tient ${D.sustain} coups/min en continu avant que la poudre ne s’allume seule.`:''}`;},
+  rim:(D,p)=>`<b>${esc((RIMS[p.rim]||RIMS.sans).name)}</b> : ${esc((RIMS[p.rim]||RIMS.sans).desc)}.`,
+  meplat:(D,p)=>`<b>Le méplat</b> : ${Math.round((D.meplat||0)*100)} % du calibre coupé à plat. La traînée monte vite (coefficient balistique ${fmt(D.BC,0)}) ; la balle frappe à plat.`,
+  cavity:(D,p)=>`<b>La cavité</b> : un creux dans le nez, ${Math.round((p.cavity||0)*100)} % de sa longueur. La balle s’allège (${mg(D.m)}), part plus vite ; sur une pointe creuse ou molle, elle s’ouvre dans le corps.`,
+  bands:(D,p)=>`<b>Les cannelures</b> : ${p.bands||0}. L’étui s’y sertit : la balle part toujours à la même pression (dispersion ${fmt(D.moa,1)} MOA), au prix d’un peu de traînée.`,
+  coreD:(D,p)=>`<b>Le noyau</b> : ${Math.round((p.coreD??.55)*100)} % du calibre. Fin, il concentre l’effort sur une petite surface : il perce mieux (${fmt(D.pen(D.at(30).v),2)} mm d’acier à 30 m).`,
+  fins:(D,p)=>D.rocket?`<b>Les ailettes</b> : ${D.fins}. Elles redressent la fusée pendant sa poussée (dispersion ${fmt(D.moa,1)} MOA) ; chacune freine un peu (coefficient ${fmt(D.BC,0)}).`:'Seulement pour une balle-fusée.',
+  finSize:(D,p)=>D.rocket?`<b>L’envergure des ailettes</b> : ×${fmt(p.finSize??1,2)} calibre. Grandes : plus stable, plus de traînée.`:'Seulement pour une balle-fusée.',
+  cant:(D,p)=>D.rocket?`<b>Les tuyères inclinées</b> : ${fmt(p.cant||0,1)}°. La fusée tourne sur elle-même : ses défauts de poussée s’annulent (dispersion ${fmt(D.moa,1)} MOA), mais une part de la poussée part en rotation (fin de poussée ${Math.round(D.vTop)} m/s).`:'Seulement pour une balle-fusée.',
+  ignite:(D,p)=>D.rocket?`<b>L’allumage retardé</b> : ${p.ignite||0} ms. Une petite charge l’éjecte à ${Math.round(D.v0)} m/s, le moteur s’allume loin du tireur : presque pas d’éclair (signature ×${fmt(D.flash,2)}) ni de souffle arrière ; elle est plus lente à partir.`:'Seulement pour une balle-fusée.',
+  stages:(D,p)=>D.rocket?`<b>Les étages</b> : ${p.stages||1}. À deux étages, le premier se détache vide et le second repart plus léger : plus de vitesse pour la même poudre (${Math.round(D.vTop)} m/s) ; la séparation disperse un peu.`:'Seulement pour une balle-fusée.',
+  guide:(D,p)=>{const G=GUIDES[p.guide]||GUIDES.aucun;return D.rocket?`<b>${esc(G.name)}</b> : ${esc(G.desc)}. Dispersion ${fmt(D.moa,1)} MOA.`:'Seulement pour une balle-fusée.';},
+  stock:(D,p)=>{const S=STOCKS[p.stock]||STOCKS.bois;return `<b>${esc(S.name)}</b> : ${esc(S.desc)}. Arme ${Math.round(D.mass*1000)} g, ${fmt(D.aim,2)} s pour viser, recul ressenti ${fmt(D.rk,2)}.`;},
+  finish:(D,p)=>`<b>${esc((FINISHES[p.finish]||FINISHES.bleui).name)}</b> : la couleur du métal et du bois. Elle ne change rien au tir ; l’or des gravures coûte du cuivre. On la reconnaît au combat.`,
+  feed:(D,p)=>`<b>${esc(D.feed.name)}</b> : ${esc(D.feed.desc)}. Le chargeur plein participe aux ${Math.round(D.mass*1000)} g de l’arme${D.feed.crew?' et réclame un servant supplémentaire':''}.`,
+  tube:(D,p)=>`<b>${esc(D.tube.name)}</b> : ${esc(D.tube.desc)}. Dispersion ${fmt(D.moa,1)} MOA, durée ${D.life} coups, tir continu ${D.sustain} coups/min.`,
+  carriage:(D,p)=>`<b>${esc(D.carriage.name)}</b> : ${esc(D.carriage.desc)}. Mise en batterie ${fmt(D.setup,1)} s, ${D.crew} servant${D.crew>1?'s':''}.`,
+  barrels:(D,p)=>`<b>${D.barrels} tubes</b> : chacun ajoute sa masse et son coût, mais partage la chaleur. Le modèle, les colliers et la bouche changent en direct.`,
   mods:(D,p)=>`<b>Les modules</b> : chacun a son prix en poids et en fabrication. Montés ici : ${D.mods.length?D.mods.map(k=>`${MODS[k].name.toLowerCase()} (${Math.round(D.modKg[k]*1000)} g)`).join(', '):'aucun'}.`,
-  ...Object.fromEntries(Object.entries(MODS).map(([k,M])=>[`mod-${k}`,(D,p)=>`<b>${esc(M.name)}</b> : ${esc(M.desc)}.${D.modKg[k]!=null?` Ici : ${Math.round(D.modKg[k]*1000)} g.`:''}`])),
+  ...Object.fromEntries(Object.entries(MODS).map(([k,M])=>[`mod-${k}`,(D,p)=>{const P=PORTS[portOf(k)];return `<b>${esc(M.name)}</b> : ${esc(M.desc)}.${D.modKg[k]!=null?` Ici : ${Math.round(D.modKg[k]*1000)} g.`:''}${P?` <i>Se fixe : ${esc(P.name.toLowerCase())}${P.one?` — ${esc(P.hint)} (choisir celui-ci remplace l’autre)`:''}.</i>`:''}`;}])),
 };
 
-export class Designer{
-  constructor(host,{world,bureau,propose,ico,goodName,toArmor}){this.host=host;this.world=world;this.bureau=bureau;this.propose=propose;this.ico=ico;this.goodName=goodName;this.toArmor=toArmor;this.gelR=20;this.help='cons';this.anim=null;this.target='nue';this.shotKey='';
-    host.addEventListener('input',e=>{if(e.target.closest('#designer'))this.read(e.target);});
-    host.addEventListener('change',e=>{if(e.target.id==='dz-from'){this.load(e.target.value);}else if(e.target.closest('#designer')&&e.target.type==='range')this.fire();});
+// Atelier complet de la V5.8 : toujours utilisable avec les armes des versions récentes.
+export class DesignerAncien{
+  constructor(host,{world,bureau,propose,ico,goodName,toArmor}){this.host=host;this.plan3d=(()=>{try{return localStorage.getItem('okm-plan3d')!=='0';}catch(e){return true;}})();this.world=world;this.bureau=bureau;this.propose=propose;this.ico=ico;this.goodName=goodName;this.toArmor=toArmor;this.gelR=20;this.help='cons';this.anim=null;this.target='nue';this.shotKey='';this.runId=0;
+    this.muzzle=new Image();this.muzzle.src=new URL('../assets/fx/weapon_muzzle_generated.png',import.meta.url).href;this.muzzle.onload=()=>{if(this.open&&this.D)this.draw(0);};
+    host.addEventListener('input',e=>{if(e.target.closest('#designer.dz'))this.read(e.target);});
+    host.addEventListener('change',e=>{if(e.target.id==='dz-from'){this.load(e.target.value);}else if(e.target.closest('#designer.dz')&&(e.target.type==='range'||e.target.type==='number'))this.fire();});
     host.addEventListener('pointerover',e=>{const h=e.target.closest('[data-help]');if(h&&h.dataset.help!==this.help){this.help=h.dataset.help;this.renderHelp();}});
     host.addEventListener('focusin',e=>{const h=e.target.closest('[data-help]');if(h){this.help=h.dataset.help;this.renderHelp();}});
     host.addEventListener('click',e=>{const b=e.target.closest('[data-dz]');if(!b)return;const [k,v]=b.dataset.dz.split(':');
-      if(k==='close')this.close();else if(k==='armor'){this.toArmor?.();}else if(k==='gel'){this.gelR=+v;this.render();}else if(k==='tgt'){this.target=v;this.render();}else if(k==='shotmode'){if(this.shot)this.shot.mode=v;this.sync();}else if(k==='fire')this.fire();
-      else if(k==='go'){const r=this.propose(this.p,this.name);this.say(r.ok?r.text:r.why.join(' · '),r.ok?'good':'bad');if(r.ok)this.close();}
-      else if(k==='mod'){const m=new Set(this.p.mods||[]);if(m.has(v))m.delete(v);else{m.add(v);if(v==='bipied')m.delete('trepied');if(v==='trepied')m.delete('bipied');}this.p.mods=[...m];this.help='mod-'+v;this.sync();this.render();this.fire();}
-      else if(['nose','base','action','cons','fill','shell','fuse','prop'].includes(k)){this.p[k]=v;this.help=k;this.sync();this.render();this.fire();}});
+      if(k==='close'){if(this.onExit)this.onExit();else this.close();}else if(k==='p3d'){this.plan3d=!this.plan3d;try{localStorage.setItem('okm-plan3d',this.plan3d?'1':'0');}catch(e){}this.build();this.render();this.draw(0);}else if(k==='armor'){this.toArmor?.();}else if(k==='preset'){this.applyPreset(v);}else if(k==='blank'){this.blank();}else if(k==='gel'){this.gelR=+v;this.render();}else if(k==='tgt'){this.target=v;this.render();}else if(k==='shotmode'){if(this.shot)this.shot.mode=v;this.sync();}else if(k==='fire')this.fire();
+      else if(k==='go'){const r=this.propose(this.p,this.name);this.say(r.ok?r.text:r.why.join(' · '),r.ok?'good':'bad');if(r.ok){if(this.onExit)this.onExit();else this.close();}}
+      else if(k==='cx'){const [,f,val]=b.dataset.dz.split(':');this.detachKit();const cur=String(this.p.cons).startsWith('cx:')?cxParse(this.p.cons):{...CX0};cur[f]=['cxtr','cxinc','cxhe','cxn','cxs'].includes(f)?+val:val;this.p.cons=cxKey(cur);this.help='cons';this.build();this.render();this.fire();}
+      else if(k==='mod'){this.detachKit();this.p.mods=toggleMod(this.p.mods,v);this.help='mod-'+v;this.sync();this.render();this.fire();}
+      else if(['nose','base','action','cons','fill','shell','fuse','prop','caseMat','rim','stock','finish','guide','feed','tube','carriage','supArch','shieldMat'].includes(k)){this.detachKit();this.p[k]=v;if(k==='action'&&ACTIONS[v]?.mortar)this.p.mag=1;this.help=k;this.sync();this.render();this.fire();}});
     addEventListener('resize',()=>{if(this.open)this.render();});}
   get open(){return !this.host.hidden;}
-  show(fromId='mle1'){this.host.hidden=false;this.load(fromId);let last=performance.now();const loop=now=>{if(!this.open)return;const dt=Math.min(.1,(now-last)/1000);last=now;try{this.shot?.step(dt);}catch(e){console.error(e);}requestAnimationFrame(loop);};requestAnimationFrame(loop);}
-  close(){this.host.hidden=true;this.anim=null;this.shot?.dispose();this.shot=null;this.shotKey='';}
-  load(id){const d=this.world().design(id)||this.world().design('mle1');this.ref=d;this.p=JSON.parse(JSON.stringify(d.p));this.p.mods??=[];this.p.zero??=50;this.p.prop??='cartouche';this.p.fill??='tolite';this.p.shell??='lisse';this.p.fuse??='impact';this.p.fragm??=4;
+  show(fromId='mle1'){this.host.hidden=false;this.load(fromId);const run=++this.runId;let last=performance.now();const loop=now=>{if(!this.open||run!==this.runId)return;const dt=Math.min(.1,(now-last)/1000);last=now;try{this.shot?.step(dt);}catch(e){console.error(e);}if(this.plan3d&&this.D&&!this.anim)try{this.drawPlan(this.D,0);}catch(e){}requestAnimationFrame(loop);};requestAnimationFrame(loop);}
+  showDraft(p,name){this.kitSynced=null;this.show('mle1');this.p={...this.p,...JSON.parse(JSON.stringify(p))};this.name=name;this.build();this.render();this.fire();}
+  // la construction sur mesure : chaque pièce se choisit, la balle se recalcule (sa clé porte tous les choix)
+  cxHtml(p){const on=String(p.cons).startsWith('cx:');const o={...CX0,...(on?cxParse(p.cons):{})};const opt=(f,L)=>`<div class="seg wrap">${Object.entries(L).map(([v,x])=>`<button data-dz="cx:${f}:${v}" class="${on&&o[f]===v?'on':''}">${esc(x.name)}</button>`).join('')}</div>`;
+    const tog=(f,n)=>`<button data-dz="cx:${f}:${o[f]?0:1}" class="${on&&o[f]?'on':''}">${n}</button>`;
+    return `<div class="dz-fam"><small>Sur mesure ${on?'<b>· active</b>':'· choisissez une pièce pour commencer'}</small>
+      <div class="dz-f"><span>Chemise</span>${opt('cxj',CX.j)}</div><div class="dz-f"><span>Noyau</span>${opt('cxc',CX.c)}</div><div class="dz-f"><span>Pointe</span>${opt('cxt',CX.t)}</div>
+      <div class="dz-f"><span>Charges</span><div class="seg wrap">${tog('cxtr','Traçante')}${tog('cxinc','Incendiaire')}${tog('cxhe','Explosive')}</div></div>
+      <div class="dz-f"><span>Projectiles par coup</span><div class="seg wrap">${[1,2,3,5,9,12,20,30].map(n=>`<button data-dz="cx:cxn:${n}" class="${on&&o.cxn===n?'on':''}">${n}</button>`).join('')}</div></div>
+      <div class="dz-f"><span>Ouverture de la gerbe</span><div class="seg wrap">${[2,5,10,16,28,45].map(n=>`<button data-dz="cx:cxs:${n}" class="${on&&o.cxs===n?'on':''}">${n} mrad</button>`).join('')}</div></div></div>`;}
+  close(){++this.runId;this.host.hidden=true;this.anim=null;this.shot?.dispose();this.shot=null;this.shotKey='';}
+  detachKit(){} // Une action de l'atelier ne supprime jamais la fiche continue.
+  // l'arme vierge : le strict nécessaire pour tirer une balle ; rien n'est choisi pour le joueur
+  blank(){this.kitSynced=null;this.p={d:1.5,l:5,nose:'ogive',base:'plat',cons:'fmj',c:.02,L:100,twist:60,action:'verrou',rof:300,mag:1,feed:'interne',heavy:false,burn:1,wallx:1,jacket:1,core:0,hef:.3,fragm:4,zero:40,prop:'cartouche',fill:'tolite',shell:'lisse',fuse:'impact',mods:[],noseScale:1,boat:0,rocketBurn:1,nozzle:1,...CHOICE,feed:'interne'};
+    this.name=`Conception ${Object.keys(this.world().s.designs).length+1}`;this.help='cons';this.shotKey='';this.build();this.render();this.fire();}
+  applyPreset(k){this.kitSynced=null;const P=PRESETS[k];if(!P)return;this.p=presetP(k);this.name=P.name;this.help='cons';this.shotKey='';this.build();this.render();this.fire();}
+  load(id){const d=this.world().design(id)||this.world().design('mle1');this.ref=d;this.kitSynced=null;this.p=JSON.parse(JSON.stringify(d.p));this.p.burn??=1;this.p.noseScale??=1;this.p.boat??=d.p.base==='bt'?.3:0;this.p.rocketBurn??=1;this.p.nozzle??=1;this.p.mods=fitMods(this.p.mods);this.p.zero??=50;this.p.prop??='cartouche';this.p.fill??='tolite';this.p.shell??='lisse';this.p.fuse??='impact';this.p.fragm??=4;for(const [k,v] of Object.entries(CHOICE))this.p[k]??=v;
     this.name=d.base?`${d.name.replace(/Mle \d+/,'')}Modèle ${Object.keys(this.world().s.designs).length}`.trim():`${d.name} (variante)`;this.build();this.render();this.fire();}
   say(t,tone){const el=this.host.querySelector('.dz-say');if(el){el.textContent=t;el.className='dz-say '+tone;}}
   // la page, une fois ; ensuite on ne change que les chiffres et les dessins
-  build(){const p=this.p;const W=this.world();const ds=Object.values(W.s.designs).filter(d=>d.status!=='perdu');
-    const seg=(k,opts)=>`<div class="seg" data-help="${k}">${Object.entries(opts).map(([v,o])=>`<button data-dz="${k}:${v}" class="${p[k]===v?'on':''}" title="${esc(o.desc||'')}">${esc(o.name)}</button>`).join('')}</div>`;
-    const range=(id,label,min,max,step,val,hint)=>`<label class="dz-r" data-help="${id}"><span>${label}<em id="dz-v-${id}"></em></span><input type="range" id="dz-${id}" min="${min}" max="${max}" step="${step}" value="${val}"><small>${hint}</small></label>`;
+  build(){const p=this.p;const W=this.world();const ds=Object.values(W.s.designs).filter(d=>d.status!=='perdu'&&d.f!=='beee');
+    const seg=(k,opts,ok=()=>true)=>`<div class="seg" data-help="${k}">${Object.entries(opts).filter(([v])=>ok(v)).map(([v,o])=>`<button data-dz="${k}:${v}" class="${p[k]===v?'on':''}" title="${esc(o.desc||'')}">${esc(o.name)}</button>`).join('')}</div>`;
+    const range=(id,label,min,max,step,val,hint)=>{const lo=id==='c'?LIMITS.c[0]:min,hi=id==='c'?LIMITS.c[1]:max,nstep=id==='c'?.0001:step,nval=id==='c'?sToC(val):val;return `<label class="dz-r" data-help="${id}"><span>${label}<em id="dz-v-${id}"></em></span><div class="dz-range"><input type="range" id="dz-${id}" min="${min}" max="${max}" step="${step}" value="${val}"><input type="number" id="dz-num-${id}" min="${lo}" max="${hi}" step="${nstep}" value="${nval}" aria-label="${label} : valeur précise"></div><small>${hint}</small></label>`;};
     this.host.innerHTML=`<div class="dz" id="designer" role="dialog" aria-label="Bureau d’études">
-      <header class="dz-head"><div><b>Bureau d’études</b><small>une arme, de la poudre à la plaie — pour des Meumeu de 30 cm</small></div>
+      <header class="dz-head"><div><b>Bureau d’études · atelier complet</b><small>Munition en coupe, affût, tir d’essai et courbes · réglages de la V5.8</small></div>
         <div class="seg"><button class="on">Armes</button><button data-dz="armor">Protections</button></div>
         <label class="dz-name">Nom <input id="dz-name" value="${esc(this.name)}" maxlength="28"></label>
         <label class="dz-name">Partir de <select id="dz-from">${ds.map(d=>`<option value="${d.id}" ${d.id===this.ref.id?'selected':''}>${esc(d.name)}${d.f==='beee'?' (bèè)':''}${d.status==='prototype'?' — prototype':''}</option>`).join('')}</select></label>
         <button class="ghost" data-dz="close">Fermer</button></header>
+      <nav class="dz-presets" aria-label="Point de départ"><button data-dz="blank"><i>□</i><span><b>Arme vierge</b><small>Un tube, une culasse à verrou, un coup : tout le reste est à concevoir</small></span></button></nav>
       <div class="dz-body">
         <section class="dz-col dz-ctl">
           <details open><summary>La balle</summary>
             ${range('d','Calibre',LIMITS.d[0],LIMITS.d[1],LIMITS.d[2],p.d,'large : plus lourde, grosse blessure ; freine plus, perce moins à masse égale')}
-            ${range('l','Longueur',LIMITS.l[0],LIMITS.l[1],LIMITS.l[2],p.l,'longue : plus lourde, file mieux ; demande plus de rayure')}
+            ${range('l','Longueur de la balle',LIMITS.l[0],LIMITS.l[1],LIMITS.l[2],p.l,'indépendante du canon ; une pointe trop longue ne tient pas sur une balle courte')}
+            ${range('noseScale','Longueur de la pointe',LIMITS.noseScale[0],LIMITS.noseScale[1],LIMITS.noseScale[2],p.noseScale??1,'profil extérieur ; sa pointe ne peut dépasser la balle')}
+            ${range('boat','Dépouille du culot',LIMITS.boat[0],LIMITS.boat[1],LIMITS.boat[2],p.boat??0,'réduit la traînée, enlève du volume au projectile')}
             ${range('jacket','Chemise',LIMITS.jacket[0],LIMITS.jacket[1],LIMITS.jacket[2],p.jacket??1,'épaisse : se brise et s’ouvre plus tard ; plus de cuivre')}
             ${range('core','Noyau d’acier',LIMITS.core[0],LIMITS.core[1],LIMITS.core[2],p.core||0,'une part de plomb remplacée par de l’acier : perce mieux, plus légère')}
             ${range('hef','Charge explosive',LIMITS.hef[0],LIMITS.hef[1],LIMITS.hef[2],p.hef??.3,'munitions explosives : plus d’explosif, plus de souffle — moins de coque, moins d’éclats')}
             <div class="dz-he-ctl" id="dz-hectl">
               ${range('fragm','Taille des éclats',LIMITS.fragm[0],LIMITS.fragm[1],LIMITS.fragm[2],p.fragm??4,'petits : nombreux, terribles de près, freinés vite ; gros : rares, ils portent loin')}
-              <div class="dz-f" data-help="fill"><span>Explosif</span>${seg('fill',FILLS)}</div>
+              <div class="dz-f" data-help="fill"><span>Explosif</span>${seg('fill',FILLS,v=>p.fill===v||this.world().unlocked('fill:'+v))}</div>
               <div class="dz-f" data-help="shell"><span>Coque</span>${seg('shell',SHELLS)}</div>
               <div class="dz-f" data-help="fuse"><span>Fusée</span>${seg('fuse',FUSES)}</div></div>
-            <div class="dz-f"><span>Nez</span>${seg('nose',NOSES)}</div>
-            <div class="dz-f"><span>Culot</span>${seg('base',BASES)}</div>
-            <div class="dz-f" data-help="cons"><span>Construction</span>${FAMS.map(([fam,ks])=>`<div class="dz-fam"><small>${fam}</small><div class="seg wrap">${ks.filter(k=>CONSTRUCTIONS[k]).map(v=>`<button data-dz="cons:${v}" class="${p.cons===v?'on':''}" title="${esc(CONSTRUCTIONS[v].desc)}"><i class="tip" style="background:${TIPC[v]||'#c07a3e'}"></i>${esc(CONSTRUCTIONS[v].name)}</button>`).join('')}</div></div>`).join('')}</div>
+            ${range('meplat','Méplat (pointe tronquée)',LIMITS.meplat[0],LIMITS.meplat[1],LIMITS.meplat[2],p.meplat??0,'une pointe plate au bout : freine dans l’air, coupe net')}
+            ${range('cavity','Cavité de pointe',LIMITS.cavity[0],LIMITS.cavity[1],LIMITS.cavity[2],p.cavity??0,'un creux dans le nez : allège la balle, l’ouvre plus tôt')}
+            ${range('bands','Cannelures',LIMITS.bands[0],LIMITS.bands[1],LIMITS.bands[2],p.bands??0,'des gorges autour de la balle : sertissage régulier, un peu de traînée')}
+            ${range('coreD','Diamètre du noyau',LIMITS.coreD[0],LIMITS.coreD[1],LIMITS.coreD[2],p.coreD??.55,'fin : il concentre l’effort et perce mieux ; épais : plus lourd')}
+            <div class="dz-f"><span>Nez · architecture de départ</span>${seg('nose',NOSES)}</div>
+            <details><summary>Construction du projectile <small>une famille toute prête, ou sur mesure, pièce par pièce</small></summary><div class="dz-f" data-help="cons">${FAMS.map(([fam,ks])=>`<div class="dz-fam"><small>${fam}</small><div class="seg wrap">${ks.filter(k=>CONSTRUCTIONS[k]).map(v=>`<button data-dz="cons:${v}" class="${p.cons===v?'on':''}" title="${esc(CONSTRUCTIONS[v].desc)}"><i class="tip" style="background:${TIPC[v]||'#c07a3e'}"></i>${esc(CONSTRUCTIONS[v].name)}</button>`).join('')}</div></div>`).join('')}
+              ${this.cxHtml(p)}</div></details>
           </details>
-          <details open><summary>La charge et le canon</summary>
+          <details><summary>L’étui <small>la forme de la cartouche</small></summary>
+            <div class="dz-f" data-help="caseMat"><span>Matière</span>${seg('caseMat',CASEMATS)}</div>
+            <div class="dz-f" data-help="rim"><span>Culot de l’étui</span>${seg('rim',RIMS)}</div>
+            ${range('caseD','Diamètre de l’étui',LIMITS.caseD[0],LIMITS.caseD[1],LIMITS.caseD[2],p.caseD??1.45,'en calibres : un étui gras est plus court pour la même poudre, mais la culasse grossit')}
+            ${range('neck','Collet',LIMITS.neck[0],LIMITS.neck[1],LIMITS.neck[2],p.neck??1.1,'la longueur qui tient la balle : long, elle part plus droit')}
+            ${range('shoulder','Épaulement',LIMITS.shoulder[0],LIMITS.shoulder[1],LIMITS.shoulder[2],p.shoulder??30,'l’angle entre le corps et le collet : raide, l’étui raccourcit')}
+          </details>
+          <details><summary>La balle-fusée <small>propulsion par fusée seulement</small></summary>
+            ${range('fins','Ailettes',LIMITS.fins[0],LIMITS.fins[1],LIMITS.fins[2],p.fins??0,'la stabilisent pendant la poussée : moins de dispersion, plus de traînée')}
+            ${range('finSize','Envergure des ailettes',LIMITS.finSize[0],LIMITS.finSize[1],LIMITS.finSize[2],p.finSize??1,'en calibres')}
+            ${range('cant','Tuyères inclinées',LIMITS.cant[0],LIMITS.cant[1],LIMITS.cant[2],p.cant??0,'la font tourner sur elle-même : moins de dispersion, un peu moins de poussée')}
+            ${range('ignite','Allumage retardé',LIMITS.ignite[0],LIMITS.ignite[1],LIMITS.ignite[2],p.ignite??0,'une petite charge l’éjecte, le moteur s’allume loin du tireur : pas d’éclair ni de souffle')}
+            ${range('stages','Étages',LIMITS.stages[0],LIMITS.stages[1],LIMITS.stages[2],p.stages??1,'deux étages : le premier se détache vide, le second repart plus léger')}
+            <div class="dz-f" data-help="guide"><span>Guidage</span>${seg('guide',GUIDES)}</div>
+          </details>
+          <details><summary>La charge et le canon</summary>
             <div class="dz-f" data-help="prop"><span>Propulsion</span>${seg('prop',PROPS)}</div>
             ${range('c','Poudre',0,1000,1,cToS(p.c),'plus : plus vite — plus de pression, un étui et un recul plus gros')}
-            ${range('L','Canon',LIMITS.L[0],LIMITS.L[1],LIMITS.L[2],p.L,'long : brûle toute la poudre, plus précis ; plus lourd')}
+            ${range('burn','Vivacité de la poudre',LIMITS.burn[0],LIMITS.burn[1],LIMITS.burn[2],p.burn??1,'vive : pic de pression plus précoce ; progressive : pousse plus loin dans le tube')}
+            ${range('rocketBurn','Durée du moteur-fusée',LIMITS.rocketBurn[0],LIMITS.rocketBurn[1],LIMITS.rocketBurn[2],p.rocketBurn??1,'règle le temps de poussée après la bouche')}
+            ${range('nozzle','Rendement de la tuyère',LIMITS.nozzle[0],LIMITS.nozzle[1],LIMITS.nozzle[2],p.nozzle??1,'plus de vitesse mais aussi de dispersion')}
+            ${range('L','Longueur du canon',LIMITS.L[0],LIMITS.L[1],LIMITS.L[2],p.L,'réglage indépendant de la longueur de la balle ; plus long : plus lourd')}
             ${range('twist','Pas de rayure',LIMITS.twist[0],LIMITS.twist[1],LIMITS.twist[2],p.twist,'court : tient les balles longues ; trop long, elles basculent')}
             ${range('wallx','Épaisseur du tube',LIMITS.wallx[0],LIMITS.wallx[1],LIMITS.wallx[2],p.wallx??(p.heavy?1.5:1),'épais : plus précis, tient la chaleur, dure ; bien plus lourd')}
           </details>
-          <details open><summary>L’arme</summary>
+          <details><summary>L’arme</summary>
             <div class="dz-f"><span>Culasse</span>${seg('action',ACTIONS)}</div>
+            <div class="dz-f" data-help="feed"><span>Alimentation</span>${seg('feed',FEEDS)}</div>
+            <div class="dz-f" data-help="tube"><span>Profil du tube</span>${seg('tube',TUBES)}</div>
+            <div class="dz-f" data-help="carriage"><span>Affût d’artillerie</span>${seg('carriage',CARRIAGES)}</div>
+            <div class="dz-f" data-help="stock"><span>Crosse</span>${seg('stock',STOCKS)}</div>
+            <div class="dz-f" data-help="finish"><span>Finition</span>${seg('finish',FINISHES)}</div>
+            ${range('barrels','Nombre de tubes',LIMITS.barrels[0],LIMITS.barrels[1],LIMITS.barrels[2],p.barrels??4,'actif avec une mécanique rotative : poids et refroidissement réels')}
             ${range('rof','Cadence (automatique)',LIMITS.rof[0],LIMITS.rof[1],LIMITS.rof[2],p.rof,'plus : plus de suppression, plus de chaleur')}
             ${range('mag','Chargeur',LIMITS.mag[0],LIMITS.mag[1],LIMITS.mag[2],p.mag,'grand : moins de rechargements ; plus lourd ; 50 et plus en auto : une bande')}
-            ${range('zero','Hausse',LIMITS.zero[0],LIMITS.zero[1],LIMITS.zero[2],p.zero,'la distance où la balle croise la ligne de visée')}
           </details>
-          <details open><summary>Modules</summary><div class="dz-mods" data-help="mods">${Object.entries(MODS).map(([k,M])=>`<button class="chip" data-dz="mod:${k}" data-help="mod-${k}" title="${esc(M.desc)}">${esc(M.name)}</button>`).join('')}</div></details>
+          <details open><summary>Conception du viseur <small>voir et régler la hausse, sans changer la vitesse du projectile</small></summary>
+            ${range('zero','Distance de zéro',LIMITS.zero[0],LIMITS.zero[1],LIMITS.zero[2],p.zero,'déplace le point visé, ne change pas la portée balistique')}
+            ${range('sightRadius','Rayon de visée',LIMITS.sightRadius[0],LIMITS.sightRadius[1],LIMITS.sightRadius[2],p.sightRadius??Math.min(32,p.L/10+8),'distance entre hausse et guidon, plafonnée par la longueur réelle de l’arme')}
+            ${range('sightHeight','Hauteur du viseur',LIMITS.sightHeight[0],LIMITS.sightHeight[1],LIMITS.sightHeight[2],p.sightHeight??1.2,'change le biais au-dessus ou en dessous du point visé')}
+            ${range('sightMag','Grossissement',LIMITS.sightMag[0],LIMITS.sightMag[1],LIMITS.sightMag[2],p.sightMag??2,'actif avec une lunette : on voit et on touche plus loin, dans la direction où l’on vise')}
+            ${range('sightObj','Objectif',LIMITS.sightObj[0],LIMITS.sightObj[1],LIMITS.sightObj[2],p.sightObj??Math.round(6+2.6*(p.sightMag??2)),'diamètre de la lentille avant (mm) : la lumière qu’elle recueille fait la vue de nuit ; objectif ÷ grossissement doit rester au-dessus de 2,5 mm')}
+            <p class="quiet small">Ajoutez « Lunette » dans Modules pour activer le grossissement. Le zéro et le rayon se règlent aussi sur une hausse mécanique.</p>
+          </details>
+          <details><summary>Modules</summary><div class="dz-mods" data-help="mods">${Object.entries(MODS).map(([k,M])=>`<button class="chip" data-dz="mod:${k}" data-help="mod-${k}" title="${esc(M.desc)} — se fixe : ${esc((PORTS[portOf(k)]?.name||'').toLowerCase())}">${esc(M.name)}</button>`).join('')}</div></details>
+          <details open id="dz-sup" ${(p.mods||[]).includes('manchon')?'':'hidden'}><summary>Silencieux</summary>${seg('supArch',SUPS)}
+            ${range('supVol','Volume intérieur (cm³)',LIMITS.supVol[0],LIMITS.supVol[1],LIMITS.supVol[2],p.supVol??250,'plus il est grand devant la charge de poudre, plus les gaz se détendent : plus silencieux, plus lourd, plus long')}
+            ${range('supBaffles','Chicanes',LIMITS.supBaffles[0],LIMITS.supBaffles[1],LIMITS.supBaffles[2],p.supBaffles??5,'chaque chicane freine les gaz ; au-delà de huit, elles se gênent et pèsent')}</details>
+          <details open id="dz-ir" ${(p.mods||[]).includes('infrarouge')?'':'hidden'}><summary>Visée infrarouge</summary>
+            <div id="dz-irdata" style="font-size:12.5px;line-height:1.5;margin:.15rem 0 .55rem;padding:.45rem .6rem;border-radius:8px;background:rgba(70,130,140,.16);border:1px solid rgba(120,190,200,.25)"></div>
+            ${range('irW','Puissance de la lampe (W)',LIMITS.irW[0],LIMITS.irW[1],LIMITS.irW[2],p.irW??35,'la portée du faisceau (en racine de la puissance) ; mais la batterie se vide plus vite')}
+                        ${range('irQ','Qualité du tube',LIMITS.irQ[0],LIMITS.irQ[1],LIMITS.irQ[2],p.irQ??1,'un meilleur convertisseur voit plus loin avec la même lampe — plus de cuivre, plus de pièces')}
+            ${range('irBeam','Largeur du faisceau (°)',LIMITS.irBeam[0],LIMITS.irBeam[1],LIMITS.irBeam[2],p.irBeam??43,'étroit : porte plus loin mais éclaire moins de terrain ; large : voit sur les côtés, mais moins loin')}
+            ${range('irFilt','Filtre IR (0 sans · 1 avec)',LIMITS.irFilt[0],LIMITS.irFilt[1],LIMITS.irFilt[2],p.irFilt??1,'sans filtre la lampe laisse une lueur rouge visible : plus léger, mais on te repère la nuit')}</details>
+          <details open id="dz-shield" ${(p.mods||[]).includes('bouclier')?'':'hidden'}><summary>Bouclier</summary>
+            <div class="dz-f" data-help="shieldMat"><span>Matériau de la plaque</span><div class="seg wrap">${SHIELD_MATS.map(m=>`<button data-dz="shieldMat:${m}" title="${esc(MATS[m].desc)}">${esc(MATS[m].name)}</button>`).join('')}</div></div>
+            ${range('shieldT','Épaisseur de la plaque (mm)',LIMITS.shieldT[0],LIMITS.shieldT[1],LIMITS.shieldT[2],p.shieldT??GEO.shieldT,'plus épaisse : elle arrête des balles plus fortes, mais pèse et coûte plus')}
+            ${range('shieldH','Hauteur de la plaque (cm)',LIMITS.shieldH[0],LIMITS.shieldH[1],LIMITS.shieldH[2],Math.round((shieldOf({...p,mods:['bouclier']})?.h??.2)*100),'du sol au bord haut : elle abrite tout ce qui est plus bas (un Meumeu debout a le buste à 15 cm, accroupi 11, couché 4) ; plus haute, plus lourde')}
+            ${range('shieldW','Largeur de la plaque (cm)',LIMITS.shieldW[0],LIMITS.shieldW[1],LIMITS.shieldW[2],Math.round((shieldOf({...p,mods:['bouclier']})?.w??.09)*100),'plus large : elle arrête les coups qui passent à côté du servant ; plus lourde')}
+            <div id="dz-shielddata" style="font-size:12.5px;line-height:1.5;margin:.15rem 0 .55rem;padding:.45rem .6rem;border-radius:8px;background:rgba(70,130,140,.16);border:1px solid rgba(120,190,200,.25)"></div></details>
         </section>
         <section class="dz-col dz-mid">
-          <div class="dz-big" id="dz-big"></div>
-          <h3>Le plateau <small>l’arme à l’échelle, ses servants — des Meumeu de 30 cm</small><button class="small" data-dz="fire">Tirer ▸</button></h3>
-          <canvas id="dz-plan" class="dz-cv" style="height:300px"></canvas>
+          <div class="dz-big" id="dz-big"></div><div class="dz-mission" id="dz-mission"></div>
+          <h3>Le plateau <small>l’arme à l’échelle, ses servants — des Meumeu de 30 cm</small><button class="small ${this.plan3d?'on':''}" data-dz="p3d" title="Plateau 3D (glisser : tourner, molette : zoom, double clic : recentrer) ou plan de profil">${this.plan3d?'3D':'Plan'}</button><button class="small" data-dz="fire">Tirer ▸</button></h3>
+          <canvas id="dz-plan" class="dz-cv" style="height:320px"></canvas>
+          <h3>La munition en coupe <small>dessus : l’extérieur ; dessous : coupée — chaque réglage a sa pièce</small></h3>
+          <canvas id="dz-round" class="dz-cv" style="height:230px"></canvas>
+          <div id="dz-components" class="dz-components" aria-label="Composants visibles"></div>
           <h3>La trajectoire <small>au-dessus et au-dessous de la ligne de visée, au ralenti</small></h3>
           <canvas id="dz-traj" class="dz-cv" style="height:200px"></canvas>
           <h3>Portée et précision <small>où tombent les balles sur un Meumeu debout (7 × 20 cm), à chaque distance</small></h3>
@@ -145,26 +252,43 @@ export class Designer{
           <div class="dz-go"><button data-dz="go" id="dz-go">Lancer le prototype</button><p class="dz-say quiet small"></p></div>
         </section></div></div>`;
     this.sync();}
-  read(el){const id=el.id.replace('dz-','');if(id==='name'){this.name=el.value;return;}if(id==='heavy'){this.p.heavy=el.checked;this.help='heavy';}else if(id==='c'){this.p.c=sToC(+el.value);this.help='c';}else if(id in LIMITS||id in this.p){this.p[id]=+el.value;this.help=id;}else return;this.sync();this.render();}
-  sync(){const p=this.p;const $=id=>this.host.querySelector('#dz-v-'+id);const set=(id,t)=>{const e=$(id);if(e)e.textContent=t;};
-    set('d',` ${fmt(p.d,1)} mm`);set('l',` ${fmt(p.l,1)} mm`);set('c',` ${mg(p.c)}`);set('L',` ${p.L} mm`);set('twist',` 1 tour / ${p.twist} mm`);set('rof',ACTIONS[p.action]?.auto?` ${p.rof} coups/min`:' — (automatique seulement)');set('mag',` ${p.mag} coups`);set('zero',` ${p.zero} m`);set('wallx',` ×${fmt(p.wallx??(p.heavy?1.5:1),2)}`);set('jacket',` ×${fmt(p.jacket??1,1)}`);set('core',` ${Math.round((p.core||0)*100)} %`);set('hef',CONSTRUCTIONS[p.cons].he?` ${Math.round((p.hef??.3)*100)} % du volume`:' — (munitions explosives)');
+  read(el){const numeric=el.id.startsWith('dz-num-'),id=el.id.replace(numeric?'dz-num-':'dz-','');if(numeric&&el.value==='')return;if(id==='name'){this.name=el.value;return;}if(!(id==='heavy'||id==='c'||id in LIMITS||id in this.p))return;this.detachKit();if(id==='heavy'){this.p.heavy=el.checked;this.help='heavy';}else if(id==='c'){this.p.c=numeric?+el.value:sToC(+el.value);this.help='c';}else{this.p[id]=numeric?Math.max(LIMITS[id][0],Math.min(LIMITS[id][1],+el.value)):+el.value;this.help=id;}this.sync();this.render();}
+  sync(){const p=this.p;if(p.kit){const previous=this.kitSynced;if(previous&&previous.kit)for(const key of Object.keys(p))if(key!=='kit'&&JSON.stringify(p[key])!==JSON.stringify(previous[key]))editKit(p,key);this.kitSynced=JSON.parse(JSON.stringify(p));}else this.kitSynced=null;const $=id=>this.host.querySelector('#dz-v-'+id);const set=(id,t)=>{const e=$(id);if(e)e.textContent=t;};const dv=id=>p[id]??(id==='caseD'?+((this.D?.Dc||p.d*1.45)/p.d).toFixed(2):id==='shieldH'||id==='shieldW'?Math.round((shieldOf({...p,mods:['bouclier']})?.[id==='shieldH'?'h':'w']??.1)*100):GEO[id]);for(const id of Object.keys(LIMITS)){const r=this.host.querySelector('#dz-'+id),n=this.host.querySelector('#dz-num-'+id);if(r)r.value=id==='c'?cToS(p.c):dv(id);if(n&&document.activeElement!==n)n.value=id==='c'?p.c:dv(id);}
+    set('caseD',` ×${fmt(dv('caseD'),2)} (${fmt(dv('caseD')*p.d,1)} mm)`);set('neck',` ${fmt(dv('neck'),2)} calibre`);set('shoulder',` ${dv('shoulder')}°`);set('meplat',` ${Math.round(dv('meplat')*100)} %`);set('cavity',` ${Math.round(dv('cavity')*100)} %`);set('bands',` ${dv('bands')}`);set('coreD',` ${Math.round(dv('coreD')*100)} % du calibre`);
+    set('supVol',` ${dv('supVol')} cm³`);set('shieldT',` ${fmt(dv('shieldT'),1)} mm`);set('shieldH',` ${Math.round(dv('shieldH'))} cm`);set('shieldW',` ${Math.round(dv('shieldW'))} cm`);set('irW',` ${dv('irW')} W`);set('irWh',` ${dv('irWh')} Wh`);set('irQ',` ×${fmt(dv('irQ'),2)}`);set('irBeam',` ${dv('irBeam')}°`);set('irFilt',dv('irFilt')?' filtré':' sans filtre');set('supBaffles',` ${dv('supBaffles')}`);
+    set('fins',p.prop==='fusee'?` ${dv('fins')}`:' — (fusée)');set('finSize',` ${fmt(dv('finSize'),2)} calibre`);set('cant',` ${fmt(dv('cant'),1)}°`);set('ignite',` ${dv('ignite')} ms`);set('stages',` ${dv('stages')}`);set('barrels',` ${ACTIONS[p.action]?.multi?dv('barrels'):1}`);
+    for(const id of ['fins','finSize','cant','ignite','stages'])for(const el of [this.host.querySelector('#dz-'+id),this.host.querySelector('#dz-num-'+id)])if(el)el.disabled=p.prop!=='fusee';
+    {const C1=CONSTRUCTIONS[p.cons];for(const el of [this.host.querySelector('#dz-coreD'),this.host.querySelector('#dz-num-coreD')])if(el)el.disabled=!(C1.core||(p.core||0)>0);}
+    set('d',` ${fmt(p.d,1)} mm`);set('l',` ${fmt(p.l,1)} mm`);set('noseScale',` ×${fmt(p.noseScale??1,2)}`);set('boat',` ${Math.round((p.boat??0)*100)} %`);set('c',` ${mg(p.c)}`);set('burn',` ×${fmt(p.burn??1,2)}`);set('rocketBurn',` ×${fmt(p.rocketBurn??1,2)}`);set('nozzle',` ×${fmt(p.nozzle??1,2)}`);set('L',` ${p.L} mm`);set('twist',` 1 tour / ${p.twist} mm`);set('rof',ACTIONS[p.action]?.auto?` ${p.rof} coups/min`:' — (automatique seulement)');set('mag',` ${p.mag} coups`);set('zero',` ${p.zero} m`);set('sightRadius',` ${fmt(this.D?.sightRadius??p.sightRadius??32,0)} cm réels`);set('sightHeight',` ${fmt(p.sightHeight??1.2,1)} cm`);set('sightMag',p.mods?.includes('lunette')?` ×${fmt(p.sightMag??2,1)}`:' — ajouter Lunette');set('wallx',` ×${fmt(p.wallx??(p.heavy?1.5:1),2)}`);set('jacket',` ×${fmt(p.jacket??1,1)}`);set('core',` ${Math.round((p.core||0)*100)} %`);set('hef',CONSTRUCTIONS[p.cons].he?` ${Math.round((p.hef??.3)*100)} % du volume`:' — (munitions explosives)');
     const C0=CONSTRUCTIONS[p.cons];const hc=this.host.querySelector('#dz-hectl');if(hc)hc.classList.toggle('off',!C0.he||!!C0.shaped);set('fragm',C0.he&&!C0.shaped?` ${fmt(p.fragm??4,1)} mg`:' — (explosive à éclats)');for(const [id,off] of [['fragm',!C0.he||!!C0.shaped],['hef',!C0.he],['core',!!(C0.core||C0.he||C0.pellets)]]){const e=this.host.querySelector('#dz-'+id);if(e)e.disabled=off;}
-    const rof=this.host.querySelector('#dz-rof');if(rof)rof.disabled=p.action!=='auto';const ms=new Set(p.mods||[]);
-    for(const b of this.host.querySelectorAll('[data-dz]')){const [k,v]=b.dataset.dz.split(':');if(['nose','base','action','cons','fill','shell','fuse','prop'].includes(k))b.classList.toggle('on',p[k]===v);if(k==='gel')b.classList.toggle('on',+v===this.gelR);if(k==='tgt')b.classList.toggle('on',v===this.target);if(k==='shotmode')b.classList.toggle('on',v===(this.shot?.mode||'xray'));if(k==='mod')b.classList.toggle('on',ms.has(v));}}
+    const rof=this.host.querySelector('#dz-rof');if(rof)rof.disabled=!ACTIONS[p.action]?.auto;for(const el of [this.host.querySelector('#dz-mag'),this.host.querySelector('#dz-num-mag')])if(el)el.disabled=!!ACTIONS[p.action]?.mortar;for(const id of ['rocketBurn','nozzle'])for(const el of [this.host.querySelector('#dz-'+id),this.host.querySelector('#dz-num-'+id)])if(el)el.disabled=p.prop!=='fusee';for(const el of [this.host.querySelector('#dz-barrels'),this.host.querySelector('#dz-num-barrels')])if(el)el.disabled=!ACTIONS[p.action]?.multi;const ms=new Set(p.mods||[]);
+    {const sh=this.host.querySelector('#dz-shield');if(sh)sh.hidden=!(p.mods||[]).includes('bouclier');
+      // le bouclier, lu en direct : la plaque, sa masse, et ce qu'elle arrête de ce que tirent les Bèè
+      const sd=this.host.querySelector('#dz-shielddata');if(sd&&(p.mods||[]).includes('bouclier')){const S=shieldOf(p),W=this.world();
+        const rows=W.designsOf('beee').map(d=>{const Wd=W.W(d.id);const cell=R=>{const t=stopsAt({zones:{bouclier:{mat:S.mat,t:S.t,eq:S.eq,kg:S.kg}}},Wd,R).bouclier;return t.stops?`<span class="good">${R} m ✓</span>`:`<span class="bad">${R} m ✗ ${Math.round(t.v2)} m/s</span>`;};return `<tr><td>${esc(d.name)}</td><td>${cell(10)}</td><td>${cell(40)}</td><td>${cell(100)}</td></tr>`;}).join('');
+        sd.innerHTML=`Plaque de <b>${fmt(S.h*100,0)} × ${fmt(S.w*100,0)} cm</b>, ${fmt(S.t,1)} mm de ${esc(S.name.toLowerCase())} : <b>${Math.round(S.kg*1000)} g</b>, équivalent de ${fmt(S.eq,1)} mm d’acier. Elle abrite les servants des tirs de face, jusqu’à ${fmt(S.h*100,0)} cm de haut ; l’usure s’y voit, et on la redresse au dépôt.${rows?`<table class="mini" style="margin-top:.35rem"><thead><tr><th>Ce que tirent les Bèè</th><th>10 m</th><th>40 m</th><th>100 m</th></tr></thead><tbody>${rows}</tbody></table>`:''}`;}
+      const sp=this.host.querySelector('#dz-sup');if(sp)sp.hidden=!(p.mods||[]).includes('manchon');const ir=this.host.querySelector('#dz-ir');if(ir)ir.hidden=!(p.mods||[]).includes('infrarouge');
+      // les données du viseur, lues en direct à côté des curseurs : portée de nuit, faisceau, autonomie de la batterie, poids et coût en matériaux
+      const dd=this.host.querySelector('#dz-irdata');if(dd&&(p.mods||[]).includes('infrarouge')){const I=irOf(p),C=irCostOf(I);dd.innerHTML=`<b>De nuit, on voit à ${Math.round(I.range*4)} m</b> (${fmt(I.range,0)} cases) dans un faisceau de ${I.beam}°<br>Batterie : celle de la lampe, <b>sans recharge</b> (${I.Wh} Wh, ${Math.round(I.packKg*1000)} g au dos : plus la lampe est puissante, plus elle pèse) · lampe ${I.W} W, tube ×${fmt(I.q,2)}, ${Math.round(I.lampKg*1000)} g sur l’arme<br>Coût : ${fmt(C.plomb,1)} plomb · ${fmt(C.cuivre,1)} cuivre · ${fmt(C.pieces,1)} pièces${I.leak?'<br><b class="bad">Sans filtre : lueur rouge visible, elle trahit l’opérateur</b>':''}`;}}
+    for(const b of this.host.querySelectorAll('[data-dz]')){const [k,v]=b.dataset.dz.split(':');if(['nose','base','action','cons','fill','shell','fuse','prop','caseMat','rim','stock','finish','guide','feed','tube','carriage'].includes(k))b.classList.toggle('on',(p[k]??CHOICE[k])===v);if(k==='supArch')b.classList.toggle('on',(p.supArch||'chicanes')===v);if(k==='shieldMat')b.classList.toggle('on',(p.shieldMat||'acier')===v);if(k==='gel')b.classList.toggle('on',+v===this.gelR);if(k==='tgt')b.classList.toggle('on',v===this.target);if(k==='shotmode')b.classList.toggle('on',v===(this.shot?.mode||'xray'));if(k==='mod')b.classList.toggle('on',ms.has(v));}}
   renderHelp(){const el=this.host.querySelector('#dz-help');if(!el||!this.D)return;const f=HELP[this.help]||HELP.cons;el.innerHTML=`<h3>Ce que ça change</h3><p>${f(this.D,this.p)}</p>`;}
   render(){const D=derive(this.p),R=derive(this.ref.p);this.D=D;const W=this.world();const $=id=>this.host.querySelector('#'+id);if(!$('dz-big'))return;const p=this.p;
     const pen=D.pen(D.at(30).v),penR=R.pen(R.at(30).v);
     $('dz-big').innerHTML=[['Vitesse',D.rocket?`${Math.round(D.v0)}→${Math.round(D.vTop)}`:`${Math.round(D.v0)}`,'m/s'],['Énergie',fmt(D.E0,D.E0<10?1:0),'J'],(ACTIONS[p.action]?.mortar?['Portée en cloche',`${Math.round(arcTable(D.v0,D.BC,true,D.boost).max)}`,'m']:['Portée utile',`${D.eff}`,'m']),['Perce à 30 m',fmt(pen,pen<10?2:0),'mm']].map(([k,v,u])=>`<div><small>${k}</small><b>${v}<i>${u}</i></b></div>`).join('')+
       `<div class="dz-cal"><small>Cartouche</small><b>${esc(D.name)}</b><i>≈ ${fmt(p.d*HUMAN,1)} mm humain</i></div>`;
+    const role=ACTIONS[p.action]?.mortar?'Artillerie indirecte':D.he?'Arme explosive directe':ACTIONS[p.action]?.auto?'Arme de suppression':D.eff>=45?'Tir de précision':'Arme individuelle';
+    const limits=[!D.mountOk?`affût ${MOUNTS[D.need].name.toLowerCase()} requis`:'',D.overload?'trop lourde pour son affût (mettez-la sur trépied ou sur roues)':'',D.crew>1?`${D.crew} servants`:'',D.fixed?'pièce fixe':'',D.rk>.6?'recul très fort':'',D.P>620?'pression dangereuse':'',D.carry<5?'munitions très lourdes':''].filter(Boolean);
+    $('dz-mission').innerHTML=`<b>${role}</b><span>${D.he?`zone dangereuse ${cm(D.he.danger)} · `:''}${D.eff} m utiles · ${D.rpm} coups/min · ${D.carry} coups portés</span><em class="${limits.length?'warn':'good'}">${limits.length?limits.join(' · '):'prête à servir sans contrainte majeure'}</em>`;
+    $('dz-components').innerHTML=[`${D.barrels} tube${D.barrels>1?'s':''} ${D.tube.name.toLowerCase()} · ${p.L} mm`,`Culasse ${ACTIONS[p.action].name}`,`${D.feed.name} · ${p.mag} coup${p.mag>1?'s':''}`,...(ACTIONS[p.action]?.howitzer?[`Affût ${D.carriage.name.toLowerCase()}`]:[]),...D.mods.map(k=>MODS[k].name),`Projectile ${fmt(p.d,1)} × ${fmt(D.l,1)} mm`,`Pointe ${NOSES[p.nose].name}`,`Culot ${BASES[p.base].name}`,CONSTRUCTIONS[p.cons].name,...(D.he?[`Coque ${(SHELLS[p.shell]||SHELLS.lisse).name}`,`Charge ${(FILLS[p.fill]||FILLS.tolite).name}`,`Fusée ${(FUSES[p.fuse]||FUSES.impact).name}`]:[]),`Étui ${(CASEMATS[p.caseMat]||CASEMATS.laiton).name.toLowerCase()}`,`Crosse ${(STOCKS[p.stock]||STOCKS.bois).name.toLowerCase()}`,`Finition ${(FINISHES[p.finish]||FINISHES.bleui).name.toLowerCase()}`,...((p.meplat||0)>0?[`Méplat ${Math.round(p.meplat*100)} %`]:[]),...((p.cavity||0)>0?[`Cavité ${Math.round(p.cavity*100)} %`]:[]),...((p.bands||0)>0?[`${p.bands} cannelure${p.bands>1?'s':''}`]:[]),...(D.rocket?[`Moteur ×${fmt(p.rocketBurn,2)}`,`Tuyère ×${fmt(p.nozzle,2)}`,...(p.fins?[`${p.fins} ailettes`]:[]),...((p.stages||1)>1?['Deux étages']:[]),...(p.cant?[`Rotation ${p.cant}°`]:[]),...(p.ignite?[`Allumage à ${p.ignite} ms`]:[]),`Guidage ${(GUIDES[p.guide]||GUIDES.aucun).name.toLowerCase()}`]:[])].map(v=>`<span>${esc(v)}</span>`).join('');
     this.renderHelp();
     // l'affût et les servants
     const need=MOUNTS[D.need],have=MOUNTS[D.have];
     $('dz-crew').innerHTML=`<div class="kv"><span>Il faut</span><b>${need.name}</b></div><div class="kv"><span>Monté</span><b class="${D.mountOk?'good':'bad'}">${have.name}${D.mountOk?'':' — insuffisant'}</b></div>
       <div class="dz-roles">${D.roles.map(r=>`<span class="chip on">${r}</span>`).join('')}</div>
-      <p class="small">${D.crew} servant${D.crew>1?'s':''}${D.setup?` · mise en batterie ${fmt(D.setup,1)} s`:''}${D.fixed?' · <b class="bad">trop lourde pour être portée : une pièce fixe, qui ne suit pas l’escouade</b>':''}. ${D.crew>1?`Ce que l’arme demande en munitions pour tenir : ${fmt(D.supply*1000,0)} g — un pourvoyeur les porte.`:''}</p>
-      ${D.mountOk?'':`<p class="small bad">L’épaule refuse : recul ${fmt(D.rk0,2)} J/kg, arme de ${Math.round(D.mass*1000)} g, calibre ${fmt(p.d,1)} mm. Ajoutez ${D.need==='trepied'?'un trépied':'un bipied'} dans les modules.</p>`}`;
-    $('dz-sig').innerHTML=`<div class="kv"><span>Éclair de bouche</span><b>${D.flash<.15?'presque nul':D.flash<.4?'faible':D.flash<.7?'visible':'aveuglant'}</b></div><div class="kv"><span>Bruit</span><b>${D.dB} dB${D.dB<135?' — discret':''}</b></div><div class="kv"><span>Claquement</span><b>${D.crack?'oui : supersonique':'non : subsonique'}</b></div>`;
-    $('dz-he').innerHTML=D.he?`<h3>Charge explosive</h3><div class="dz-tab"><div class="kv"><span>Explosif</span><b>${mg(D.he.g)}</b></div>${D.he.shaped?`<div class="kv"><span>Jet de cuivre</span><b>perce ${fmt(D.pen(0),0)} mm d’acier, à toute distance</b></div>`:`<div class="kv"><span>Éclats</span><b>${D.he.n}</b></div>`}<div class="kv"><span>Souffle mortel</span><b>${cm(D.he.blast)}</b></div>${D.he.shaped?'':`<div class="kv"><span>Éclats mortels</span><b>${cm(D.he.lethal)}</b></div><div class="kv"><span>Éclats dangereux</span><b>${cm(D.he.danger)}</b></div>`}</div>`:'';
+      <p class="small">${D.crew} servant${D.crew>1?'s':''}${D.setup?` · mise en batterie ${fmt(D.setup,1)} s`:''}${D.fixed?' · <b class="bad">ancrée sur pieux : immobile par choix jusqu’au démontage</b>':''}. ${D.crew>1?`Ce que l’arme demande en munitions pour tenir : ${fmt(D.supply*1000,0)} g — un pourvoyeur les porte.`:''}</p>
+      ${D.mountOk?'':`<p class="small bad">Affût insuffisant : recul ${fmt(D.rk0,2)} J/kg, arme de ${Math.round(D.mass*1000)} g, calibre ${fmt(p.d,1)} mm. Le prototype reste possible, mais les tirs seront lents et dispersés. Ajoutez ${D.need==='trepied'?'un trépied':'un bipied'} pour le servir correctement.</p>`}`;
+    $('dz-sig').innerHTML=`<div class="kv"><span>Éclair de bouche</span><b>${D.flash<.15?'presque nul':D.flash<.4?'faible':D.flash<.7?'visible':'aveuglant'}</b></div><div class="kv"><span>Bruit</span><b>${D.dB} dB${D.sup?` (−${fmt(D.sup.R,1)} au silencieux)`:''} · entendu à ${Math.round(Math.max(4,(D.dB-110)/1.6)*4)} m le jour, ${Math.round(Math.max(4,(D.dB-110)/1.6)*6)} m la nuit</b></div><div class="kv"><span>Claquement</span><b>${D.crackDb?`${D.crackDb} dB : supersonique, entendu à ${Math.round(Math.max(4,(D.crackDb-110)/1.6)*4)} m le jour, ${Math.round(Math.max(4,(D.crackDb-110)/1.6)*6)} m la nuit (mal situé)`:'aucun : subsonique'}</b></div>`;
+    $('dz-he').innerHTML=D.he?`<h3>Charge explosive</h3><div class="dz-tab"><div class="kv"><span>Explosif</span><b>${mg(D.he.g)}</b></div>${D.he.shaped?`<div class="kv"><span>Jet de cuivre</span><b>perce ${fmt(D.pen(0),0)} mm d’acier, à toute distance</b></div>`:`<div class="kv"><span>Éclats</span><b>${D.he.n}</b></div>`}<div class="kv"><span>Souffle mortel</span><b>${cm(D.he.blast)}</b></div><div class="kv"><span>Surpression à 1 m</span><b>${Math.round(D.he.pressure?.(1)||0)} kPa</b></div>${D.he.inc?`<div class="kv"><span>Gerbe incendiaire</span><b>${cm(D.he.fire)}</b></div>`:''}${D.he.shaped?'':`<div class="kv"><span>Éclats mortels</span><b>${cm(D.he.lethal)}</b></div><div class="kv"><span>Éclats dangereux</span><b>${cm(D.he.danger)}</b></div>`}</div>`:'';
     const row=(k,v,rv,u,dec=0,better=1)=>{const d=v-rv;const tone=Math.abs(d)<Math.abs(rv)*.02+1e-9?'':((d>0)===(better>0)?'good':'bad');return `<div class="kv"><span>${k}</span><b>${fmt(v,dec)} ${u}${better&&tone?` <em class="${tone}">${d>0?'+':''}${fmt(d,dec)}</em>`:''}</b></div>`;};
     $('dz-tab').innerHTML=row('Balle',D.m*1000,R.m*1000,'mg',0,0)+row('Cartouche entière',D.rm,R.rm,'g',2,-1)+row('Pression',D.P,R.P,'MPa',0,-1)+row('Stabilité (Sg)',D.Sg,R.Sg,'',2,0)+row('Coefficient balistique',D.BC,R.BC,'kg/m²',0,1)+
       row('Dispersion de l’arme',D.moa,R.moa,'MOA',1,-1)+row('Arme chargée',D.mass*1000,R.mass*1000,'g',0,-1)+row('Recul ressenti',D.rk*SHOOTER,R.rk*SHOOTER,'J',2,-1)+row('Temps pour viser',D.aim,R.aim,'s',2,-1)+
@@ -179,7 +303,7 @@ export class Designer{
   // ---------- le tir d'essai : la balle (ou la gerbe) entre dans un Bèè, à travers sa protection s'il en a une ----------
   shoot(D){const cv=this.host.querySelector('#dz-shot');if(!cv)return;const key=JSON.stringify([this.p,this.gelR,this.target]);if(key===this.shotKey)return;this.shotKey=key;
     if(!this.shot||this.shot.cv!==cv){this.shot?.dispose();this.shot=new ShotView(cv);}
-    setSpecies('beee');const p=this.p,C=CONSTRUCTIONS[p.cons];const v0=D.at(this.gelR).v;const r=rng(5);const n=Math.min(D.pel||1,6);const T=TARGETS[this.target];const A=T.a?deriveArmor(T.a):null;const evs=[];const notes=[];
+    setSpecies('beee');const p=this.p,C=CONSTRUCTIONS[p.cons];const v0=D.at(this.gelR).v;const r=rng(5);const n=Math.min(D.pel||1,20);const T=TARGETS[this.target];const A=T.a?deriveArmor(T.a):null;const evs=[];const notes=[];
     const spread=D.pel>1?Math.min(.05,(C.spread||20)/1000*this.gelR/2):0;
     for(let k=0;k<n;k++){let v=v0;const x=(r()-.5)*.03+(spread?(r()-.5)*2*spread:0),y=.15+(r()-.5)*.05+(spread?(r()-.5)*spread:0);const dir=[(r()-.5)*.03,(r()-.5)*.03,-1];const L=Math.hypot(...dir);const d=dir.map(q=>q/L);
       let q=[x,y,.2];for(let i=0;i<500&&!regionAt(q);i++)q=q.map((c,j)=>c+d[j]*.0008);if(!regionAt(q)){notes.push('à côté');continue;}
@@ -187,45 +311,56 @@ export class Designer{
       if(A&&zone&&A.zones[zone]?.t>0){const W=D.proj||D;const res=armorHit(A,zone,{},W,v,D.pen(v),r);
         if(res?.stopped){const back=q.map((c,j)=>c-d[j]*.04);const dd=D.proj?.p?.d||p.d;const m=(D.proj||D).m;evs.push({victim:'essai',vf:'beee',len:D.l/1000,cons:p.cons,armor:T.a,zone,mat:res.mat,armorName:T.name,blunt:res.blunt,
           rec:{path:[{p:back,v,yaw:0,d:dd},{p:q.slice(),v:v*.4,yaw:0,d:dd*1.6},{p:q.slice(),v:0,yaw:0,d:dd*1.8}],vIn:v,E0:.5*m/1000*v*v,E:0,dmg:{},tc:[],frags:[],entry:q.slice(),exit:null,lodged:true,stopped:true}});notes.push(`arrêtée par le ${zone} (${MATS[res.mat].name.toLowerCase()})`);continue;}
-        if(res){v=res.v;yaw0=.5+r()*.8;plate=zone;notes.push(`traverse le ${zone} (${MATS[A.zones[zone].mat].name.toLowerCase()}) : ${Math.round(v0)} → ${Math.round(v)} m/s`);}}
+        if(res){const lost=Math.max(0,1-(res.v*res.v)/Math.max(1,v*v));yaw0=(.5+r()*.8)*Math.min(1,.2+2*lost);v=res.v;plate=zone;notes.push(`traverse le ${zone} (${MATS[A.zones[zone].mat].name.toLowerCase()}) : ${Math.round(v0)} → ${Math.round(v)} m/s`);}}
       const rec=wound(D.proj||D,v,q,d,r,yaw0);evs.push({victim:'essai',vf:'beee',len:D.l/1000,cons:p.cons,armor:T.a,plate,rec});
       const hit=Object.entries(rec.dmg).filter(([id,x])=>PART[id]&&(x.crush>1e-4||x.cut>.2||x.frac||x.stretch>.1)).map(([id,x])=>`${PART[id].name}${x.cut>.2&&/artère|veine|aorte/.test(PART[id].name)?' (ouverte)':x.frac?' (fracture)':x.stretch>.1&&x.crush<1e-4?' (déchiré par la cavité)':''}`);
       notes.push(`${n>1?`${D.pel>1?(C.dart?'dard':'plomb'):'balle'} ${k+1} : `:''}${fmt(rec.E,1)} J cédés${rec.exit?`, ressort à ${Math.round(rec.vOut)} m/s`:', logée'}${rec.fragmented?(C.he?', éclate':', se fragmente'):''}${hit.length?' — '+hit.slice(0,5).join(', '):''}`);}
     this.shot.set(evs);const t=this.host.querySelector('#dz-shott');if(t)t.innerHTML=`À ${this.gelR} m, contre un Bèè ${T.a?'('+T.name.toLowerCase()+')':'sans protection'} : ${notes.map(esc).join(' · ')||'rien'}.`;}
   // ---------- l'animation du tir : l'éclair, le recul, puis la balle au ralenti le long de sa trajectoire ----------
   fire(){this.anim={t0:performance.now()};const loop=()=>{if(!this.anim||!this.open)return;const t=(performance.now()-this.anim.t0)/1000;this.draw(t);if(t<3.2)requestAnimationFrame(loop);else{this.anim=null;this.draw(0);}};requestAnimationFrame(loop);}
-  draw(t){if(!this.D)return;this.drawPlan(this.D,t);this.drawTraj(this.D,t);}
+  draw(t){if(!this.D)return;this.drawPlan(this.D,t);this.drawTraj(this.D,t);if(!t)this.drawRoundCv(this.D);}
+  drawRoundCv(D){const F=this.fit('dz-round');if(!F)return;const [x,W,H]=F;const bg=x.createLinearGradient(0,0,0,H);bg.addColorStop(0,'#10283a');bg.addColorStop(1,'#0b1c29');x.fillStyle=bg;x.fillRect(0,0,W,H);
+    x.strokeStyle='rgba(140,190,225,.08)';for(let g=0;g<W;g+=14){x.beginPath();x.moveTo(g,0);x.lineTo(g,H);x.stroke();}for(let g=0;g<H;g+=14){x.beginPath();x.moveTo(0,g);x.lineTo(W,g);x.stroke();}
+    drawRound(x,D,6,4,W-12,H-8);x.fillStyle='rgba(200,230,250,.9)';x.font='11px ui-monospace,Consolas,monospace';x.fillText(`${D.name} · ${CONSTRUCTIONS[D.p.cons].name.toLowerCase()} · balle ${mg(D.m)} · poudre ${mg(D.p.c)} · ${Math.round(D.P)} MPa · ${fmt(D.rm,3)} g le coup`,10,H-4>0?14:14,W-20);}
   fit(id){const cv=this.host.querySelector('#'+id);if(!cv)return null;const dpr=devicePixelRatio||1;const w=cv.clientWidth||860,h=cv.clientHeight||200;if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);}
     const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,w,h);return [x,w,h];}
 
   // ---------- le plateau ----------
   drawPlan(D,t){const F=this.fit('dz-plan');if(!F)return;const [x,W,H]=F;const p=D.p;const ms=new Set(D.mods);
+    if(this.plan3d&&!(ACTIONS[p.action]?.mortar&&!ACTIONS[p.action]?.howitzer&&false)){try{this.gv??=new GunViewer();this.gv.attach(this.host.querySelector('#dz-plan'));this.gv.draw(x,W,H,D,t);x.fillStyle='rgba(232,220,196,.75)';x.font='11px system-ui';x.fillText(`${MOUNTS[D.have].name.toLowerCase()} · ${D.crew} servant${D.crew>1?'s':''} · ${Math.round(D.mass*1000)} g chargée`,12,16);x.fillStyle='rgba(168,180,186,.8)';x.fillText('glisser : tourner · molette : zoom · double clic : recentrer',12,H-8);return;}catch(e){console.error(e);this.plan3d=false;}}
     const bg=x.createLinearGradient(0,0,0,H);bg.addColorStop(0,'#1c2a33');bg.addColorStop(.72,'#141d23');bg.addColorStop(1,'#0e1418');x.fillStyle=bg;x.fillRect(0,0,W,H);const sp=x.createRadialGradient(W*.4,H*.6,10,W*.4,H*.6,W*.6);sp.addColorStop(0,'rgba(255,230,190,.10)');sp.addColorStop(1,'rgba(255,230,190,0)');x.fillStyle=sp;x.fillRect(0,0,W,H);
     const ground=H-26;x.fillStyle='rgba(90,70,45,.45)';x.fillRect(0,ground,W,H-ground);x.strokeStyle='rgba(160,130,90,.45)';x.beginPath();x.moveTo(0,ground);x.lineTo(W,ground);x.stroke();
-    if(ACTIONS[p.action]?.mortar)return this.drawMortar(D,t,x,W,H,ground);
+    if(ACTIONS[p.action]?.mortar&&!ACTIONS[p.action]?.howitzer)return this.drawMortar(D,t,x,W,H,ground);
     // les dimensions de l'arme (mm)
     const d=p.d,Dc=d*(D.pistol?1.25:1.45),COL=D.COL,wall=d*(.35+.00075*D.P)*D.wallx,Dout=d+2*wall;const crewGun=D.have==='trepied';
-    const act=COL*2.4+8,stock=crewGun?COL*1.1+14:Math.max(55,60+COL*1.6),dev=ms.has('manchon')?d*14:ms.has('frein')?d*3.2:ms.has('cacheflamme')?d*4:0;const Lw=stock+act+p.L+dev;
+    const G=layout(D);const {act,stock,dev}=G;const Lw=G.Lw;
     // la place des servants derrière l'arme : le tireur, puis les pourvoyeurs qui attendent avec leurs caisses
     const bearers=D.roles.filter(r=>r!=='tireur'&&r!=='chargeur').length;const behind=D.have==='epaule'?.075:D.have==='bipied'?.18:.075;const crewMm=(behind+bearers*.13)*1000+40;
-    const s=Math.min(.9,(W-40)/(Lw+crewMm),(H-50)/330);const u=v=>v*1000*s;          // s : px par mm ; u : m → px
+    // Échelle stable pour les armes portatives : changer la balle ne redimensionne pas le canon à l'écran.
+    const s=Math.min(.9,(H-50)/330,(W-40)/Math.max(700,Lw+crewMm));const u=v=>v*1000*s;
     const recoil=t>0&&t<.35?Math.sin(Math.min(1,t/.35)*Math.PI)*Math.min(26,4+D.rk*40)*(1-Math.min(1,t/.35)):0;
     // la hauteur de l'axe : à l'épaule d'un Meumeu debout, au ras du sol couché, ou sur son affût
-    const axisY=D.have==='epaule'?ground-u(.185):D.have==='bipied'?ground-u(.05):ground-Math.max(u(.1),Dout*s*6+20);
+    const axisY=ACTIONS[p.action]?.howitzer?ground-Math.min((ground-70)*.8,Math.max(u(.07),Dout*s*2.6)):D.have==='epaule'?ground-u(.185):D.have==='bipied'?ground-u(.05):ground-Math.min(ground-70,Math.max(u(.1),Dout*s*6+20));
     const bx=20+crewMm*s-recoil;
     // les servants d'abord (l'arme passe devant eux) : le chargeur de l'autre côté de l'arme, les pourvoyeurs derrière, le tireur
     if(D.roles.includes('chargeur'))meu(x,bx+(stock+act*.5)*s,ground-u(.012),s,'genou',true);
     for(let k=0;k<bearers;k++)meu(x,bx-u(behind+.07)-k*u(.13),ground,s,'porte');
     if(D.have==='epaule')meu(x,bx-u(.04),ground,s,'epaule');else if(D.have==='bipied')meu(x,bx+u(.01),ground,s,'couche');else meu(x,bx-u(.035),ground,s,'genou');
-    const mx=this.gun(x,D,bx,axisY,s,ground,ms,stock,act,dev);
+    const mx=drawWeapon(x,D,{bx,ay:axisY,s,ground,t,G});
     // l'éclair, la fumée, l'étui éjecté ; pour une fusée, le souffle arrière
     if(D.rocket&&t>0&&t<1.6){const k=t/1.6;const rx=bx-8;for(let i=0;i<6;i++){x.fillStyle=`rgba(${t<.15?'255,200,120':'205,200,190'},${.5*(1-k)})`;x.beginPath();x.arc(rx-i*10-k*60,axisY+(i%2?-4:4)*k*3,5+k*22+i*3,0,7);x.fill();}}
-    if(t>0&&t<.1&&D.flash>.02){const r=(10+D.flash*60)*Math.min(1,s*3)*(1-t/.1);const g=x.createRadialGradient(mx,axisY,0,mx,axisY,r);g.addColorStop(0,'rgba(255,250,210,.95)');g.addColorStop(.4,'rgba(255,190,70,.7)');g.addColorStop(1,'rgba(255,120,20,0)');x.fillStyle=g;x.beginPath();x.ellipse(mx+r*.5,axisY,r*1.3,r*.6,0,0,7);x.fill();}
+    if(t>0&&t<.15&&D.flash>.02){const r=(12+D.flash*66)*Math.min(1,s*3)*(1-t/.15);
+      if(this.muzzle.complete&&this.muzzle.naturalWidth){x.save();x.globalCompositeOperation='lighter';x.globalAlpha=Math.min(1,D.flash*1.4);x.drawImage(this.muzzle,mx,axisY-r*.72,r*2.4,r*1.44);x.restore();}
+      else{const g=x.createRadialGradient(mx,axisY,0,mx,axisY,r);g.addColorStop(0,'rgba(255,250,210,.95)');g.addColorStop(.4,'rgba(255,190,70,.7)');g.addColorStop(1,'rgba(255,120,20,0)');x.fillStyle=g;x.beginPath();x.ellipse(mx+r*.5,axisY,r*1.3,r*.6,0,0,7);x.fill();}}
     if(t>0&&t<2.2){const k=t/2.2;for(let i=0;i<5;i++){x.fillStyle=`rgba(200,196,188,${.35*(1-k)})`;x.beginPath();x.arc(mx+10+i*9+k*40,axisY-k*30-i*3,6+k*20+i*2,0,7);x.fill();}
       if(p.action!=='verrou'&&!D.rocket&&t<.8){const ex=bx+(stock+act*.45)*s+t*60,ey=axisY-20*s-Math.sin(t/.8*Math.PI)*40+t*t*60;x.fillStyle='#c9a043';x.fillRect(ex,ey,Math.max(3,D.caseLen*s),Math.max(2,Dc*s));}}
     // la cartouche en coupe, en médaillon
-    this.cartridge(x,D,W-250,10,240,96);
-    x.fillStyle='#e8dcc4';x.font='600 12px system-ui';const TW=W-280;x.fillText(`${MOUNTS[D.have].name.toLowerCase()} · ${D.crew} servant${D.crew>1?'s':''} · ${Math.round(D.mass*1000)} g chargée · ${fmt(Lw/10,1)} cm`,12,18,TW);
+    // la vue de détail : l'arme seule, agrandie, dans la place libre à droite — chaque pièce se voit
+    {const RH=Math.max((D.Dc||d*1.45)*3.2+6,Dout*1.8);const x0=Math.max(mx+36,W*.46),wA=W-12-x0,hA=ground-60;const sd=Math.min(wA/(G.Lw*1.08+(ms.has('baionnette')?20:0)+(D.rocket?40:0)),hA/(RH*(ms.has('trepied')||ACTIONS[p.action]?.howitzer?9:6.5)));
+      if(wA>200&&sd>s*1.35){const cy=48+hA*.42;x.save();x.fillStyle='rgba(255,255,255,.035)';x.strokeStyle='rgba(255,255,255,.12)';x.beginPath();x.roundRect?x.roundRect(x0-8,40,wA+14,hA+10,10):x.rect(x0-8,40,wA+14,hA+10);x.fill();x.stroke();
+        drawWeapon(x,D,{bx:x0+(D.rocket?14:4)+(ACTIONS[p.action]?.howitzer?G.stock*.8*sd:0),ay:cy,s:sd,ground:Math.min(40+hA+4,cy+RH*sd*(ms.has('trepied')||ACTIONS[p.action]?.howitzer?4.2:3.2)),t:0,G});
+        x.fillStyle='rgba(232,220,196,.75)';x.font='11px system-ui';x.fillText(`détail ×${fmt(sd/s,1)}`,x0,54);x.restore();}}
+    const TW=W-24;x.fillStyle='#e8dcc4';x.font='600 12px system-ui';x.fillText(`${MOUNTS[D.have].name.toLowerCase()} · ${D.crew} servant${D.crew>1?'s':''} · ${Math.round(D.mass*1000)} g chargée · ${fmt(Lw/10,1)} cm`,12,18,TW);
     x.fillStyle='#a8b4ba';x.font='11px system-ui';x.fillText(`${ACTIONS[p.action].name.toLowerCase()}${ACTIONS[p.action]?.auto?` · ${p.rof} coups/min`:''} · ${ACTIONS[p.action]?.auto&&p.mag>=50?'bande':'chargeur'} de ${p.mag}${D.mods.length?' · '+D.mods.map(k=>MODS[k].name.toLowerCase()).join(', '):''}`,12,34,TW);
     // l'échelle
     x.strokeStyle='#a8b4ba';x.beginPath();x.moveTo(12,ground+14);x.lineTo(12+u(.1),ground+14);x.stroke();x.fillStyle='#a8b4ba';x.fillText('10 cm',16+u(.1),ground+18);}
@@ -254,7 +389,7 @@ export class Designer{
     x.fillStyle=metal(ay-r2,r2*2);x.fillRect(X(stock),ay-r2,act*s,r2*2);x.strokeRect(X(stock),ay-r2,act*s,r2*2);
     x.fillStyle='#2b2f33';x.beginPath();x.moveTo(X(stock+act*.18),ay+r2);x.lineTo(X(stock+act*.1),ay+r2+r2*1.6);x.lineTo(X(stock+act*.25),ay+r2+r2*1.6);x.lineTo(X(stock+act*.3),ay+r2);x.fill();
     x.strokeStyle='#1c1f22';x.beginPath();x.arc(X(stock+act*.36),ay+r2*1.35,r2*.5,0,Math.PI);x.stroke();
-    if(p.action==='verrou'){x.strokeStyle='#c9cdd2';x.lineWidth=2;x.beginPath();x.moveTo(X(stock+act*.62),ay-r2*.2);x.lineTo(X(stock+act*.62)+6,ay+r2*1.4);x.stroke();x.fillStyle='#c9cdd2';x.beginPath();x.arc(X(stock+act*.62)+6,ay+r2*1.4,2.5,0,7);x.fill();x.lineWidth=1;}
+    if(p.action==='verrou'||p.action==='culasse'){x.strokeStyle='#c9cdd2';x.lineWidth=2;x.beginPath();x.moveTo(X(stock+act*.62),ay-r2*.2);x.lineTo(X(stock+act*.62)+6,ay+r2*1.4);x.stroke();x.fillStyle='#c9cdd2';x.beginPath();x.arc(X(stock+act*.62)+6,ay+r2*1.4,2.5,0,7);x.fill();x.lineWidth=1;}
     else{x.fillStyle='#c9cdd2';x.fillRect(X(stock+act*.7),ay-r2*.5,5,2);x.fillStyle='#15181b';x.fillRect(X(stock+act*.45),ay-r2*.25,act*s*.25,r2*.5);}
     // le canon, son garde-main
     const bw=Math.max(2,Dout*s);const b0=stock+act;const multi=ACTIONS[p.action]?.multi;
@@ -265,7 +400,7 @@ export class Designer{
     else if(D.wallx>1.3||ACTIONS[p.action]?.auto){x.fillStyle='rgba(30,34,38,.85)';for(let k=0;k<p.L*.5;k+=d*1.6){x.fillRect(X(b0+k),ay-bw*.95,Math.max(1,d*s*.8),bw*1.9);}}
     x.fillStyle='#c9cdd2';x.fillRect(X(b0+p.L)-3,ay-bw/2-4,2,4);
     // la bouche
-    const m0=b0+p.L;if(ms.has('manchon')){const hh=Math.max(bw*2.3,6);x.fillStyle=metal(ay-hh/2,hh);x.fillRect(X(m0),ay-hh/2,dev*s,hh);x.strokeRect(X(m0),ay-hh/2,dev*s,hh);x.fillStyle='rgba(255,255,255,.12)';x.fillRect(X(m0),ay-hh/2+1,dev*s,hh*.2);}
+    const m0=b0+p.L;if(ms.has('manchon')){const hh=Math.max(bw*2.3,6)*Math.pow((p.supVol??250)/250,.2);x.fillStyle=metal(ay-hh/2,hh);x.fillRect(X(m0),ay-hh/2,dev*s,hh);x.strokeRect(X(m0),ay-hh/2,dev*s,hh);x.fillStyle='rgba(255,255,255,.12)';x.fillRect(X(m0),ay-hh/2+1,dev*s,hh*.2);}
     else if(ms.has('frein')){const hh=Math.max(bw*1.6,5);x.fillStyle=metal(ay-hh/2,hh);x.fillRect(X(m0),ay-hh/2,dev*s,hh);x.fillStyle='#101214';for(let k=1;k<4;k++)x.fillRect(X(m0+dev*k/4)-1,ay-hh/2,2,hh);}
     else if(ms.has('cacheflamme')){x.fillStyle='#2b2f33';for(const o of [-1,1])x.fillRect(X(m0),ay+o*bw*.45-(o<0?1.5:0),dev*s,1.5);x.fillRect(X(m0),ay-bw/2,dev*s*.3,bw);}
     // le chargeur : boîte, tambour, ou bande qui pend vers une caisse
@@ -294,10 +429,10 @@ export class Designer{
     x.fillStyle='#2a2418';x.fillRect(px(d*.5),py(Dc/2*.8),(body-d*.5)*sc,Dc/2*.8*sc);const r0=rng(7);x.fillStyle='#6b6b52';for(let k=0;k<160;k++)x.fillRect(px(d*.5+r0()*(body-d*.5)),py(r0()*Dc/2*.8),1.4,1.4);}
     const b0=D.rocket?D.boost.Lm:caseLen-seat,r=d/2,tip=b0+l,shank=l-nose;
     if(pel&&p.cons!=='duplex'){x.fillStyle=C.dart?'#9aa4ad':'#7d8388';const n=Math.min(D.pel,24);for(let k=0;k<n;k++){const fx=b0+(k%4+.5)*l/4,fy=((k/4|0)%2?.5:-.5)*r*.8;if(C.dart){x.fillRect(px(b0),py(fy+r*.08*(k%3-1)),l*sc,1.2);}else{x.beginPath();x.arc(px(fx),py(fy),Math.max(1.5,r*.35*sc),0,7);x.fill();}}}
-    else{const jacket=C.mono?'#c46d38':C.soft?'#8d9196':C.core?'#a8744a':'#c07a3e';const drawB=(o,sub)=>{const rr=r*sub,bt=p.base==='bt';x.beginPath();x.moveTo(px(o),py(bt?rr*.72:rr));x.lineTo(px(o+shank*(1-(bt?.1:0))),py(rr));
+    else{const jacket=C.mono?'#c46d38':C.soft?'#8d9196':C.core?'#a8744a':'#c07a3e';const drawB=(o,sub)=>{const rr=r*sub,boat=p.boat??(p.base==='bt'?.3:0);x.beginPath();x.moveTo(px(o),py(rr*(1-boat*.75)));x.lineTo(px(o+Math.min(shank,Math.max(d*.1,l*.17))*boat),py(rr));
         if(p.nose==='plate'){x.lineTo(px(o+l-nose*.2),py(rr*.95));x.lineTo(px(o+l),py(rr*.55));x.lineTo(px(o+l),py(-rr*.55));x.lineTo(px(o+l-nose*.2),py(-rr*.95));}
         else{const k=p.nose==='pointue'?.08:p.nose==='ogive'?.3:.55;x.quadraticCurveTo(px(o+shank+nose*.75),py(rr),px(o+l),py(rr*k));x.lineTo(px(o+l),py(-rr*k));x.quadraticCurveTo(px(o+shank+nose*.75),py(-rr),px(o+shank),py(-rr));}
-        x.lineTo(px(o),py(bt?-rr*.72:-rr));x.closePath();x.fillStyle=jacket;x.fill();x.strokeStyle='#4a2a10';x.stroke();};
+        x.lineTo(px(o),py(-rr*(1-boat*.75)));x.closePath();x.fillStyle=jacket;x.fill();x.strokeStyle='#4a2a10';x.stroke();};
       if(C.sub){x.fillStyle='#6c7a5a';x.fillRect(px(b0),py(r),l*.75*sc,d*sc);drawB(b0,C.sub);}else if(p.cons==='duplex'){drawB(b0,1);}else drawB(b0,1);
       x.save();x.beginPath();x.rect(px(b0),py(r),l*sc,r*sc);x.clip();if(!C.mono&&!C.sub){x.fillStyle='#8d9196';x.fillRect(px(b0+d*.12),py(r*.82),(l-nose*.6)*sc,r*.82*sc);}
       if(C.core){x.fillStyle=C.rare?'#5fd1c1':p.cons==='tungstene'?'#9aa4ad':'#40464d';x.fillRect(px(b0+d*.25),py(r*.5),(l-nose*.4)*sc,r*.5*sc);}
@@ -431,3 +566,15 @@ function meuFront(x,cx,foot,sc){const k=sc;x.save();const B=(ax,ay,rx,ry,c)=>{x.
   B(0,.11,.06,.058,CREAM);B(-.045,.27,.016,.012,SHADE);B(.045,.27,.016,.012,SHADE);B(-.018,.285,.007,.014,PAW);B(.018,.285,.007,.014,PAW);B(0,.235,.038,.048,CREAM);B(0,.205,.03,.022,'#f6ecd6');
   x.fillStyle=EYE;for(const [ex,ey] of [[-.016,.25],[.016,.25],[-.012,.206],[.012,.206]]){x.beginPath();x.arc(cx+ex*k,foot-ey*k,Math.max(1,.0035*k),0,7);x.fill();}
   x.strokeStyle='rgba(179,38,30,.35)';x.strokeRect(cx-.035*k,foot-.23*k,.07*k,.2*k);x.restore();}
+
+// Le bureau d'études des armes : l'atelier complet (V5.8). L'éditeur de pièces V6 a été retiré en V12.3 (superflu) ;
+// son modèle de calcul (kitCalc / kitToP de ballistics.js) reste celui des armes de départ qui en viennent (obusier, canons d'engins).
+export class Designer{
+  constructor(host,options){this.host=host;this.bureau=options.bureau;this.classic=new DesignerAncien(host,options);this.classic.onExit=()=>this.close();}
+  get open(){return !this.host.hidden;}
+  // la conception en cours dans l'atelier (pas encore enregistrée), pour la nomenclature du catalogue ; null si l'atelier n'est pas affiché
+  draft(){if(this.host.hidden||!this.host.querySelector('#designer')||!this.classic.p)return null;return {p:JSON.parse(JSON.stringify(this.classic.p)),name:this.classic.name};}
+  show(fromId='mle1'){this.classic.show(fromId);}
+  close(){this.classic.close();}
+}
+

@@ -11,7 +11,12 @@ import {cdG7,RHO_AIR,G,C_SOUND} from './ballistics.js';
 export const FILLS={
   poudre:{name:'Poudre noire',k:.42,gur:.42,res:'poudre',x:1,desc:'de la poudre à fusil tassée : bon marché, faible — un souffle court, des éclats lents et gros'},
   tolite:{name:'Tolite',k:1,gur:1,res:'explosifs',x:1,desc:'l’explosif de l’usine chimique : la référence'},
-  brisant:{name:'Explosif brisant',k:1.35,gur:1.2,res:'explosifs',x:1.8,desc:'plus violent : 35 % de souffle en plus, des éclats plus rapides ; coûte presque deux fois plus d’explosifs'},
+  brisant:{name:'Explosif brisant',k:1.35,gur:1.2,res:'explosifs_brisants',x:1.5,desc:'transformé à l’usine chimique : plus de souffle et des éclats plus rapides, au prix de salpêtre, fer et pièces'},
+  // (débloqués par la recherche : amatol, thermite, phosphore blanc)
+  amatol:{name:'Amatol',k:.92,gur:.88,res:'explosifs',x:.65,desc:'de la tolite coupée de nitrate d’ammonium : un peu moins brisante, un tiers moins chère — l’obus de la guerre de masse'},
+  thermite:{name:'Thermite',k:.5,gur:.42,res:'melange_inc',x:2.4,inc:1,fire:1.9,desc:'fer et oxyde de fer à plus de deux mille degrés : elle fond les tôles et met le feu à tout ; peu de souffle, une flaque de métal en fusion qui brûle bien plus loin que le gel'},
+  phosphore:{name:'Phosphore blanc',k:.55,gur:.5,res:'melange_inc',x:2.8,inc:1,fire:1.2,smoke:1,desc:'brûle à l’air libre : un nuage blanc épais qui aveugle une dizaine de secondes, et des particules incandescentes qui collent — couvre une retraite, chasse une tour, brûle les peluches'},
+  gelinc:{name:'Gel incendiaire chimique',k:.62,gur:.58,res:'melange_inc',x:1.8,inc:1,fire:1.25,desc:'un gel collant de l’usine chimique : moins de brisance, mais une gerbe brûlante qui reste au sol et enflamme bâtiments et peluches'},
 };
 // la coque : la part qui devient des éclats utiles, leur dispersion en taille [facteur de masse, part], leur forme dans l'air
 export const SHELLS={
@@ -29,28 +34,47 @@ export const ZB={lethal:2.2,inj:3.2,conc:4.5,stun:7};
 // la surface exposée d'un Meumeu (m²), selon sa posture, face aux éclats d'un obus au sol ou en l'air
 export const EXPO={sol:{debout:.018,accroupi:.012,couche:.004},air:{debout:.012,accroupi:.013,couche:.02}};
 // ce qu'un éclat qui touche fait, selon son énergie (J) : une blessure grave (hors de combat, ou pire), une blessure
-export const pGrave=E=>.85*(1-Math.exp(-Math.pow(Math.max(0,E)/18,.55)));
-export const pBless=E=>.95*(1-Math.exp(-Math.pow(Math.max(0,E)/4,.6)));
+// Mesuré (test/eclat_table.mjs, bodyRay → wound → applyWound sur un Meumeu debout, moyenne sur des éclats de 0,5 à 4 g, 600 essais par point) :
+// UN éclat qui touche blesse presque toujours (dès 0,5 J) mais met rarement hors de combat — moins de 1 % sous 20 J, 3,5 % à 100 J, 7 % à 200 J,
+// 10 % à 500 J, 20 % à 4 kJ. La létalité d'un obus vient du NOMBRE d'éclats qui touchent, pas de chacun. L'ancienne formule (11 % à 0,5 J, 80 % à
+// 128 J par éclat) surestimait d'un facteur cent ce que l'atelier affichait ; ces deux courbes suivent la simulation.
+const GRAVE=[[.5,0],[1,.001],[5,.001],[10,.001],[20,.002],[50,.009],[100,.035],[200,.072],[500,.102],[1000,.126],[2000,.151],[4000,.199],[10000,.28]];
+const lerpLog=(T,E)=>{if(E<=T[0][0])return T[0][1];for(let i=1;i<T.length;i++)if(E<=T[i][0]){const a=T[i-1],b=T[i],f=Math.log(E/a[0])/Math.log(b[0]/a[0]);return a[1]+(b[1]-a[1])*f;}return T[T.length-1][1];};
+export const pGrave=E=>lerpLog(GRAVE,Math.max(0,E));
+export const pBless=E=>Math.min(1,Math.max(0,E)/.5);
 const dOf=g=>2*Math.cbrt(3*(g*1000/7.85)/(4*Math.PI));           // diamètre (mm) d'un éclat d'acier de g grammes
 
 // La charge : g grammes d'explosif dans une coque de `casing` grammes, réglée par p (fill, fragm, shell, fuse)
+// ENVELOPE_BLAST : effet d'enveloppe (Fisher) et réflexion du sol sur le souffle. Physiquement juste, mais DÉSACTIVÉ : à 1 m l'obusier ne met
+// plus que 71 % des soldats hors de combat (critère B5-brutal : ≥ 80 %) et le gilet perd son avantage (B5-gilet) ; l'utilisateur veut un souffle qui
+// tue, pas moins. Le calcul reste en place (E.phi, E.Wnom) pour l'afficher, et se réactive en passant la constante à true.
+const ENVELOPE_BLAST=false;
 export function charge(g,casing,p={}){const F=FILLS[p.fill]||FILLS.tolite,S=SHELLS[p.shell]||SHELLS.lisse,U=FUSES[p.fuse]||FUSES.impact;
-  const W=g/1000*F.k;const r=g/Math.max(1e-6,casing);const vg=2400*F.gur*Math.sqrt(r/(1+r/2));
+  // Le souffle vient de la charge ÉQUIVALENTE NUE, pas de la masse d'explosif inscrite : l'acier vole l'énergie que les éclats emportent
+  // (Fisher : C·(0,2 + 0,8/(1 + M/C)) — un obus de campagne, M/C de 5 à 10, ne souffle qu'avec 25 à 35 % de son explosif). Posé au sol,
+  // le souffle est renforcé par la réflexion (charge hémisphérique, ×1,8) ; éclaté en l'air, non. Les éclats gardent toute la charge (Gurney).
+  const phi=.2+.8/(1+casing/Math.max(1e-6,g));const Wnom=g/1000*F.k;const W=ENVELOPE_BLAST?Wnom*phi*(U.air?1:1.8):Wnom;const r=g/Math.max(1e-6,casing);const vg=2400*F.gur*Math.sqrt(r/(1+r/2));
   const fm=(p.fragm??4)/1000;const useful=casing*S.use;
   // les classes d'éclats : masse, nombre, diamètre, distance de freinage λ (m) — v(R) = vg·e^(−R/λ)
-  const cls=S.mix.map(([f,share])=>{const m=fm*f;return {m,n:Math.max(0,useful*share/m),d:dOf(m),lam:16*Math.cbrt(m)*S.aero};}).filter(c=>c.n>=.5);
+  // distance de freinage d'un éclat d'acier (m) : v(R)=vg·e^(−R/λ), λ = 2·m / (ρ_air · Cd · A) avec A la section de l'éclat (une sphère de même masse,
+  // Cd = 1 pour un éclat qui tourne), réduite à 30 % pour le jeu. Avant : 16·∛m (3,2 m pour 8 g), environ dix fois trop court — à 17 m d'une
+  // charge de 500 g plus aucun soldat n'était blessé (physique : plusieurs dizaines de mètres, de quelques grammes à un obus).
+  const lamOf=m=>{const dm=2*Math.cbrt(3*m/(4*Math.PI*7850)),A=Math.PI/4*dm*dm;return Math.min(120,.3*2*m/(1.2*1.0*Math.max(1e-9,A)));};
+  const cls=S.mix.map(([f,share])=>{const m=fm*f;return {m,n:Math.max(0,useful*share/m),d:dOf(m),lam:lamOf(m)*S.aero};}).filter(c=>c.n>=.5);
   const n=Math.round(cls.reduce((a,c)=>a+c.n,0));
   const R=z=>z*Math.cbrt(Math.max(1e-9,W));
-  const E={W,g,casing,vg,n,fm,cls,geo:U.geo,air:!!U.air,bld:U.bld||1,fill:F,shell:S,fuse:U,blast:R(ZB.lethal),inj:R(ZB.inj),conc:R(ZB.conc),stun:R(ZB.stun)};
+  const rootW=Math.cbrt(Math.max(1e-9,W));const pressure=Rm=>Math.min(1800,900/Math.max(.16,(Math.max(.03,Rm)/rootW)**2));
+  const impulse=Rm=>pressure(Rm)*(.0018*rootW*(1+Math.max(.03,Rm)/rootW));
+  const E={W,Wnom,phi,g,casing,vg,n,fm,cls,geo:U.geo,air:!!U.air,bld:U.bld||1,fill:F,shell:S,fuse:U,blast:R(ZB.lethal),inj:R(ZB.inj),conc:R(ZB.conc),stun:R(ZB.stun),pressure,impulse,inc:!!F.inc,fire:F.inc?10*rootW*(F.fire||1):0};
   // la chance, pour un Meumeu à R mètres, d'être gravement touché / touché, par les éclats seuls
   E.at=(Rm,post='debout')=>{const A=EXPO[E.air?'air':'sol'][post];let hg=0,hb=0;const r2=Math.max(.01,Rm*Rm);
-    for(const c of cls){const hits=c.n*U.geo*A/(4*Math.PI*r2);const v=vg*Math.exp(-Rm/c.lam);const e=.5*c.m/1000*v*v;hg+=hits*pGrave(e);hb+=hits*pBless(e);}
+    for(const c of cls){const hits=c.n*U.geo*A/(4*Math.PI*r2);const v=vg*Math.exp(-Rm/c.lam);const e=.5*c.m*v*v;   /* c.m est en kg : le /1000 d'avant rendait l'énergie mille fois trop petite */hg+=hits*pGrave(e);hb+=hits*pBless(e);}
     return {pg:1-Math.exp(-hg),pb:1-Math.exp(-hb)};};
   const reach=(f,th)=>{let lo=0;for(let x=.02;x<200;x*=1.04){if(f(x)>=th)lo=x;}return lo;};
-  E.lethal=reach(x=>E.at(x).pg,.5);E.danger=reach(x=>E.at(x).pb,.1);E.lethalProne=reach(x=>E.at(x,'couche').pg,.5);
+  E.lethal=reach(x=>E.at(x).pg,.5);E.lethal10=reach(x=>E.at(x).pg,.1);E.danger=reach(x=>E.at(x).pb,.1);E.lethalProne=reach(x=>E.at(x,'couche').pg,.5);
   E.radius=Math.max(E.danger,E.stun);
   // les dégâts aux bâtiments (même unité que les obus des canons : 45 pour 1)
-  E.dmgB=Math.min(400,60*Math.cbrt(W/.004)*E.bld);
+  E.dmgB=Math.min(3000,90*Math.cbrt(W/.004)*E.bld);
   return E;}
 
 // Le tir courbe : on cherche l'angle (sous 45° pour un canon, au-dessus pour un mortier) qui porte à R mètres ; on renvoie le
