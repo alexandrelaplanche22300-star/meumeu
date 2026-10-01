@@ -568,3 +568,8 @@ export function gel(D0,v,rnd=Math.random,len=.16){const D=D0.proj||D0;const R={d
   const last=R.path[R.path.length-1];const depth=Math.min(len,last?Math.max(0,last.p[2]):0);let yawAt=null,maxTc=0,tcAt=0;
   for(const q of R.path)if(yawAt==null&&q.yaw>.35&&q.p[2]>=0)yawAt=q.p[2];for(const t of R.tc)if(t.r>maxTc){maxTc=t.r;tcAt=t.p[2];}
   return {R,len,depth,exit:!!bullet.exit,yawAt,fragAt:R.fragAt?R.fragAt[2]:null,maxTc,tcAt,fragmented:R.fragmented,expanded:R.expanded,E:R.E,vOut:bullet.exit?bullet.v:0,neck:neckOf(D)};}
+
+// Les servants nécessaires quand le porteur ne ressent qu'une part k du poids (la troupe de choc : k = 0,5) — même formule que derive(), jamais plus que D.crew.
+export function crewOf(D,k=1){if(!D||k>=1)return D?.crew||1;const FD=D.feed||{},mag=D.p?.mag||1,rm=D.rm||0;const supply=(FD.belt?Math.max(200,mag*2):Math.max(4*mag,20))*rm/1000*k;const pb=SHOOTER_KG*.3;
+  let c=Math.max(D.have==='trepied'?2:1,Math.ceil(D.mass*k/(pb*1.4)))+(supply>pb?1:0)+(FD.crew||0);if(FD.belt)c=Math.max(c,2);return Math.max(1,Math.min(D.crew,12,c));}
+export const heavyFor=(D,k=1)=>D.mass*k>SHOOTER_KG*.08;

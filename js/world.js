@@ -6,7 +6,7 @@ import {SITE_RANGE,HOUR_REAL,DAY,NIGHT,MAP_N,RADIUS,CARRY,GAP,TERRAIN,T,RES,RARE
 import {ECO} from './eco.js';
 import {generate,rng} from './gen.js';
 import {Pather} from './path.js';
-import {derive,wound,TILE_M,CRATE_KG,CONSTRUCTIONS,ACTIONS,fitMods} from './ballistics.js';
+import {derive,wound,TILE_M,CRATE_KG,CONSTRUCTIONS,ACTIONS,fitMods,crewOf} from './ballistics.js';
 import {regionAt,AIM,SILH,BODY_H,BLOOD,setSpecies} from './body.js';
 import {newHealth,applyWound,applyBurn,tickHealth,malus,firstAid,doctorCare,heal,needsCare,needsDoctor,needsSurgery,bleedRate,triage,MED} from './health.js';
 import {DEFAULT_DESIGNS,weightOf,crateCost,weaponCost,protoCost,PROTO_HOURS,PROTO_HOURS_ARMOR,fragDesign} from './designs.js';
@@ -1131,7 +1131,7 @@ export class World{
   // l'erreur d'estimation de la distance (la chute), puis ce qu'elle rencontre : le couvert (et s'il le perce), le corps.
   resolve(u,e,W,R,burst,share=null){const D=UDEF(u);const skill=(D.skill||2.4)/(1+(u.xp||0)/60)/(u.f==='meumeu'?this.mod('tir'):1);const moving=this.s.t-(u.moved||-9)<.03;
     const sigS=skill*POST[u.post||'debout']*(moving?2.4:1)*(1+1.5*(u.supp||0))*(u.h?malus(u.h).aim:1)*(u.armor?1+((this.armorOf(u.armor)?.D.aim||1)-1)*(UDEF(u).choc?.load??1):1);
-    const sigW=W.moa*.291*(u.mount?1:(W.mountOk||u.k==='choc'&&W.need==='bipied')?1:2+Math.min(4,W.rk0))*(u.mount?.8:this.trenchRest(u,W));const sigR=burst*W.rk*(u.k==='choc'?.5:1)*9*(u.mount?.5:1);const missing=W.crew>1&&!u.mount?Math.max(0,W.crew-1-this.servants(u).length):0;
+    const sigW=W.moa*.291*(u.mount?1:(W.mountOk||u.k==='choc'&&W.need==='bipied')?1:2+Math.min(4,W.rk0))*(u.mount?.8:this.trenchRest(u,W));const sigR=burst*W.rk*(u.k==='choc'?.5:1)*9*(u.mount?.5:1);const crewU=u.k==='choc'?crewOf(W,.5):W.crew;const missing=crewU>1&&!u.mount?Math.max(0,crewU-1-this.servants(u).length):0;
     // Le viseur réduit l'erreur angulaire propre du tireur; il n'ajoute pas de
     // vitesse ni de portée balistique. Tirer en mouvement/sous le feu garde ses
     // pénalités, et la dispersion/traînée de l'arme restent présentes.
