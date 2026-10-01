@@ -1,0 +1,121 @@
+// Les bâtiments faits par le code (V12.4) : un modèle distinct par bâtiment, à la taille exacte de son empreinte (une case = une unité).
+// Avant, dix modèles convertis se partageaient vingt-trois bâtiments (la caserne reprenait le centre-ville, cinq bâtiments l'entrepôt, trois la forge…).
+// Repère : x vers la droite, z vers la caméra (la façade, la porte, les fenêtres sont du côté +Z et +X, ceux que l'on voit), y vers le haut, centré en x et z.
+import * as THREE from './lib/three.module.js';
+import {BUILDINGS} from './data.js';
+
+const PI=Math.PI;
+const PAL={bois:0x9a6a3a,boisSombre:0x6a4426,boisClair:0xc89a5a,chaume:0xcfae58,pierre:0x9c988c,pierreSombre:0x6f6c64,brique:0xa4513c,briqueSombre:0x5e463c,
+  creme:0xe6dcc0,blanc:0xece7da,toitVert:0x2f6f55,ardoise:0x4a5560,rouille:0x7a4a30,metal:0x5a5e60,metalClair:0x9ea4a8,sable:0xc4a874,olive:0x6b7048,
+  verre:0x35505e,rouge:0xb83a2c,jaune:0xd9b23a,feu:0xff9a3a,noir:0x23201e,violet:0x6a5a86,cuivre:0x4f9a86,beton:0x8d9088};
+
+class Build{
+  constructor(){this.parts=[];}
+  add(g,hex){g=g.index?g.toNonIndexed():g;const n=g.attributes.position.count,c=new THREE.Color(hex),a=new Float32Array(n*3);for(let i=0;i<n;i++){a[3*i]=c.r;a[3*i+1]=c.g;a[3*i+2]=c.b;}
+    g.setAttribute('color',new THREE.BufferAttribute(a,3));if(g.attributes.uv)g.deleteAttribute('uv');this.parts.push(g);return this;}
+  // un parallélépipède posé sur y (centré en x, z)
+  box(x,y,z,w,h,d,hex){const g=new THREE.BoxGeometry(w,h,d);g.translate(x,y+h/2,z);return this.add(g,hex);}
+  // un toit à deux pans : faîtage le long de x (axe 'x') ou de z, posé sur y, débord ov
+  gable(x,y,z,w,d,h,hex,axe='x',ov=.08){const a=(axe==='x'?w:d)/2+ov,b=(axe==='x'?d:w)/2+ov;const P=[];
+    // les extrémités du faîtage (±a) et les bords des pans (±b)
+    const V=(u,v,hh)=>axe==='x'?[x+u,y+hh,z+v]:[x+v,y+hh,z+u];
+    const tri=(p,q,r)=>P.push(...p,...q,...r);
+    tri(V(-a,-b,0),V(-a,b,0),V(-a,0,h));tri(V(a,b,0),V(a,-b,0),V(a,0,h));
+    tri(V(-a,-b,0),V(-a,0,h),V(a,0,h));tri(V(-a,-b,0),V(a,0,h),V(a,-b,0));
+    tri(V(-a,b,0),V(a,b,0),V(a,0,h));tri(V(-a,b,0),V(a,0,h),V(-a,0,h));
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));return this.add(g,hex);}
+  cyl(x,y,z,r0,r1,h,hex,seg=10){const g=new THREE.CylinderGeometry(r1,r0,h,seg);g.translate(x,y+h/2,z);return this.add(g,hex);}
+  cone(x,y,z,r,h,hex,seg=8){const g=new THREE.ConeGeometry(r,h,seg);g.translate(x,y+h/2,z);return this.add(g,hex);}
+  dome(x,y,z,r,hex){const g=new THREE.SphereGeometry(r,10,6,0,PI*2,0,PI/2);g.translate(x,y,z);return this.add(g,hex);}
+  // une tige entre deux points
+  rod(a,b,r,hex){const v=new THREE.Vector3(b[0]-a[0],b[1]-a[1],b[2]-a[2]),L=v.length();if(L<1e-6)return this;const g=new THREE.CylinderGeometry(r,r,L,5);
+    g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),v.normalize()));g.translate((a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2);return this.add(g,hex);}
+  // des fenêtres sur la façade avant (+Z, à zf) et sur le côté droit (+X, à xf)
+  winsZ(zf,y,xs,w,h,hex=PAL.verre){for(const x of xs)this.box(x,y,zf+.012,w,h,.03,hex);return this;}
+  winsX(xf,y,zs,w,h,hex=PAL.verre){for(const z of zs)this.box(xf+.012,y,z,.03,h,w,hex);return this;}
+  geo(){let n=0;for(const g of this.parts)n+=g.attributes.position.count;const pos=new Float32Array(n*3),col=new Float32Array(n*3);let o=0;
+    for(const g of this.parts){pos.set(g.attributes.position.array,o*3);col.set(g.attributes.color.array,o*3);o+=g.attributes.position.count;}
+    const out=new THREE.BufferGeometry();out.setAttribute('position',new THREE.BufferAttribute(pos,3));out.setAttribute('color',new THREE.BufferAttribute(col,3));out.computeVertexNormals();out.computeBoundingBox();return out;}
+}
+const slab=(B,W,D,hex=PAL.pierre,h=.1)=>B.box(0,0,0,W,h,D,hex);
+const sacks=(B,x,z,n=3)=>{for(let k=0;k<n;k++)B.box(x+k*.18,.1,z+(k%2)*.1,.16,.14,.12,PAL.sable);};
+const crates=(B,x,z,hex=PAL.boisClair)=>{B.box(x,.1,z,.2,.18,.2,hex);B.box(x+.22,.1,z+.02,.18,.14,.18,PAL.bois);B.box(x+.08,.28,z+.02,.16,.14,.16,hex);};
+const flag=(B,x,z,hex)=>{B.cyl(x,.1,z,.025,.025,1.7,PAL.metalClair,5);B.box(x+.17,1.38,z,.3,.2,.02,hex);};
+
+// ---------- les bâtiments ----------
+const MAKERS={
+  // la caserne : un long bâtiment de brique, toit vert, perron, drapeau, sacs de sable devant la porte
+  caserne:(W,D)=>{const B=new Build();slab(B,W,D);const bw=W*.9,bd=D*.58;B.box(0,.1,-D*.12,bw,.8,bd,0xb59a6a);B.gable(0,.9,-D*.12,bw,bd,.5,PAL.toitVert,'x');
+    B.box(0,.1,D*.28,.9,.95,.5,PAL.pierre);B.gable(0,1.05,D*.28,.9,.5,.36,PAL.ardoise,'z');B.box(0,.1,D*.28+.26,.36,.62,.04,PAL.noir);
+    B.winsZ(-D*.12+bd/2,.45,[-1.0,-.6,.6,1.0].map(v=>v*W/3),.22,.26);B.winsX(bw/2,.45,[-.7,-.2,.35].map(v=>v*D/3-D*.1),.22,.26);
+    flag(B,W*.42,D*.36,PAL.rouge);for(let k=0;k<3;k++)B.box(-.55+k*.2,.1,D*.42,.18,.12,.1,PAL.sable);B.cyl(-W*.4,.1,D*.36,.05,.05,.18,PAL.metal,6);return B.geo();},
+  // la caserne d'élite : sombre, deux tourelles d'angle, bannière violette
+  caserne_elite:(W,D)=>{const B=new Build();slab(B,W,D,PAL.pierreSombre);const bw=W*.86,bd=D*.56;B.box(0,.1,-D*.1,bw,.9,bd,0x8c8498);B.gable(0,1.0,-D*.1,bw,bd,.42,PAL.noir,'x');
+    for(const sx of [-1,1]){B.cyl(sx*bw*.5,.1,D*.18,.3,.3,1.25,0x7a728a,10);B.cone(sx*bw*.5,1.35,D*.18,.38,.42,PAL.noir,10);}
+    B.box(0,.1,D*.3,.8,1.0,.45,PAL.pierreSombre);B.box(0,.1,D*.3+.24,.34,.66,.04,PAL.noir);B.winsZ(-D*.1+bd/2,.5,[-.7,-.35,.35,.7].map(v=>v*W/3),.18,.3,0x2a2832);
+    B.box(0,1.15,D*.3+.24,.5,.5,.03,PAL.violet);B.box(0,1.62,D*.3+.24,.3,.12,.03,PAL.jaune);B.winsX(bw/2,.5,[-.5,0,.45].map(v=>v*D/3),.2,.3,0x2a2832);return B.geo();},
+  // le grenier : une grange sur pilotis, un silo rond, des sacs
+  grenier:(W,D)=>{const B=new Build();slab(B,W,D,0x7c8a5a,.05);for(const [x,z] of [[-.55,-.45],[.55,-.45],[-.55,.4],[.55,.4]])B.cyl(x,.05,z,.07,.07,.2,PAL.boisSombre,6);
+    B.box(-.1,.25,0,W*.62,.62,D*.72,0xb08a52);B.gable(-.1,.87,0,W*.62,D*.72,.4,PAL.chaume,'x');B.box(-.1,.25,D*.36+.01,.3,.46,.04,PAL.boisSombre);
+    B.cyl(W*.33,.05,-D*.2,.34,.34,1.1,0xd9d0b0,12);B.cone(W*.33,1.15,-D*.2,.4,.4,0x8a4a2a,12);B.box(W*.33,.4,-D*.2+.35,.12,.5,.03,PAL.boisSombre);
+    sacks(B,-.7,D*.42);sacks(B,.1,D*.44,2);return B.geo();},
+  // la gare : bâtiment de brique, tour de l'horloge, quai couvert
+  gare:(W,D)=>{const B=new Build();slab(B,W,D,PAL.pierre,.08);const bw=W*.86,bd=D*.4;B.box(-.1,.08,-D*.28,bw,.75,bd,PAL.brique);B.gable(-.1,.83,-D*.28,bw,bd,.34,PAL.ardoise,'x');
+    B.box(W*.3,.08,-D*.28,.5,1.3,.5,PAL.brique);B.cone(W*.3,1.38,-D*.28,.4,.5,PAL.toitVert,4);B.box(W*.3,1.0,-D*.28+.26,.24,.24,.03,PAL.blanc);
+    B.winsZ(-D*.28+bd/2,.4,[-.9,-.5,-.1,.3].map(v=>v*W/3.4),.2,.28);B.box(-.1,.08,D*.2,bw,.05,D*.34,0xb5b0a4);
+    for(const x of [-1,-.3,.4,1].map(v=>v*W/3.4))B.cyl(x,.1,D*.34,.04,.04,.7,PAL.metal,6);B.box(-.1,.8,D*.2,bw+.1,.05,D*.46,PAL.toitVert);return B.geo();},
+  // l'entrepôt : un grand hangar à deux pans, grande porte coulissante, caisses empilées
+  entrepot:(W,D)=>{const B=new Build();slab(B,W,D,0x8a8c7e);B.box(-.12,.1,-.1,W*.78,.9,D*.66,0xa8a08a);B.gable(-.12,1.0,-.1,W*.78,D*.66,.5,PAL.rouille,'x');
+    B.box(-.12,.1,D*.23+.01,1.0,.72,.04,PAL.boisSombre);B.box(-.12,.1,D*.23+.03,.04,.72,.03,PAL.metalClair);B.winsX(W*.39-.12,.6,[-.5,.2,.7].map(v=>v*D/3),.2,.18);
+    crates(B,W*.36,D*.36);crates(B,W*.36+.3,D*.4,PAL.bois);crates(B,-W*.42,D*.38);B.box(-W*.28,.1,D*.44,.5,.06,.4,PAL.boisSombre);return B.geo();},
+  // l'arsenal : un blockhaus de béton, lourde porte d'acier, caisses de munitions, antenne
+  arsenal:(W,D)=>{const B=new Build();slab(B,W,D,0x7a7d74,.08);B.box(0,.08,-.1,W*.82,.75,D*.68,PAL.beton);B.gable(0,.83,-.1,W*.82,D*.68,.26,0x5a5f58,'x',.04);
+    B.box(0,.08,D*.24+.01,.62,.6,.05,PAL.metal);B.box(0,.08,D*.24+.04,.62,.05,.03,PAL.jaune);B.box(0,.4,D*.24+.04,.62,.05,.03,PAL.jaune);
+    for(let k=0;k<3;k++)B.box(W*.34,.08+k*.13,D*.3,.3,.12,.2,PAL.olive);B.box(-W*.34,.08,D*.34,.5,.14,.1,PAL.sable);B.box(-W*.34,.22,D*.34,.4,.12,.1,PAL.sable);
+    B.cyl(-W*.32,.83,-.3,.025,.025,.8,PAL.metalClair,5);B.winsX(W*.41,.5,[-.3,.15],.16,.12,0x2a2f2a);return B.geo();},
+  // le bureau d'études : bâtiment clair aux grandes vitres et sa coupole de cuivre
+  armurerie:(W,D)=>{const B=new Build();slab(B,W,D,0xb5ae98,.06);B.box(0,.06,-.1,W*.8,.8,D*.6,PAL.creme);B.gable(0,.86,-.1,W*.8,D*.6,.36,0x2c5f6a,'x');
+    B.cyl(W*.22,.86,-.28,.3,.32,.18,PAL.creme,12);B.dome(W*.22,1.04,-.28,.32,PAL.cuivre);B.cyl(W*.22,1.36,-.28,.02,.02,.2,PAL.metalClair,5);
+    B.winsZ(-.1+D*.3,.3,[-.6,-.2,.2,.6].map(v=>v*W/3),.26,.46,0x4a7a9a);B.winsX(W*.4,.3,[-.4,.1].map(v=>v*D/3),.26,.46,0x4a7a9a);
+    B.box(-W*.3,.06,D*.4,.5,.1,.26,PAL.boisClair);B.box(-W*.3,.16,D*.4,.44,.02,.2,0xe9e3d0);return B.geo();},
+  // la manufacture : une usine à toit en dents de scie, une haute cheminée, un quai de chargement
+  manufacture:(W,D)=>{const B=new Build();slab(B,W,D,0x7e7a70);const bw=W*.82,bd=D*.7;B.box(-.05,.1,-.1,bw,.8,bd,0x9b4f3b);
+    for(let k=0;k<4;k++){const z=-.1-bd/2+(k+.5)*bd/4;B.box(-.05,.9,z+.12,bw,.34,.04,0xa8a090);B.gable(-.05,.9,z,bw,bd/4-.04,.34,0x3d4a52,'x',0);}
+    B.cyl(W*.36,.1,-D*.34,.2,.14,2.1,0x6a3a2e,10);B.cyl(W*.36,2.2,-D*.34,.16,.17,.1,PAL.noir,10);B.winsZ(-.1+bd/2,.45,[-.9,-.5,-.1,.3,.7].map(v=>v*W/3.4),.2,.26);
+    B.box(-bw/2-.1,.1,D*.28,.5,.3,.5,PAL.beton);B.box(.1,.1,D*.42,.6,.2,.3,PAL.boisSombre);return B.geo();},
+  // le garage : un grand hangar de tôle, trois portes, une pompe à essence
+  garage:(W,D)=>{const B=new Build();slab(B,W,D,0x8a8c84,.06);const bw=W*.86,bd=D*.62;B.box(-.1,.06,-D*.12,bw,.95,bd,0x7d8a6e);B.gable(-.1,1.01,-D*.12,bw,bd,.34,0x4e5a48,'x',.1);
+    for(const x of [-.3,0,.3].map(v=>v*bw*1.0)){B.box(x-.1,.06,-D*.12+bd/2+.01,bw*.26,.72,.04,PAL.metal);B.box(x-.1,.7,-D*.12+bd/2+.03,bw*.26,.06,.03,PAL.jaune);}
+    B.cyl(W*.4,.06,D*.34,.09,.09,.34,PAL.rouge,8);B.box(W*.4-.08,.4,D*.34-.05,.16,.1,.1,PAL.noir);B.box(-W*.42,.06,D*.4,.5,.12,.34,0xbdb39a);return B.geo();},
+  // les archives : bibliothèque de pierre, portique à colonnes, fronton, petit dôme
+  archives:(W,D)=>{const B=new Build();slab(B,W,D,0xb8b2a0,.06);B.box(0,.06,-.15,W*.78,.85,D*.62,0xd8cdb2);B.gable(0,.91,-.15,W*.78,D*.62,.34,PAL.ardoise,'x');
+    for(const x of [-.5,-.17,.17,.5].map(v=>v*W*.8))B.cyl(x,.1,D*.32,.05,.05,.8,PAL.blanc,8);B.box(0,.9,D*.32,W*.74,.07,.22,PAL.blanc);B.gable(0,.97,D*.32,W*.74,.22,.2,PAL.blanc,'x',0);
+    B.box(0,.06,D*.34,W*.5,.05,.2,0xcfc9b6);B.box(0,.06,-.15+D*.31+.01,.34,.6,.04,PAL.boisSombre);B.winsX(W*.39,.4,[-.4,.1],.2,.4,0x4a6a8a);
+    B.cyl(-W*.2,1.2,-.35,.2,.2,.14,PAL.blanc,10);B.dome(-W*.2,1.34,-.35,.2,PAL.cuivre);return B.geo();},
+  // la fonderie : brique sombre, deux hautes cheminées, gueulard orange, lingots
+  fonderie:(W,D)=>{const B=new Build();slab(B,W,D,0x6c685e);B.box(-.1,.1,-D*.1,W*.8,.8,D*.62,PAL.briqueSombre);B.gable(-.1,.9,-D*.1,W*.8,D*.62,.34,0x6b4430,'x');
+    for(const x of [-.5,.4]){B.cyl(x,.1,-D*.32,.2,.15,1.8,0x4a3a32,10);B.cyl(x,.9,-D*.32,.19,.19,.05,PAL.metal,10);B.cyl(x,1.9,-D*.32,.16,.18,.08,PAL.noir,10);B.cone(x,1.98,-D*.32,.12,.14,PAL.feu,8);}
+    B.box(.05,.1,D*.21+.01,.6,.5,.05,PAL.noir);B.box(.05,.16,D*.21+.04,.44,.34,.03,PAL.feu);B.box(.05,.1,D*.3,.7,.04,.2,PAL.metal);
+    for(let k=0;k<3;k++)B.box(W*.34+k*.1,.1+k*.0,D*.34,.18,.1,.1,PAL.metalClair);B.winsX(W*.3,.45,[-.3,.2],.16,.22,PAL.feu);return B.geo();},
+  // la mine : un chevalement de bois (poulie, A-frame), une cabane, un wagonnet sur rails, un tas de minerai
+  mine:(W,D)=>{const B=new Build();slab(B,W,D,0x6a6256,.06);const t=[-.15,0,-.1];
+    B.rod([t[0]-.35,.06,t[2]-.3],[t[0],1.5,t[2]],.04,PAL.boisSombre);B.rod([t[0]+.35,.06,t[2]-.3],[t[0],1.5,t[2]],.04,PAL.boisSombre);
+    B.rod([t[0]-.35,.06,t[2]+.3],[t[0],1.5,t[2]],.04,PAL.boisSombre);B.rod([t[0]+.35,.06,t[2]+.3],[t[0],1.5,t[2]],.04,PAL.boisSombre);
+    B.rod([t[0]-.2,.7,t[2]-.15],[t[0]+.2,.7,t[2]+.15],.025,PAL.bois);const wheel=new THREE.CylinderGeometry(.22,.22,.05,12);wheel.rotateX(PI/2);wheel.translate(t[0],1.5,t[2]);B.add(wheel,PAL.metal);
+    B.box(W*.28,.06,-D*.2,.55,.5,.5,PAL.boisClair);B.gable(W*.28,.56,-D*.2,.55,.5,.2,PAL.rouille,'x');B.box(W*.28,.06,-D*.2+.26,.14,.3,.03,PAL.boisSombre);
+    B.box(0,.06,D*.3,.9,.02,.04,PAL.metal);B.box(0,.06,D*.3+.12,.9,.02,.04,PAL.metal);B.box(-.25,.1,D*.3+.06,.3,.16,.22,PAL.rouille);
+    for(let k=0;k<4;k++)B.box(-W*.32+k*.1,.06,D*.28+(k%2)*.1,.14,.1+(k%3)*.04,.14,0x5a4a46);return B.geo();},
+  // l'hôpital : bâtiment blanc à toit vert, croix rouge, ambulance du jardin (un banc et une civière)
+  hopital:(W,D)=>{const B=new Build();slab(B,W,D,0xcfd4c6,.06);B.box(0,.06,-D*.1,W*.82,.85,D*.62,PAL.blanc);B.gable(0,.91,-D*.1,W*.82,D*.62,.4,PAL.toitVert,'x');
+    B.box(0,.06,D*.3,.7,.95,.4,PAL.blanc);B.gable(0,1.01,D*.3,.7,.4,.3,PAL.toitVert,'z');B.box(0,.5,D*.3+.21,.3,.1,.03,PAL.rouge);B.box(0,.4,D*.3+.21,.1,.3,.03,PAL.rouge);
+    B.box(0,.06,D*.3+.2,.28,.4,.03,0x4a7a9a);B.winsZ(-D*.1+D*.31,.4,[-1,-.55,.55,1].map(v=>v*W/3),.22,.3,0x6a9ab0);B.winsX(W*.41,.4,[-.5,0,.4].map(v=>v*D/3),.2,.3,0x6a9ab0);
+    B.box(W*.36,.9,-D*.1,.34,.04,.04,PAL.rouge);B.box(W*.36,.82,-D*.1,.04,.2,.04,PAL.rouge);B.box(-W*.36,.06,D*.4,.4,.12,.12,PAL.boisSombre);return B.geo();},
+  // l'usine chimique : des cuves rondes, des tuyaux, un petit bâtiment de contrôle, des bandes de danger
+  poudrerie:(W,D)=>{const B=new Build();slab(B,W,D,0x8a8678,.06);B.cyl(-.4,.06,-.3,.34,.34,.9,0xe0d28a,14);B.cone(-.4,.96,-.3,.36,.2,PAL.metal,14);B.cyl(.35,.06,-.35,.28,.28,1.2,0xcfd0c6,14);B.dome(.35,1.26,-.35,.28,PAL.metal);
+    B.rod([-.4,.7,-.3],[.35,.8,-.35],.04,PAL.rouille);B.rod([-.1,.7,-.32],[-.1,.1,.2],.03,PAL.rouille);B.box(.2,.06,.35,.8,.5,.6,PAL.creme);B.gable(.2,.56,.35,.8,.6,.22,PAL.rouille,'x');
+    B.winsZ(.35+.3,.3,[-.1,.2,.5],.16,.16);B.box(-.45,.06,.4,.3,.12,.3,PAL.jaune);B.box(-.45,.06,.4,.3,.02,.1,PAL.noir);B.cyl(-.7,.06,.2,.05,.05,.5,PAL.rouge,6);return B.geo();},
+};
+
+// les géométries et leurs mesures, prêtes pour la scène : { nom: {ext:[largeur,hauteur,profondeur], geo} }
+export function buildingModels(){const out={};for(const [k,mk] of Object.entries(MAKERS)){const [W,D]=BUILDINGS[k]?.size||[2,2];const geo=mk(W,D);const b=geo.boundingBox;out[':'+k]={ext:[b.max.x-b.min.x,b.max.y,b.max.z-b.min.z],geo};}return out;}
+export const BUILDING_KEYS=Object.keys(MAKERS);
