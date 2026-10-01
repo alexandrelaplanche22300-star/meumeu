@@ -1113,13 +1113,13 @@ export class World{
     let miss=0;if(W.crew>1){const mv=this.s.t-(u.moved||-9)<.03,rest=this.trenchRest(u,W);u.deployT=mv?0:(u.deployT||0)+this.dts*(rest<1?1.45:1);if(u.deployT<W.setup){u.why=rest<1?'mise en batterie dans la tranchée':'mise en batterie';return true;}if(u.why?.startsWith('mise en batterie'))u.why=null;miss=Math.max(0,W.crew-1-this.servants(u).length);if(miss)u.why=`${miss} servant${miss>1?'s':''} manquant${miss>1?'s':''} · pointage et rechargement très lents`;}
     if(u.mag<=0){if(u.pouch>0){const n=Math.min(W.p.mag,u.pouch);u.mag=n;u.pouch-=n;u.reload=u.reloadTotal=(W.p.mag>12?4:W.p.action==='verrou'?3:2.5)*(1+miss*2.5);u.burst=0;this.emit({type:'reload',x:u.x,y:u.y});return true;}u.dry=true;return false;}
     u.dry=false;if(u.cool>0)return true;if(u.f==='meumeu')this.practice('tir',.03);
-    if(u.aimAt!==(e.id??e.wall??'b')){u.aimAt=e.id??e.wall??'b';u.cool=W.aim*(u.post==='couche'?1.2:1);return true;}
+    if(u.aimAt!==(e.id??e.wall??'b')){u.aimAt=e.id??e.wall??'b';u.cool=(W.crew>1?Math.min(W.aim,12):W.aim)*(u.post==='couche'?1.2:1);return true;}
     // le coup part
     // l'entretien d'une mitrailleuse servie : le tube s'use à chaque coup ; tous les huitièmes de sa vie de tube, l'entretien prend une pièce au dépôt le plus
     // proche (40 cases) ; sans pièce, l'arme usée s'enraye de plus en plus souvent — une mitrailleuse coûte cher à tenir, pas seulement à fabriquer
     if(W.mg){u.wear=(u.wear||0)+1;const step=Math.max(60,(W.life||2000)/8);if(u.wear>=step){u.wear-=step;const got=this.take(u.f,u.x,u.y,'pieces',1,40);u.worn=got<.99?(u.worn||0)+1:Math.max(0,(u.worn||0)-1);}
       if(u.worn>0&&this.rand()<.015*u.worn){u.cool=(u.cool||0)+(W.clear||3);u.why='mitrailleuse usée : il faut des pièces';}}
-    u.mag--;if(ACTIONS[W.p.action]?.auto){u.burst=(u.burst||0)+1;if(u.burst>=4){u.burst=0;u.cool=W.aim*.7;}else u.cool=W.cyc;}else{u.burst=0;u.cool=W.cyc+W.aim*.4;}if(miss)u.cool*=1+miss*1.8;
+    u.mag--;if(ACTIONS[W.p.action]?.auto){u.burst=(u.burst||0)+1;if(u.burst>=4){u.burst=0;u.cool=(W.crew>1?Math.min(W.aim,12):W.aim)*.7;}else u.cool=W.cyc;}else{u.burst=0;u.cool=W.cyc+(W.crew>1?Math.min(W.aim,12):W.aim)*.4;}if(miss)u.cool*=1+miss*1.8;
     if(!(W.mountOk||u.k==='choc'&&W.need==='bipied')){u.cool*=1+Math.min(5,W.rk0*(u.k==='choc'?.5:1));u.why='affût insuffisant : tir lent et dispersé';}
     const R=distT*TILE_M;const fl=W.at(R);
     const isV=!!VEHDEF[e.k]&&!!e.mounts;const share={};let ix=x,iy=y;for(let k=0;k<(isB||e.wall!=null?1:(W.pel||1));k++){const res=isB||e.wall!=null?{hit:true,struct:true,v:fl.v}:isV?this.vehAim(u,e,W,R,u.burst||0):this.resolve(u,e,W,R,u.burst||0,share);
@@ -1130,7 +1130,8 @@ export class World{
   // Où va la balle : la dispersion (l'arme, le tireur, sa posture, le feu qu'il subit, sa blessure, le recul de la rafale),
   // l'erreur d'estimation de la distance (la chute), puis ce qu'elle rencontre : le couvert (et s'il le perce), le corps.
   resolve(u,e,W,R,burst,share=null){const D=UDEF(u);const skill=(D.skill||2.4)/(1+(u.xp||0)/60)/(u.f==='meumeu'?this.mod('tir'):1);const moving=this.s.t-(u.moved||-9)<.03;
-    const sigS=skill*POST[u.post||'debout']*(moving?2.4:1)*(1+1.5*(u.supp||0))*(u.h?malus(u.h).aim:1)*(u.armor?1+((this.armorOf(u.armor)?.D.aim||1)-1)*(UDEF(u).choc?.load??1):1);
+    const irBlur=u.nvOn&&(u.irLeft??0)>0&&this.light()<.4&&d2(u.x,u.y,e.x,e.y)>this.sight()?2.5:1;   // (à l'infrarouge, au-delà de la vue nue : image floue, sans relief)
+    const sigS=irBlur*skill*POST[u.post||'debout']*(moving?2.4:1)*(1+1.5*(u.supp||0))*(u.h?malus(u.h).aim:1)*(u.armor?1+((this.armorOf(u.armor)?.D.aim||1)-1)*(UDEF(u).choc?.load??1):1);
     const sigW=W.moa*.291*(u.mount?1:(W.mountOk||u.k==='choc'&&W.need==='bipied')?1:2+Math.min(4,W.rk0))*(u.mount?.8:this.trenchRest(u,W));const sigR=burst*W.rk*(u.k==='choc'?.5:1)*9*(u.mount?.5:1);const crewU=u.k==='choc'?crewOf(W,.5):W.crew;const missing=crewU>1&&!u.mount?Math.max(0,crewU-1-this.servants(u).length):0;
     // Le viseur réduit l'erreur angulaire propre du tireur; il n'ajoute pas de
     // vitesse ni de portée balistique. Tirer en mouvement/sous le feu garde ses
@@ -1532,7 +1533,7 @@ export class World{
   zoneFire(ids,x,y,opt={}){const us=ids.map(id=>this.unit(id)).filter(u=>u&&u.f==='meumeu'&&active(u)&&u.w&&this.canZone(this.W(u.w)));
     if(!us.length)return {ok:false,why:['aucune arme à obus dans la sélection (munition explosive à éclats, 5 mm et plus)']};
     if(!this.atWar)this.declareWar('meumeu');
-    for(const u of us){u.task={kind:'zone',x,y,n:opt.n??Infinity,high:opt.high??true,bias:null,fired:0};u.path=null;u.goal=null;u.hold=false;u.why=null;}
+    for(const u of us){u.task={kind:'zone',x,y,n:opt.n??Infinity,high:opt.high??true,bias:null,fired:0};u.path=null;u.goal=null;u.hold=false;u.why=null;u.cool=Math.min(u.cool||0,18);}
     const far=us.filter(u=>d2(u.x,u.y,x,y)>this.zoneRange(this.W(u.w))).length;
     return {ok:true,text:`${us.length} pièce${us.length>1?'s':''} en tir sur zone${far?` (${far} doivent se rapprocher)`:''}${this.observer('meumeu',x,y)?' · un observateur voit la zone : le tir se règle':' · personne ne voit la zone : tir sans réglage'}`};}
   // auto : un mortier qui répond seul à un ennemi vu (pas d'ordre) — il ne bouge pas, et dit s'il a pu tirer
@@ -1552,14 +1553,17 @@ export class World{
       if(!this.s.units.some(o=>o.crewAmmo?.gun===u.id&&active(o))&&!this.crewDry(u))u.why='plus d’obus';else if(!u.why?.startsWith('à sec'))u.why='plus d’obus : un servant va en chercher';return true;}
     u.dry=false;if(u.cool>0)return true;
     // pointer la pièce sur une nouvelle zone : le temps de viser, une fois
-    if(!T.laid){T.laid=true;u.cool=W.aim*1.5;u.why='pointe la pièce';return true;}
+    // (une pièce sur affût se pointe à la manivelle : son temps de visée « à l'épaule », qui croît avec sa masse, est plafonné — sinon une pièce de
+    //  65 mm visait plus de 5 minutes réelles entre deux coups)
+    const aimZ=W.crew>1||mortar?Math.min(W.aim,12):W.aim;
+    if(!T.laid){T.laid=true;u.cool=aimZ*1.5;u.why='pointe la pièce';return true;}
     // l'erreur de départ : sans observateur, elle reste ; avec, elle fond de moitié à chaque coup observé
     const obs=this.observer(u.f,T.x,T.y);if(!T.bias)T.bias=[this.gauss()*R*.06,this.gauss()*R*.03];
     const skill=1/(1+(u.xp||0)/80);const sR=R*(.012+W.moa*.0006)*(1+miss*.4)*skill,sD=R*(W.moa*.00045+.004)*(1+miss*.4)*skill;
     const dl=Math.hypot(T.x-u.x,T.y-u.y)||1;const ux=(T.x-u.x)/dl,uy=(T.y-u.y)/dl;const eR=(T.bias[0]+this.gauss()*sR)/TILE_M,eD=(T.bias[1]+this.gauss()*sD)/TILE_M;
     const x1=T.x+ux*eR-uy*eD,y1=T.y+uy*eR+ux*eD;if(obs){T.bias[0]*=.5;T.bias[1]*=.5;T.obs=obs.id;}else T.obs=null;
     u.mag--;T.fired++;if(u.f==='meumeu')this.practice('tir',.05);u.xp=(u.xp||0)+.1;
-    u.cool=mortar?W.cyc:(ACTIONS[W.p.action]?.auto?Math.max(W.cyc,.6):W.cyc)+W.aim*.4+(W.p.mag<=1?1.2:0);if(miss)u.cool*=1+miss*.5;
+    u.cool=mortar?W.cyc:(ACTIONS[W.p.action]?.auto?Math.max(W.cyc,.6):W.cyc)+aimZ*.4+(W.p.mag<=1?1.2:0);if(miss)u.cool*=1+miss*.5;
     this.shotNoise(u,W,x1,y1);if(UDEF(u).sniper){u.cool*=2.2;u.snip=(u.snip||0)+1;if(u.snip%2===0&&u.task?.kind!=='move'){const a=this.rand()*Math.PI*2,ox=u.x,oy=u.y;const [nx,ny]=this.freeSpot?.(u.x+Math.cos(a)*3.5,u.y+Math.sin(a)*3.5,3)||[u.x+Math.cos(a)*3.5,u.y+Math.sin(a)*3.5];u.task={kind:'move',tx:nx,ty:ny,back:{kind:'guard',tx:nx,ty:ny}};u.path=null;u.orderPost='couche';}}
     if(W.jam&&this.rand()<W.jam){u.cool+=W.clear*(.7+this.rand()*.6);u.why='enrayé : il dégage la culasse';u.jams=(u.jams||0)+1;}else if(u.why?.startsWith('enrayé'))u.why=null;
     const SALVO=W.rocket&&W.salvo>1?W.salvo:0;

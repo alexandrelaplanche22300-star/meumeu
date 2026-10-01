@@ -430,7 +430,7 @@ export const WAR={
           const here=up.filter(u=>d2(u.x,u.y,R[0],R[1])<7).length;const night=this.light()<.35;
           b.rallyStarted??=b.age;if(b.age-b.rallyStarted>b.rallyMax+24&&here<Math.ceil(up.length*.9)){this.bandRetreat(b,up,c,true);break;}
           // (ils ont appris que nous voyons la nuit : on attend le jour pour partir)
-          if(here>=Math.ceil(up.length*.9)&&B.nightBlind!=null&&this.light()<.5){b.rallyStarted=b.age;break;}
+          if(here>=Math.ceil(up.length*.9)&&B.nightBlind!=null&&this.s.t-B.nightBlind<48&&this.light()<.5){b.rallyStarted=b.age;break;}
           if(here>=Math.ceil(up.length*.9)){this.bandSet(b,'approche','rassemblés : en avant');
             this.s.fog||this.log(this.cityName(target),`L’armée bèè rassemblée (${up.length}) s’ébranle vers ${this.cityName(target)}${this.light()<.6?' à l’aube':''} !`,'bad');
             for(const o of B.bands)if(o.state==='attente'&&o.waitFor===b.id)this.bandSet(o,'approche','la diversion part');}

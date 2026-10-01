@@ -225,7 +225,7 @@ export function opticOf(mag,obj){mag=Math.max(1,+mag||1);obj=Math.max(2,+obj||(6
 // fois plus qu'avant (IR_ENDURANCE) : le réglage moyen tient 44 h d'utilisation au lieu de 4,4 — plusieurs nuits. La portée est en CASES
 // (1 case = 4 m) : un réglage moyen (35 W) voit à 45 cases (180 m) de nuit, aussi loin qu'un œil nu en plein jour ; le meilleur réglage
 // (150 W, tube 1,6, faisceau étroit) plafonne à 140 cases (560 m).
-export const IR_MAX_RANGE=140,IR_ENDURANCE=10;
+export const IR_MAX_RANGE=45,IR_ENDURANCE=10;
 // Ce que coûte l'ensemble (lampe, tube, batterie) en matériaux : la batterie pèse lourd sur la facture (plomb surtout), la lampe et le tube en cuivre
 // et en pièces. Un réglage moyen (35 W, 200 Wh, tube ×1) : 10 plomb, 3,4 cuivre, 10,7 pièces — de quoi équiper très peu de soldats sans vraie filière.
 export const irCostOf=I=>({plomb:+(I.Wh*.05).toFixed(1),cuivre:+(.6+I.W*.012+I.Wh*.012).toFixed(1),pieces:+(1.5+I.q*3.6+I.Wh*.01).toFixed(1)});
@@ -235,7 +235,7 @@ export const irCostOf=I=>({plomb:+(I.Wh*.05).toFixed(1),cuivre:+(.6+I.W*.012+I.W
 export const IR_WH_PER_W=200/35,IR_NO_DRAIN=999;
 export function irOf(p){const W=Math.max(10,Math.min(150,p.irW??35)),Wh=Math.round(W*IR_WH_PER_W),q=Math.max(.5,Math.min(1.6,p.irQ??1));
   const beam=Math.max(8,Math.min(60,Math.round(p.irBeam??43))),filt=(p.irFilt??1)?1:0;
-  const range=Math.min(IR_MAX_RANGE,7.6*Math.sqrt(W)*Math.pow(q,.8)*Math.pow(43/beam,.5));
+  const range=Math.min(IR_MAX_RANGE,3.6*Math.sqrt(W)*Math.pow(q,.8)*Math.pow(43/beam,.5));   // (V12.4 : 35 W → ~21 cases, 85 m ; 150 W → plafond 45 cases ; avant : jusqu'à 140)
   return {W,Wh,q,beam,mode:0,filt,range:+range.toFixed(1),hours:IR_NO_DRAIN,lampKg:+(.004+W*.00012+q*.003+(filt?.002:0)).toFixed(4),packKg:+(Wh*.0006).toFixed(3),leak:!filt};}
 export function supOf(p,c){const V=Math.max(40,Math.min(900,p.supVol??250)),n=Math.max(2,Math.min(12,Math.round(p.supBaffles??5))),A=SUPS[p.supArch]||SUPS.chicanes;
   const R=Math.min(38,10*Math.log10(1+V/(30*Math.max(1e-4,c)))*Math.min(1.35,A.eff(n)));return {V,n,arch:p.supArch in SUPS?p.supArch:'chicanes',A,R};}

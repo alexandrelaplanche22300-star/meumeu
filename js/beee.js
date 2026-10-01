@@ -47,7 +47,7 @@ export const BEEE_AI={
     const dead=this.s.corpses.filter(c=>c.f==='beee').length;L=Math.min(5,L+Math.floor(dead/40));
     if(L>(B.lvl||0)){B.lvl=L;this.emit({type:'escalade',lvl:L});}},
   // les réglages de l'offensive selon le niveau : colonnes simultanées, armée minimale, marge d'écrasement, garde laissée aux villes, jours entre deux départs
-  raidK(){const L=this.beeeLevel();return {maxcol:1+(L>=3?1:0)+(L>=5?1:0),armyMin:45+8*L,odds:2.5+(this.s.beee.nightBlind!=null?.5:0),keep:Math.max(.3,.5-.04*L),gap:Math.max(.25,.6-.07*L)};},
+  raidK(){const L=this.beeeLevel();return {maxcol:1+(L>=3?1:0)+(L>=5?1:0),armyMin:45+8*L,odds:2.5+(this.s.beee.nightBlind!=null&&this.s.t-this.s.beee.nightBlind<48?.5:0),keep:Math.max(.3,.5-.04*L),gap:Math.max(.25,.6-.07*L)};},
   beeeReady(){return [FOOD,'atelier','poudrerie','caserne','arsenal'].every(k=>this.s.buildings.some(b=>b.f==='beee'&&b.k===k&&b.done&&!b.ruin));},
   meumeuReady(){return [FOOD,'atelier'].every(k=>this.s.buildings.some(b=>b.f==='meumeu'&&b.k===k&&b.done&&!b.ruin));},
   beeeCrowded(b){return this.s.buildings.some(o=>o!==b&&o.f==='beee'&&o.k==='centre'&&!o.ruin&&distance(o.i,o.j,b.i,b.j)<SPACE);},
