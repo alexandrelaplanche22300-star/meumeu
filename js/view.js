@@ -704,7 +704,7 @@ export class View{
   // Autour de chacun de nos tireurs : jusqu'où s'entendra son prochain coup (et, pointillé, le claquement d'une balle supersonique).
   // La nuit : ce que voit chacune de nos unités — sa vue nue tout autour (face, flancs, dos), sa lunette et son infrarouge dans l'axe.
   // Même calcul que la perception (World.eyeProfile / visualRange), échantillonné sur 32 directions.
-  drawNightVision(){const W=this.world,s=W.s;if(!(W.light()<.4))return;const ctx=this.ctx,[i0,i1,j0,j1]=this.vis;let n=0;
+  drawNightVision(){const W=this.world,s=W.s;if(!(W.light()<.7))return;const ctx=this.ctx,[i0,i1,j0,j1]=this.vis;let n=0;
     // toutes les zones sont peintes, opaques, sur un calque à part : leurs recouvrements se fondent en une seule tache, posée ensuite en douceur
     const cv=this.nvCv??=document.createElement('canvas');if(cv.width!==this.canvas.width||cv.height!==this.canvas.height){cv.width=this.canvas.width;cv.height=this.canvas.height;}
     const x=cv.getContext('2d');x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,cv.width,cv.height);x.filter=`blur(${Math.round(6*this.dpr)}px)`;let any=false;
@@ -717,7 +717,7 @@ export class View{
         pts.push(this.toScreen(u.x+dx*r,u.y+dy*r));}
       x.beginPath();for(let k=0;k<pts.length;k++){const p=pts[k],q=pts[(k+1)%pts.length],m=[(p.x+q.x)/2,(p.y+q.y)/2];if(!k)x.moveTo(m[0],m[1]);else x.quadraticCurveTo(p.x,p.y,m[0],m[1]);}
       {const p=pts[0],q=pts[1];x.quadraticCurveTo(p.x,p.y,(p.x+q.x)/2,(p.y+q.y)/2);}x.closePath();x.fillStyle=nv?'rgb(140,255,170)':'rgb(255,236,180)';x.fill();any=true;}
-    x.filter='none';if(!any)return;ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=.13;ctx.globalCompositeOperation='screen';ctx.drawImage(cv,0,0);ctx.restore();}
+    x.filter='none';if(!any)return;ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=.24;ctx.globalCompositeOperation='lighter';ctx.drawImage(cv,0,0);ctx.restore();}
   drawCones(){const W=this.world,s=W.s;const sel=[];for(const id of this.sel){const u=W.unit(id);if(u&&u.f==='meumeu'&&u.hp>0)sel.push(u);}if(!sel.length)return;
     const night=W.light()<.4;if(!(this.cones||night&&sel.some(u=>u.holdFire||u.charges>0||u.scoutRole||u.camoSuit||u.task?.kind==='sabotage')))return;
     const ctx=this.ctx,z=this.z(),dpr=this.dpr,base=W.sight(),alerts=s.beee.alerts||[];const [i0,i1,j0,j1]=this.vis;
