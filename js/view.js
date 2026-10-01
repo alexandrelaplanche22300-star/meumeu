@@ -595,7 +595,7 @@ export class View{
   // La vision infrarouge de toutes nos unités : les cônes sont réunis en UN seul tracé, rempli une fois (les recouvrements ne s'additionnent pas)
   // et grainé une fois (300 grains en tout, pas 110 par unité : à vingt lunettes le jeu ramait).
   drawNir(){const W=this.world;if(W.light()>=.4)return;const ctx=this.ctx,dpr=this.dpr,[i0,i1,j0,j1]=this.vis||[0,1e9,0,1e9];const path=new Path2D(),cones=[];
-    for(const u of W.s.units){if(u.f!=='meumeu'||!(u.hp>0)||!u.nvOn||!((u.irLeft??0)>0))continue;
+    for(const id of this.sel){const u=W.unit(id);if(!u||u.f!=='meumeu'||!(u.hp>0)||!u.nvOn||!((u.irLeft??0)>0))continue;
       const Wd=u.w?W.W(u.w):null,ir=Wd?.ir;const range=ir?ir.range*(1+.2*Math.log2(Wd.optic?.mag||1)):(u.bino||0);if(!range)continue;
       if(u.x+range<i0||u.x-range>i1||u.y+range<j0||u.y-range>j1)continue;
       const beam=(ir?.beam||43)*Math.PI/180,a0=Math.atan2(u.fy??0,u.fx??1);let q=this.toScreen(u.x,u.y);path.moveTo(q.x,q.y);
