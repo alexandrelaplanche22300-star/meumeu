@@ -293,9 +293,10 @@ function unitsPane(sel){const by={};for(const u of sel)by[u.k]=(by[u.k]||0)+1;co
   return h;}
 // Le cinéma : l'interface s'efface, des bandes noires et une vignette cadrent l'image, et la caméra suit l'action (director.js).
 // la vue 3D (V) : les modèles à la place des images ; un choix retenu d'une partie à l'autre
-async function toggle3d(force,quiet){const on=force??!view.g3;const ok=await view.set3d(on);const b=document.getElementById('b3d');if(b)b.classList.toggle('on',ok);if(!quiet)say(ok?'Vue 3D.':on?'La 3D n’est pas disponible ici.':'Vue dessinée.','good');}
+async function toggle3d(force,quiet){const on=true;   // la vue 2D d'origine est retirée : toujours la 3D
+const ok=await view.set3d(on);const b=document.getElementById('b3d');if(b)b.classList.toggle('on',ok);if(!quiet)say(ok?'Vue 3D.':on?'La 3D n’est pas disponible ici.':'Vue dessinée.','good');}
 // la 3D est la vue par défaut ; le choix « vue dessinée » est retenu
-setTimeout(()=>{let v=null;try{v=localStorage.getItem('okm-3d');}catch(e){}if(v!=='0')toggle3d(true,true);},0);
+setTimeout(()=>toggle3d(true,true),0);
 function toggleCine(force){const cs=document.body.classList,on=force??!cs.contains('cine');if(on===cs.contains('cine'))return;
   if(on){ui.cinePanelWas=cs.contains('nopanel');cs.add('cine','nopanel');}else{cs.remove('cine');if(!ui.cinePanelWas)cs.remove('nopanel');}
   view.dir.on=on;view.dir.reset();dispatchEvent(new Event('resize'));
