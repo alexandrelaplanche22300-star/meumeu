@@ -292,7 +292,7 @@ export class View{
     if(fog)this.drawIntel();else this.drawHeard();
     this.stepParts(dt);this.drawShots();this.drawStreaks(dt);this.drawParts(false);this.drawSmokes();this.drawFx(dt);this.drawLogistics();this.drawFocus();
     for(const v of s.vehicles)if(v.alt>0&&inView(v.x,v.y,12))this.drawVehicle(v);
-    this.drawNightVision();this.drawCones();this.drawCharges();this.drawParts(true);this.drawLinks();
+    this.drawCones();this.drawCharges();this.drawParts(true);this.drawLinks();
     if(this.placing&&this.hover)this.drawGhost();if(this.lining?.cells)this.drawLinePlan();
     if(this.drag?.box){const {x0,y0,x1,y1}=this.drag.box;ctx.fillStyle='rgba(255,211,106,.12)';ctx.strokeStyle='#ffd36a';ctx.lineWidth=1.5*this.dpr;ctx.fillRect(Math.min(x0,x1),Math.min(y0,y1),Math.abs(x1-x0),Math.abs(y1-y0));ctx.strokeRect(Math.min(x0,x1),Math.min(y0,y1),Math.abs(x1-x0),Math.abs(y1-y0));}
     this.marks=this.marks.filter(m=>(m.age+=dt)<.6);for(const m of this.marks){const q=this.toScreen(m.x,m.y);ctx.strokeStyle=m.bad?`rgba(235,90,70,${1-m.age/.6})`:`rgba(255,211,106,${1-m.age/.6})`;ctx.lineWidth=2.5*this.dpr;ctx.beginPath();ctx.ellipse(q.x,q.y,(6+m.age*30)*z,(3+m.age*15)*z,0,0,7);ctx.stroke();}
