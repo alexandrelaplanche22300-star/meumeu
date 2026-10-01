@@ -1,0 +1,2 @@
+﻿import {generate as gNew} from './js/gen.js';import {generate as gOld} from './js/_gen_ancien.js';
+for(const seed of [1,2,3,4,5,6,7,8]){const out=[];for(const [nm,g] of [['ancien',gOld],['nouveau',gNew]]){const G=g(seed);const [ci,cj]=G.capital;const near=G.deposits.filter(d=>d&&Math.hypot(d.i-ci,d.j-cj)<34).map(d=>d.res+'@'+Math.round(Math.hypot(d.i-ci,d.j-cj)));out.push(nm+': '+near.sort().join(' '));}console.log('graine',seed,'|',out.join(' | '));}

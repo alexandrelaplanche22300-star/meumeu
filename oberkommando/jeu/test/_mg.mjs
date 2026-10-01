@@ -1,0 +1,1 @@
+﻿import('../js/ballistics.js').then(async B=>{const {DEFAULT_DESIGNS}=await import('../js/designs.js');for(const d of DEFAULT_DESIGNS){const D=B.derive?B.derive(d.p):null;if(!D)continue;if(D.mg||/mg|fusil|at_/.test(d.id))console.log(d.id.padEnd(18),'mg',D.mg,'crew',D.crew,'life',D.life,'costK',JSON.stringify(D.costK),'perCrate',D.perCrate);}});

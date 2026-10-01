@@ -1,0 +1,10 @@
+﻿const {KIT_PRESETS}=await import('../js/kitdata.js');const B=await import('../js/ballistics.js');const {crateCost}=await import('../js/designs.js');
+const f=KIT_PRESETS.find(p=>p.id==='field').design,h=KIT_PRESETS.find(p=>p.id==='howitzer').design;
+const test=(name,o)=>{const p=B.kitToP({...f,...o,name});const D=B.derive(p);const at=r=>D.at(r);
+  console.log(name.padEnd(26),'cons',p.cons,'d',p.d,'v0',Math.round(D.v0),'· pen 50/200/500',[50,200,500].map(r=>D.pen(at(r).v).toFixed(2)).join('/'),'· HE',D.he?`charge ${D.he.g?.toFixed?.(1)} g souffle ${D.he.blast?.toFixed?.(2)} m blessure ${D.he.inj?.toFixed?.(2)} m`:'non','· caisse',JSON.stringify(crateCost(p)),'· portée tendue',D.table?.length,'m');};
+test('canon de char 14 HE',{caliberMm:14,barrelLengthCm:42,filler:.2,ogive:.45,coreDensity:6.4,meplat:.24});
+test('canon de char 16 HE',{caliberMm:16,barrelLengthCm:46,filler:.2,ogive:.45,coreDensity:6.4,meplat:.24});
+test('canon de char 18 HE',{caliberMm:18,barrelLengthCm:52,filler:.2,ogive:.45,coreDensity:6.4,meplat:.24});
+test('canon d’assaut 24 HE',{caliberMm:24,barrelLengthCm:60,filler:.22,ogive:.42,coreDensity:6.3,meplat:.26});
+test('canon d’assaut 28 HE',{caliberMm:28,barrelLengthCm:66,filler:.22,ogive:.42,coreDensity:6.3,meplat:.26});
+test('obusier (référence)',{...h});
