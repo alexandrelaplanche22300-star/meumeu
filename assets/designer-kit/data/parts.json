@@ -1,0 +1,709 @@
+[
+  {
+    "id": "crosse-aucune",
+    "cat": "Crosse",
+    "label": "Sans crosse",
+    "hint": "Masse de monture nulle",
+    "apply": {
+      "stock": "none"
+    }
+  },
+  {
+    "id": "crosse-poignee",
+    "cat": "Crosse",
+    "label": "Poignée",
+    "hint": "Arme de poing",
+    "apply": {
+      "stock": "pistol"
+    }
+  },
+  {
+    "id": "crosse-droite",
+    "cat": "Crosse",
+    "label": "Droite",
+    "hint": "Ligne de crosse basse",
+    "apply": {
+      "stock": "straight"
+    }
+  },
+  {
+    "id": "crosse-pleine",
+    "cat": "Crosse",
+    "label": "Pleine",
+    "hint": "Fusil de ligne",
+    "apply": {
+      "stock": "full"
+    }
+  },
+  {
+    "id": "crosse-fil",
+    "cat": "Crosse",
+    "label": "Fil d'acier",
+    "hint": "Légère, peu stable",
+    "apply": {
+      "stock": "wire"
+    }
+  },
+  {
+    "id": "crosse-bullpup",
+    "cat": "Crosse",
+    "label": "Bullpup",
+    "hint": "Culasse en arrière, canon plus long à longueur égale",
+    "apply": {
+      "stock": "bullpup"
+    }
+  },
+  {
+    "id": "crosse-pouce",
+    "cat": "Crosse",
+    "label": "Trou de pouce",
+    "hint": "Appui de joue",
+    "apply": {
+      "stock": "thumbhole"
+    }
+  },
+  {
+    "id": "crosse-galbee",
+    "cat": "Crosse",
+    "label": "Galbée",
+    "hint": "Chasse, même masse qu'une pleine",
+    "apply": {
+      "stock": "full"
+    }
+  },
+  {
+    "id": "boitier-bascule",
+    "cat": "Boîtier",
+    "label": "Bascule",
+    "hint": "Pression modeste",
+    "apply": {
+      "receiver": "break"
+    }
+  },
+  {
+    "id": "boitier-verrou",
+    "cat": "Boîtier",
+    "label": "Verrou",
+    "hint": "Tient une charge de fusil",
+    "apply": {
+      "receiver": "bolt"
+    }
+  },
+  {
+    "id": "boitier-auto",
+    "cat": "Boîtier",
+    "label": "Automatique",
+    "hint": "Un peu plus lourd, pression standard",
+    "apply": {
+      "receiver": "auto"
+    }
+  },
+  {
+    "id": "boitier-ouvert",
+    "cat": "Boîtier",
+    "label": "Culasse ouverte",
+    "hint": "Mitrailleuse",
+    "apply": {
+      "receiver": "open"
+    }
+  },
+  {
+    "id": "boitier-culasse",
+    "cat": "Boîtier",
+    "label": "Culasse de pièce",
+    "hint": "Canon et obusier",
+    "apply": {
+      "receiver": "breech"
+    }
+  },
+  {
+    "id": "boitier-mortier",
+    "cat": "Boîtier",
+    "label": "Mortier",
+    "hint": "Tube lisse, basse pression",
+    "apply": {
+      "receiver": "mortar",
+      "rifled": false
+    }
+  },
+  {
+    "id": "boitier-tube",
+    "cat": "Boîtier",
+    "label": "Tube roquette",
+    "hint": "Le moteur propulse, pas la poudre du tube",
+    "apply": {
+      "receiver": "tube",
+      "motorNs": 20
+    }
+  },
+  {
+    "id": "boitier-sans-recul",
+    "cat": "Boîtier",
+    "label": "Sans recul",
+    "hint": "Une part des gaz part en arrière. Léger, bruyant",
+    "apply": {
+      "receiver": "recoilless"
+    }
+  },
+  {
+    "id": "canon-pistolet",
+    "cat": "Canon",
+    "label": "Court 8 cm",
+    "hint": "Poudre vive",
+    "apply": {
+      "barrelLengthCm": 8,
+      "barrelProfile": 0.3
+    }
+  },
+  {
+    "id": "canon-carabine",
+    "cat": "Canon",
+    "label": "Carabine 16 cm",
+    "hint": "Compromis",
+    "apply": {
+      "barrelLengthCm": 16,
+      "barrelProfile": 0.36
+    }
+  },
+  {
+    "id": "canon-fusil",
+    "cat": "Canon",
+    "label": "Fusil 24 cm",
+    "hint": "Longueur de ligne",
+    "apply": {
+      "barrelLengthCm": 24,
+      "barrelProfile": 0.4
+    }
+  },
+  {
+    "id": "canon-long",
+    "cat": "Canon",
+    "label": "Long 40 cm",
+    "hint": "Pour poudre lente",
+    "apply": {
+      "barrelLengthCm": 40,
+      "barrelProfile": 0.48
+    }
+  },
+  {
+    "id": "canon-crayon",
+    "cat": "Canon",
+    "label": "Profil crayon",
+    "hint": "Léger, vibre si très long",
+    "apply": {
+      "barrelProfile": 0.08
+    }
+  },
+  {
+    "id": "canon-lourd",
+    "cat": "Canon",
+    "label": "Profil lourd",
+    "hint": "Raide, masse honnête",
+    "apply": {
+      "barrelProfile": 0.85
+    }
+  },
+  {
+    "id": "canon-lisse",
+    "cat": "Canon",
+    "label": "Âme lisse",
+    "hint": "Dispersion forte sauf roquette",
+    "apply": {
+      "rifled": false
+    }
+  },
+  {
+    "id": "canon-raye",
+    "cat": "Canon",
+    "label": "Âme rayée",
+    "hint": "Stabilité si le pas suit l'ogive",
+    "apply": {
+      "rifled": true
+    }
+  },
+  {
+    "id": "canon-obusier",
+    "cat": "Canon",
+    "label": "Obusier 52 cm",
+    "hint": "Âme moyenne",
+    "apply": {
+      "barrelLengthCm": 52,
+      "barrelProfile": 0.34,
+      "caliberMm": 36
+    }
+  },
+  {
+    "id": "canon-campagne",
+    "cat": "Canon",
+    "label": "Campagne 86 cm",
+    "hint": "Long, tendu",
+    "apply": {
+      "barrelLengthCm": 86,
+      "barrelProfile": 0.46,
+      "caliberMm": 28
+    }
+  },
+  {
+    "id": "tube-roquette",
+    "cat": "Canon",
+    "label": "Guide 40 cm",
+    "hint": "Précision, pas la vitesse",
+    "apply": {
+      "barrelLengthCm": 40,
+      "barrelProfile": 0.12,
+      "receiver": "tube"
+    }
+  },
+  {
+    "id": "tube-mortier",
+    "cat": "Canon",
+    "label": "Mortier 32 cm",
+    "hint": "Court, charge vive",
+    "apply": {
+      "barrelLengthCm": 32,
+      "barrelProfile": 0.22,
+      "receiver": "mortar"
+    }
+  },
+  {
+    "id": "bouche-nu",
+    "cat": "Bouche",
+    "label": "Nue",
+    "hint": "Couronne simple",
+    "apply": {
+      "muzzle": "none"
+    }
+  },
+  {
+    "id": "bouche-couronne",
+    "cat": "Bouche",
+    "label": "Couronne",
+    "hint": "Sortie propre",
+    "apply": {
+      "muzzle": "crown"
+    }
+  },
+  {
+    "id": "bouche-cache",
+    "cat": "Bouche",
+    "label": "Cache-flamme",
+    "hint": "Peu de masse",
+    "apply": {
+      "muzzle": "flash"
+    }
+  },
+  {
+    "id": "bouche-frein",
+    "cat": "Bouche",
+    "label": "Frein",
+    "hint": "Coupe le recul, pas la portée",
+    "apply": {
+      "muzzle": "brake"
+    }
+  },
+  {
+    "id": "bouche-tromblon",
+    "cat": "Bouche",
+    "label": "Tromblon",
+    "hint": "Ouvre la gerbe, dispersion",
+    "apply": {
+      "muzzle": "trumpet"
+    }
+  },
+  {
+    "id": "bouche-conique",
+    "cat": "Bouche",
+    "label": "Réducteur",
+    "hint": "Bague de bouche",
+    "apply": {
+      "muzzle": "taper"
+    }
+  },
+  {
+    "id": "viseur-aucun",
+    "cat": "Viseur",
+    "label": "Aucun",
+    "hint": "L'œil seul, court",
+    "apply": {
+      "sight": "none",
+      "magnification": 1
+    }
+  },
+  {
+    "id": "viseur-cran",
+    "cat": "Viseur",
+    "label": "Cran et guidon",
+    "hint": "Le rayon de visée compte",
+    "apply": {
+      "sight": "notch",
+      "magnification": 1
+    }
+  },
+  {
+    "id": "viseur-planchette",
+    "cat": "Viseur",
+    "label": "Planchette",
+    "hint": "Zéro fixe",
+    "apply": {
+      "sight": "leaf",
+      "magnification": 1
+    }
+  },
+  {
+    "id": "viseur-hausse-courte",
+    "cat": "Viseur",
+    "label": "Hausse courte",
+    "hint": "Graduée près",
+    "apply": {
+      "sight": "ladder",
+      "zeroM": 80,
+      "magnification": 1
+    }
+  },
+  {
+    "id": "viseur-hausse-longue",
+    "cat": "Viseur",
+    "label": "Hausse longue",
+    "hint": "Graduée loin — ne crée pas de vitesse",
+    "apply": {
+      "sight": "ladder",
+      "zeroM": 300,
+      "magnification": 1
+    }
+  },
+  {
+    "id": "viseur-dioptre",
+    "cat": "Viseur",
+    "label": "Dioptre",
+    "hint": "Erreur d'alignement plus faible",
+    "apply": {
+      "sight": "diopter",
+      "magnification": 1
+    }
+  },
+  {
+    "id": "viseur-optique-2",
+    "cat": "Viseur",
+    "label": "Optique ×2",
+    "hint": "Voit plus loin, V₀ inchangée",
+    "apply": {
+      "sight": "optic",
+      "magnification": 2
+    }
+  },
+  {
+    "id": "viseur-optique-4",
+    "cat": "Viseur",
+    "label": "Optique ×4",
+    "hint": "Identification, pas balistique",
+    "apply": {
+      "sight": "optic",
+      "magnification": 4
+    }
+  },
+  {
+    "id": "viseur-optique-8",
+    "cat": "Viseur",
+    "label": "Optique ×8",
+    "hint": "Lourd un peu, voit loin",
+    "apply": {
+      "sight": "optic",
+      "magnification": 8
+    }
+  },
+  {
+    "id": "viseur-panoramique",
+    "cat": "Viseur",
+    "label": "Panoramique",
+    "hint": "Pièce, tir masqué",
+    "apply": {
+      "sight": "panoramic",
+      "magnification": 3
+    }
+  },
+  {
+    "id": "affut-epaule",
+    "cat": "Affût",
+    "label": "Épaule",
+    "hint": "1,45 kg par servant",
+    "apply": {
+      "carriage": "shoulder"
+    }
+  },
+  {
+    "id": "affut-bipied",
+    "cat": "Affût",
+    "label": "Bipied",
+    "hint": "Pose au sol, toujours portable",
+    "apply": {
+      "carriage": "bipod"
+    }
+  },
+  {
+    "id": "affut-trepied",
+    "cat": "Affût",
+    "label": "Trépied",
+    "hint": "Se démonte, se porte",
+    "apply": {
+      "carriage": "tripod"
+    }
+  },
+  {
+    "id": "affut-roues",
+    "cat": "Affût",
+    "label": "Roues",
+    "hint": "Lourd mais poussé, jamais figé",
+    "apply": {
+      "carriage": "wheels"
+    }
+  },
+  {
+    "id": "affut-fleche",
+    "cat": "Affût",
+    "label": "Flèche",
+    "hint": "Roues et timon",
+    "apply": {
+      "carriage": "wheels"
+    }
+  },
+  {
+    "id": "affut-bouclier",
+    "cat": "Affût",
+    "label": "Bouclier",
+    "hint": "Roues + tôle. La tôle pèse.",
+    "apply": {
+      "carriage": "shield"
+    }
+  },
+  {
+    "id": "affut-pieux",
+    "cat": "Affût",
+    "label": "Pieux",
+    "hint": "Fixe seulement parce qu'on le choisit",
+    "apply": {
+      "carriage": "emplaced"
+    }
+  },
+  {
+    "id": "affut-caisson",
+    "cat": "Affût",
+    "label": "Caisson roulant",
+    "hint": "Même mobilité que les roues",
+    "apply": {
+      "carriage": "wheels"
+    }
+  },
+  {
+    "id": "ogive-cylindre",
+    "cat": "Projectile",
+    "label": "Cylindre",
+    "hint": "Traîne forte",
+    "apply": {
+      "ogive": 0.05,
+      "boattail": 0,
+      "meplat": 0.55,
+      "filler": 0,
+      "motorNs": 0
+    }
+  },
+  {
+    "id": "ogive-ronde",
+    "cat": "Projectile",
+    "label": "Nez rond",
+    "hint": "Plomb ancien",
+    "apply": {
+      "ogive": 0.28,
+      "boattail": 0,
+      "meplat": 0.3,
+      "filler": 0,
+      "coreDensity": 11.3,
+      "motorNs": 0
+    }
+  },
+  {
+    "id": "ogive-spitzer",
+    "cat": "Projectile",
+    "label": "Spitzer",
+    "hint": "Ogive longue",
+    "apply": {
+      "ogive": 0.78,
+      "boattail": 0.05,
+      "meplat": 0.1,
+      "filler": 0,
+      "motorNs": 0
+    }
+  },
+  {
+    "id": "ogive-boat",
+    "cat": "Projectile",
+    "label": "Boat-tail",
+    "hint": "Moins de traîne loin",
+    "apply": {
+      "ogive": 0.8,
+      "boattail": 0.28,
+      "meplat": 0.08,
+      "filler": 0,
+      "motorNs": 0
+    }
+  },
+  {
+    "id": "ogive-meplat",
+    "cat": "Projectile",
+    "label": "Méplat",
+    "hint": "Chasse, traîne",
+    "apply": {
+      "ogive": 0.5,
+      "boattail": 0,
+      "meplat": 0.42,
+      "filler": 0,
+      "motorNs": 0
+    }
+  },
+  {
+    "id": "ogive-perce",
+    "cat": "Projectile",
+    "label": "Perforant",
+    "hint": "Noyau dense",
+    "apply": {
+      "ogive": 0.74,
+      "boattail": 0.12,
+      "meplat": 0.08,
+      "filler": 0,
+      "coreDensity": 14.5,
+      "motorNs": 0
+    }
+  },
+  {
+    "id": "ogive-explosive",
+    "cat": "Projectile",
+    "label": "Explosif",
+    "hint": "Éclat, peu de perçage",
+    "apply": {
+      "ogive": 0.45,
+      "boattail": 0.12,
+      "meplat": 0.22,
+      "filler": 0.22,
+      "coreDensity": 6.4,
+      "motorNs": 0
+    }
+  },
+  {
+    "id": "ogive-fumi",
+    "cat": "Projectile",
+    "label": "Fumigène",
+    "hint": "Charge utile sans perçage",
+    "apply": {
+      "ogive": 0.4,
+      "meplat": 0.25,
+      "filler": 0.3,
+      "coreDensity": 4.2,
+      "motorNs": 0
+    }
+  },
+  {
+    "id": "ogive-fleche",
+    "cat": "Projectile",
+    "label": "Flèche",
+    "hint": "Très faible traîne",
+    "apply": {
+      "ogive": 0.95,
+      "boattail": 0.05,
+      "meplat": 0.02,
+      "lengthCal": 8,
+      "filler": 0,
+      "coreDensity": 15,
+      "motorNs": 0
+    }
+  },
+  {
+    "id": "ogive-mitraille",
+    "cat": "Projectile",
+    "label": "Boîte à mitraille",
+    "hint": "Court",
+    "apply": {
+      "ogive": 0.1,
+      "boattail": 0,
+      "meplat": 0.6,
+      "filler": 0.05,
+      "motorNs": 0
+    }
+  },
+  {
+    "id": "ogive-mortier",
+    "cat": "Projectile",
+    "label": "Bombe",
+    "hint": "Queue, charge",
+    "apply": {
+      "ogive": 0.3,
+      "boattail": 0.22,
+      "meplat": 0.3,
+      "filler": 0.24,
+      "coreDensity": 5.5,
+      "motorNs": 0
+    }
+  },
+  {
+    "id": "ogive-roquette",
+    "cat": "Projectile",
+    "label": "Roquette",
+    "hint": "Impulsion moteur",
+    "apply": {
+      "ogive": 0.82,
+      "boattail": 0.04,
+      "meplat": 0.06,
+      "filler": 0.26,
+      "motorNs": 22,
+      "receiver": "tube"
+    }
+  },
+  {
+    "id": "ogive-traceuse",
+    "cat": "Projectile",
+    "label": "Traceuse",
+    "hint": "Même vol, coût du coup",
+    "apply": {
+      "tracer": true,
+      "ogive": 0.75,
+      "filler": 0.04
+    }
+  },
+  {
+    "id": "ogive-souscal",
+    "cat": "Projectile",
+    "label": "Sous-calibré",
+    "hint": "Noyau dense, ogive fine",
+    "apply": {
+      "ogive": 0.88,
+      "boattail": 0.1,
+      "meplat": 0.04,
+      "coreDensity": 16.5,
+      "filler": 0,
+      "motorNs": 0
+    }
+  },
+  {
+    "id": "ogive-plomb",
+    "cat": "Projectile",
+    "label": "Plomb nu",
+    "hint": "Densité 11,3",
+    "apply": {
+      "coreDensity": 11.3,
+      "ogive": 0.35,
+      "filler": 0,
+      "meplat": 0.25,
+      "motorNs": 0
+    }
+  },
+  {
+    "id": "ogive-bois",
+    "cat": "Projectile",
+    "label": "Bois d'exercice",
+    "hint": "Léger, à régler à la main",
+    "apply": {
+      "coreDensity": 0.8,
+      "filler": 0,
+      "ogive": 0.2,
+      "motorNs": 0
+    }
+  }
+]

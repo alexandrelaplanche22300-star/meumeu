@@ -1,0 +1,23 @@
+Bruitages enregistrés. Déposez ici des fichiers .mp3, .wav ou .ogg portant exactement ces noms ; le jeu les prend au
+lancement à la place du son synthétisé. Absent : le son synthétisé reste. Les voix des peluches restent synthétisées.
+
+tir_leger      (et tir_leger_2, _3 : variantes tirées au hasard) coup de fusil de petit calibre (moins de 2,8 mm) — le jeu le monte ou le baisse selon le calibre
+tir_moyen      coup de fusil lourd (2,8 à 6 mm)
+tir_lourd      gros calibre, mitrailleuse lourde (6 mm et plus)
+mortier        départ de mortier (le « ploc » creux)
+obusier        départ d'obusier
+fusee          départ d'une balle-fusée (sifflement de moteur)
+explosion_grenade  grenade, petite charge, voie qui saute
+explosion_obus     obus
+explosion_depot    bombe, dépôt de munitions qui saute
+sifflement     balle qui passe tout près
+ricochet       balle sur la pierre ou le métal
+impact         balle qui frappe (le cri de la peluche s'ajoute)
+rechargement   rechargement
+effondrement   bâtiment qui s'écroule
+incendie       feu
+train          train qui arrive
+
+forge.py : l’outil qui a fabriqué ces sons à partir des fichiers générés (claquement réparé, corps grave, traîne, écho).
+impact_terre   balle dans la terre
+impacts.py : les impacts synthétisés (chair, terre, ricochet, balle qui passe), trois variantes chacun.
