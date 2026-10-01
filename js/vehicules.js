@@ -214,7 +214,22 @@ export const VEHICULES={
   // un nouveau morceau local tout de suite (bloqué : un engin qui ne bouge pas, un mur devant) — trois fois en deux heures au plus
   vehReplan(v){(v.diag??={}).rRe=(v.diag.rRe||0)+1;const t=this.s.t;v.replans=(v.replans||[]).filter(x=>t-x<2);if(v.replans.length>=3||!v.goal)return false;v.replans.push(t);v.path=null;return true;},
   // le cap de la caisse : l'angle (repère du monde, x vers l'est, y vers le sud) ; l'avant du véhicule est (cos h, sin h) ; v.dir : +1 en avant, −1 en arrière
-  combatVehicleTick(v,dt){const V=VEHDEF[v.k];if(v.hp<=0){v.spd=0;return;}
+  // La soute d'un engin : comptée en caisses (une caisse de munitions, une arme, une protection = 1 ; 10 unités d'une ressource = 1).
+  // On charge et décharge à un dépôt à moins de 4 cases ; à l'arrêt, l'équipage, les Meumeu à 2,5 cases et les armes de l'engin s'y ravitaillent.
+  soutePart(k,n){return /^(m|a|p):/.test(k)?n:n/10;},
+  souteUsed(v){let s=0;for(const [k,n] of Object.entries(v.cargo||{}))s+=this.soutePart(k,n);return s;},
+  vehLoad(v,k,n){const V=VEHDEF[v.k];if(!V?.soute)return {ok:false,why:['pas de soute']};if(!this.depots(v.f,v.x,v.y,4).length)return {ok:false,why:['il faut un dépôt à moins de 4 cases']};
+    const room=V.soute-this.souteUsed(v),per=this.soutePart(k,1);const want=Math.min(n,Math.floor(room/per+1e-9));if(want<=0)return {ok:false,why:['soute pleine']};
+    const got=this.take(v.f,v.x,v.y,k,want,4);if(got<=0)return {ok:false,why:['le dépôt n’en a pas']};v.cargo[k]=(v.cargo[k]||0)+got;return {ok:true,text:`${v.name} : ${Math.round(got*10)/10} ${this.goodName(k)} chargé${got>1?'s':''}.`};},
+  vehUnload(v,k=null,n=Infinity){const D=this.depots(v.f,v.x,v.y,4)[0];if(!D)return {ok:false,why:['il faut un dépôt à moins de 4 cases']};let moved=0;
+    for(const kk of k?[k]:Object.keys(v.cargo)){const q=this.put(D,kk,Math.min(n,v.cargo[kk]||0));v.cargo[kk]-=q;moved+=q;if(v.cargo[kk]<=1e-6)delete v.cargo[kk];}
+    return moved>0?{ok:true,text:`${v.name} décharge au dépôt.`}:{ok:false,why:['rien à décharger, ou dépôt plein']};},
+  vehSouteSupply(v){if(!v.cargo||(v.spd||0)>.5)return;if(this.s.t-(v.souteT??-9)<.25)return;v.souteT=this.s.t;
+    const crate=(w,cap,give)=>{const k='m:'+w;if(!((v.cargo[k]||0)>=1))return false;const Wd=this.W(w);if(!Wd)return false;if(!give(Wd))return false;v.cargo[k]-=1;if(v.cargo[k]<=1e-6)delete v.cargo[k];return true;};
+    for(const m of v.mounts||[])crate(m.w,0,Wd=>{if((m.pouch||0)>=Wd.p.mag*2)return false;m.pouch=(m.pouch||0)+(Wd.perCrate||Wd.p.mag);return true;});
+    const near=[...(v.crew||[]),...this.s.units.filter(u=>u.f===v.f&&!u.inVeh&&u.hp>0&&Math.hypot(u.x-v.x,u.y-v.y)<2.5)];
+    for(const u of near){if(!u.w)continue;crate(u.w,0,Wd=>{const carry=Wd.carry||Wd.p.mag*4;if((u.pouch||0)+(u.mag||0)>=carry*.5)return false;u.pouch=Math.min(carry,(u.pouch||0)+(Wd.perCrate||Wd.p.mag));return true;});}},
+  combatVehicleTick(v,dt){const V=VEHDEF[v.k];if(v.hp<=0){v.spd=0;return;}this.vehSouteSupply(v);
     if(v.fire>0){v.fire-=dt;v.hp-=dt*35;if(v.hp<=0){this.vehDestroyed(v,'brûlé');return;}}
     if(v.comp?.moteur||v.comp?.train){if(v.state==='go'){v.state='idle';v.path=null;v.itin=null;}v.why=v.comp.moteur?'moteur détruit : immobilisé':'train de roulement brisé : immobilisé';}
     const drv=this.vehDriver(v);
