@@ -200,7 +200,7 @@ export class GunViewer{
     this.flash=new THREE.Mesh(new THREE.SphereGeometry(1,12,8),this.flashMat);this.fx.add(this.flash);
     this.smoke=[];for(let i=0;i<5;i++){const m=new THREE.Mesh(new THREE.SphereGeometry(1,10,8),new THREE.MeshBasicMaterial({color:0xc8c4bc,transparent:true,opacity:0,depthWrite:false}));this.fx.add(m);this.smoke.push(m);}
     // les servants du plateau : le soldat meumeu (V12.4, modèle du joueur, casque compris) ; à défaut la peluche
-    loadModel('meumeu_soldat','assets3d/').catch(()=>loadModel('meumeu','assets3d/')).then(m=>{this.meumeu=m;this.key='';}).catch(()=>{});
+    loadModel('meumeu','assets3d/').then(m=>{this.meumeu=m;this.key='';}).catch(()=>{});
   }
   // les gestes : on attache le canevas 2D du plateau ; ses évènements font tourner la caméra
   attach(cv){if(this.cv===cv)return;this.cv=cv;let drag=null;
