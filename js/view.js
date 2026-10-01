@@ -78,10 +78,12 @@ export class View{
     x.putImageData(img,0,0);this.shadeCv=c;this.shS=s;}
   // Toute la carte en petit : pour le lointain et pour la minicarte.
   // (le sol en vraie texture : chaque case reçoit sa tuile, réduite ; faute de tuiles, sa couleur)
-  makeOverview(){const W=this.world,N=W.N,G=W.G;const s=this.tiles?14:8;const c=document.createElement('canvas');c.width=N*s;c.height=N*s/2;const x=c.getContext('2d');x.imageSmoothingEnabled=true;
+  tileMeanOf(t){const C=this.tileMean??={};if(C[t])return C[t];let r=0,g=0,b=0,n=0;try{for(const cv of this.tiles[t].slice(0,4)){const d=cv.getContext('2d').getImageData(0,0,cv.width,cv.height).data;for(let k=0;k<d.length;k+=4)if(d[k+3]>200){r+=d[k];g+=d[k+1];b+=d[k+2];n++;}}}catch(e){}
+    return C[t]=n?[r/n,g/n,b/n]:TERRAIN[t].tint;}
+  makeOverview(){const W=this.world,N=W.N,G=W.G;const s=this.tiles?14:8;const c=document.createElement('canvas');c.width=N*s;c.height=N*s/2;const x=c.getContext('2d');x.imageSmoothingEnabled=true;if(this.tiles)x.filter='blur(1.2px)';
     for(let j=0;j<N;j++)for(let i=0;i<N;i++){const t=G.terrain[j*N+i];const px=(i-j+N)*s/2,py=(i+j)*s/4;
-      if(this.tiles){x.drawImage(this.tiles[t][(j&3)*4+(i&3)],px-s/2-.5,py-.5,s+1,s/2+1);continue;}
-      const [r,g,b]=TERRAIN[t].tint;const n=((i*7919+j*104729)%13)/13*.12+.94;x.fillStyle=`rgb(${r*n|0},${g*n|0},${b*n|0})`;
+      // (V12.4 : vu de loin, chaque tuile prend la COULEUR MOYENNE de sa texture — réduites telles quelles, leurs fleurs et leur grain faisaient des taches criardes)
+      const [r,g,b]=this.tiles?this.tileMeanOf(t):TERRAIN[t].tint;const n=((i*7919+j*104729)%13)/13*.1+.95;x.fillStyle=`rgb(${r*n|0},${g*n|0},${b*n|0})`;
       x.beginPath();x.moveTo(px,py);x.lineTo(px+s/2,py+s/4);x.lineTo(px,py+s/2);x.lineTo(px-s/2,py+s/4);x.closePath();x.fill();}
     this.overview=c;this.ovS=s;this.ovTex=!!this.tiles;}
   // Les forêts vues de haut : chaque arbre dessiné en petit sur une grande image, refaite quand des arbres tombent
