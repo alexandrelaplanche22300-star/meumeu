@@ -188,7 +188,7 @@ export class Scene3D{
       if(u.vrole==='servant'&&A){a=v.h+(m?.yaw??0);const [px,py]=W(A.pos[0],A.pos[1]);x=px-Math.cos(a)*.24;y=py-Math.sin(a)*.24;}else{[x,y]=W(...seats[Math.min(n++,3)]);}
       // (assis, à 0,8 de leur taille de marche, échelle uniforme : debout à pleine taille, quatre peluches cachaient la jeep ; le servant debout derrière
       // son arme)
-      const sc=.8*(u.k==='villageois'?.92:1.02)/Hm,down=u.h?.state==='hors',y0=u.vrole==='servant'&&A?.05:-.12;
+      const sc=.62*(u.k==='villageois'?.92:1.02)/Hm,down=u.h?.state==='hors',y0=u.vrole==='servant'&&A?.04:-.08;
       P.meumeu.add(x,y0,y,Math.atan2(Math.cos(a),Math.sin(a)),sc,sc,sc,{tint:down?0x9a8a80:u.k==='villageois'?0xf4efe2:0xdcd8c4,ph:0,amp:0,arm:down?0:u.vrole==='servant'?.65:u.vrole==='conducteur'?.85:0});}}
   // la pose d'un véhicule : place, cap (selon l'axe avant de son modèle), tourelle, hausse des armes, roues, un léger roulis de suspension
   syncVehicle(v,V,dtc){let e=this.vehs.get(v.id);if(!e){const g=this.vehicleGroup(V);if(!g)return;e={g};this.vehs.set(v.id,e);this.scene.add(g);}
@@ -379,7 +379,7 @@ export class Scene3D{
         const cars=[{k:'loco',len:3.0},{k:'tender',len:1.9},{k:'wagon',len:2.4},{k:'wagon',len:2.4},{k:'wagon',len:2.4},{k:'wagon',len:2.4}];let d=0;
         for(let n=0;n<cars.length;n++){const c=cars[n];if(n)d+=cars[n-1].len/2+c.len/2+.14;const [x,y,dx,dy]=at(d);const L=Math.hypot(dx,dy)||1;
           const M=this.M[c.k==='loco'?'ww2_locomotive':'ww2_wagon'];const sc=c.len/Math.max(M.ext[0],M.ext[2]);
-          const along=M.ext[2]>=M.ext[0];const yaw=Math.atan2((dx||v.dx||1)/L,(dy||v.dy||0)/L)+(along?0:-PI/2);
+          const along=M.ext[2]>=M.ext[0];const yaw=Math.atan2((dx||v.dx||1)/L,(dy||v.dy||0)/L)+(along?0:-PI/2)+(c.k==='loco'?PI:0);   // (le modèle de locomotive regarde vers −Z : on la retourne, la cheminée en tête)
           (c.k==='loco'?P.loco:P.wagon).add(x,0,y,yaw,sc,sc,sc,{tint:c.k==='tender'?0x6a6a66:null});}}
       else if(v.k==='porteur')continue;
       else{const M=this.M.vintage_military_jeep_logistic_unarmed;const sc=1.2/M.ext[0];P.jeep.add(v.x,0,v.y,Math.atan2(v.dx??1,v.dy??0)-PI/2,sc,sc,sc);}}
