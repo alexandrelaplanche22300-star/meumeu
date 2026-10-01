@@ -183,7 +183,9 @@ export class View{
   // près du centre de l'écran : la secousse, le ralenti, l'éclair (ce qu'on regarde)
   nearC(x,y){const d=Math.hypot(x-this.cx,y-this.cy);return Math.max(0,1-d/(22/this.zoom));}
   flash(x,y,r,life,col='255,190,110'){if(this.world.light()>.85&&r<4)return;(this.flashes??=[]).push({x,y,r,life,t0:performance.now(),col});if(this.flashes.length>160)this.flashes.splice(0,this.flashes.length-160);}
-  float(x,y,text,color,{size=11,life=1.6,z=1.1,bold=true,f=null}={}){if(this.near(x,y)<=0||!this.fxVisible(x,y,f))return;(this.floaters??=[]).push({x,y,z,text,color,size,life,t0:performance.now(),bold,dx:(Math.random()-.5)*.25});if(this.floaters.length>70)this.floaters.shift();}
+  // (retiré à la demande du joueur : les textes de touche au-dessus des unités chargeaient l'écran et ralentissaient les combats)
+  float(){return;}
+  floatOld(x,y,text,color,{size=11,life=1.6,z=1.1,bold=true,f=null}={}){if(this.near(x,y)<=0||!this.fxVisible(x,y,f))return;(this.floaters??=[]).push({x,y,z,text,color,size,life,t0:performance.now(),bold,dx:(Math.random()-.5)*.25});if(this.floaters.length>70)this.floaters.shift();}
   feed(html,tone){(this.feedL??=[]).unshift({html,tone,t0:performance.now()});if(this.feedL.length>7)this.feedL.pop();}
   puff(x,y,{n=6,color='#ccc',size=5,spread=.5,up=.6,life=.9,grav=0,z=0,glow=false}={}){if(!this.fxVisible(x,y)||this.near(x,y)<=0&&!glow)return;
     for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,r=Math.random()*spread;this.parts.push({x,y,z,vx:Math.cos(a)*r,vy:Math.sin(a)*r,vz:up*(.5+Math.random()),life:life*(.6+Math.random()*.6),max:life,color,size:size*(.6+Math.random()*.8),grav,glow});}
