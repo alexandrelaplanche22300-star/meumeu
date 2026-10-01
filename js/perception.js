@@ -34,7 +34,11 @@ export const PERCEPTION={
     return false;
   },
   visibilityMask(f,vis,explored){const N=this.N,mark=(x,y,r,observer)=>{const a=Math.max(0,Math.floor(x-r)),b=Math.min(N-1,Math.ceil(x+r)),c=Math.max(0,Math.floor(y-r)),d=Math.min(N-1,Math.ceil(y+r));
-      for(let j=c;j<=d;j++)for(let i=a;i<=b;i++){const k=j*N+i;if(vis[k])continue;const X=i+.5,Y=j+.5,R=observer?this.visualRange(observer,X,Y):r;if(Math.hypot(X-x,Y-y)>R||!this.los(x,y,X,Y))continue;vis[k]=1;if(explored)explored[k]=1;}};
+      // (le profil de vue est calculé une fois par observateur, pas à chaque case : c'est le même calcul que visualRange, déroulé ici)
+      const o=observer,P=o?this.eyeProfile(o):null,fx=o?(o.fx??1):1,fy=o?(o.fy??0):0,nightLamp=o&&o.lamp&&this.isNight();
+      for(let j=c;j<=d;j++)for(let i=a;i<=b;i++){const k=j*N+i;if(vis[k])continue;const X=i+.5,Y=j+.5,dx=X-x,dy=Y-y,dd=Math.hypot(dx,dy);if(dd>r)continue;let R=r;
+        if(o){const cc=dd>.01?(fx*dx+fy*dy)/dd:1;const cone=o.tower||dd<2?1:cc>=.5?1:cc>=-.2?[.55,.72,.88][P.wide]:[.22,.38,.62][P.wide];R=P.base*cone;if(cc>=P.cos)R=Math.max(R,P.optic);if(cc>=P.nvCos)R=Math.max(R,P.nv);if(nightLamp&&dd<5)R=Math.max(R,5);R=Math.max(1.6,R);}
+        if(dd>R||!this.los(x,y,X,Y))continue;vis[k]=1;if(explored)explored[k]=1;}};
     for(const u of this.s.units)if(u.f===f&&active(u))mark(u.x,u.y,this.eyeProfile(u).max,u);
     for(const b of this.s.buildings)if(b.f===f&&b.done&&!b.ruin){const [x,y]=this.bc(b);mark(x,y,BUILDINGS[b.k].defense?this.sight()*1.8:4+Math.max(...this.sizeOf(b))/2);}
     for(const v of this.s.vehicles)if(v.f===f)mark(v.x,v.y,v.alt>0?14:v.crew?.length?this.sight()*1.05:4);return vis;
