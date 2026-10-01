@@ -706,7 +706,7 @@ export class View{
   // Même calcul que la perception (World.eyeProfile / visualRange), échantillonné sur 32 directions.
   drawNightVision(){const W=this.world,s=W.s;if(!(W.light()<.4))return;const ctx=this.ctx,[i0,i1,j0,j1]=this.vis;let n=0;
     ctx.save();
-    for(const u of s.units){if(u.f!=='meumeu'||!(u.hp>0)||u.h?.state==='hors'||u.inVeh||u.inBarracks)continue;if(u.x<i0-8||u.x>i1+8||u.y<j0-8||u.y>j1+8)continue;if(++n>260)break;
+    for(const u of s.units){if(u.f!=='meumeu'||!(u.hp>0)||u.h?.state==='hors'||u.inVeh||u.inBarracks)continue;if(u.k==='villageois'||u.k==='medecin'||u.k==='infirmier'||!u.w&&!u.serve)continue;if(u.x<i0-8||u.x>i1+8||u.y<j0-8||u.y>j1+8)continue;if(++n>260)break;
       const P=W.eyeProfile(u),fx=u.fx??1,fy=u.fy??0,fl=Math.hypot(fx,fy)||1;const pts=[];let nvOn=false;
       for(let k=0;k<32;k++){const a=k/32*Math.PI*2,dx=Math.cos(a),dy=Math.sin(a),c=(fx*dx+fy*dy)/fl;
         const cone=u.tower?1:c>=.5?1:c>=-.2?[.55,.72,.88][P.wide]:[.22,.38,.62][P.wide];let r=P.base*cone;if(c>=P.cos)r=Math.max(r,P.optic);if(c>=P.nvCos&&P.nv>r){r=P.nv;nvOn=true;}
