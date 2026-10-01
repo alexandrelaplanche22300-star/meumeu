@@ -83,8 +83,8 @@ export class View{
   makeOverview(){const W=this.world,N=W.N,G=W.G;const s=Math.max(4,Math.min(this.tiles?14:8,Math.floor(3800/N)));   // (V12.4 : la carte de 600 cases faisait une image de 8 400 px, au-delà de ce que la carte graphique accepte : écran vide et saccades — jamais plus de ~3 800 px)
     const c=document.createElement('canvas');c.width=N*s;c.height=N*s/2;const x=c.getContext('2d');x.imageSmoothingEnabled=true;/* (pas de flou : appliqué à chacune des 360 000 cases, il figeait le jeu au démarrage) */
     for(let j=0;j<N;j++)for(let i=0;i<N;i++){const t=G.terrain[j*N+i];const px=(i-j+N)*s/2,py=(i+j)*s/4;
-      // (V12.4 : vu de loin, chaque tuile prend la COULEUR MOYENNE de sa texture — réduites telles quelles, leurs fleurs et leur grain faisaient des taches criardes)
-      const [r,g,b]=this.tiles?this.tileMeanOf(t):TERRAIN[t].tint;const n=((i*7919+j*104729)%13)/13*.1+.95;x.fillStyle=`rgb(${r*n|0},${g*n|0},${b*n|0})`;
+      if(this.tiles){x.drawImage(this.tiles[t][(j&3)*4+(i&3)],px-s/2-.5,py-.5,s+1,s/2+1);continue;}
+      const [r,g,b]=TERRAIN[t].tint;const n=((i*7919+j*104729)%13)/13*.12+.94;x.fillStyle=`rgb(${r*n|0},${g*n|0},${b*n|0})`;
       x.beginPath();x.moveTo(px,py);x.lineTo(px+s/2,py+s/4);x.lineTo(px,py+s/2);x.lineTo(px-s/2,py+s/4);x.closePath();x.fill();}
     this.overview=c;this.ovS=s;this.ovTex=!!this.tiles;}
   // Les forêts vues de haut : chaque arbre dessiné en petit sur une grande image, refaite quand des arbres tombent
