@@ -219,7 +219,9 @@ export class View{
     const cw=this.canvas.width,ch=this.canvas.height,z=this.z();ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#4f6b2c';ctx.fillRect(0,0,cw,ch);
     // ce qui est à l'écran, en cases
     const c0=this.toWorld(0,0),c1=this.toWorld(cw,0),c2=this.toWorld(0,ch),c3=this.toWorld(cw,ch);const N=W.N;const mg=this.camFree()?6:2;
-    const i0=Math.max(0,Math.floor(Math.min(c0.x,c1.x,c2.x,c3.x))-mg),i1=Math.min(N-1,Math.ceil(Math.max(c0.x,c1.x,c2.x,c3.x))+mg),j0=Math.max(0,Math.floor(Math.min(c0.y,c1.y,c2.y,c3.y))-mg),j1=Math.min(N-1,Math.ceil(Math.max(c0.y,c1.y,c2.y,c3.y))+mg);
+    let i0=Math.max(0,Math.floor(Math.min(c0.x,c1.x,c2.x,c3.x))-mg),i1=Math.min(N-1,Math.ceil(Math.max(c0.x,c1.x,c2.x,c3.x))+mg),j0=Math.max(0,Math.floor(Math.min(c0.y,c1.y,c2.y,c3.y))-mg),j1=Math.min(N-1,Math.ceil(Math.max(c0.y,c1.y,c2.y,c3.y))+mg);
+    // (caméra libre : la zone dessinée est bornée à 85 cases autour du centre — inclinée très bas, l'écran voyait des centaines de cases de plus : des milliers de tuiles redessinées à chaque image)
+    if(this.camFree()){const R=85;i0=Math.max(i0,Math.floor(this.cx-R));i1=Math.min(i1,Math.ceil(this.cx+R));j0=Math.max(j0,Math.floor(this.cy-R));j1=Math.min(j1,Math.ceil(this.cy+R));}
     this.vis=[i0,i1,j0,j1];
     // le sol (V12.4 : en caméra libre, dessiné en isométrique sous une transformation — groundPass)
     this.groundPass(true);
@@ -1024,7 +1026,7 @@ export class View{
     cv.addEventListener('pointermove',e=>{const [sx,sy]=this.pos(e);const w=this.toWorld(sx,sy);const cell=[Math.floor(w.x),Math.floor(w.y)];
       if(this.drag){const D=this.drag;if(Math.hypot(sx-D.x0,sy-D.y0)>6*this.dpr)D.moved=true;
         // V12.4 : en 3D, le bouton du milieu ORIENTE la caméra (gauche-droite : tourner ; haut-bas : incliner) ; Maj + milieu (et en 2D, le milieu) : déplacer
-        if(D.moved&&D.btn===1&&this.o3&&!e.shiftKey){D.piv??=[sx,sy,this.toWorld(D.x0,D.y0)];this.yaw=((this.yaw||0)+(e.clientX-D.px)*.006)%(Math.PI*2);this.elev=Math.max(.12,Math.min(1.45,(this.elev??ELEV0)+(e.clientY-D.py)*.004));
+        if(D.moved&&D.btn===1&&this.o3&&!e.shiftKey){D.piv??=[sx,sy,this.toWorld(D.x0,D.y0)];this.yaw=((this.yaw||0)+(e.clientX-D.px)*.006)%(Math.PI*2);this.elev=Math.max(.26,Math.min(1.45,(this.elev??ELEV0)+(e.clientY-D.py)*.004));
           // (on tourne autour du point saisi : il reste sous la souris de départ)
           {const P=D.piv[2],w=this.toWorld(D.x0,D.y0);this.cx+=P.x-w.x;this.cy+=P.y-w.y;}}
         else if(D.moved&&D.btn===1){const w0=this.toWorld(sx-(e.clientX-D.px)*this.dpr,sy-(e.clientY-D.py)*this.dpr),w1=this.toWorld(sx,sy);this.cx+=w0.x-w1.x;this.cy+=w0.y-w1.y;}

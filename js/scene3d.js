@@ -76,17 +76,17 @@ class Pool{
     const g=geo.clone();this.cap=cap;this.n=0;
     this.anim=anim;if(anim)g.setAttribute('aAnim',new THREE.InstancedBufferAttribute(new Float32Array(cap*4),4));
     let mat=(base||materialOf(flat)).clone();   // base : le matériau texturé d'un modèle cuit (V12.4), sinon les couleurs de sommets
-    if(anim){const {H,W}=anim,AK=anim.AK||[.16,.30,1.35,0];mat.onBeforeCompile=sh=>{sh.uniforms.uH={value:H};sh.uniforms.uW={value:W};sh.uniforms.uAK={value:new THREE.Vector4(...AK)};
-      sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute vec4 aAnim;uniform float uH;uniform float uW;uniform vec4 uAK;')
+    if(anim){const {H,W}=anim,AK=anim.AK||[.16,.30,1.35,0];mat.onBeforeCompile=sh=>{sh.uniforms.uH={value:H};sh.uniforms.uW={value:W};sh.uniforms.uAK={value:new THREE.Vector4(...AK)};sh.uniforms.uNA={value:anim.noArms?1:0};
+      sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute vec4 aAnim;uniform float uH;uniform float uW;uniform vec4 uAK;uniform float uNA;')
       .replace('#include <begin_vertex>',`#include <begin_vertex>
       {float hN=position.y/uH;float ph=aAnim.x,amp=aAnim.y;float sg=position.x>0.?0.:3.14159;float sa=position.x>0.?3.14159:0.;
        float leg=max(0.,1.-hN/.30);transformed.z+=sin(ph+sg)*amp*leg*uH*.20;transformed.y+=max(0.,cos(ph+sg))*amp*leg*uH*.05;
-       float arm=smoothstep(.30,.42,hN)*(1.-smoothstep(.62,.80,hN))*smoothstep(uW*.16,uW*.30,abs(position.x));
+       float arm=smoothstep(.30,.42,hN)*(1.-smoothstep(.62,.80,hN))*smoothstep(uW*.16,uW*.30,abs(position.x));transformed.z+=sin(ph+sa)*amp*arm*uH*.14*(1.-uNA);
        transformed.y+=abs(sin(ph))*amp*uH*.028;transformed.x+=sin(ph)*amp*uH*.012;
        // les bras se lèvent vers l'avant autour des épaules (arme tenue, charge portée) ; le recul pousse le haut du corps en arrière
-       float am=0.;if(am>.001){float mk=smoothstep(uW*uAK.x,uW*uAK.y,abs(position.x))*smoothstep(.26,.40,hN)*(1.-smoothstep(.70,.84,hN));
+       float am=aAnim.z*(1.-uNA);if(am>.001){float mk=smoothstep(uW*uAK.x,uW*uAK.y,abs(position.x))*smoothstep(.26,.40,hN)*(1.-smoothstep(.70,.84,hN));
          if(mk>.001){vec3 S=vec3(sign(position.x)*uW*.22,uH*.62,0.);vec3 v=transformed-S;float a=-am*uAK.z*mk;float c=cos(a),s2=sin(a);transformed=S+vec3(v.x,v.y*c-v.z*s2,v.y*s2+v.z*c);}}
-       transformed.z+=am*uH*uAK.w*smoothstep(.35,.9,hN);float kk=0.;if(kk>.001){transformed.z-=kk*uH*.10*(.3+.7*hN);transformed.y-=kk*uH*.02*hN;}}`);};}
+       transformed.z+=am*uH*uAK.w*smoothstep(.35,.9,hN);float kk=aAnim.w*(1.-uNA);if(kk>.001){transformed.z-=kk*uH*.10*(.3+.7*hN);transformed.y-=kk*uH*.02*hN;}}`);};}
     // ghost : la variante transparente (les arbres autour de nos unités et des ennemis repérés) — sans ombre portée, sans masquer ce qui est derrière
     if(ghost){mat.transparent=true;mat.opacity=.22;mat.depthWrite=false;}
     this.mesh=new THREE.InstancedMesh(g,mat,cap);this.mesh.count=0;this.mesh.frustumCulled=false;this.mesh.castShadow=!ghost;this.mesh.receiveShadow=false;if(ghost)this.mesh.renderOrder=2;
@@ -124,10 +124,12 @@ export class Scene3D{
     if(this.M.meumeu_casque){this.pools.casque=new Pool(this.M.meumeu_casque.geo,{cap:1200});this.casqueK=.266/this.M.meumeu_casque.ext[0];}else this.pools.casque=new Pool(TREE_GEO.casque(),{cap:1200});this.scene.add(this.pools.casque.mesh);
     for(const k of ['biche','lapin','charrette','caisse','poteau','lisse','buche','caillou','sac','tonnelet','obus']){const p=new Pool(ANIMAL_GEO[k](),{cap:k==='poteau'||k==='lisse'?4000:k==='caisse'||k==='buche'||k==='caillou'||k==='sac'?1500:600,flat:true});this.pools[k]=p;this.scene.add(p.mesh);}
     this.pools.avion=mk('silbervogel_bomber_3d_model',{cap:60});
-    this.pools.meumeu=mk('meumeu',{cap:1200,anim:ch('meumeu')});
+    this.pools.meumeu=mk('meumeu',{cap:1200,anim:{noArms:1,...ch('meumeu')}});
     // V12.4 : les modèles donnés par le joueur — le soldat meumeu (casque compris) et la troupe de choc (chevalier à cape) ; à défaut, la peluche
-    this.pools.soldat=this.M.meumeu_soldat?mk('meumeu_soldat',{cap:1200,anim:ch('meumeu_soldat')}):this.pools.meumeu;
-    this.pools.choc=this.M.plush_cow_knight?mk('plush_cow_knight',{cap:400,anim:ch('plush_cow_knight')}):this.pools.soldat;this.pools.bee=mk('goat_plush_toy',{cap:1500,anim:ch('goat_plush_toy')});
+    this.pools.soldat=this.M.meumeu_soldat?mk('meumeu_soldat',{cap:1200,anim:{noArms:1,...ch('meumeu_soldat')}}):this.pools.meumeu;
+    this.pools.choc=this.M.plush_cow_knight?mk('plush_cow_knight',{cap:400,anim:{noArms:1,...ch('plush_cow_knight')}}):this.pools.soldat;this.pools.bee=mk('goat_plush_toy',{cap:1500,anim:ch('goat_plush_toy')});
+    {const CAPV=300*2*40,g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(CAPV*3),3));g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(CAPV*3),3));g.setDrawRange(0,0);
+      this.traj=new THREE.LineSegments(g,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.9,depthWrite:false,fog:false}));this.traj.frustumCulled=false;this.traj.renderOrder=3;this.scene.add(this.traj);this.trajN=0;}
     this.pools.obus3d=new Pool(PROJ_GEO.obus(),{cap:300});this.scene.add(this.pools.obus3d.mesh);this.pools.fusee3d=new Pool(PROJ_GEO.fusee(),{cap:300});this.scene.add(this.pools.fusee3d.mesh);
     this.booms=[];this.boomGeo={ball:new THREE.IcosahedronGeometry(1,2),ring:new THREE.RingGeometry(.86,1,56).rotateX(-PI/2),dome:new THREE.SphereGeometry(1,16,8,0,PI*2,0,PI/2)};
     this.pools.fusil=mk('gewehr_43_rifle',{cap:1500});this.pools.mg=mk('heavy_machine_gun',{cap:200});
@@ -390,13 +392,26 @@ export class Scene3D{
     for(const [id,e] of this.vehs){if(vseen.has(id))continue;if(!s.vehicles.some(o=>o.id===id)){this.scene.remove(e.g);this.vehs.delete(id);}else e.g.visible=false;}
     // V12.4 : les obus et les fusées en vol, en 3D, à l'échelle des Meumeu (1 unité ≈ 0,29 m : un Meumeu de 30 cm mesure 1,02), orientés selon la tangente
     // de leur arc ; même courbe que la couche 2D (hauteur h → Y = h × 0,8165). Calibre d en mm : longueur ≈ 4,2 d (fusée : 7 d), avec un minimum visible.
+    this.trajN=0;
     {const Hh=(sh,q)=>(sh.kind==='hshell'?Math.min(14,Math.max(1.5,sh.top||3)):3)*4*q*(1-q)+.5*(1-q);const MM=1.02/300;
       for(const sh of s.shots){if(sh.kind!=='shell'&&sh.kind!=='hshell')continue;const q=Math.min(1,sh.t/sh.dur);const x=sh.x0+(sh.x1-sh.x0)*q,y=sh.y0+(sh.y1-sh.y0)*q;
         if(x<i0-3||x>i1+3||y<j0-3||y>j1+3)continue;if(fog&&sh.f!=='meumeu'&&!view.fxVisible?.(x,y,sh.f))continue;
         const d=sh.w&&W.design(sh.w),p=d?.p,cal=p?.d||8,rk=p?.prop==='fusee'||(sh.w&&this.designOf(W,sh.w)?.rocket);
         const q2=Math.min(1,q+.01),q1=q2-.01,dx=(sh.x1-sh.x0)*(q2-q1),dz=(sh.y1-sh.y0)*(q2-q1),dY=(Hh(sh,q2)-Hh(sh,q1))*.8165,hz=Math.hypot(dx,dz)||1e-6;
-        const L=Math.max(rk?.3:.2,cal*(rk?7:4.2)*MM),D=Math.max(rk?.05:.045,L/(rk?7:4.2));
-        (rk?P.fusee3d:P.obus3d).add(x,Hh(sh,q)*.8165,y,Math.atan2(dx,dz),D,D,L,{pitch:-Math.atan2(dY,hz),tint:p?.cons==='he'||p?.cons==='hei'||W.W?.(sh.w)?.he?0x8a8a5a:0x5c6670});}}
+        // (V12.4, demande du joueur : « projectile visible, trajectoire visualisable » — plus gros que nature, une flamme aux fusées, une traînée de fumée sur l'arc
+        //  déjà parcouru, et l'arc entier tracé : plein derrière le projectile, en pointillés devant)
+        const L=Math.max(rk?.7:.55,cal*(rk?7:4.2)*MM*1.8),D=Math.max(rk?.16:.14,L/(rk?7:4.2));const Y=Hh(sh,q)*.8165;
+        (rk?P.fusee3d:P.obus3d).add(x,Y,y,Math.atan2(dx,dz),D,D,L,{pitch:-Math.atan2(dY,hz),tint:rk?0xe8e0d0:p?.cons==='he'||p?.cons==='hei'||W.W?.(sh.w)?.he?0xb0b070:0x8a96a0});
+        if(rk){const fl=.22+.1*Math.sin(performance.now()*.05+sh.x0),bx=x-Math.sin(Math.atan2(dx,dz))*L*.55,bz=y-Math.cos(Math.atan2(dx,dz))*L*.55;P.caillou.add(bx,Y-dY/hz*L*.0,bz,0,fl,fl,fl*1.6,{tint:0xffb347});}
+        const back=Math.min(q,.2+Math.min(.45,cal/140));for(let m=1;m<=10;m++){const qq=q-back*m/10;if(qq<0)break;const age=m/10,sz=(.07+.16*age)*(rk?1:1.2)*Math.max(.8,Math.min(2,cal/20));
+          P.caillou.add(sh.x0+(sh.x1-sh.x0)*qq,Hh(sh,qq)*.8165,sh.y0+(sh.y1-sh.y0)*qq,m*1.3,sz,sz,sz,{tint:rk?0xe9e4d8:0xcfcabd});}
+        {const own=sh.f==='meumeu',cr=own?1:1,cg=own?.82:.45,cb=own?.35:.3,Nseg=40;let o=this.trajN;
+          for(let k=0;k<Nseg&&o+2<=300*2*40;k++){const q0=k/Nseg,q1=(k+1)/Nseg,past=q1<=q;if(!past&&k%2)continue;
+            const P0=[sh.x0+(sh.x1-sh.x0)*q0,Hh(sh,q0)*.8165+.03,sh.y0+(sh.y1-sh.y0)*q0],P1=[sh.x0+(sh.x1-sh.x0)*q1,Hh(sh,q1)*.8165+.03,sh.y0+(sh.y1-sh.y0)*q1];
+            const br=past?.45+.55*(q1/Math.max(q,1e-3)):.5,pos=this.traj.geometry.attributes.position.array,col=this.traj.geometry.attributes.color.array;
+            pos.set(P0,o*3);pos.set(P1,o*3+3);for(let t=0;t<2;t++){col[(o+t)*3]=cr*br;col[(o+t)*3+1]=cg*br;col[(o+t)*3+2]=cb*br;}o+=2;}
+          this.trajN=o;}}}
+    {const g=this.traj.geometry;g.setDrawRange(0,this.trajN);g.attributes.position.needsUpdate=true;g.attributes.color.needsUpdate=true;}
     this.boomsTick(dtc);
     for(const k in P)P[k].end();for(const e of this.guns.values())if(e.pool)e.pool.end();
   }
