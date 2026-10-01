@@ -308,7 +308,9 @@ export class Scene3D{
       const M0=this.M[mod]||this.M.meumeu,Hmod=M0.ext[1];
       const H=u.k==='villageois'?.92:u.k==='choc'?1.06:1.02;const sc=H/Hmod;const pool=bee?P.bee:mod==='plush_cow_knight'?P.choc:mod==='meumeu_soldat'?P.soldat:P.meumeu;const hx=Math.sin(y),hz=Math.cos(y);
       const helmeted=mod==='meumeu_soldat'&&P.soldat!==P.meumeu||mod==='plush_cow_knight'&&P.choc!==P.soldat;
-      const walking=u.anim==='walk'&&!down;const ph=(u.walkPh||0)*2.4,amp=walking?1:0;
+      let walking=u.anim==='walk'&&!down;
+      // les servants suivent leur pièce par petits bonds : on lisse leur place à l'écran, et leur pas suit leur vitesse affichée
+      let ux=u.x,uy=u.y;if(u.serve&&!down){const dp=(this.dpos??=new Map()),q=dp.get(u.id);if(q&&Math.hypot(q[0]-u.x,q[1]-u.y)<2){const k=Math.min(1,dtc*8);const nx=q[0]+(u.x-q[0])*k,ny=q[1]+(u.y-q[1])*k;const sp=Math.hypot(nx-q[0],ny-q[1])/Math.max(1e-3,dtc);q[0]=nx;q[1]=ny;ux=nx;uy=ny;walking=sp>.15;}else dp.set(u.id,[u.x,u.y]);}const ph=(u.walkPh||0)*2.4,amp=walking?1:0;
       const pose=down?'down':u.post==='couche'?'prone':u.post==='accroupi'?'crouch':'up';
       const tint=bee?(u.k==='soldat'||u.k==='commando'?0xd8a090:0xffd4b8):(u.k==='villageois'?0xf4efe2:u.k==='medecin'||u.k==='infirmier'?0xf2f6f0:0xf6f2e8);
       // le recul d'un coup : monte vite, retombe en un dixième de seconde
@@ -318,12 +320,12 @@ export class Scene3D{
       const carry=u.carry&&u.carry.n>=1&&!down;const carrier=this.shellCarrier.get(u.id);
       // la pose des bras : arme tenue (à l'épaule en visée, baissée en marche, à mi-hauteur au rechargement), charge portée devant soi, obus porté à la pièce
       let arm=0;
-      if(!down){if(crewGun)arm=.65;else if(Wg)arm=reloading?.35+.3*Math.sin(rp*PI):aiming?1:walking?.6:.72;else if(carrier&&u.serve)arm=.95;else if(carry||u.crates>0)arm=.85;else if(u.k!=='villageois'&&pose==='up'&&(bee||u.w))arm=.6;}
-      if(pose==='up'){pool.add(u.x,0,u.y,y,sc,sc,sc,{tint,ph,amp,arm,kick});}
-      else if(pose==='crouch'){pool.add(u.x,0,u.y,y,sc,sc*.72,sc,{tint,ph:0,amp:0,arm,kick});}
+      if(!down){if(crewGun)arm=.65;else if(Wg)arm=reloading?.35+.3*Math.sin(rp*PI):aiming?1:walking?.6:.72;else if(carrier&&u.serve)arm=.95;else if(carry||u.crates>0)arm=.45;else if(u.k!=='villageois'&&pose==='up'&&(bee||u.w))arm=.6;}
+      if(pose==='up'){pool.add(ux,0,uy,y,sc,sc,sc,{tint,ph,amp,arm,kick});}
+      else if(pose==='crouch'){pool.add(ux,0,uy,y,sc,sc*.72,sc,{tint,ph:0,amp:0,arm,kick});}
       else{const r=Hmod*sc*.22;pool.add(u.x,r,u.y,y,sc,sc,sc,{tint:down?0x9a8a80:tint,pitch:down?-PI/2:PI/2});}
       // ce qu'on porte, devant soi (les bras le tiennent) : des bûches, des pierres, un sac de vivres, un tonnelet, des caisses
-      const front=(dx,dy,dz)=>[u.x+hx*(.30*H+dz)-hz*dx,dy,u.y+hz*(.30*H+dz)+hx*dx];
+      const front=(dx,dy,dz)=>[ux+hx*(.30*H+dz)-hz*dx,dy,uy+hz*(.30*H+dz)+hx*dx];
       if(carry&&pose!=='down'){const res=u.carry.k,f=Math.min(1,u.carry.n/CARRY),cnt=1+Math.floor(f*2.99),h0=H*(pose==='crouch'?.38:.50);
         if(res==='bois'){for(let c=0;c<cnt;c++){const p=front((c-(cnt-1)/2)*.05,h0+c*.02,0);P.buche.add(p[0],p[1],p[2],y+PI/2+(c-1)*.12,1,1,1);}}
         else if(res==='vivres'){for(let c=0;c<cnt;c++){const p=front((c-(cnt-1)/2)*.17,h0-.06,0);P.sac.add(p[0],p[1],p[2],c*1.3,1,1,1,{tint:c%2?0xd9c79a:null});}}
