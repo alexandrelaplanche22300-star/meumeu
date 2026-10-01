@@ -733,7 +733,7 @@ export class View{
       const rem=Math.max(0,c.t-s.t),m=Math.round(rem*60);const txt=m<1?'feu !':m<60?`${m} min`:`${Math.floor(m/60)} h ${String(m%60).padStart(2,'0')}`;const on=Math.sin(now/(rem<.34?90:rem<1?220:520))>0;
       ctx.save();ctx.fillStyle=on?'#ff3b2f':'#7a1a14';ctx.strokeStyle='rgba(10,8,6,.9)';ctx.lineWidth=1.5*dpr;ctx.beginPath();ctx.arc(q.x,q.y,Math.max(3,4*z),0,7);ctx.fill();ctx.stroke();
       ctx.font=`800 ${10*dpr}px system-ui`;ctx.textAlign='center';ctx.lineWidth=3*dpr;ctx.strokeText(`charge · ${txt}`,q.x,q.y-9*dpr);ctx.fillStyle=c.f==='meumeu'?'#ffd9a0':'#ff9a8a';ctx.fillText(`charge · ${txt}`,q.x,q.y-9*dpr);ctx.restore();}}
-  drawFog(){if(!this.fogCv)return;const ctx=this.ctx,z=this.z();const o=this.toScreen(0,0);ctx.save();ctx.setTransform(TW/2*z,TH/2*z,-TW/2*z,TH/2*z,o.x,o.y);ctx.imageSmoothingEnabled=true;ctx.drawImage(this.fogCv,0,0);ctx.restore();}
+  drawFog(){if(!this.fogCv)return;const ctx=this.ctx,z=this.z();const free=this.camFree();ctx.save();if(free)this.groundPass(true);const o=this.toScreen(0,0);const M=[TW/2*z,TH/2*z,-TW/2*z,TH/2*z,o.x,o.y];if(free)ctx.transform(...M);else ctx.setTransform(...M);ctx.imageSmoothingEnabled=true;ctx.drawImage(this.fogCv,0,0);ctx.restore();if(free)this.groundPass(false);}
   // La carte logistique (touche L) : chaque dépôt et ce qu'il attend sans l'avoir, les convois en route (porteurs, trains),
   // les voies coupées, les usines arrêtées ou sabotées, les soldats presque à sec. D'un coup d'œil : où la chaîne casse.
   drawLogistics(){if(!this.logi)return;const ctx=this.ctx,W=this.world,z=this.z(),dpr=this.dpr,cw=this.canvas.width,ch=this.canvas.height;const on=q=>q.x>-40&&q.y>-40&&q.x<cw+40&&q.y<ch+40;
