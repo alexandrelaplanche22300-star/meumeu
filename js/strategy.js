@@ -73,7 +73,10 @@ export const STRATEGY={
       out.push(pts);}
     return out;},
   beeeSearch(cities){this.beeeScout();const B=this.s.beee,t=this.t;B.searchT=(B.searchT||0)+this.dt;if(B.searchT<.1)return;const el=B.searchT;B.searchT=0;
+    B.srch=(B.srch||[]).filter(q=>t-q.t<1.5);
     for(const a of B.alerts||[]){if(a.done||t-a.t>3||t<(a.readyAt||a.t+.15))continue;
+      // (une fouille par secteur de 15 cases toutes les 1,5 h : chaque « mouvement suspect » relançait la sienne, les mêmes soldats faisaient la navette)
+      if(a.why!=='camarade abattu'&&B.srch.some(q=>distance(q,a)<15)){a.done=true;continue;}
       const c=cities.slice().sort((p,q)=>distance(p,a)-distance(q,a))[0];if(!c||distance(c,a)>150)continue;
       const keep=this.beeeGarrisonMin(c),g=this.beeeGuards(c),pat=this.s.units.filter(u=>u.f==='beee'&&alive(u)&&!u.band&&u.task?.kind==='patrol'&&distance(u,a)<55);
       // À son minimum de garnison, la ville ne se vide pas mais détache un binôme d'écoute : au moins la moitié du minimum reste à son poste.
@@ -82,7 +85,7 @@ export const STRATEGY={
       // Les rondes déjà dehors (`pat`) sont réaffectées sans compter de nouveau ; seuls les gardes neufs consomment la place restante.
       const danger=a.why==='vu'||a.why==='explosion'||a.why==='camarade abattu',room=this.beeeRoom(c,danger);
       const want=a.why==='vu'?6:a.why==='explosion'?5:a.why==='traces'?3:2,pool=[...pat,...g.slice(0,Math.min(spare,room))].slice(0,want);if(!pool.length)continue;
-      a.done=true;a.level=a.why==='vu'?'confirmation':'recherche';const pts=[];
+      a.done=true;B.srch.push({x:a.x,y:a.y,t});a.level=a.why==='vu'?'confirmation':'recherche';const pts=[];
       if(!a.cone)for(let n=0;n<5;n++){const an=n*2.4,rr=Math.max(3,a.r)*(.4+n*.15);pts.push(this.freeSpot(a.x+Math.cos(an)*rr,a.y+Math.sin(an)*rr,6));}
       const sweep=a.cone?this.coneSweep(a,pool.length):null;   // un bruit : on balaie un cône ; une vue : on converge sur le point vu
       // un balayage plus long dure plus longtemps : la fouille doit pouvoir atteindre le bout du cône avant de rentrer

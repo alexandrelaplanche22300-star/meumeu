@@ -125,8 +125,8 @@ export const WAR={
   //    nos mines, nos gares qui s'approchent de leur territoire) — et plusieurs raids à la fois quand ils en ont les moyens.
   intrudersNear(x,y,r){return this.s.units.filter(u=>u.f==='meumeu'&&active(u)&&d2(u.x,u.y,x,y)<r&&this.spotted(u,'beee',1));},
   // prendre des gardes : la ville d'abord (elle en garde `keep`), puis les voisines à moins de 90 cases (elles en gardent 3)
-  beeeMuster(c,cities,need,keep=2){let pool=[];const all=[c,...cities.filter(o=>o!==c).sort((a,z)=>d2(a.x,a.y,c.x,c.y)-d2(z.x,z.y,c.x,c.y))];
-    for(const o of all){if(pool.length>=need)break;if(o!==c&&d2(o.x,o.y,c.x,c.y)>90)continue;const g=this.beeeGuards(o);pool=pool.concat(g.slice(0,Math.max(0,g.length-(o===c?keep:Math.max(3,Math.ceil(this.beeeGarrisonMin(o)/2))))));}
+  beeeMuster(c,cities,need,keep=2,reach=90){let pool=[];const all=[c,...cities.filter(o=>o!==c).sort((a,z)=>d2(a.x,a.y,c.x,c.y)-d2(z.x,z.y,c.x,c.y))];
+    for(const o of all){if(pool.length>=need)break;if(o!==c&&d2(o.x,o.y,c.x,c.y)>reach)continue;const g=this.beeeGuards(o);pool=pool.concat(g.slice(0,Math.max(0,g.length-(o===c?keep:Math.max(3,Math.ceil(this.beeeGarrisonMin(o)/2))))));}
     return pool.slice(0,need);},
   // La contre-batterie : on bombarde une ville, leur priorité est d'aller prendre la batterie, même loin.
   // La réponse est à la mesure du danger : les défenseurs autour de la batterie estimée, et la gravité du bombardement.
@@ -135,8 +135,8 @@ export const WAR={
     for(const c of cities){const S=c.shelled;if(!S||this.s.t-S.at>8)continue;
       const band=B.bands.find(b=>b.kind==='contre'&&b.city===c.id);if(band){band.pt=[S.x,S.y];continue;}
       if(this.s.t<(S.retry??0))continue;const def=this.defendersAt(S.x,S.y);
-      const need=Math.min(30,Math.max(4,Math.ceil(def*1.6)+2+Math.floor(S.danger/3)));const pool=this.beeeMuster(c,cities,need);
-      if(pool.length<Math.max(4,Math.ceil(need*.8))){S.retry=this.s.t+2;c.dig=Math.max(c.dig||0,1);if(!S.told){S.told=true;this.log(c.name,`${c.name} rassemble des renforts pour faire taire notre batterie.`,'warn');}continue;}
+      const need=Math.min(60,Math.max(6,Math.ceil(def*1.6)+4+Math.floor(S.danger/2)));const pool=this.beeeMuster(c,cities,need,2,150);
+      if(pool.length<Math.max(4,Math.ceil(need*.6))){S.retry=this.s.t+2;c.dig=Math.max(c.dig||0,1);if(!S.told){S.told=true;this.log(c.name,`${c.name} rassemble des renforts pour faire taire notre batterie.`,'warn');}continue;}
       const near=this.s.buildings.filter(b=>b.f==='meumeu'&&!b.ruin&&B.known?.[b.id]).sort((a,z)=>this.distB(a,S.x,S.y)-this.distB(z,S.x,S.y))[0]||this.building(c.centre);if(!near)continue;
       const b=this.makeBand(pool,near,c);b.kind='contre';b.city=c.id;b.pt=[S.x,S.y];B.waves=(B.waves||0)+1;
       (this.s.fog?0:this.log(c.name,`${pool.length} Bèè partent de ${c.name} à l’assaut de notre batterie (${def?`${def} défenseurs estimés`:'peu défendue'}).`,'bad'));

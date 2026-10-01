@@ -154,7 +154,9 @@ export class World{
     if(e.type==='shot'&&e.by!=null){const op=this.operation(this.unit(e.by)?.op);if(op)op.fired=(op.fired||0)+1;}
     if(e.type==='shot'&&e.f==='beee')this.meumeuHear(e.x,e.y,e.dB??150,'tirs');else if(e.type==='boom'){this.meumeuHear(e.x,e.y,e.kind==='bomb'?185:170,'explosion');
       // les Bèè entendent aussi nos explosions (grenades, obus, bombes, charges) : pas les leurs
-      if(e.src!=='beee'&&e.kind!=='pop')this.beeeHear?.(e.x,e.y,e.kind==='bomb'?185:e.kind==='grenade'?160:170,'explosion');}}
+      // (un obus, une roquette, une bombe tombent de loin : fouiller le point d'impact rassemblait les Bèè sous le prochain coup — c'est le départ du coup,
+      //  entendu à la pièce, qu'ils remontent ; seules les grenades et les charges posées à la main font fouiller le lieu de l'explosion)
+      if(e.src!=='beee'&&e.kind!=='pop'&&e.kind!=='shell'&&e.kind!=='bomb'&&e.kind!=='rocket')this.beeeHear?.(e.x,e.y,e.kind==='grenade'?160:170,'explosion');}}
   // Les bruits de la vie : un train qui roule, un chantier, des arbres qu'on abat, une mine — ils portent plus ou moins loin.
   // Chez l'ennemi, on les note (à peu près) ; les Bèè, eux, s'en servent pour orienter leurs reconnaissances.
   noiseTick(dt){this.noiT=(this.noiT||0)+dt;if(this.noiT<.5)return;this.noiT=0;const src=[];
@@ -794,7 +796,9 @@ export class World{
     // le retour d'une opération : courbé tant qu'un Bèè est à portée de vue, debout (et vite) ensuite
     if(u.sneakHome&&!u.postSet){if(!T0||T0.kind!=='move'){u.sneakHome=false;u.orderPost=null;}else{const R=18;u.orderPost=this.near(u.x,u.y,R,e=>e.f!==u.f&&active(e)&&this.spotted(e,u.f)&&d2(e.x,e.y,u.x,u.y)<R)||(u.supp||0)>.1?'accroupi':null;}}
     if(['hunt','capture','butcher','lead'].includes(T0?.kind)){this.wildlifeOrder(u,T0);return;}
-    if(T0&&(T0.kind==='band'||T0.kind==='bandcarry')){u.post=u.orderPost||(u.anim==='walk'?'debout':this.atWar&&(u.supp||0)>.4?'couche':this.atWar?'accroupi':'debout');this.bandUnit(u,T0);return;}
+    // (un Bèè qui se déplace se relève : l'ordre « couché » d'une garde ne le fait plus traverser la carte en rampant — accroupi sous un feu nourri)
+    const OP=u.f==='beee'&&!u.postSet&&u.anim==='walk'&&u.orderPost==='couche'?((u.supp||0)>.6?'accroupi':null):u.orderPost;
+    if(T0&&(T0.kind==='band'||T0.kind==='bandcarry')){u.post=OP||(u.anim==='walk'?'debout':this.atWar&&(u.supp||0)>.4?'couche':this.atWar?'accroupi':'debout');this.bandUnit(u,T0);return;}
     // la posture : debout en marche ; accroupi au combat ; couché sous le feu (ou sur ordre). Pas un coup de feu avant la guerre.
     let threat=(D.arm||D.img)&&this.atWar?this.nearestEnemy(u,Math.max(this.sight(),this.engageRange(u))):null;
     // le tir discret : on n'abat qu'un Bèè isolé, proche, dont personne d'autre n'entendra le coup ni ne verra la chute —
@@ -802,7 +806,7 @@ export class World{
     if(threat&&u.quiet&&!this.spotted(u,u.f==='meumeu'?'beee':'meumeu')&&!this.quietOk(u,threat))threat=null;
     // accroupi pour une alerte, à son poste seulement : il se relève en partant
     if(u.alertPost&&T0?.kind!=='guard'){u.alertPost=0;if(u.orderPost==='accroupi'&&!u.sentry&&!u.inTrench)u.orderPost=null;}
-    u.post=u.orderPost||(u.anim==='walk'?'debout':threat?(u.supp>.45?'couche':'accroupi'):'debout');
+    u.post=OP||(u.anim==='walk'?'debout':threat?(u.supp>.45?'couche':'accroupi'):'debout');
     // à couvert : un garde pris sous le feu (sans formation, sans poste imposé) se décale d'une case et demie au plus vers le meilleur
     // abri entre lui et le tireur (un arbre, un rocher, un mur, une tranchée) — une fois par heure, pour ne pas danser
     if(threat&&(u.supp||0)>.2&&T0?.kind==='guard'&&!T0.fm&&!T0.hold&&!u.sentry&&this.s.t>=(u.coverT??-1)&&!this.coverFor(u,threat.x,threat.y)){u.coverT=this.s.t+1;const N=this.N;let best=null,bv=0;

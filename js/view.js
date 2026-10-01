@@ -950,7 +950,7 @@ export class View{
         if(sh.kind==='shell'||sh.kind==='hshell'){const design=sh.w&&W.design(sh.w),p=design?.p,cal=p?.d||8,sz=Math.max(3.5,Math.min(14,cal*.5))*z;
           // V12.4 : la trajectoire se voit — une traînée (fumée de la charge, air chaud) sur l'arc déjà parcouru, plus épaisse et plus longue avec le calibre
           {const H=hh=>(sh.kind==='hshell'?Math.min(14,Math.max(1.5,sh.top||3)):3)*4*hh*(1-hh)+.5*(1-hh),n=14,back=Math.min(q,.18+Math.min(.5,cal/120));ctx.save();ctx.lineCap='round';
-            for(let m=this.o3?2:0;m<n;m++){const q0=q-back*(m+1)/n,q1=q-back*m/n;if(q0<0)break;   // en 3D, la traînée commence derrière l'obus (il est dans la scène)const pa=this.toScreen(sh.x0+(sh.x1-sh.x0)*q0,sh.y0+(sh.y1-sh.y0)*q0,H(q0)),pb=this.toScreen(sh.x0+(sh.x1-sh.x0)*q1,sh.y0+(sh.y1-sh.y0)*q1,H(q1));
+            for(let m=this.o3?2:0;m<n;m++){const q0=q-back*(m+1)/n,q1=q-back*m/n;if(q0<0)break;   /* en 3D, la traînée commence derrière l'obus (il est dans la scène) */const pa=this.toScreen(sh.x0+(sh.x1-sh.x0)*q0,sh.y0+(sh.y1-sh.y0)*q0,H(q0)),pb=this.toScreen(sh.x0+(sh.x1-sh.x0)*q1,sh.y0+(sh.y1-sh.y0)*q1,H(q1));
               const f=1-m/n;ctx.strokeStyle=`rgba(225,218,200,${.5*f})`;ctx.lineWidth=Math.max(1,sz*.55*(.4+.6*f));ctx.beginPath();ctx.moveTo(pa.x,pa.y);ctx.lineTo(pb.x,pb.y);ctx.stroke();}
             if(cal>=20&&!this.o3){ctx.globalCompositeOperation='lighter';ctx.strokeStyle='rgba(255,190,110,.55)';ctx.lineWidth=Math.max(1,sz*.18);const q0=Math.max(0,q-.04),pa=this.toScreen(sh.x0+(sh.x1-sh.x0)*q0,sh.y0+(sh.y1-sh.y0)*q0,H(q0));ctx.beginPath();ctx.moveTo(pa.x,pa.y);ctx.lineTo(a.x,a.y);ctx.stroke();}
             ctx.restore();}
