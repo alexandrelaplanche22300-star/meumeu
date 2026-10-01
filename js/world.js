@@ -1120,7 +1120,7 @@ export class World{
     if(W.mg){u.wear=(u.wear||0)+1;const step=Math.max(60,(W.life||2000)/8);if(u.wear>=step){u.wear-=step;const got=this.take(u.f,u.x,u.y,'pieces',1,40);u.worn=got<.99?(u.worn||0)+1:Math.max(0,(u.worn||0)-1);}
       if(u.worn>0&&this.rand()<.015*u.worn){u.cool=(u.cool||0)+(W.clear||3);u.why='mitrailleuse usée : il faut des pièces';}}
     u.mag--;if(ACTIONS[W.p.action]?.auto){u.burst=(u.burst||0)+1;if(u.burst>=4){u.burst=0;u.cool=W.aim*.7;}else u.cool=W.cyc;}else{u.burst=0;u.cool=W.cyc+W.aim*.4;}if(miss)u.cool*=1+miss*1.8;
-    if(!(W.mountOk||u.k==='choc'&&W.need==='bipied')){u.cool*=1+Math.min(5,W.rk0);u.why='affût insuffisant : tir lent et dispersé';}
+    if(!(W.mountOk||u.k==='choc'&&W.need==='bipied')){u.cool*=1+Math.min(5,W.rk0*(u.k==='choc'?.5:1));u.why='affût insuffisant : tir lent et dispersé';}
     const R=distT*TILE_M;const fl=W.at(R);
     const isV=!!VEHDEF[e.k]&&!!e.mounts;const share={};let ix=x,iy=y;for(let k=0;k<(isB||e.wall!=null?1:(W.pel||1));k++){const res=isB||e.wall!=null?{hit:true,struct:true,v:fl.v}:isV?this.vehAim(u,e,W,R,u.burst||0):this.resolve(u,e,W,R,u.burst||0,share);
       [ix,iy]=res.hit?[x,y]:[res.px??x,res.py??y];
@@ -1131,7 +1131,7 @@ export class World{
   // l'erreur d'estimation de la distance (la chute), puis ce qu'elle rencontre : le couvert (et s'il le perce), le corps.
   resolve(u,e,W,R,burst,share=null){const D=UDEF(u);const skill=(D.skill||2.4)/(1+(u.xp||0)/60)/(u.f==='meumeu'?this.mod('tir'):1);const moving=this.s.t-(u.moved||-9)<.03;
     const sigS=skill*POST[u.post||'debout']*(moving?2.4:1)*(1+1.5*(u.supp||0))*(u.h?malus(u.h).aim:1)*(u.armor?1+((this.armorOf(u.armor)?.D.aim||1)-1)*(UDEF(u).choc?.load??1):1);
-    const sigW=W.moa*.291*(u.mount?1:(W.mountOk||u.k==='choc'&&W.need==='bipied')?1:2+Math.min(4,W.rk0))*(u.mount?.8:this.trenchRest(u,W));const sigR=burst*W.rk*9*(u.mount?.5:1);const missing=W.crew>1&&!u.mount?Math.max(0,W.crew-1-this.servants(u).length):0;
+    const sigW=W.moa*.291*(u.mount?1:(W.mountOk||u.k==='choc'&&W.need==='bipied')?1:2+Math.min(4,W.rk0))*(u.mount?.8:this.trenchRest(u,W));const sigR=burst*W.rk*(u.k==='choc'?.5:1)*9*(u.mount?.5:1);const missing=W.crew>1&&!u.mount?Math.max(0,W.crew-1-this.servants(u).length):0;
     // Le viseur réduit l'erreur angulaire propre du tireur; il n'ajoute pas de
     // vitesse ni de portée balistique. Tirer en mouvement/sous le feu garde ses
     // pénalités, et la dispersion/traînée de l'arme restent présentes.
@@ -1171,7 +1171,7 @@ export class World{
   // (ey) dira plus loin si c'est la caisse ou la tourelle.
   vehAim(u,v,W,R,burst){const D=UDEF(u);const moving=this.s.t-(u.moved||-9)<.03;
     const sigS=(D?.skill||2.4)/(1+(u.xp||0)/60)*(POST[u.post||'debout']||1)*(moving?2.4:1)*(1+1.5*(u.supp||0))*(u.h?malus(u.h).aim:1);
-    const sigW=W.moa*.291*(u.mount||W.mountOk||u.k==='choc'&&W.need==='bipied'?1:2+Math.min(4,W.rk0));const sig=Math.hypot(sigS,sigW,burst*W.rk*9*(u.mount?.5:1),W.sightAimMrad||1.8)/1000;
+    const sigW=W.moa*.291*(u.mount||W.mountOk||u.k==='choc'&&W.need==='bipied'?1:2+Math.min(4,W.rk0));const sig=Math.hypot(sigS,sigW,burst*W.rk*(u.k==='choc'?.5:1)*9*(u.mount?.5:1),W.sightAimMrad||1.8)/1000;
     const V=VEHDEF[v.k];const a=Math.atan2(v.y-u.y,v.x-u.x),rel=Math.atan2(Math.sin(a-v.h),Math.cos(a-v.h));
     const halfW=(Math.abs(Math.cos(rel))*V.large+Math.abs(Math.sin(rel))*V.long)/2*TILE_M,H=(V.haut||Math.min(V.large*.8,1.1))*TILE_M;
     const ex=sig*R*this.gauss(),ey=H*.45+sig*R*this.gauss();const fl=W.at(R);
