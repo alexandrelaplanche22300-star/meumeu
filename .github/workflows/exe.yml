@@ -43,6 +43,13 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npx electron-builder --win portable --publish never
+      - name: Nom stable de l'exe
+        # le nom de sortie suit la version (package.json : « Oberkommando der Meumeu V12.4.exe ») ; le lien permanent garde OberkommandoDerMeumeu.exe
+        shell: bash
+        run: |
+          f=$(ls release/*.exe | grep -v '/OberkommandoDerMeumeu.exe$' | head -1)
+          if [ -n "$f" ]; then cp "$f" release/OberkommandoDerMeumeu.exe; fi
+          ls -la release/*.exe
       - name: Garder l'exe (toutes les branches)
         uses: actions/upload-artifact@v4
         with:
@@ -58,3 +65,16 @@ jobs:
             --title "Oberkommando der Meumeu — version ${{ github.run_number }}" \
             --notes "Téléchargez OberkommandoDerMeumeu.exe ci-dessous et double-cliquez : c'est une vraie application, avec son propre moteur — ni navigateur, ni Edge, ni rien à installer (Windows 10 ou 11). F11 : plein écran. Les parties sont sauvées dans %APPDATA%\\Oberkommando der Meumeu." \
             --latest
+      - name: Publier en pré-version (branches claude/…)
+        # une branche de travail : l'exe téléchargeable tout de suite, sans toucher à main (pré-version, jamais « latest »)
+        if: startsWith(github.ref, 'refs/heads/claude/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          v=$(node -p "require('./package.json').version")
+          gh release create "v$v-${{ github.run_number }}" release/OberkommandoDerMeumeu.exe \
+            --target "${{ github.sha }}" \
+            --title "Oberkommando der Meumeu V$v (essai, ${{ github.ref_name }})" \
+            --notes "Version de travail $v construite depuis la branche ${{ github.ref_name }}. Téléchargez OberkommandoDerMeumeu.exe ci-dessous et double-cliquez (Windows 10 ou 11, rien à installer). Nouveautés : voir oberkommando/LIVRAISON-V10.md." \
+            --prerelease
