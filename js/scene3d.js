@@ -21,7 +21,7 @@ export const BUILDING_MODEL={
   manufacture:['industrial_plant',1.0,0],garage:['industrial_warehouse_3d_model',1.0,1,0xb8c0a4],hopital:['coastal_tavern',1.0,0],tente:['stylized_camp_tent_3d_model',1.0,0],archives:['steampunk_hut',1.0,0],
   fonderie:['medieval_forge_3d_model',1.0,0],tour:[':tour',.8,0]};
 export const OUTCROP_MODEL={fer:'rocky_outcrop',charbon:'lava_rock',pierre:'stone_rock_pile',cuivre:'crystal_rock',plomb:'rock_formation',salpetre:'multicolored_crystal_pile',or:'rock_with_gold_veins'};
-export const MODEL_NAMES=[...new Set([...Object.values(BUILDING_MODEL).map(b=>b[0]).filter(n=>n[0]!==':'),...Object.values(OUTCROP_MODEL),'meumeu','meumeu_soldat','plush_cow_knight','goat_plush_toy','gewehr_43_rifle','heavy_machine_gun','assault_rifle','vintage_military_jeep_logistic_unarmed','vintage_military_logistic_jeep_with_gun','ww2_locomotive','ww2_wagon','armored_car','stone_rock_pile','silbervogel_bomber_3d_model',...Object.values(VEHDEF).map(V=>V.modele)])];
+export const MODEL_NAMES=[...new Set([...Object.values(BUILDING_MODEL).map(b=>b[0]).filter(n=>n[0]!==':'),...Object.values(OUTCROP_MODEL),'meumeu','meumeu_soldat','plush_cow_knight','meumeu_casque','goat_plush_toy','gewehr_43_rifle','heavy_machine_gun','assault_rifle','vintage_military_jeep_logistic_unarmed','vintage_military_logistic_jeep_with_gun','ww2_locomotive','ww2_wagon','armored_car','stone_rock_pile','silbervogel_bomber_3d_model',...Object.values(VEHDEF).map(V=>V.modele)])];
 
 // ---- petites géométries de code : arbres, buisson, casque (couleurs de sommets)
 const colored=(g,hex)=>{const c=new THREE.Color(hex);const n=g.attributes.position.count,a=new Float32Array(n*3);for(let i=0;i<n;i++){a[3*i]=c.r;a[3*i+1]=c.g;a[3*i+2]=c.b;}g.setAttribute('color',new THREE.BufferAttribute(a,3));return g;};
@@ -79,12 +79,12 @@ class Pool{
       .replace('#include <begin_vertex>',`#include <begin_vertex>
       {float hN=position.y/uH;float ph=aAnim.x,amp=aAnim.y;float sg=position.x>0.?0.:3.14159;float sa=position.x>0.?3.14159:0.;
        float leg=max(0.,1.-hN/.30);transformed.z+=sin(ph+sg)*amp*leg*uH*.20;transformed.y+=max(0.,cos(ph+sg))*amp*leg*uH*.05;
-       float arm=smoothstep(.30,.42,hN)*(1.-smoothstep(.62,.80,hN))*smoothstep(uW*.16,uW*.30,abs(position.x));transformed.z+=sin(ph+sa)*amp*arm*uH*.14;
+       float arm=smoothstep(.30,.42,hN)*(1.-smoothstep(.62,.80,hN))*smoothstep(uW*.16,uW*.30,abs(position.x));
        transformed.y+=abs(sin(ph))*amp*uH*.028;transformed.x+=sin(ph)*amp*uH*.012;
        // les bras se lèvent vers l'avant autour des épaules (arme tenue, charge portée) ; le recul pousse le haut du corps en arrière
-       float am=aAnim.z;if(am>.001){float mk=smoothstep(uW*uAK.x,uW*uAK.y,abs(position.x))*smoothstep(.26,.40,hN)*(1.-smoothstep(.70,.84,hN));
+       float am=0.;if(am>.001){float mk=smoothstep(uW*uAK.x,uW*uAK.y,abs(position.x))*smoothstep(.26,.40,hN)*(1.-smoothstep(.70,.84,hN));
          if(mk>.001){vec3 S=vec3(sign(position.x)*uW*.22,uH*.62,0.);vec3 v=transformed-S;float a=-am*uAK.z*mk;float c=cos(a),s2=sin(a);transformed=S+vec3(v.x,v.y*c-v.z*s2,v.y*s2+v.z*c);}}
-       transformed.z+=am*uH*uAK.w*smoothstep(.35,.9,hN);float kk=aAnim.w;if(kk>.001){transformed.z-=kk*uH*.10*(.3+.7*hN);transformed.y-=kk*uH*.02*hN;}}`);};}
+       transformed.z+=am*uH*uAK.w*smoothstep(.35,.9,hN);float kk=0.;if(kk>.001){transformed.z-=kk*uH*.10*(.3+.7*hN);transformed.y-=kk*uH*.02*hN;}}`);};}
     // ghost : la variante transparente (les arbres autour de nos unités et des ennemis repérés) — sans ombre portée, sans masquer ce qui est derrière
     if(ghost){mat.transparent=true;mat.opacity=.22;mat.depthWrite=false;}
     this.mesh=new THREE.InstancedMesh(g,mat,cap);this.mesh.count=0;this.mesh.frustumCulled=false;this.mesh.castShadow=!ghost;this.mesh.receiveShadow=false;if(ghost)this.mesh.renderOrder=2;
@@ -118,7 +118,8 @@ export class Scene3D{
     const ch=n=>({H:this.M[n].ext[1],W:this.M[n].ext[0]});
     for(const k of ['feuillu','conifere','palmier','sec','buisson']){const p=new Pool(TREE_GEO[k](),{cap:3000});this.pools[k]=p;this.scene.add(p.mesh);
       const q=new Pool(TREE_GEO[k](),{cap:800,ghost:true});this.pools[k+'_g']=q;this.scene.add(q.mesh);}
-    this.pools.casque=new Pool(TREE_GEO.casque(),{cap:1200});this.scene.add(this.pools.casque.mesh);
+    // le casque du joueur (meumeu helmet 3d model.glb, réduit à 1 500 faces) ; à défaut, le casque dessiné par le code
+    if(this.M.meumeu_casque){this.pools.casque=new Pool(this.M.meumeu_casque.geo,{cap:1200});this.casqueK=.266/this.M.meumeu_casque.ext[0];}else this.pools.casque=new Pool(TREE_GEO.casque(),{cap:1200});this.scene.add(this.pools.casque.mesh);
     for(const k of ['biche','lapin','charrette','caisse','poteau','lisse','buche','caillou','sac','tonnelet','obus']){const p=new Pool(ANIMAL_GEO[k](),{cap:k==='poteau'||k==='lisse'?4000:k==='caisse'||k==='buche'||k==='caillou'||k==='sac'?1500:600,flat:true});this.pools[k]=p;this.scene.add(p.mesh);}
     this.pools.avion=mk('silbervogel_bomber_3d_model',{cap:60});
     this.pools.meumeu=mk('meumeu',{cap:1200,anim:ch('meumeu')});
@@ -340,7 +341,7 @@ export class Scene3D{
         const sp=front(0,H*.5,0);const px=sp[0]+(br[0]-sp[0])*e,pz=sp[2]+(br[2]-sp[2])*e,py=sp[1]+(br[1]-sp[1])*e+Math.sin(PI*e)*.08;
         const sc2=Math.max(.9,Math.min(2.2,.8+(Wd.rm||300)/900));P.obus.add(px,py,pz,tt<.999?Math.atan2(br[0]-sp[0],br[2]-sp[2])-PI/2:gy-PI/2,sc2,sc2,sc2);}
       // équipement : le casque, puis l'arme telle qu'elle a été conçue (à défaut, un fusil générique)
-      if(!bee&&!helmeted&&u.k!=='villageois'&&pose!=='down'&&(pose==='up'||pose==='crouch')){const hy=H*(pose==='crouch'?.72:1)*.93;P.casque.add(u.x,hy,u.y,y,H*.23,H*.23,H*.23);}
+      if(!bee&&!helmeted&&u.k!=='villageois'&&pose!=='down'&&(pose==='up'||pose==='crouch')){const hy=H*(pose==='crouch'?.72:1)*.93;if(this.casqueK){const k=H*this.casqueK;P.casque.add(ux,hy-H*.035,uy,y,k,k,k);}else P.casque.add(ux,hy,uy,y,H*.23,H*.23,H*.23);}
       if(Wg)this.putGun(u,Wg,H,y,pose,walking,{aiming,reloading,rp,kick});
       else if(u.k!=='villageois'&&pose==='up'&&(bee||u.w)){const k=H*.62/this.M.gewehr_43_rifle.ext[0];P.fusil.add(u.x+hx*.23-hz*.07,H*.48,u.y+hz*.23+hx*.07,y-PI/2,k,k,k);}
     };
