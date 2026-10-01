@@ -726,6 +726,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   else if(a==='zoom-in')uiZ.step(1);else if(a==='zoom-out')uiZ.step(-1);else if(a==='zoom-auto'){uiZ.step(0);say(`Taille de l’interface : automatique (${Math.round(uiZ.cur*100)} %).`);}
   else if(a==='new'){if(confirm('Nouvelle partie : une nouvelle carte. La partie en cours sera perdue.')){setWorld(new World());say('Une nouvelle carte.','good');}}
   else if(a==='new-assisted'){if(confirm('Départ établi : une nouvelle carte avec une base, des ressources et une petite garde. La partie en cours sera perdue.')){setWorld(new World(undefined,{assisted:true}));say('Départ établi : infrastructure et réserves prêtes.','good');}}
+  else if(a==='scen-front'){if(confirm('Scénario de test « front » : notre batterie (2 obusiers, 1 lance-fusées, 2 mitrailleuses lourdes, 12 fusiliers) à 55 cases de la capitale bèè, 100 soldats bèè en face, guerre déclarée, brouillard levé. La partie en cours sera perdue.')){const w=new World(undefined,{dev:true});setWorld(w);const r=scenarioFront(w);say(r,'good');}}
   else if(a==='new-dev'){if(confirm('Partie de test (Dev) : base équipée, mines en service, usines d’armes, gros stocks. La partie en cours sera perdue.')){setWorld(new World(undefined,{dev:true}));say('Partie de test prête. Brouillard en place : bouton « Brouillard » ou touche N pour le lever.','good');}}
   else if(a==='fog'){toggleFog();}
   else if(a==='panel'){togglePanel();}
@@ -840,6 +841,23 @@ function ambience(){const [i0,i1,j0,j1]=view.vis||[0,0,0,0];const inv=(x,y)=>x>=
 function toggleFog(){world.s.fog=world.s.fog===false;say(world.s.fog!==false?'Brouillard de guerre : on ne voit que ce que voient nos soldats et nos bâtiments. (N)':'Brouillard de guerre levé : toute la carte est visible, avec les alertes des Bèè. (N)','info');syncFogBtn();}
 function syncFogBtn(){const b=document.querySelector('[data-act="fog"]');if(!b)return;const on=world.s.fog!==false;const t='Brouillard : '+(on?'oui':'non');if(b.textContent!==t)b.textContent=t;b.classList.toggle('on',on);}
 function setWorld(w){simClock.reset();world=w;view.world=w;view.fogT=0;view.fogVis=null;view.tiles=null;view.overview=null;view.shadeCv=null;view.sel.clear();view.selVs.clear();view.selB=null;view.selV=null;view.parts=[];view.decals=[];view.streaks=[];view.toppling=[];ui.pick=null;ui.modal=null;for(const c of [...xray.cards])xray.remove(c);const c=w.capital();if(c)view.lookAt(c.i+2,c.j+2);$('#win').hidden=true;renderPanel(true);}
+
+// ---------- le scénario de test « front » : voir les Bèè réagir à notre feu ----------
+function scenarioFront(w){const c=w.s.beee.cities.find(x=>!x.fallen);const cap=w.capital();if(!c||!cap)return 'Scénario impossible : pas de ville bèè.';
+  if(!w.atWar)w.declareWar('meumeu');w.s.fog=false;
+  const dx=cap.i-c.x,dy=cap.j-c.y,L=Math.hypot(dx,dy)||1;const [px,py]=w.freeSpot(c.x+dx/L*55,c.y+dy/L*55,10);const ux=dx/L,uy=dy/L,sx=-uy,sy=ux;
+  const at=(f,b)=>w.freeSpot(px+ux*b+sx*f,py+uy*b+sy*f,3);const face=u=>{u.fx=-ux;u.fy=-uy;};
+  const rocket=w.designsOf('meumeu').find(d=>/fus[ée]e/i.test(d.name)&&w.W(d.id).crew>1);
+  const crewGun=(wid,f,b,rounds)=>{const [x,y]=at(f,b);const g=w.addUnit('meumeu','soldat',x,y,{w:wid,rounds});g.task={kind:'guard',tx:x,ty:y};face(g);
+    const n=Math.max(0,w.W(wid).crew-1);for(let k=0;k<n;k++){const [sx2,sy2]=at(f+(k%3-1)*.8,b+1+Math.floor(k/3)*.8);const s=w.addUnit('meumeu','soldat',sx2,sy2,{w:'mle1'});s.serve=g.id;s.task={kind:'guard',tx:sx2,ty:sy2};face(s);}return g;};
+  crewGun('canon_mle1',-6,10,40);crewGun('canon_mle1',6,10,40);if(rocket)crewGun(rocket.id,0,12,24);
+  crewGun('mg_lourde_mle1',-4,0,1500);crewGun('mg_lourde_mle1',4,0,1500);
+  for(let k=0;k<12;k++){const [x,y]=at((k-5.5)*1.2,2);const u=w.addUnit('meumeu','soldat',x,y,{w:'mle1',rounds:300});u.task={kind:'guard',tx:x,ty:y};face(u);}
+  // en face : 100 soldats bèè armés, en garnison dans leurs villes (60 à la capitale, le reste dans les autres)
+  const cities=w.s.beee.cities.filter(x=>!x.fallen);for(let k=0;k<100;k++){const cc=k<60?c:cities[1+(k%Math.max(1,cities.length-1))]||c;const [x,y]=w.freeSpot(cc.x+(Math.random()-.5)*14,cc.y+(Math.random()-.5)*14,4);
+    const u=w.addUnit('beee','soldat',x,y,{w:'bee_fusil'});u.city=cc.id;u.home=cc.centre;u.task={kind:'guard',tx:x,ty:y};}
+  view.lookAt(px,py);view.zoom=.9;
+  return `Scénario « front » prêt : notre batterie à 55 cases de ${c.name}, 100 soldats bèè en face. Sélectionnez les obusiers et faites « Tir sur zone » sur la ville.`;}
 
 // ---------- la boucle ----------
 const simClock=new FixedClock();
