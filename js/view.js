@@ -593,7 +593,8 @@ export class View{
       ctx.save();ctx.strokeStyle='rgba(255,150,120,.55)';ctx.setLineDash([4*dpr,4*dpr]);ctx.lineWidth=1.2*dpr;ctx.beginPath();ctx.moveTo(q0.x,q0.y);ctx.lineTo(q1.x,q1.y);ctx.stroke();ctx.fillStyle='rgba(255,150,120,.9)';ctx.fillRect(q1.x-2*dpr,q1.y-2*dpr,4*dpr,4*dpr);ctx.restore();}}
   // Le tube infrarouge : dans son faisceau, une image monochrome vert-jaune et granuleuse ; hors du faisceau, la nuit reste la nuit.
   drawNir(){const W=this.world;if(W.light()>=.4)return;const ctx=this.ctx,dpr=this.dpr;
-    for(const id of this.sel){const u=W.unit(id);if(!u||u.f!=='meumeu'||!u.nvOn||!((u.irLeft??0)>0))continue;
+    // (toutes nos unités qui ont l'infrarouge allumé, pas seulement la sélection)
+    for(const u of W.s.units){if(u.f!=='meumeu'||!(u.hp>0)||!u.nvOn||!((u.irLeft??0)>0))continue;
       const Wd=u.w?W.W(u.w):null,ir=Wd?.ir;const range=ir?ir.range*(1+.2*Math.log2(Wd.optic?.mag||1)):(u.bino||0);if(!range)continue;
       const beam=(ir?.beam||43)*Math.PI/180,a0=Math.atan2(u.fy??0,u.fx??1),pts=[[u.x,u.y]];
       for(let k=0;k<=18;k++){const a=a0-beam/2+beam*k/18;pts.push([u.x+Math.cos(a)*range,u.y+Math.sin(a)*range]);}
