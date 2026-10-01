@@ -82,10 +82,11 @@ export class View{
     return C[t]=n?[r/n,g/n,b/n]:TERRAIN[t].tint;}
   makeOverview(){const W=this.world,N=W.N,G=W.G;const s=Math.max(4,Math.min(this.tiles?14:8,Math.floor(7600/N)));   // (12 px par case sur la carte de 600 : 7 200 px, sous la limite de 8 192 de la carte graphique ; à 6 px, les textures devenaient de la bouillie)   // (V12.4 : la carte de 600 cases faisait une image de 8 400 px, au-delà de ce que la carte graphique accepte : écran vide et saccades — jamais plus de ~3 800 px)
     const c=document.createElement('canvas');c.width=N*s;c.height=N*s/2;const x=c.getContext('2d');x.imageSmoothingEnabled=true;/* (pas de flou : appliqué à chacune des 360 000 cases, il figeait le jeu au démarrage) */
-    for(let j=0;j<N;j++)for(let i=0;i<N;i++){const t=G.terrain[j*N+i];const px=(i-j+N)*s/2,py=(i+j)*s/4;
-      if(this.tiles){x.drawImage(this.tiles[t][(j&3)*4+(i&3)],px-s/2-.5,py-.5,s+1,s/2+1);continue;}
-      const [r,g,b]=TERRAIN[t].tint;const n=((i*7919+j*104729)%13)/13*.12+.94;x.fillStyle=`rgb(${r*n|0},${g*n|0},${b*n|0})`;
-      x.beginPath();x.moveTo(px,py);x.lineTo(px+s/2,py+s/4);x.lineTo(px,py+s/2);x.lineTo(px-s/2,py+s/4);x.closePath();x.fill();}
+    // (V12.4) une image d'un pixel par case (la couleur moyenne de la texture de chaque terrain), posée en losange par UNE seule opération : la carte graphique
+    // l'agrandit et l'adoucit (lissage bilinéaire). Avant : 360 000 losanges dessinés un par un, plus un flou — plus de 2 s de gel au premier dézoom.
+    {const tiny=document.createElement('canvas');tiny.width=N;tiny.height=N;const tx=tiny.getContext('2d');const im=tx.createImageData(N,N),d=im.data;
+      for(let j=0;j<N;j++)for(let i=0;i<N;i++){const t=G.terrain[j*N+i];const [r,g,b]=this.tiles?this.tileMeanOf(t):TERRAIN[t].tint;const n=((i*7919+j*104729)%13)/13*.1+.95;const k=(j*N+i)*4;d[k]=r*n;d[k+1]=g*n;d[k+2]=b*n;d[k+3]=255;}
+      tx.putImageData(im,0,0);x.save();x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.setTransform(s/2,s/4,-s/2,s/4,N*s/2,0);x.drawImage(tiny,0,0);x.restore();}
     this.overview=c;this.ovS=s;this.ovTex=!!this.tiles;}
   // Les forêts vues de haut : chaque arbre dessiné en petit sur une grande image, refaite quand des arbres tombent
   makeForest(){const W=this.world,N=W.N;const s=this.ovS;const trees=W.s.nodes.filter(n=>n.type==='tree'&&n.left>=1);const sig=trees.length;
