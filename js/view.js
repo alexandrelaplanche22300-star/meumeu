@@ -705,15 +705,19 @@ export class View{
   // La nuit : ce que voit chacune de nos unités — sa vue nue tout autour (face, flancs, dos), sa lunette et son infrarouge dans l'axe.
   // Même calcul que la perception (World.eyeProfile / visualRange), échantillonné sur 32 directions.
   drawNightVision(){const W=this.world,s=W.s;if(!(W.light()<.4))return;const ctx=this.ctx,[i0,i1,j0,j1]=this.vis;let n=0;
-    ctx.save();
+    // toutes les zones sont peintes, opaques, sur un calque à part : leurs recouvrements se fondent en une seule tache, posée ensuite en douceur
+    const cv=this.nvCv??=document.createElement('canvas');if(cv.width!==this.canvas.width||cv.height!==this.canvas.height){cv.width=this.canvas.width;cv.height=this.canvas.height;}
+    const x=cv.getContext('2d');x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,cv.width,cv.height);x.filter=`blur(${Math.round(6*this.dpr)}px)`;let any=false;
     for(const u of s.units){if(u.f!=='meumeu'||!(u.hp>0)||u.h?.state==='hors'||u.inVeh||u.inBarracks)continue;if(u.k==='villageois'||u.k==='medecin'||u.k==='infirmier'||!u.w&&!u.serve)continue;if(u.x<i0-8||u.x>i1+8||u.y<j0-8||u.y>j1+8)continue;if(++n>260)break;
-      const P=W.eyeProfile(u),fx=u.fx??1,fy=u.fy??0,fl=Math.hypot(fx,fy)||1;const pts=[];let nvOn=false;
-      for(let k=0;k<32;k++){const a=k/32*Math.PI*2,dx=Math.cos(a),dy=Math.sin(a),c=(fx*dx+fy*dy)/fl;
-        const cone=u.tower?1:c>=.5?1:c>=-.2?[.55,.72,.88][P.wide]:[.22,.38,.62][P.wide];let r=P.base*cone;if(c>=P.cos)r=Math.max(r,P.optic);if(c>=P.nvCos&&P.nv>r){r=P.nv;nvOn=true;}
-        if(u.lamp)r=Math.max(r,5);r=Math.max(1.6,r);const q=this.toScreen(u.x+dx*r,u.y+dy*r);pts.push(q);}
-      ctx.beginPath();pts.forEach((q,i)=>i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.closePath();
-      ctx.fillStyle=nvOn?'rgba(120,255,150,.07)':'rgba(255,235,170,.06)';ctx.fill();ctx.strokeStyle=nvOn?'rgba(120,255,150,.45)':'rgba(255,235,170,.32)';ctx.lineWidth=1*this.dpr;ctx.stroke();}
-    ctx.restore();}
+      const P=W.eyeProfile(u),fx=u.fx??1,fy=u.fy??0,fl=Math.hypot(fx,fy)||1;const pts=[];let nv=false;
+      for(let k=0;k<48;k++){const a=k/48*Math.PI*2,dx=Math.cos(a),dy=Math.sin(a),c=(fx*dx+fy*dy)/fl;
+        // (les paliers du calcul — face, flancs, dos — adoucis en une courbe continue pour le dessin)
+        const t=Math.max(0,Math.min(1,(c+.6)/1.3)),back=[.22,.38,.62][P.wide];let r=P.base*(back+(1-back)*t*t*(3-2*t));
+        if(c>=P.cos)r=Math.max(r,P.optic*Math.min(1,(c-P.cos)/.04+.6));if(c>=P.nvCos&&P.nv>r){r=P.nv*Math.min(1,(c-P.nvCos)/.03+.5);nv=true;}if(u.lamp)r=Math.max(r,5);r=Math.max(1.6,r);
+        pts.push(this.toScreen(u.x+dx*r,u.y+dy*r));}
+      x.beginPath();for(let k=0;k<pts.length;k++){const p=pts[k],q=pts[(k+1)%pts.length],m=[(p.x+q.x)/2,(p.y+q.y)/2];if(!k)x.moveTo(m[0],m[1]);else x.quadraticCurveTo(p.x,p.y,m[0],m[1]);}
+      {const p=pts[0],q=pts[1];x.quadraticCurveTo(p.x,p.y,(p.x+q.x)/2,(p.y+q.y)/2);}x.closePath();x.fillStyle=nv?'rgb(140,255,170)':'rgb(255,236,180)';x.fill();any=true;}
+    x.filter='none';if(!any)return;ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=.13;ctx.globalCompositeOperation='screen';ctx.drawImage(cv,0,0);ctx.restore();}
   drawCones(){const W=this.world,s=W.s;const sel=[];for(const id of this.sel){const u=W.unit(id);if(u&&u.f==='meumeu'&&u.hp>0)sel.push(u);}if(!sel.length)return;
     const night=W.light()<.4;if(!(this.cones||night&&sel.some(u=>u.holdFire||u.charges>0||u.scoutRole||u.camoSuit||u.task?.kind==='sabotage')))return;
     const ctx=this.ctx,z=this.z(),dpr=this.dpr,base=W.sight(),alerts=s.beee.alerts||[];const [i0,i1,j0,j1]=this.vis;
