@@ -105,16 +105,18 @@ export const BEEE_AI={
         if(n&&!this.s.fog)this.log(c.name,`${c.name} arme ${n} civils pour se défendre.`,'warn');}}
     // Les renforts (V12.4, demande du joueur : « beaucoup plus de soldats bèè ») : toutes les 8 h, chaque ville qui a une caserne voit arriver 1 + niveau
     // soldats armés (fusil bèè, une caisse de cartouches), tant que l'armée est sous 120 + 40 × villes. Une aide donnée à l'IA, pour des vagues massives.
-    {const sol=this.s.units.filter(u=>u.f==='beee'&&u.k==='soldat'&&u.hp>0&&u.h?.state!=='hors').length,live_=cities.filter(c=>!c.fallen),capS=120+40*live_.length,L=this.beeeLevel();let room=capS-sol;
+    {const sol=this.s.units.filter(u=>u.f==='beee'&&u.k==='soldat'&&u.hp>0&&u.h?.state!=='hors').length,live_=cities.filter(c=>!c.fallen),capS=200+70*live_.length,L=this.beeeLevel();let room=capS-sol;
       for(const c of live_){if(room<=0)break;if(this.s.t-(c.reinfT??-99)<8)continue;const bk=this.beeeBuildings('caserne').find(b=>b.done&&!b.ruin&&this.distB(b,c.x,c.y)<28);if(!bk)continue;c.reinfT=this.s.t;
         const n=Math.min(room,2+L),w=this.bestRifle('beee'),Wd=this.W(w),[bx,by]=[bk.i+1,bk.j+3];for(let k=0;k<n;k++){const [x,y]=this.freeSpot(bx+(this.rand()-.5)*4,by+(this.rand()-.5)*3,3);const u=this.addUnit('beee','soldat',x,y,{w});
           u.mag=Wd.p.mag;u.pouch=Math.max(Wd.p.mag*3,Wd.perCrate||0);u.city=c.id;u.home=c.centre;u.task={kind:'guard',tx:c.x+3+(this.rand()-.5)*8,ty:c.y+3+(this.rand()-.5)*8};}room-=n;}}
-    // Le ravitaillement des usines, simplifié (V12.4) : toutes les deux heures, chaque usine reçoit à son dépôt d'approvisionnement de quoi faire deux
-    // fournées (ses matières et son charbon), prises dans tous les dépôts du pays. Avant, seuls les porteurs et les dépôts à 14 cases la servaient : au jour 72
-    // d'une partie, toutes les usines d'armement étaient froides (« plus de charbon ») alors que le pays avait 213 charbon et 2 583 fer.
-    if(this.s.t-(B0.supT??-99)>=2){B0.supT=this.s.t;for(const b of this.s.buildings){if(b.f!=='beee'||!b.done||b.ruin||!BUILDINGS[b.k].factory||!b.prod)continue;const S=this.building(b.sup);if(!S)continue;const R=this.recipe(b,b.prod);if(!R)continue;
-      const want={...Object.fromEntries(Object.entries(R.in).map(([k,v])=>[k,v*2]))};const coal=this.coalRate(b)*Math.max(2,BUILDINGS[b.k].workers||2)*(R.hours||4)*2;if(coal>0)want.charbon=(want.charbon||0)+coal;
-      const [sx,sy]=this.bc(S);for(const [k,w] of Object.entries(want)){const have=S.stock[k]||0;if(have>=w)continue;const got=this.take('beee',sx,sy,k,w-have,400);if(got>0)this.put(S,k,got);}}}
+    // Le ravitaillement des usines (V12.4) : sans triche. Une gare du réseau ferré alimente d'elle-même les usines proches (≤ 14 cases) — mais
+    // seulement avec ce qu'elle a en stock, c'est-à-dire ce que les trains y ont apporté. Voie coupée, plus de train, plus rien dans la gare :
+    // l'usine attend. Plus de prélèvement dans « tous les dépôts du pays ». Une usine sans gare proche reste servie par les porteurs.
+    if(this.s.t-(B0.supT??-99)>=2){B0.supT=this.s.t;const gares=this.beeeBuildings('gare').filter(g=>g.done&&!g.ruin&&this.netOf(g)!=null);
+      if(gares.length)for(const b of this.s.buildings){if(b.f!=='beee'||!b.done||b.ruin||!BUILDINGS[b.k].factory||!b.prod)continue;const S=this.building(b.sup);if(!S)continue;const R=this.recipe(b,b.prod);if(!R)continue;
+        const [fx,fy]=this.bc(b);let G=null,gd=14;for(const g of gares){const d=this.distB(g,fx,fy);if(d<gd){gd=d;G=g;}}if(!G||G===S)continue;
+        const want={...Object.fromEntries(Object.entries(R.in).map(([k,v])=>[k,v*2]))};const coal=this.coalRate(b)*Math.max(2,BUILDINGS[b.k].workers||2)*(R.hours||4)*2;if(coal>0)want.charbon=(want.charbon||0)+coal;
+        for(const [k,w] of Object.entries(want)){const have=S.stock[k]||0;if(have>=w)continue;const q=Math.min(w-have,Math.max(0,G.stock[k]||0));if(q<=0)continue;const got=this.put(S,k,q);if(got>0)G.stock[k]-=got;}}}
     // L'intendance : le plan (ce qui manque, en remontant la chaîne), puis chaque villageois au poste qui vaut le plus.
     const stock=this.have('beee',base.i+1,base.j+1);const plan=this.beeePlan();this.beeeLabour(plan);this.beeePorters(plan);this.beeeTrains();this.beeeSiting(plan);
     const stillBuilding=this.beeeBuildings().some(b=>!b.done&&!['camp','mine','centre','maison','gare'].includes(b.k)&&distance(b.i,b.j,base.i,base.j)<32);   // l'expansion (camps, mines, colonies) ne bloque pas l'industrie
