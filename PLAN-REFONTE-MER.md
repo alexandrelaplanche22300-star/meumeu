@@ -30,7 +30,9 @@ de coups : il ne recharge presque jamais.
 ## Phase 3 — La carte : deux rives, la mer, de longues plages
 - `gen.js` (115 lignes) : une côte par rive, un détroit de mer profonde, plages de sable larges (plusieurs cases),
   falaises par endroits (comme Omaha / Longues-sur-Mer). Les terrains `deep` / `shallow` / `sand` existent déjà.
-- Taille (à décider, voir questions) : 600 aujourd'hui. Coûts à surveiller : image du sol (le sol lissé n'a besoin que
+- Taille (décision du joueur) : 2,5 fois la carte actuelle, dont 0,5 de mer. Lecture retenue : deux territoires de 600 × 600 (un par camp)
+  séparés par un bras de mer de 300 cases → carte de 1 500 × 600 (rectangulaire : le code suppose aujourd'hui une carte carrée N × N, à adapter).
+  Coûts à surveiller : image du sol (le sol lissé n'a besoin que
   d'un pixel par case, donc plus de limite de la carte graphique), brouillard, chemins, `railNets` (tableaux N×N),
   mémoire, l'IA bèè qui cherche des sites.
 - Les Bèè sur leur rive, les Meumeu sur la leur ; pas de rail sur la mer.
