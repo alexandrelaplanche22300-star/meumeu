@@ -177,14 +177,14 @@ export const WAR={
       let ok=false;
       for(const [sx,sy] of spots){let pit=null;   // la fosse : la première place libre de 2 × 2 cases, au plus près du point voulu
         for(let r=0;r<=3&&!pit;r++)for(let dj=-r;dj<=r&&!pit;dj++)for(let di=-r;di<=r&&!pit;di++){if(Math.max(Math.abs(di),Math.abs(dj))!==r)continue;const i=Math.round(sx)+di,j=Math.round(sy)+dj;
-          const cells=[[i,j],[i+1,j],[i,j+1],[i+1,j+1]];if(this.canLine('beee','tranchee',cells).length===4)pit=cells;}
-        if(pit&&this.planLine('beee','tranchee',pit).ok){ok=true;const u=this.beeeAvailable?.(pit[0][0],pit[0][1],40)?.[0];if(u)this.beeeAssign(u,{kind:'line',line:'tranchee',x:pit[0][0],y:pit[0][1]});}}
+          const cells=[[i,j],[i+1,j],[i,j+1],[i+1,j+1]];if(this.canLine('beee','sacs',cells).length===4)pit=cells;}
+        if(pit&&this.planLine('beee','sacs',pit).ok){ok=true;const u=this.beeeAvailable?.(pit[0][0],pit[0][1],40)?.[0];if(u)this.beeeAssign(u,{kind:'line',line:'sacs',x:pit[0][0],y:pit[0][1]});}}
       c.dug=lvl;if(ok)this.log(c.name,lvl>=2?`${c.name} se couvre de fosses de combat.`:`${c.name} creuse une fosse de combat face à la menace.`,'warn');}
     // les terrassiers : tant qu'une ligne n'est pas finie, trois villageois de la ville y creusent (les gardes l'occuperont à l'alerte,
     // voir beeeGarrison)
-    const N=this.N;for(const c of cities){if(!(c.dig>0))continue;const todo=Object.keys(this.s.trenches).map(Number).filter(k=>{const t=this.s.trenches[k];return t.f==='beee'&&!t.b&&d2(k%N+.5,((k/N)|0)+.5,c.x,c.y)<22;});if(!todo.length)continue;
-      const diggers=this.s.units.filter(u=>u.f==='beee'&&u.task?.kind==='line'&&u.task.line==='tranchee'&&d2(u.x,u.y,c.x,c.y)<40).length;
-      for(let n=diggers;n<Math.min(3,todo.length);n++){const k=todo[Math.floor(this.rand()*todo.length)];const u=this.beeeAvailable?.(k%N,(k/N)|0,45)?.[0];if(!u)break;this.beeeAssign(u,{kind:'line',line:'tranchee',x:k%N,y:(k/N)|0});}}},
+    const N=this.N;for(const c of cities){if(!(c.dig>0))continue;const todo=Object.keys(this.s.sacs).map(Number).filter(k=>{const t=this.s.sacs[k];return t.f==='beee'&&!t.b&&d2(k%N+.5,((k/N)|0)+.5,c.x,c.y)<22;});if(!todo.length)continue;
+      const diggers=this.s.units.filter(u=>u.f==='beee'&&u.task?.kind==='line'&&u.task.line==='sacs'&&d2(u.x,u.y,c.x,c.y)<40).length;
+      for(let n=diggers;n<Math.min(3,todo.length);n++){const k=todo[Math.floor(this.rand()*todo.length)];const u=this.beeeAvailable?.(k%N,(k/N)|0,45)?.[0];if(!u)break;this.beeeAssign(u,{kind:'line',line:'sacs',x:k%N,y:(k/N)|0});}}},
   // ce qu'ils ont vu ou entendu : une alerte, un point et un rayon d'incertitude
   beeeNotice(x,y,r,why){const B=this.s.beee;B.alerts??=[];const a=B.alerts.find(a=>d2(a.x,a.y,x,y)<8&&this.s.t-a.t<2);if(a){const repeat=this.s.t-a.t>.3||a.why!==why;a.x=(a.x+x)/2;a.y=(a.y+y)/2;a.t=this.s.t;a.r=Math.min(a.r,r);a.why=why;if(repeat)a.done=false;return;}
     B.alerts.push({x,y,r,t:this.s.t,why,done:false});if(B.alerts.length>20)B.alerts.shift();
@@ -271,7 +271,7 @@ export const WAR={
     for(const c of cities){const I=this.intrudersNear(c.x,c.y,40);const alert=I.length>0||(c.threat||0)>=1.6||c.shelled&&t-c.shelled.at<6;
       if(alert&&!c.alertT){c.alertT=t;c.dig=Math.max(c.dig||0,1);}else if(!alert&&c.alertT&&t-c.alertT>4)c.alertT=null;
       const g=this.beeeGuards(c);const N=this.N;
-      const T0=Object.keys(this.s.trenches).map(Number).filter(k=>{const o=this.s.trenches[k];return o.f==='beee'&&o.b&&d2(k%N+.5,((k/N)|0)+.5,c.x,c.y)<24;}),T=alert?T0:[];
+      const T0=Object.keys(this.s.sacs).map(Number).filter(k=>{const o=this.s.sacs[k];return o.f==='beee'&&o.b&&d2(k%N+.5,((k/N)|0)+.5,c.x,c.y)<24;}),T=alert?T0:[];
       // les sentinelles : la nuit, une (deux pour une grosse garnison) aux points clés, accroupies ; le jour, au calme, elles rentrent
       const night=this.light()<.4,S=this.s.units.filter(u=>u.f==='beee'&&u.sentry&&u.city===c.id&&active(u)&&!u.band);
       if(!night&&!alert&&(c.threat||0)<.8)for(const u of S){u.sentry=false;u.keyB=null;u.orderPost=null;if(u.task?.kind!=='guard')u.task={kind:'guard',tx:c.x+2,ty:c.y+3};}

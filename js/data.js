@@ -151,13 +151,13 @@ export const BUILD_CATS=[
   {k:'relier',name:'Relier',hint:'camp-dépôt gratuit d’abord, puis mine, gare et fret',items:['camp','gare','entrepot'],lines:['rail']},
   {k:'armer',name:'Armer',hint:'concevoir, fabriquer, former',items:['armurerie','manufacture','arsenal','caserne','caserne_elite','garage','fonderie','archives']},
   {k:'soigner',name:'Soigner',hint:'la chaîne des soins',items:['hopital','tente']},
-  {k:'defendre',name:'Défendre',hint:'tenir les villes',items:['tour']}   /* (V12.5) les tranchées retirées */];
+  {k:'defendre',name:'Défendre',hint:'tenir les villes',items:['tour'],lines:['sacs']}];
 
 // Ce qui se pose case par case, en traçant : les voies ferrées, les murs. Bâti par des Meumeu, payé au dépôt le plus proche.
 export const LINES={
   rail:{name:'Voie ferrée',cost:{bois:1,pierre:.5},hours:.12,hp:60},
   mur:{name:'Mur',cost:{pierre:4},hours:.6,hp:500,block:true},
-  tranchee:{name:'Tranchée',cost:{bois:1},hours:.4,hp:140},
+  sacs:{name:'Sacs de sable',cost:{pierre:1,bois:.5},hours:.25,hp:220},   // (V12.5) un parapet bas : couvre le tireur à genou ou couché, ne gêne pas la marche
 };
 
 // Les unités. Personne n'a de « points de vie » : chacun a un corps (body.js), du sang, des os ; la balistique décide.

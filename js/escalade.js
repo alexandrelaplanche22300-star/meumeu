@@ -63,7 +63,7 @@ export const ESCALADE={
     const at=(r,a)=>this.freeSpot(c.x+Math.cos(a)*r,c.y+Math.sin(a)*r,4);
     if(W.p.action==='verrou'||W.p.action==='semi'){for(let k=0;k<10;k++){const p=at(15+k,a0+(k%2?.5:-.5)*(1+(k>>1)*.3));if(free(p))return p;}return at(16,a0);}
     // mitrailleuse : une case de tranchée déjà creusée, face à la menace ; à défaut l'arc à 12 cases
-    const cells=Object.keys(this.s.trenches).map(Number).filter(k=>{const o=this.s.trenches[k];return o.f==='beee'&&o.b&&d2(k%N+.5,((k/N)|0)+.5,c.x,c.y)<26;}).map(k=>[k%N+.5,((k/N)|0)+.5]);
+    const cells=Object.keys(this.s.sacs).map(Number).filter(k=>{const o=this.s.sacs[k];return o.f==='beee'&&o.b&&d2(k%N+.5,((k/N)|0)+.5,c.x,c.y)<26;}).map(k=>[k%N+.5,((k/N)|0)+.5]);
     const fit=cells.filter(p=>Math.abs(Math.atan2(Math.sin(Math.atan2(p[1]-c.y,p[0]-c.x)-a0),Math.cos(Math.atan2(p[1]-c.y,p[0]-c.x)-a0)))<.9&&free(p)).sort((p,q)=>d2(p[0],p[1],tx,ty)-d2(q[0],q[1],tx,ty));
     if(fit.length)return fit[0];for(let k=0;k<10;k++){const p=at(12,a0+(k%2?.4:-.4)*(1+(k>>1)*.35));if(free(p))return p;}return at(12,a0);},
 

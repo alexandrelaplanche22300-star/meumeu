@@ -64,13 +64,13 @@ const view=new View($('#view'),world,{
     // la fiche du chantier s'ouvre : ce qu'il lui faut, qui y travaille, d'où viennent les matériaux
     view.sel.clear();view.selV=null;view.selB=r.b.id;
     say(`${B.name} posé${vil.length?` : ${vil.length} villageois ${view.sel.size?'y vont':'oisifs y vont d’eux-mêmes'}`:' — aucun villageois libre : choisissez-en, clic droit sur le chantier'}.`,'good');audio.play('order');renderPanel(true);return r;},
-  planLine:(kind,cells)=>{if(kind==='gomme'){let n=0;const N=world.N;for(const [i,j] of cells){const k=j*N+i;n+=world.cancelLine('meumeu','rail',k)+world.cancelLine('meumeu','mur',k)+world.cancelLine('meumeu','tranchee',k);}
+  planLine:(kind,cells)=>{if(kind==='gomme'){let n=0;const N=world.N;for(const [i,j] of cells){const k=j*N+i;n+=world.cancelLine('meumeu','rail',k)+world.cancelLine('meumeu','mur',k)+world.cancelLine('meumeu','sacs',k);}
       say(n?`Tracé annulé : ${n} case${n>1?'s':''} prévue${n>1?'s':''} retirée${n>1?'s':''} ; ce qui était payé revient au dépôt.`:'Aucun tracé prévu ici (seules les cases pas encore bâties s’annulent).',n?'good':'bad');renderPanel(true);return;}
     // une voie trouée ne servirait à rien : on ne la pose pas, on dit pourquoi
     if(kind==='rail'){const N=world.N;const ok=new Set(world.canLine('meumeu','rail',cells));const bad=cells.filter(([i,j])=>!ok.has(j*N+i)&&!world.rail[j*N+i]).length;
       if(bad){say(`Voie impossible : ${bad} case${bad>1?'s':''} barrée${bad>1?'s':''} (roc, eau, bâtiment, filon). Tracez vers une case libre : la voie contourne d’elle-même ce qui la gêne.`,'bad');return;}}
     const r=world.planLine('meumeu',kind,cells);if(!r.ok){say('rien à poser là','bad');return;}let vil=[...view.sel].map(id=>world.unit(id)).filter(u=>u?.k==='villageois');
-    const [i,j]=cells[0];if(!vil.length)vil=world.idle().filter(u=>Math.hypot(u.x-i,u.y-j)<45).slice(0,4);if(vil.length)world.order(vil.map(u=>u.id),{type:kind==='rail'?'rail':kind==='tranchee'?'tranchee':'wall',k:j*world.N+i});
+    const [i,j]=cells[0];if(!vil.length)vil=world.idle().filter(u=>Math.hypot(u.x-i,u.y-j)<45).slice(0,4);if(vil.length)world.order(vil.map(u=>u.id),{type:kind==='rail'?'rail':kind==='sacs'?'sacs':'wall',k:j*world.N+i});
     say(`${LINES[kind].name} : ${r.n} cases en plan · ${Object.entries(r.cost).map(([k,v])=>v+' '+RES[k].name.toLowerCase()).join(', ')}, payés case par case${vil.length?` · ${vil.length} villageois y vont`:' — envoyez des villageois (clic droit sur le tracé)'}.`);},
   inspect:t=>{ui.inspect=t;},
   // à la sélection, ils répondent « meu ? » (« bè ? » si l'on clique un Bèè) ; à l'ordre, « meu ! »
@@ -106,7 +106,7 @@ function describe(t){if(!t)return null;const peace=!world.atWar;
   if(t.type==='building'){const b=world.building(t.id);const B=BUILDINGS[b.k];if(b.f==='beee')return `à l’assaut : ${B.name.toLowerCase()} bèè${peace?' — ce sera la guerre':''}`;if(!b.done)return `${b.ruin?'rebâtir':'bâtir'} : ${B.name.toLowerCase()}${b.why?' · '+b.why:''}`;
     if(b.fire>0||b.hp<b.max-1)return b.fire>0?'éteindre le feu, réparer':'réparer';if(B.hub)return `récolter autour du camp (${world.workers(b).length}/${B.workers})`;if(B.workers)return `travailler : ${B.name.toLowerCase()} (${world.workers(b).length}/${B.workers})`;if(B.airfield)return 'embarquer dans les avions';if(B.store)return 'déposer';return B.name;}
   if(t.type==='node'){const nd=world.s.nodes[t.id];return nd.type==='ore'?`extraire ${RES[nd.res].name.toLowerCase()} à la main (${n0(nd.left)})`:`${nd.type==='tree'?'couper':nd.type==='rock'?'casser':'cueillir'} (${n0(nd.left)})`;}
-  if(t.type==='rail')return 'poser la voie';if(t.type==='tranchee')return world.s.trenches[t.k]?.b?'occuper la tranchée (soldats) · la creuser (villageois)':'creuser la tranchée';if(t.type==='wall'){const w=world.s.walls[t.k];return w?.f==='beee'?`abattre le mur${peace?' — ce sera la guerre':''}`:'bâtir le mur';}return 'aller là';}
+  if(t.type==='rail')return 'poser la voie';if(t.type==='sacs')return world.s.sacs[t.k]?.b?'occuper les sacs de sable (soldats)':'poser les sacs de sable (villageois)';if(t.type==='wall'){const w=world.s.walls[t.k];return w?.f==='beee'?`abattre le mur${peace?' — ce sera la guerre':''}`:'bâtir le mur';}return 'aller là';}
 function say(text,tone=''){const h=$('#hint');h.textContent=text;h.className='hint show '+tone;clearTimeout(ui.sayT);ui.sayT=setTimeout(()=>h.className='hint',4500);}
 // La taille de l'interface (A− / A+, Ctrl + / Ctrl −). Dans l'application : un vrai zoom de page, net, les clics justes ;
 // dans un navigateur : le zoom CSS. Par défaut, calée pour que l'écran fasse ~1650 points de large quel que soit le
@@ -498,7 +498,7 @@ function overviewPane(){const s=world.s;const cap=world.capital();const st=cap?.
   const B=s.beee;const cities=B.cities;h+=`<section class="pane war"><h2>Les Bèè <small>${B.phase==='truce'?'cessez-le-feu en cours':B.phase==='peace'?'traité de paix en vigueur':world.atWar?`guerre depuis le jour ${B.warDay} · ${B.waves} vague${B.waves>1?'s':''}`:`tensions · guerre possible dès le jour ${B.warDay}`}</small></h2>
     ${cities.filter(c=>!s.fog||s.intel?.[c.centre]).map(c=>{const I=s.intel?.[c.centre];return `<div class="kv"><span><a data-gotoxy="${c.x},${c.y}">${esc(c.name)}</a></span><b>${I?.ruin?'centre vu en ruine':I?.counts?`${I.counts.mil} soldats observés · âge ${Math.round((s.t-I.t)*HOUR_REAL)} s`:'effectifs inconnus'}</b></div>`;}).join('')||'<p class="quiet">Aucune ville reconnue.</p>'}
     <div class="kv"><span>Contacts actuels</span><b class="bad">${s.units.filter(u=>u.f==='beee'&&u.w&&world.spotted(u,'meumeu')).length} soldats repérés</b></div>
-    <p class="quiet small">Leurs patrouilles cherchent nos convois. Les tranchées protègent les défenseurs ; mines, villes et rails alimentent le front.</p></section>`;
+    <p class="quiet small">Leurs patrouilles cherchent nos convois. Les sacs de sable, les murs et les bunkers protègent les défenseurs ; mines, villes et rails alimentent le front.</p></section>`;
   h+=`<details class="drawer" data-k="log" open><summary>Journal</summary>${s.log.filter(l=>!s.fog||!s.beee.cities.some(c=>c.name===l.where&&!s.intel?.[c.centre])).slice(0,30).map(l=>`<div class="logline ${l.tone}"><time>j${Math.floor(l.t/DAY)+1} ${String(Math.floor(l.t%DAY)).padStart(2,'0')}h</time><b>${esc(l.where)}</b> ${esc(l.text)}</div>`).join('')}</details>`;
   return h;}
 

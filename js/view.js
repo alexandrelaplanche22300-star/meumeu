@@ -337,14 +337,18 @@ export class View{
   // Les rails : deux files et des traverses, dans le sens des voisins. Les murs : des blocs de pierre, crénelés.
   drawLines(i0,i1,j0,j1){const W=this.world,ctx=this.ctx,N=W.N,z=this.z();
     this.drawRails(i0,i1,j0,j1);
-    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const t=W.s.trenches?.[j*N+i];if(!t)continue;
-      // V12.4 : les cases voisines se raccordent (pas de bord entre elles) — une fosse de 2 × 2 cases se voit comme UN trou, plus comme quatre
-      const T=W.s.trenches,nb=(di,dj)=>{const o=T[(j+dj)*N+i+di];return o&&o.f===t.f;},x0=nb(-1,0)?0:.12,x1=nb(1,0)?1:.85,y0=nb(0,-1)?0:.15,y1=nb(0,1)?1:.84;
-      const a=this.toScreen(i+x0,j+y0),b=this.toScreen(i+x1,j+y0),c=this.toScreen(i+x1,j+y1),d=this.toScreen(i+x0,j+y1);
-      ctx.save();ctx.globalAlpha=t.b?1:.42;ctx.fillStyle='#382c24';ctx.strokeStyle=t.f==='beee'?'#8f775a':'#a98a5b';ctx.lineWidth=3*z;
-      ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(c.x,c.y);ctx.lineTo(d.x,d.y);ctx.closePath();ctx.fill();
-      // le parapet : seulement sur les bords extérieurs de la fosse
-      ctx.beginPath();if(!nb(0,-1)){ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);}if(!nb(1,0)){ctx.moveTo(b.x,b.y);ctx.lineTo(c.x,c.y);}if(!nb(0,1)){ctx.moveTo(c.x,c.y);ctx.lineTo(d.x,d.y);}if(!nb(-1,0)){ctx.moveTo(d.x,d.y);ctx.lineTo(a.x,a.y);}ctx.stroke();
+    // V12.5 : les sacs de sable — un parapet bas en relief (dessus clair, deux faces plus sombres, des rangs de sacs en quinconce) ; en pointillés tant qu'il n'est pas posé
+    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const t=W.s.sacs?.[j*N+i];if(!t)continue;const T=W.s.sacs,nb=(di,dj)=>{const o=T[(j+dj)*N+i+di];return !!o&&o.f===t.f;};
+      const hgt=(t.b?.42:.1)*TH*z,m=.08,A=this.toScreen(i+m,j+m),B=this.toScreen(i+1-m,j+m),C=this.toScreen(i+1-m,j+1-m),D=this.toScreen(i+m,j+1-m);
+      const col=t.f==='beee'?['#b9b69a','#908d74','#76735d']:['#d2bd8a','#a99660','#8c7b4d'];
+      ctx.save();ctx.globalAlpha=t.b?1:.45;const poly=(p,c)=>{ctx.fillStyle=c;ctx.beginPath();p.forEach((q,n)=>n?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.closePath();ctx.fill();};
+      const up=q=>({x:q.x,y:q.y-hgt});
+      if(!nb(0,1))poly([D,C,up(C),up(D)],col[1]);if(!nb(1,0))poly([C,B,up(B),up(C)],col[2]);   // les deux faces vues (bas-gauche, bas-droite)
+      poly([up(A),up(B),up(C),up(D)],col[0]);
+      if(t.b){ctx.strokeStyle='rgba(60,48,28,.45)';ctx.lineWidth=Math.max(1,z);ctx.beginPath();
+        for(let r=1;r<3;r++){const f=r/3;if(!nb(0,1)){const p=this.toScreen(i+m,j+1-m),q=this.toScreen(i+1-m,j+1-m);ctx.moveTo(p.x,p.y-hgt*f);ctx.lineTo(q.x,q.y-hgt*f);}if(!nb(1,0)){const p=this.toScreen(i+1-m,j+1-m),q=this.toScreen(i+1-m,j+m);ctx.moveTo(p.x,p.y-hgt*f);ctx.lineTo(q.x,q.y-hgt*f);}}
+        ctx.stroke();}
+      else{ctx.strokeStyle='#e8bf62';ctx.setLineDash([4*z,3*z]);ctx.lineWidth=Math.max(1,1.5*z);ctx.beginPath();[A,B,C,D].forEach((q,n)=>n?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.closePath();ctx.stroke();}
       ctx.restore();}
     for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const k=j*N+i;const w=W.wall[k];if(!w)continue;const built=Math.abs(w)===2;const mine=w>0;const c=this.toScreen(i+.5,j+.5);const hgt=(built?1.1:.15)*TH*z;
       const top=mine?'#cbb893':'#6f7456',side=mine?'#9a8866':'#4c5040',side2=mine?'#b3a07c':'#5b6048';const a=this.toScreen(i,j),b=this.toScreen(i+1,j),cc=this.toScreen(i+1,j+1),d=this.toScreen(i,j+1);
@@ -992,7 +996,7 @@ export class View{
     const Y=B.soil?this.world.cropYield(null,i,j,k):null;const nodep=(B.makes||B.factory)&&!this.world.depots('meumeu',i+w/2,j+h/2,RADIUS).length;const soil=(Y!=null?` · rendement ${Math.round(Y*100)} % (${Y>=1.15?'bonne terre':Y>=.8?'terre moyenne':'terre maigre'})`:'')+(nodep?` · aucun dépôt à ${RADIUS} cases : rien ne sortira`:'');
     this.tag(r.ok?`${B.name} : cliquez pour poser${soil}`:r.why[0],cc.x,cc.y+14*z,r.ok?(Y!=null&&Y<.7?'bad':'ok'):'bad');}
   drawLinePlan(){const L=this.lining;const ctx=this.ctx,z=this.z();
-    if(L.kind==='gomme'){const W=this.world,N=W.N;let n=0;for(const [i,j] of L.cells){const k=j*N+i;const hit=(W.s.rails[k]&&!W.s.rails[k].b)||(W.s.walls[k]&&!W.s.walls[k].b&&W.s.walls[k].f==='meumeu')||(W.s.trenches[k]&&!W.s.trenches[k].b&&W.s.trenches[k].f==='meumeu');if(hit)n++;
+    if(L.kind==='gomme'){const W=this.world,N=W.N;let n=0;for(const [i,j] of L.cells){const k=j*N+i;const hit=(W.s.rails[k]&&!W.s.rails[k].b)||(W.s.walls[k]&&!W.s.walls[k].b&&W.s.walls[k].f==='meumeu')||(W.s.sacs[k]&&!W.s.sacs[k].b&&W.s.sacs[k].f==='meumeu');if(hit)n++;
         const a=this.toScreen(i,j),b=this.toScreen(i+1,j),c=this.toScreen(i+1,j+1),d=this.toScreen(i,j+1);ctx.fillStyle=hit?'rgba(189,75,61,.6)':'rgba(255,255,255,.12)';ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(c.x,c.y);ctx.lineTo(d.x,d.y);ctx.closePath();ctx.fill();}
       const last=L.cells[L.cells.length-1];const q=this.toScreen(last[0]+.5,last[1]+.5);this.tag(n?'Annuler les tracés prévus touchés':'Passez sur un tracé prévu (pointillés dorés)',q.x,q.y-20*z,n?'bad':'ink');return;}
     const ks=new Set(this.world.canLine('meumeu',L.kind,L.cells).map(String));
