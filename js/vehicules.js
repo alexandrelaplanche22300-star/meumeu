@@ -523,3 +523,6 @@ export const VEHICULES={
   vehGap(v,V){let g=99;const cx=Math.cos(v.h),cy=Math.sin(v.h);for(const o of this.s.vehicles){if(o===v||!VEHDEF[o.k]||o.hp<=0)continue;const dx=o.x-v.x,dy=o.y-v.y;const along=dx*cx+dy*cy,side=Math.abs(-dx*cy+dy*cx);
       const W=(V.large+VEHDEF[o.k].large)/2+.15;if(along>0&&side<W){const L=along-(V.long+VEHDEF[o.k].long)/2;if(L>-.2&&L<g)g=L;}}return g;},
 };
+
+// les barges et bateaux bèè se construisent sur la plage comme des bâtiments : le chantier coûte et dure ce que coûte et dure le véhicule
+for(const k of Object.keys(BUILDINGS))if(BUILDINGS[k].launch){const V=VEHDEF[BUILDINGS[k].launch];BUILDINGS[k].cost={...V.cout};BUILDINGS[k].hours=V.heures;BUILDINGS[k].hp=V.hp;}

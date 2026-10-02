@@ -11,7 +11,7 @@ import {gunModel} from './gun3d.js';
 import {VEHDEF} from './vehicules.js';
 import {buildingModels} from './bldg3d.js';
 import {bunkerModels,bunkerDoorGeo,bunkerRoofGeo} from './bunker3d.js';
-import {bargeModel,bateauModel,caleGeo} from './barge3d.js';
+import {bargeModel,bateauModel} from './barge3d.js';
 
 export const HK=Math.sqrt(2/3);
 const PI=Math.PI;
@@ -22,7 +22,7 @@ export const BUILDING_MODEL={
   mine:['industrial_plant',1.0,0],gare:['industrial_warehouse_3d_model',1.0,0],entrepot:['industrial_warehouse_3d_model',1.0,0],labo:['steampunk_refinery_3d_model',1.0,0],
   caserne:['architectural_building',1.0,0],caserne_elite:['architectural_building',1.0,0,0xb8a8c8],poudrerie:['steampunk_refinery_3d_model',.9,0],arsenal:['industrial_warehouse_3d_model',.95,0,0xc4cdb0],armurerie:['medieval_forge_3d_model',1.0,0],
   manufacture:['industrial_plant',1.0,0],garage:['industrial_warehouse_3d_model',1.0,1,0xb8c0a4],hopital:['coastal_tavern',1.0,0],tente:['stylized_camp_tent_3d_model',1.0,0],archives:['steampunk_hut',1.0,0],
-  fonderie:['medieval_forge_3d_model',1.0,0],cale:[':cale',1.0,0],tour:[':tour',.8,0]};   // (les modèles du joueur, remis à la demande du joueur ; ceux faits par le code restent dans bldg3d.js, non utilisés)
+  fonderie:['medieval_forge_3d_model',1.0,0],barge:[':barge_chantier',1.0,0],bateau_bee:[':bateau_chantier',1.0,2],tour:[':tour',.8,0]};   // (les modèles du joueur, remis à la demande du joueur ; ceux faits par le code restent dans bldg3d.js, non utilisés)
 export const OUTCROP_MODEL={fer:'rocky_outcrop',charbon:'lava_rock',pierre:'stone_rock_pile',cuivre:'crystal_rock',plomb:'rock_formation',salpetre:'multicolored_crystal_pile',or:'rock_with_gold_veins'};
 export const MODEL_NAMES=[...new Set([...Object.values(BUILDING_MODEL).map(b=>b[0]).filter(n=>n[0]!==':'),...Object.values(OUTCROP_MODEL),'meumeu','meumeu_soldat','plush_cow_knight','meumeu_casque','goat_plush_toy','gewehr_43_rifle','heavy_machine_gun','assault_rifle','vintage_military_jeep_logistic_unarmed','vintage_military_logistic_jeep_with_gun','ww2_locomotive','ww2_wagon','armored_car','stone_rock_pile','silbervogel_bomber_3d_model',...Object.values(VEHDEF).map(V=>V.modele).filter(n=>n&&n[0]!==":")])];
 
@@ -133,7 +133,7 @@ export class Scene3D{
     this.booms=[];this.boomGeo={ball:new THREE.IcosahedronGeometry(1,2),ring:new THREE.RingGeometry(.86,1,56).rotateX(-PI/2),dome:new THREE.SphereGeometry(1,16,8,0,PI*2,0,PI/2)};
     this.pools.fusil=mk('gewehr_43_rifle',{cap:1500});this.pools.mg=mk('heavy_machine_gun',{cap:200});
     for(let k=0;k<3;k++){const p=new Pool(boulder(k+1),{cap:1400});this.pools['rock'+k]=p;this.scene.add(p.mesh);}
-    this.M[':tour']={ext:[.9,1.8,.9],geo:TOWER_GEO()};Object.assign(this.M,buildingModels(),bunkerModels());this.M[':barge']=bargeModel();this.M[':bateau_bee']=bateauModel();{const cg=caleGeo(5,3);cg.computeBoundingBox();const bb=cg.boundingBox;this.M[':cale']={ext:[bb.max.x-bb.min.x,bb.max.y,bb.max.z-bb.min.z],geo:cg};}this.doorGeo=bunkerDoorGeo();this.doorMat=new THREE.MeshStandardMaterial({color:0x50565a,roughness:.7,metalness:.4});
+    this.M[':tour']={ext:[.9,1.8,.9],geo:TOWER_GEO()};Object.assign(this.M,buildingModels(),bunkerModels());this.M[':barge']=bargeModel();this.M[':bateau_bee']=bateauModel();this.M[':barge_chantier']={ext:this.M[':barge'].ext,geo:this.M[':barge'].geo};this.M[':bateau_chantier']={ext:this.M[':bateau_bee'].ext,geo:this.M[':bateau_bee'].geo};this.doorGeo=bunkerDoorGeo();this.doorMat=new THREE.MeshStandardMaterial({color:0x50565a,roughness:.7,metalness:.4});
     for(const [res,name] of Object.entries(OUTCROP_MODEL)){this.pools['ore_'+res]=mk(name,{cap:300});}
     this.pools.jeep=mk('vintage_military_jeep_logistic_unarmed',{cap:40});this.pools.loco=mk('ww2_locomotive',{cap:20});this.pools.wagon=mk('ww2_wagon',{cap:200});
     this.ok=true;

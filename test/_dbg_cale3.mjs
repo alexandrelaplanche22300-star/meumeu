@@ -1,7 +1,0 @@
-// depuis une sauvegarde : les cales existantes supprimées, l'état-major en repose une ; suivi 6 jours
-const out={textContent:''};globalThis.document??={getElementById:()=>out};
-const fs=await import('fs');const {World}=await import('../js/world.js');
-const W=new World(1).restore(fs.readFileSync(process.argv[2],'utf8'));for(const b of W.amphiBeeCales())W.cancel(b.id);W.s.beee.caleT=0;W.s.beee.amphiT=-99;
-for(let h=0;h<+(process.env.H||144);h++){for(let k=0;k<60;k++)W.update(1/60);if(h%12===11){const L=W.amphiBeeCales();console.log(`+${h+1} h : `+L.map(b=>`cale (${b.i},${b.j}) ${b.done?'FINIE':'prog '+(b.progress||0).toFixed(2)} bâtisseurs ${W.s.units.filter(u=>u.task?.b===b.id).length} ${b.why||''}`).join(' | ')+` | bateaux ${W.amphiBeeBoats().length} ${W.s.beee.amphiWhy||''} | ops ${(W.s.amphi||[]).map(o=>o.f+':'+o.state+' '+o.units.length+'s/'+o.boats.length+'b débarqués '+o.landed).join(', ')} lancées ${W.s.beee.amphiCount||0} | groupes débarqués ${(W.s.beee.bands||[]).filter(b=>b.kind==='debarquement').map(b=>b.state+' '+b.m.length).join(',')}`);}}
-{const b=W.amphiBeeCales().find(b=>b.done);if(b){const h=W.have('beee',b.i+1,b.j+1,450),hn=W.have('beee',b.i+1,b.j+1,1e9);console.log('à 450 :',JSON.stringify({pieces:h.pieces|0,fer:h.fer|0,bois:h.bois|0}),' pays entier :',JSON.stringify({pieces:hn.pieces|0,fer:hn.fer|0}),' plan T :',JSON.stringify({pieces:W.s.beee.plan?.T?.pieces,nat:W.s.beee.plan?.nat?.pieces}));
- console.log(JSON.stringify(W.canTrain(b,'bateau_bee')));}}

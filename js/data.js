@@ -144,20 +144,22 @@ export const BUILDINGS={
     why:'Des canons, avec du fer. Ils portent loin et abattent les murs, les tours, les maisons.'},
   hangar:{name:'Hangar',sprite:'foundry',size:[9,7],cost:{pierre:80,bois:140,fer:60,pieces:40},hours:30,hp:1200,store:300,trains:['avion','planeur','planeur_lourd'],needsRunway:true,
     why:'À bâtir à côté d’une piste (44 cases de long, 3 de large, posées par les villageois : onglet Relier). On y construit l’avion de transport et les planeurs, qui sortent sur la piste. C’est aussi un dépôt : on y charge les caisses du pont aérien.'},
-  cale:{name:'Cale de lancement',sprite:'foundry',size:[5,3],cost:{pierre:50,bois:80,fer:25},hours:16,hp:900,trains:['barge','bateau_bee'],coastal:true,
-    why:'À bâtir sur la plage, face à la mer : on y construit les barges de débarquement. Elles sortent à l’eau devant la cale ; chargez-les (soldats, véhicule, caisses à un dépôt voisin), puis envoyez-les sur la plage d’en face.'},
+  barge:{name:'Barge de débarquement',sprite:'foundry',size:[4,2],cost:{},hours:1,hp:1,coastal:true,launch:'barge',faction:'meumeu',
+    why:'À poser sur la plage, au bord de l’eau : les villageois construisent la barge sur place ; finie, elle glisse à l’eau devant le chantier. Chargez-la (soldats, véhicule, caisses), puis clic droit sur la plage d’en face.'},
+  bateau_bee:{name:'Bateau bèè',sprite:'foundry',size:[4,2],cost:{},hours:1,hp:1,coastal:true,launch:'bateau_bee',faction:'beee',
+    why:'Les Bèè construisent leurs bateaux sur leur plage ; finis, ils glissent à l’eau.'},
   tour:{name:'Tour',sprite:'turret',size:[2,2],cost:{pierre:50,bois:20},hours:10,hp:1000,defense:{range:11,shooters:3},
     why:'Elle tire seule sur tout Bèè à portée. Plusieurs lignes de tours derrière un mur : la défense en profondeur.'},
 };
 // V12.5 : les bunkers — dix-sept plans (bunkerdata.js), chacun un bâtiment « bk_<plan> » ; leur empreinte est celle du plan, tournée à la pose (b.rot)
 Object.assign(BUILDINGS,bunkerDefs());
-export const BUILD_ORDER=['camp','maison','moulin','grenier','atelier','four','mine','poudrerie','gare','entrepot','centre','caserne','arsenal','armurerie','manufacture','hopital','tente','archives','fonderie','cale','hangar','tour',...BUNKER_IDS.map(bunkerKey)];
+export const BUILD_ORDER=['camp','maison','moulin','grenier','atelier','four','mine','poudrerie','gare','entrepot','centre','caserne','arsenal','armurerie','manufacture','hopital','tente','archives','fonderie','barge','hangar','tour',...BUNKER_IDS.map(bunkerKey)];
 // le menu de construction, par familles : ce qui fait vivre, ce qui relie, ce qui arme, ce qui soigne, ce qui défend
 export const BUILD_CATS=[
   {k:'vivre',name:'Vivre',hint:'ramasser, nourrir, fonder des villes',items:['camp','moulin','grenier','maison','centre']},
   {k:'produire',name:'Produire',hint:'extraire, transformer : une usine, une production',items:['mine','four','atelier','poudrerie','labo']},
   {k:'relier',name:'Relier',hint:'camp-dépôt gratuit d’abord, puis mine, gare et fret',items:['camp','gare','entrepot'],lines:['rail']},
-  {k:'armer',name:'Armer',hint:'concevoir, fabriquer, former',items:['armurerie','manufacture','arsenal','caserne','caserne_elite','garage','fonderie','cale','archives']},
+  {k:'armer',name:'Armer',hint:'concevoir, fabriquer, former',items:['armurerie','manufacture','arsenal','caserne','caserne_elite','garage','fonderie','barge','archives']},
   {k:'soigner',name:'Soigner',hint:'la chaîne des soins',items:['hopital','tente']},
   {k:'defendre',name:'Défendre',hint:'tenir les villes',items:['tour',...BUNKER_IDS.map(bunkerKey)],lines:['sacs','fosses','mines']}];
 

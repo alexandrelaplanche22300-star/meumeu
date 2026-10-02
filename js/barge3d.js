@@ -1,5 +1,5 @@
 // Oberkommando der Meumeu — les modèles de la mer, faits par le code : la barge de débarquement (une coque à proue en V, un pont, une cabine de pilotage à l'arrière,
-// une rampe de proue sur charnière : relevée elle fait mur, baissée elle devient la passerelle), et la cale de lancement (un chantier sur la plage).
+// une rampe de proue sur charnière : relevée elle fait mur, baissée elle devient la passerelle).
 // Repère de la barge : la proue vers +x, la largeur sur z, y vers le haut, centrée ; une case = une unité (3,4 de long).
 import * as THREE from './lib/three.module.js';
 import {Build,PAL} from './bldg3d.js';
@@ -42,14 +42,3 @@ function boatRamp(){const {W,hinge}=BARGE,B=new Build();B.box(hinge[0]-.06,hinge
 export function bateauModel(){const {L,W,hinge}=BARGE,H=boatHull(),R=boatRamp();const bh=H.boundingBox;
   return {ext:[L,Math.max(.6,bh.max.y),W],name:'bateau_bee',geo:H,mat:null,parts:[{name:'caisse',geo:H,pivot:[0,0,0]},{name:'rampe',geo:R,pivot:[hinge[0]-.06,hinge[1],hinge[2]]}],byName:{caisse:{geo:H,pivot:[0,0,0]},rampe:{geo:R,pivot:[hinge[0]-.06,hinge[1],hinge[2]]}}};}
 
-// la cale : un chantier sur la plage — deux longrines et des traverses vers la mer, des couples de coque en construction, un hangar de treuil, un portique
-export function caleGeo(W,D){const B=new Build();
-  B.box(0,0,0,W,.05,D,0x8a7a5a);                                    // le sol damé (W : le long de la plage, D : en travers)
-  for(const z of [-.5,.5]){B.box(0,.05,z,W*.96,.1,.16,PAL.boisSombre);}   // les longrines (vers la mer, des deux côtés : la cale sert de l'est ou de l'ouest)
-  for(let x=-W/2+.35;x<W/2;x+=.55)B.box(x,.05,0,.16,.06,D*.8,PAL.bois);   // les traverses
-  for(let k=0;k<5;k++){B.box(-.9+k*.45,.16,0,.05,.45,.8,PAL.boisSombre);}   // les couples d'une coque en construction
-  B.box(0,.12,0,W*.7,.1,.1,PAL.boisClair);                          // la quille posée sur les longrines
-  B.box(-W*.35,.05,-D*.36,1.3,.8,.7,PAL.boisClair);B.gable(-W*.35,.85,-D*.36,1.3,.7,.3,PAL.rouille,'x');B.box(-W*.35,.05,-D*.36+.36,.3,.5,.03,PAL.boisSombre);   // le hangar de treuil
-  B.rod([W*.3,.05,-D*.34],[W*.26,1.3,-D*.34],.05,METAL);B.rod([W*.4,.05,-D*.34],[W*.28,1.3,-D*.34],.05,METAL);B.rod([W*.27,1.28,-D*.34],[W*.05,1.28,-D*.34],.04,METAL);   // le portique
-  for(let k=0;k<3;k++)B.box(W*.2+k*.2,.05,D*.32,.18,.14,.18,PAL.sable);   // des sacs de sable et du ciment
-  return B.geo();}

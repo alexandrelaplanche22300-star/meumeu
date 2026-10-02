@@ -278,7 +278,7 @@ export class World{
     u.armor=o.armor??null;u.plates={};
     if(k==='villageois'||D.medic||D.arm){const used=new Set(this.s.units.map(x=>x.name));u.name=NAMES.find(n=>!used.has(n))||'Meumeu '+u.id;if(f==='beee')u.name='Bèè '+u.id;}
     this.s.units.push(u);this.uIndex?.set(u.id,u);return u;}
-  addBuilding(f,k,i,j,done=false,size=null,rot=0){const B=BUILDINGS[k];const b={id:this.id(),f,k,i,j,done,progress:done?1:0,hp:done?B.hp:B.hp*.1,max:B.hp,queue:[],fire:0,ruin:false};if(k==='enclos'&&size)b.size=[...size];if(B.bunker){b.rot=rot;b.size=[...size];}
+  addBuilding(f,k,i,j,done=false,size=null,rot=0){const B=BUILDINGS[k];const b={id:this.id(),f,k,i,j,done,progress:done?1:0,hp:done?B.hp:B.hp*.1,max:B.hp,queue:[],fire:0,ruin:false};if(k==='enclos'&&size)b.size=[...size];if(B.bunker){b.rot=rot;b.size=size?[...size]:this.bunkerSize(B.bunker,rot);}
     if(B.store){b.stock={};b.no=this.s.buildings.filter(x=>x.f===f&&x.k===k).length+1;b.prio=k==='tente'?4:3;b.want=k==='tente'?{sante:6}:k==='centre'?{vivres:80}:k==='grenier'?{vivres:120,ble_moulu:30}:{};}
     // ceux qui forment (caserne, fonderie, hôpital) gardent une réserve à leur dépôt : ce qu'il faut pour les prochains
     if(B.stock0)b.need=f==='beee'?Object.fromEntries(Object.entries(B.stock0).map(([key,n])=>[key.replace('m:mle1','m:bee_fusil').replace('a:mle1','a:bee_fusil'),n])):{...B.stock0};if(B.ward)b.wardList=[];
@@ -610,11 +610,11 @@ export class World{
     // directement les matériaux disponibles dans un autre dépôt proche.
     const [x,y]=this.bc(b);let found=this.depots(b.f,x,y,SITE_RANGE).map(dep=>({dep,item:want.find(([k,n])=>(dep.stock[k]||0)>=Math.min(1,n)-1e-6)})).find(o=>o.item);
     // rien à portée : on attend un convoi une heure, puis on va chercher soi-même, plus loin (à pied, dix par voyage)
-    if(!found){b.waitT??=this.s.t;if(this.s.t-b.waitT>1)found=this.depots(b.f,x,y,(BUILDINGS[b.k].bunker||b.f==='beee'&&b.k==='cale')?450:90).map(dep=>({dep,item:want.find(([k,n])=>(dep.stock[k]||0)>=Math.min(1,n)-1e-6)})).find(o=>o.item);}else b.waitT=null;
+    if(!found){b.waitT??=this.s.t;if(this.s.t-b.waitT>1)found=this.depots(b.f,x,y,(BUILDINGS[b.k].bunker||b.f==='beee'&&BUILDINGS[b.k].launch)?450:90).map(dep=>({dep,item:want.find(([k,n])=>(dep.stock[k]||0)>=Math.min(1,n)-1e-6)})).find(o=>o.item);}else b.waitT=null;
     const has=found?.item;if(has&&this.distB(found.dep,x,y)>SITE_RANGE)b.why=`les bâtisseurs vont chercher ${this.goodName(has[0]).toLowerCase()} au ${this.depotName(found.dep)}, loin`;
     if(!has){b.why=`attend au ${this.depotName(D)} : ${want.map(([k,n])=>`${Math.ceil(n)} ${this.goodName(k).toLowerCase()}`).join(', ')} (commandé)`;return false;}
     if(u.carry){const R=this.depots(u.f,u.x,u.y,SITE_RANGE)[0];if(R)this.put(R,u.carry.k,u.carry.n);u.carry=null;}
-    T0.fetch=has[0];T0.fetchN=Math.min(CARRY*((BUILDINGS[b.k].bunker||b.k==='cale')?3:1),has[1]);T0.fetchDepot=found.dep.id;T0.fetchT=this.s.t;u.path=null;if(this.distB(found.dep,x,y)<=SITE_RANGE)b.why=null;
+    T0.fetch=has[0];T0.fetchN=Math.min(CARRY*((BUILDINGS[b.k].bunker||BUILDINGS[b.k].launch)?3:1),has[1]);T0.fetchDepot=found.dep.id;T0.fetchT=this.s.t;u.path=null;if(this.distB(found.dep,x,y)<=SITE_RANGE)b.why=null;
     // le compte « en route » de l'instant le sait tout de suite : le bâtisseur suivant n'ira pas chercher la même chose
     if(this._er&&this._erT===this.s.t){let o=this._er.get(b.id);if(!o)this._er.set(b.id,o={});o[has[0]]=(o[has[0]]||0)+T0.fetchN;}return false;}
   // (un voyage de plus d'un jour est abandonné : sa réservation « en route » ne doit pas bloquer le chantier — le plus long mesuré dure dix heures)
@@ -635,6 +635,7 @@ export class World{
     if(k==='centre'&&this.s.buildings.some(b=>b.f===f&&b.k==='centre'&&d2(b.i,b.j,i,j)<24))why.push('trop près d’une autre ville');
     if(B.station&&!this.platformAt(i,j,w,h))why.push('au bord d’une voie ferrée');
     if(B.needsRunway){const rw=this.airRunwayNear(i+w/2,j+h/2);if(!rw||d2(i+w/2,j+h/2,rw.cx,rw.cy)>rw.len/2+14)why.push('à côté d’une piste (44 cases de long, 3 de large) : posez-la d’abord');}
+    if(B.faction&&B.faction!==f)why.push('pas pour ce camp');
     if(B.coastal){let wet=false;for(let a=-3;a<w+3&&!wet;a++)for(let c=-3;c<h+3;c++){const ii=i+a,jj=j+c;if(ii<0||jj<0||ii>=N||jj>=N)continue;const t=this.G.terrain[jj*N+ii];if(t===T.deep||t===T.shallow){wet=true;break;}}if(!wet)why.push('au bord de la mer');}
     // un chantier se paie à mesure : il lui faut un dépôt à moins de RADIUS cases, où le fret apportera ce qui manque (le camp est gratuit)
     const site=Object.keys(B.cost).length?this.nearestDepot(f,i+w/2,j+h/2,SITE_RANGE,d=>!BUILDINGS[d.k].foodOnly):null;
@@ -706,8 +707,8 @@ export class World{
     // pas de maisons à bâtir : un Meumeu de plus, ce sont des vivres de plus (sa formation, puis sa ration chaque heure)
     if(UNITS[k]&&!UNITS[k]?.arm){const c=this.cityOf(b)||b;if(c.k==='centre'&&(c.ration??1)<.5)why.push('la ville a faim : moins de la moitié des rations');}if(k==='train'&&!this.platform(b))why.push('la gare n’a pas de voie');
     const cost={...D.cost};if(UNITS[k]?.arm){const d=this.design(w||'mle1');if(!d||d.status!=='adopte')why.push('une arme adoptée');else cost['a:'+d.id]=1;if(armor){const ar=this.s.armors[armor];if(!ar||ar.status!=='adopte')why.push('une protection adoptée');else cost['p:'+armor]=1;}}
-    const pay=this.canPay(b.f,b.i+1,b.j+1,cost,b.f==='beee'&&b.k==='cale'?450:undefined);if(!pay.ok)why.push('il manque : '+pay.miss.join(', '));return {ok:!why.length,why,cost,draftId:draft?.id??null};}
-  train(b,k,w=null,armor=null,role='tireur'){const r=this.canTrain(b,k,w,armor);if(!r.ok)return r;const D=UNITS[k]||VEHICLES[k]||{name:VEHDEF[k].name,hours:VEHDEF[k].heures};this.pay(b.f,b.i+1,b.j+1,r.cost,b.f==='beee'&&b.k==='cale'?450:undefined);b.queue.push({k,left:D.hours,w:w||'mle1',armor:UNITS[k]?.arm?armor:null,role:UNITS[k]?.arm&&role==='munitions'?'munitions':'tireur',...(r.draftId!=null?{draftId:r.draftId}:{})});return {ok:true,text:D.name+(role==='munitions'&&UNITS[k]?.arm?' · porteur de munitions':'')+(r.draftId!=null?' — un civil mobilisé':'')+' en préparation'};}
+    const pay=this.canPay(b.f,b.i+1,b.j+1,cost);if(!pay.ok)why.push('il manque : '+pay.miss.join(', '));return {ok:!why.length,why,cost,draftId:draft?.id??null};}
+  train(b,k,w=null,armor=null,role='tireur'){const r=this.canTrain(b,k,w,armor);if(!r.ok)return r;const D=UNITS[k]||VEHICLES[k]||{name:VEHDEF[k].name,hours:VEHDEF[k].heures};this.pay(b.f,b.i+1,b.j+1,r.cost);b.queue.push({k,left:D.hours,w:w||'mle1',armor:UNITS[k]?.arm?armor:null,role:UNITS[k]?.arm&&role==='munitions'?'munitions':'tireur',...(r.draftId!=null?{draftId:r.draftId}:{})});return {ok:true,text:D.name+(role==='munitions'&&UNITS[k]?.arm?' · porteur de munitions':'')+(r.draftId!=null?' — un civil mobilisé':'')+' en préparation'};}
   pop(f){const cap=this.s.buildings.filter(b=>b.f===f&&b.done&&BUILDINGS[b.k].pop).reduce((a,b)=>a+BUILDINGS[b.k].pop,0);const used=this.s.units.filter(u=>u.f===f).reduce((a,u)=>a+(UDEF(u).pop||1),0)+this.s.buildings.filter(b=>b.f===f).reduce((a,b)=>a+(b.inside?.length||0),0)+this.s.vehicles.filter(v=>v.f===f&&v.k==='porteur').length;return {cap,used};}
 
   // S'équiper à la caserne : un fusil (la conception adoptée dont il y a le plus au dépôt), ses munitions, une protection s'il y en a
@@ -965,6 +966,7 @@ export class World{
           // on ne bâtit que ce qui est payé : les bâtisseurs prennent les matériaux aux dépôts proches, à mesure qu'ils arrivent
           const frac=this.sitePaidFrac(b);if(frac>=1-1e-6&&b.progress>=1-1e-6)b.progress=1;else if(b.progress>=frac-1e-6&&!this.haulTick(u,T0,b,dt))return;b.why=null;
           const nb=this.s.units.filter(x=>x.task?.kind==='build'&&x.task.b===b.id).length,extra=b.k==='enclos'?Math.max(0,this.sizeOf(b)[0]*this.sizeOf(b)[1]-9)*.25:0;b.progress=Math.min(this.sitePaidFrac(b),1,b.progress+dt/(BUILDINGS[b.k].hours+extra)*(1/Math.sqrt(Math.max(1,nb))*1.2)*this.mod('construction'));this.practice('construction',dt);b.hp=Math.max(b.hp,b.max*b.progress);
+          if(b.progress>=1&&BUILDINGS[b.k].launch){this.launchBoat(b);u.task=null;return;}
           if(b.progress>=1){b.done=true;const was=b.ruin;b.ruin=false;b.why=null;b.hp=Math.max(b.hp,b.max*.6);this.autoLink(b);this.log(this.cityName(b),`${BUILDINGS[b.k].name} : ${was?'rebâti':'terminé'}.`,'good');this.emit({type:'built',x:b.i+w/2,y:b.j+h/2,k:b.k});u.task=null;
             if(BUILDINGS[b.k].workers&&this.workers(b,true).length<BUILDINGS[b.k].workers)u.task={kind:'work',b:b.id};}}
         else{if(b.fire>0){b.fire=Math.max(0,b.fire-dt*3);}else b.hp=Math.min(b.max,b.hp+dt*60);}return;}
@@ -1455,7 +1457,7 @@ export class World{
       if(UNITS[q.k]||(b.f==='beee'&&BEEE.units[q.k])){const u=this.addUnit(b.f,q.k,b.i+w/2+(this.rand()-.5)*w,b.j+h+.7,{w:q.w,rounds:0,armor:q.armor});if(q.role==='munitions')this.setRole(u,'munitions');const centre=this.cityOf(b)||this.centreOf(b);u.home=centre?.id??null;if(UNITS[q.k]?.arm&&(b.k==='caserne'||b.k==='caserne_elite'))u.homeBarracks=b.id;this.resupply(u,!!u.homeBarracks);
         const enemyCity=b.f==='beee'&&centre&&this.s.beee.cities.find(c=>c.centre===centre.id);if(enemyCity){u.city=enemyCity.id;if(u.k!=='villageois'){const a=this.rand()*Math.PI*2,r=5+this.rand()*3;u.task={kind:'guard',tx:enemyCity.x+Math.cos(a)*r,ty:enemyCity.y+Math.sin(a)*r};}}
         else if(b.rally)u.task={kind:u.k==='villageois'?'move':'guard',tx:b.rally[0],ty:b.rally[1]};this.emit({type:'trained',x:u.x,y:u.y,k:q.k,f:b.f});}
-      else if(VEHDEF[q.k]){const v=VEHDEF[q.k].nav==='eau'?this.vehFromCale(b,q.k):VEHDEF[q.k].air?this.vehFromHangar(b,q.k):this.vehFromGarage(b,q.k);if(!v){b.queue.unshift({...q,left:.5});b.why=VEHDEF[q.k].air?'pas de place sur la piste voisine':'la sortie est encombrée';return;}this.log(this.cityName(b),VEHDEF[q.k].nav==='eau'?`${v.name} est à l’eau.`:VEHDEF[q.k].air?`${v.name} sort du hangar.`:`${v.name} sort du garage.`,'good');this.emit({type:'trained',x:v.x,y:v.y,k:q.k,f:b.f});}
+      else if(VEHDEF[q.k]){const v=VEHDEF[q.k].air?this.vehFromHangar(b,q.k):this.vehFromGarage(b,q.k);if(!v){b.queue.unshift({...q,left:.5});b.why=VEHDEF[q.k].air?'pas de place sur la piste voisine':'la sortie est encombrée';return;}this.log(this.cityName(b),VEHDEF[q.k].nav==='eau'?`${v.name} est à l’eau.`:VEHDEF[q.k].air?`${v.name} sort du hangar.`:`${v.name} sort du garage.`,'good');this.emit({type:'trained',x:v.x,y:v.y,k:q.k,f:b.f});}
       else{const v=this.addVehicle(b.f,q.k,b);this.log(this.cityName(b),`${VEHICLES[q.k].name} « ${v.name} » prêt.`,'good');this.emit({type:'trained',x:v.x,y:v.y,k:q.k,f:b.f});}}}
     const here=B.workers?this.workers(b).filter(u=>u.at):[];if(!here.length)return;const n=here.length;
     // les fermes et les mines livrent à leur dépôt de sortie (le plus proche, ou celui que le joueur a choisi)

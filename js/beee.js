@@ -81,7 +81,7 @@ export const BEEE_AI={
     // moins payé n'est pas là, mais les livraisons comptent comme de l'avancement)
     for(const b of this.beeeBuildings().filter(b=>!b.done)){const adv=b.progress+Object.values(b.paid||{}).reduce((a,v)=>a+v,0)/1000;if(b.stallP!==adv){b.stallP=adv;b.stallT=this.s.t;continue;}
       // (l'industrie de guerre payée à plus de moitié attend dix jours ses derniers matériaux plutôt que de tout recommencer)
-      const paidF=Object.values(b.paid||{}).reduce((a,v)=>a+v,0)/Math.max(1,Object.values(BUILDINGS[b.k].cost||{}).reduce((a,v)=>a+v,0));if(['manufacture','arsenal','caserne','poudrerie'].includes(b.k)&&paidF>=.5&&this.s.t-(b.stallT??this.s.t)<=240)continue;if(BUILDINGS[b.k]?.bunker||b.k==='cale')continue;   // (un ouvrage de la côte n'est jamais abandonné : l'état-major le relance)
+      const paidF=Object.values(b.paid||{}).reduce((a,v)=>a+v,0)/Math.max(1,Object.values(BUILDINGS[b.k].cost||{}).reduce((a,v)=>a+v,0));if(['manufacture','arsenal','caserne','poudrerie'].includes(b.k)&&paidF>=.5&&this.s.t-(b.stallT??this.s.t)<=240)continue;if(BUILDINGS[b.k]?.bunker||BUILDINGS[b.k]?.launch)continue;   // (un ouvrage de la côte n'est jamais abandonné : l'état-major le relance)
       if(this.s.t-(b.stallT??this.s.t)>96){if(b.k==='centre'||b.k==='camp')for(const n of this.s.nodes)if(n.type==='ore'&&distance(n.i,n.j,b.i,b.j)<12)n.beeeFail=this.s.t+10*24;this.cancel(b.id);}}
     // l'entretien : chaque ville bèè brûle du bois pour vivre (le chauffage, les fours à pain, les forges), à la mesure de ses habitants —
     // un peuple gourmand, qui épuise ses forêts et doit aller en chercher toujours plus loin

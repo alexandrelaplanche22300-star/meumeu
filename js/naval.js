@@ -119,9 +119,10 @@ export const NAVAL={
       else{u.hp=0;u.h&&(u.h.state='mort');lost++;}}
     v.crew=ashore?[]:[];if(v.cargoVeh!=null){const c=this.s.vehicles.find(o=>o.id===v.cargoVeh);if(c){c.aboard=null;c.onDeck=false;if(!ashore){c.hp=0;c.dead=true;}else{const [x,y]=this.nearestLand(v.x,v.y,3);c.x=x;c.y=y;}}v.cargoVeh=null;}
     v.drowned=lost;v.sunk=true;if(lost||saved)this.log('Front',`${v.name} est ${cause?'détruite ('+cause+')':'perdue'} : ${lost} noyé${lost>1?'s':''}${saved?`, ${saved} regagnent la rive`:''}.`,v.f==='meumeu'?'bad':'good');},
-  // une barge neuve sort de la cale : à l'eau, devant la plage, la proue vers le large
-  vehFromCale(b,k){const V=VEHDEF[k],N=this.N,ter=this.G.terrain,[w,h]=this.sizeOf(b);const cx=b.i+w/2,cy=b.j+h/2;
-    // la case d'eau la plus proche de la cale, voisine d'une terre marchable (on y monte à pied)
+  // le chantier de plage fini : le bâtiment disparaît, le bateau est à l'eau devant lui, la proue vers le large
+  launchBoat(b){const k=BUILDINGS[b.k].launch;const v=this.vehLaunch(b,k);this.remove(b);if(v){v.name=v.name||VEHDEF[k].name;this.log(this.nearCity?.(v)||'Front',`${VEHDEF[k].name} « ${v.name} » à l’eau.`,b.f==='meumeu'?'good':'info');this.emit({type:'trained',x:v.x,y:v.y,k,f:b.f});}return v;},
+  vehLaunch(b,k){const V=VEHDEF[k],N=this.N,ter=this.G.terrain,[w,h]=this.sizeOf(b);const cx=b.i+w/2,cy=b.j+h/2;
+    // la case d'eau la plus proche du chantier, voisine d'une terre marchable (on y monte à pied)
     let best=null,bd=1e9;for(let dj=-14;dj<=14;dj++)for(let di=-14;di<=14;di++){const i=Math.floor(cx)+di,j=Math.floor(cy)+dj;if(i<2||j<2||i>=N-2||j>=N-2||!isWater(ter[j*N+i]))continue;
       let land=false;for(const [a,c] of [[1,0],[-1,0],[0,1],[0,-1]])if(TERRAIN[ter[(j+c)*N+i+a]]?.walk){land=true;break;}if(!land)continue;
       // pas d'autre engin sur cette case

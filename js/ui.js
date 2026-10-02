@@ -19,6 +19,7 @@ import {layout,drawWeapon,drawRound} from './gunart.js';
 import {FixedClock} from './clock.js';
 import {resumeWorld} from './persistence.js';
 import {operationUI} from './operations-ui.js';
+import {VEHDEF} from './vehicules.js';
 
 const $=s=>document.querySelector(s);
 // Une erreur de démarrage ne doit plus laisser une fenêtre muette : elle est
