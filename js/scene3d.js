@@ -11,6 +11,7 @@ import {gunModel} from './gun3d.js';
 import {VEHDEF} from './vehicules.js';
 import {buildingModels} from './bldg3d.js';
 import {bunkerModels,bunkerDoorGeo} from './bunker3d.js';
+import {bargeModel,caleGeo} from './barge3d.js';
 
 export const HK=Math.sqrt(2/3);
 const PI=Math.PI;
@@ -21,9 +22,9 @@ export const BUILDING_MODEL={
   mine:['industrial_plant',1.0,0],gare:['industrial_warehouse_3d_model',1.0,0],entrepot:['industrial_warehouse_3d_model',1.0,0],labo:['steampunk_refinery_3d_model',1.0,0],
   caserne:['architectural_building',1.0,0],caserne_elite:['architectural_building',1.0,0,0xb8a8c8],poudrerie:['steampunk_refinery_3d_model',.9,0],arsenal:['industrial_warehouse_3d_model',.95,0,0xc4cdb0],armurerie:['medieval_forge_3d_model',1.0,0],
   manufacture:['industrial_plant',1.0,0],garage:['industrial_warehouse_3d_model',1.0,1,0xb8c0a4],hopital:['coastal_tavern',1.0,0],tente:['stylized_camp_tent_3d_model',1.0,0],archives:['steampunk_hut',1.0,0],
-  fonderie:['medieval_forge_3d_model',1.0,0],tour:[':tour',.8,0]};   // (les modèles du joueur, remis à la demande du joueur ; ceux faits par le code restent dans bldg3d.js, non utilisés)
+  fonderie:['medieval_forge_3d_model',1.0,0],cale:[':cale',1.0,0],tour:[':tour',.8,0]};   // (les modèles du joueur, remis à la demande du joueur ; ceux faits par le code restent dans bldg3d.js, non utilisés)
 export const OUTCROP_MODEL={fer:'rocky_outcrop',charbon:'lava_rock',pierre:'stone_rock_pile',cuivre:'crystal_rock',plomb:'rock_formation',salpetre:'multicolored_crystal_pile',or:'rock_with_gold_veins'};
-export const MODEL_NAMES=[...new Set([...Object.values(BUILDING_MODEL).map(b=>b[0]).filter(n=>n[0]!==':'),...Object.values(OUTCROP_MODEL),'meumeu','meumeu_soldat','plush_cow_knight','meumeu_casque','goat_plush_toy','gewehr_43_rifle','heavy_machine_gun','assault_rifle','vintage_military_jeep_logistic_unarmed','vintage_military_logistic_jeep_with_gun','ww2_locomotive','ww2_wagon','armored_car','stone_rock_pile','silbervogel_bomber_3d_model',...Object.values(VEHDEF).map(V=>V.modele)])];
+export const MODEL_NAMES=[...new Set([...Object.values(BUILDING_MODEL).map(b=>b[0]).filter(n=>n[0]!==':'),...Object.values(OUTCROP_MODEL),'meumeu','meumeu_soldat','plush_cow_knight','meumeu_casque','goat_plush_toy','gewehr_43_rifle','heavy_machine_gun','assault_rifle','vintage_military_jeep_logistic_unarmed','vintage_military_logistic_jeep_with_gun','ww2_locomotive','ww2_wagon','armored_car','stone_rock_pile','silbervogel_bomber_3d_model',...Object.values(VEHDEF).map(V=>V.modele).filter(n=>n&&n[0]!==":")])];
 
 // ---- petites géométries de code : arbres, buisson, casque (couleurs de sommets)
 const colored=(g,hex)=>{const c=new THREE.Color(hex);const n=g.attributes.position.count,a=new Float32Array(n*3);for(let i=0;i<n;i++){a[3*i]=c.r;a[3*i+1]=c.g;a[3*i+2]=c.b;}g.setAttribute('color',new THREE.BufferAttribute(a,3));return g;};
@@ -132,7 +133,7 @@ export class Scene3D{
     this.booms=[];this.boomGeo={ball:new THREE.IcosahedronGeometry(1,2),ring:new THREE.RingGeometry(.86,1,56).rotateX(-PI/2),dome:new THREE.SphereGeometry(1,16,8,0,PI*2,0,PI/2)};
     this.pools.fusil=mk('gewehr_43_rifle',{cap:1500});this.pools.mg=mk('heavy_machine_gun',{cap:200});
     for(let k=0;k<3;k++){const p=new Pool(boulder(k+1),{cap:1400});this.pools['rock'+k]=p;this.scene.add(p.mesh);}
-    this.M[':tour']={ext:[.9,1.8,.9],geo:TOWER_GEO()};Object.assign(this.M,buildingModels(),bunkerModels());this.doorGeo=bunkerDoorGeo();this.doorMat=new THREE.MeshStandardMaterial({color:0x50565a,roughness:.7,metalness:.4});
+    this.M[':tour']={ext:[.9,1.8,.9],geo:TOWER_GEO()};Object.assign(this.M,buildingModels(),bunkerModels());this.M[':barge']=bargeModel();{const cg=caleGeo(5,3);cg.computeBoundingBox();const bb=cg.boundingBox;this.M[':cale']={ext:[bb.max.x-bb.min.x,bb.max.y,bb.max.z-bb.min.z],geo:cg};}this.doorGeo=bunkerDoorGeo();this.doorMat=new THREE.MeshStandardMaterial({color:0x50565a,roughness:.7,metalness:.4});
     for(const [res,name] of Object.entries(OUTCROP_MODEL)){this.pools['ore_'+res]=mk(name,{cap:300});}
     this.pools.jeep=mk('vintage_military_jeep_logistic_unarmed',{cap:40});this.pools.loco=mk('ww2_locomotive',{cap:20});this.pools.wagon=mk('ww2_wagon',{cap:200});
     this.ok=true;
@@ -184,7 +185,11 @@ export class Scene3D{
     root.userData={parts,wheels,ax,sg,body,mat,sc};return root;}
   // L'équipage d'un engin découvert (la jeep) : chacun à sa place, à la même échelle qu'à terre (le bas du corps caché par la caisse, le buste au-dessus) ;
   // le servant se tient derrière son arme et tourne avec elle autour du pivot. Dans un engin fermé, l'équipage ne se voit pas.
-  vehCrew3d(v,V,P){if((V.blindage.dessus?.[0]||0)>=.05||!v.crew?.length||v.hp<=0)return;const Hm=this.M.meumeu.ext[1],c=Math.cos(v.h),s=Math.sin(v.h);
+  vehCrew3d(v,V,P){if(V.nav==='eau'){if(!v.crew?.length||v.hp<=0)return;const Hm=this.M.meumeu.ext[1],c=Math.cos(v.h),s=Math.sin(v.h);let n=0;
+      for(const u of v.crew){if(u.hp<=0)continue;let f,sd;if(u.vrole==='conducteur'){f=-V.long*.3;sd=0;}else{const row=Math.floor(n/3),col=n%3-1;n++;f=.95-row*.36;sd=col*.34;}
+        const x=v.x+c*f-s*sd,y=v.y+s*f+c*sd,sc=.5*(u.k==='villageois'?.92:1.02)/Hm,down=u.h?.state==='hors';
+        P.meumeu.add(x,.1,y,Math.atan2(Math.cos(v.h),Math.sin(v.h)),sc,sc,sc,{tint:down?0x9a8a80:u.k==='villageois'?0xf4efe2:0xdcd8c4,ph:0,amp:0,arm:down?0:u.vrole==='conducteur'?.85:.5});}return;}
+    if((V.blindage.dessus?.[0]||0)>=.05||!v.crew?.length||v.hp<=0)return;const Hm=this.M.meumeu.ext[1],c=Math.cos(v.h),s=Math.sin(v.h);
     const A=V.armes.find(a=>a.piece==='affut'),m=A&&v.mounts.find(q=>q.id===A.id);const seats=[[.08,.2],[.08,-.2],[-.38,.2],[-.38,-.2]];let n=0;
     const W=(f,sd)=>[v.x+c*f-s*sd,v.y+s*f+c*sd];
     for(const u of v.crew){if(u.hp<=0)continue;let x,y,a=v.h;
@@ -195,11 +200,12 @@ export class Scene3D{
       P.meumeu.add(x,y0,y,Math.atan2(Math.cos(a),Math.sin(a)),sc,sc,sc,{tint:down?0x9a8a80:u.k==='villageois'?0xf4efe2:0xdcd8c4,ph:0,amp:0,arm:down?0:u.vrole==='servant'?.65:u.vrole==='conducteur'?.85:0});}}
   // la pose d'un véhicule : place, cap (selon l'axe avant de son modèle), tourelle, hausse des armes, roues, un léger roulis de suspension
   syncVehicle(v,V,dtc){let e=this.vehs.get(v.id);if(!e){const g=this.vehicleGroup(V);if(!g)return;e={g};this.vehs.set(v.id,e);this.scene.add(g);}
-    const {g}=e,U=g.userData,base={'+x':0,'-x':PI,'+z':PI/2,'-z':-PI/2}[V.avant];g.position.set(v.x,0,v.y);g.rotation.y=base-v.h;g.visible=true;
+    const {g}=e,U=g.userData,base={'+x':0,'-x':PI,'+z':PI/2,'-z':-PI/2}[V.avant];g.position.set(v.x,v.onDeck?.16:0,v.y);g.rotation.y=base-v.h;g.visible=true;
     // la suspension : un petit tangage à l'accélération et au freinage, un frémissement en roulant (plus fort sur un terrain bouleversé)
     const acc=(v.spd-(e.spd??v.spd))/Math.max(1e-3,dtc);e.spd=v.spd;e.pitch=(e.pitch||0)+((-Math.max(-1,Math.min(1,acc/120))*.035)-(e.pitch||0))*Math.min(1,dtc*6);
     const shake=Math.min(1,v.spd/12)*.012*Math.sin((v.odo||0)*7.3);U.body.position.y=shake*V.long*.3;if(U.ax===2)U.body.rotation.x=e.pitch*U.sg;else U.body.rotation.z=-e.pitch*U.sg;
     for(const w of U.wheels){const a=(v.odo||0)/w.r;if(U.ax===2)w.g.rotation.x=a*U.sg;else w.g.rotation.z=-a*U.sg;}
+    if(V.nav==='eau'){const tt=performance.now()/1000+v.id*1.7;g.position.y=.02+.018*Math.sin(tt*1.6);g.rotation.z=.028*Math.sin(tt*1.25);g.rotation.x=.018*Math.sin(tt*1.05+1);if(U.parts.rampe)U.parts.rampe.rotation.z=-(v.ramp||0)*1.5;}
     const mt=(piece)=>v.mounts?.find(m=>V.armes.find(a=>a.id===m.id)?.piece===piece);
     if(U.parts.tourelle){const m=mt('tourelle');U.parts.tourelle.rotation.y=-(m?.yaw||0);const el=m?.el||0;for(const k of ['armes','canon'])if(U.parts[k]){if(U.ax===2)U.parts[k].rotation.x=-el*U.sg;else U.parts[k].rotation.z=el*U.sg;}}
     if(U.parts.affut){const m=mt('affut'),A=V.armes.find(a=>a.piece==='affut');U.parts.affut.rotation.y=-((m?.yaw??A.repos)-(A.repos||0));}

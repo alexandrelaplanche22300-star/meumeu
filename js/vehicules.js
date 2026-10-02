@@ -48,6 +48,12 @@ export const VEHDEF={
     cout:{fer:150,pieces:95,cuivre:10,charbon:12,'a:canon_auto_mle1':2},heures:84,
     why:'Deux canons jumelés dans une casemate : ±12° de débattement — c’est la caisse qui pointe. Très épais devant, mince ailleurs. Pour casser les ouvrages bèè.'},
 };
+// V12.5 : la barge de débarquement (nav:'eau' : elle ne roule pas, elle navigue — voir naval.js). Une coque blindée à l'avant (la rampe relevée) et sur les flancs :
+// le fusil et la mitrailleuse bèè ne la percent pas, l'antichar si. Un pilote, vingt-quatre passagers, un véhicule sur le pont, soixante caisses.
+VEHDEF.barge={name:'Barge de débarquement',nav:'eau',modele:':barge',avant:'+x',long:3.4,large:1.3,roues:'chenilles',pivot:24,vmax:16,t0:3,frein:2,deck:[-.25],
+  blindage:{avant:[3.2,30],flanc:[2.3,0],arriere:[1.3,0],dessus:[0,0]},hp:420,places:{servants:0,passagers:24},soute:60,armes:[],
+  cout:{fer:60,pieces:25,bois:70},heures:26,
+  why:'Une coque blindée qu’on échoue sur la plage : un pilote, vingt-quatre Meumeu, un véhicule, des munitions. La proue relevée arrête les balles de fusil et de mitrailleuse bèè ; baissée, elle laisse courir les soldats vers la plage. Elle repart chercher du monde tant que le pilote vit.'};
 export const VEH_KINDS=Object.keys(VEHDEF);
 const VEDF=v=>VEHDEF[v.k];
 // la vitesse sur chaque terrain (part de vmax) : les roues s'enlisent dans le sable et peinent dans la lande, les chenilles moins
@@ -179,7 +185,7 @@ export const VEHICULES={
   // conduisible (A* hybride : rayon de braquage, marche arrière, emprise, engins garés) sur les ~12 cases suivantes de l'itinéraire, refait avant d'en
   // voir le bout. Mesuré : planifier tout le trajet d'un coup coûtait jusqu'à 5,7 s et devait tout refaire à la moindre obstruction ; chaque morceau
   // local reste petit (fenêtre de 14 cases, 8 000 nœuds au plus). Faux s'il n'y a pas d'itinéraire.
-  vehMove(v,tx,ty){const R=this.vehPlan(v,tx,ty);if(!R){v.why='pas de chemin pour ce véhicule (arbres, rochers, tranchées, eau)';v.path=null;v.itin=null;v.state='idle';return false;}
+  vehMove(v,tx,ty){if(VEHDEF[v.k]?.nav==='eau')return this.boatMove(v,tx,ty);const R=this.vehPlan(v,tx,ty);if(!R){v.why='pas de chemin pour ce véhicule (arbres, rochers, tranchées, eau)';v.path=null;v.itin=null;v.state='idle';return false;}
     v.itin=R;v.ri=0;v.goal=[tx,ty];v.path=null;v.state='go';v.why=null;v.man=null;v.watch=null;v.localN=0;return true;},
   // le morceau local : vers le point de l'itinéraire à ~12 cases devant (cap voulu : la direction de l'itinéraire là-bas), à défaut ~6 cases ;
   // le but lui-même s'il est à portée. À défaut de tout, l'itinéraire tel quel (le pilote manœuvre au besoin).
@@ -229,7 +235,7 @@ export const VEHICULES={
     for(const m of v.mounts||[])crate(m.w,0,Wd=>{if((m.pouch||0)>=Wd.p.mag*2)return false;m.pouch=(m.pouch||0)+(Wd.perCrate||Wd.p.mag);return true;});
     const near=[...(v.crew||[]),...this.s.units.filter(u=>u.f===v.f&&!u.inVeh&&u.hp>0&&Math.hypot(u.x-v.x,u.y-v.y)<2.5)];
     for(const u of near){if(!u.w)continue;crate(u.w,0,Wd=>{const carry=Wd.carry||Wd.p.mag*4;if((u.pouch||0)+(u.mag||0)>=carry*.5)return false;u.pouch=Math.min(carry,(u.pouch||0)+(Wd.perCrate||Wd.p.mag));return true;});}},
-  combatVehicleTick(v,dt){const V=VEHDEF[v.k];if(v.k==='char'&&v.name?.startsWith('Char léger'))v.name=v.name.replace('Char léger','Automitrailleuse à canon');if(v.hp<=0){v.spd=0;return;}this.vehSouteSupply(v);
+  combatVehicleTick(v,dt){const V=VEHDEF[v.k];if(V.nav==='eau'){this.vehSouteSupply(v);this.boatTick(v,V,dt);return;}if(v.k==='char'&&v.name?.startsWith('Char léger'))v.name=v.name.replace('Char léger','Automitrailleuse à canon');if(v.hp<=0){v.spd=0;return;}this.vehSouteSupply(v);
     if(v.fire>0){v.fire-=dt;v.hp-=dt*35;if(v.hp<=0){this.vehDestroyed(v,'brûlé');return;}}
     if(v.comp?.moteur||v.comp?.train){if(v.state==='go'){v.state='idle';v.path=null;v.itin=null;}v.why=v.comp.moteur?'moteur détruit : immobilisé':'train de roulement brisé : immobilisé';}
     const drv=this.vehDriver(v);
@@ -394,7 +400,7 @@ export const VEHICULES={
     v.hitAt=this.s.t;if(hurt&&v.f==='meumeu')this.log('Front',`${v.name} : une explosion tout près, ${hurt} touché(s) à bord.`,'bad');
     if(v.hp<=0)this.vehDestroyed(v,'explosion');},
   // Détruit : l'épave reste ; ceux qui sont encore à bord s'en sortent ou non, blessés
-  vehDestroyed(v,cause){if(v.dead)return;v.dead=true;v.hp=0;v.spd=0;v.state='idle';v.path=null;v.itin=null;
+  vehDestroyed(v,cause){if(v.dead)return;v.dead=true;v.hp=0;v.spd=0;v.state='idle';v.path=null;v.itin=null;if(VEHDEF[v.k]?.nav==='eau'){this.emit({type:'boom',kind:'shell',x:v.x,y:v.y,f:v.f});this.emit({type:'fire',x:v.x,y:v.y});this.boatSunk(v,cause);return;}
     for(const u of (v.crew||[]).filter(u=>u.hp>0))if(this.rand()<(v.fire>0?.6:.45))this.vehCrewHit(v,u,fragDesign(.6+this.rand(),1.5),350+this.rand()*350,`engin détruit (${cause})`);
     this.vehUnboard(v,'tous');this.emit({type:'boom',kind:'shell',x:v.x,y:v.y,f:v.f});this.emit({type:'fire',x:v.x,y:v.y});
     this.log('Front',`${v.name} est détruit (${cause}).`,v.f==='meumeu'?'bad':'good');},

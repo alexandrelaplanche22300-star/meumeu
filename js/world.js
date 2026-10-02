@@ -25,6 +25,7 @@ import {ESCALADE} from './escalade.js';
 import {VEHICULES,VEHDEF} from './vehicules.js';
 import {PERSISTENCE} from './persistence.js';
 import {BUNKERS} from './bunkers.js';
+import {NAVAL} from './naval.js';
 import {bunkerPlan} from './bunkerdata.js';
 // Le chemin d'un train : les centres des cases, et à chaque virage à angle droit un quart de cercle (rayon : une demi-case) —
 // la même courbe que celle que dessine la voie. Chaque point est [x - 0,5, y - 0,5, case] (slide ajoute la demi-case).
@@ -585,6 +586,7 @@ export class World{
     if(B.unique&&this.s.buildings.some(b=>b.f===f&&b.k===k&&!b.ruin))why.push('un seul');
     if(k==='centre'&&this.s.buildings.some(b=>b.f===f&&b.k==='centre'&&d2(b.i,b.j,i,j)<24))why.push('trop près d’une autre ville');
     if(B.station&&!this.platformAt(i,j,w,h))why.push('au bord d’une voie ferrée');
+    if(B.coastal){let wet=false;for(let a=-3;a<w+3&&!wet;a++)for(let c=-3;c<h+3;c++){const ii=i+a,jj=j+c;if(ii<0||jj<0||ii>=N||jj>=N)continue;const t=this.G.terrain[jj*N+ii];if(t===T.deep||t===T.shallow){wet=true;break;}}if(!wet)why.push('au bord de la mer');}
     // un chantier se paie à mesure : il lui faut un dépôt à moins de RADIUS cases, où le fret apportera ce qui manque (le camp est gratuit)
     const site=Object.keys(B.cost).length?this.nearestDepot(f,i+w/2,j+h/2,SITE_RANGE,d=>!BUILDINGS[d.k].foodOnly):null;
     const railhead=k==='gare'&&!site&&this.railheadConnected(f,i,j,w,h);
@@ -1391,7 +1393,7 @@ export class World{
       if(UNITS[q.k]||(b.f==='beee'&&BEEE.units[q.k])){const u=this.addUnit(b.f,q.k,b.i+w/2+(this.rand()-.5)*w,b.j+h+.7,{w:q.w,rounds:0,armor:q.armor});if(q.role==='munitions')this.setRole(u,'munitions');const centre=this.cityOf(b)||this.centreOf(b);u.home=centre?.id??null;if(UNITS[q.k]?.arm&&(b.k==='caserne'||b.k==='caserne_elite'))u.homeBarracks=b.id;this.resupply(u,!!u.homeBarracks);
         const enemyCity=b.f==='beee'&&centre&&this.s.beee.cities.find(c=>c.centre===centre.id);if(enemyCity){u.city=enemyCity.id;if(u.k!=='villageois'){const a=this.rand()*Math.PI*2,r=5+this.rand()*3;u.task={kind:'guard',tx:enemyCity.x+Math.cos(a)*r,ty:enemyCity.y+Math.sin(a)*r};}}
         else if(b.rally)u.task={kind:u.k==='villageois'?'move':'guard',tx:b.rally[0],ty:b.rally[1]};this.emit({type:'trained',x:u.x,y:u.y,k:q.k,f:b.f});}
-      else if(VEHDEF[q.k]){const v=this.vehFromGarage(b,q.k);if(!v){b.queue.unshift({...q,left:.5});b.why='la sortie du garage est encombrée';return;}this.log(this.cityName(b),`${v.name} sort du garage.`,'good');this.emit({type:'trained',x:v.x,y:v.y,k:q.k,f:b.f});}
+      else if(VEHDEF[q.k]){const v=VEHDEF[q.k].nav==='eau'?this.vehFromCale(b,q.k):this.vehFromGarage(b,q.k);if(!v){b.queue.unshift({...q,left:.5});b.why='la sortie est encombrée';return;}this.log(this.cityName(b),VEHDEF[q.k].nav==='eau'?`${v.name} est à l’eau.`:`${v.name} sort du garage.`,'good');this.emit({type:'trained',x:v.x,y:v.y,k:q.k,f:b.f});}
       else{const v=this.addVehicle(b.f,q.k,b);this.log(this.cityName(b),`${VEHICLES[q.k].name} « ${v.name} » prêt.`,'good');this.emit({type:'trained',x:v.x,y:v.y,k:q.k,f:b.f});}}}
     const here=B.workers?this.workers(b).filter(u=>u.at):[];if(!here.length)return;const n=here.length;
     // les fermes et les mines livrent à leur dépôt de sortie (le plus proche, ou celui que le joueur a choisi)
@@ -1713,3 +1715,4 @@ Object.assign(World.prototype,ESCALADE);
 Object.assign(World.prototype,VEHICULES);
 Object.assign(World.prototype,PERSISTENCE);
 Object.assign(World.prototype,BUNKERS);
+Object.assign(World.prototype,NAVAL);

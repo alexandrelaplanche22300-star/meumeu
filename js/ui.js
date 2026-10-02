@@ -428,7 +428,11 @@ function buildingPane(b){if(b.f==='beee'&&world.s.fog!==false&&!world.visibleAt(
 function combatVehiclePane(v){const V=world.vehDef(v);const FACE={avant:'Avant',flanc:'Flancs',arriere:'Arrière',dessus:'Dessus',tourelle:'Tourelle',tourelle_flanc:'Tourelle (flancs)'};
   const etat=v.hp<=0?'<span class="bad">détruit</span>':v.why?`<span class="warn">${esc(v.why)}</span>`:v.state==='go'?'en route':'à l’arrêt';
   let h=`<section class="pane"><h2>${esc(v.name)} <small>${etat}</small></h2><p class="quiet small">${esc(V.why)}</p>`;
-  h+=`<div class="kv"><span>État</span><b>${Math.max(0,Math.round(v.hp))} / ${v.max}</b></div><div class="kv"><span>Vitesse</span><b>${Math.round(v.spd||0)} / ${V.vmax} cases/h · ${V.roues==='roues'?`roues, rayon ${V.r} cases`:'chenilles, pivote sur place'}</b></div>`;
+  h+=`<div class="kv"><span>État</span><b>${Math.max(0,Math.round(v.hp))} / ${v.max}</b></div><div class="kv"><span>Vitesse</span><b>${Math.round(v.spd||0)} / ${V.vmax} cases/h · ${V.nav==='eau'?'navigue (eau seulement), vire sur place':V.roues==='roues'?`roues, rayon ${V.r} cases`:'chenilles, pivote sur place'}</b></div>`;
+  if(V.nav==='eau'){const down=(v.ramp||0)>.5,cv=v.cargoVeh!=null?world.s.vehicles.find(o=>o.id===v.cargoVeh):null;
+    h+=`<h3>Barge</h3><div class="kv"><span>Rampe</span><b>${down?'baissée (la proue est ouverte)':'relevée (la proue arrête les balles)'}${v.beached?' · échouée':''}</b></div><div class="kv"><span>Pont</span><b>${cv?esc(cv.name):'aucun véhicule'}</b></div>
+      <div class="row"><button class="small" data-act="boat-ramp">${down?'Relever la rampe':'Baisser la rampe'}</button>${down?'<button class="small" data-act="boat-unload">Débarquer</button>':''}</div>
+      <p class="quiet small">Clic droit sur l’eau : naviguer. Clic droit sur une plage : s’y échouer (la barge recule d’abord pour se dégager si elle est déjà à terre). Rampe baissée : les passagers sortent par l’avant et courent ; le pilote reste. Un véhicule monte à bord quand vous le choisissez et faites un clic droit sur la barge (rampe baissée, tout près).</p>`;}
   // les dégâts : les organes touchés, le feu, et ce qu'a fait le dernier coup (l'épaisseur effective sous l'angle, contre ce que le projectile perçait)
   const CMP={moteur:'moteur détruit : immobilisé',train:'train de roulement brisé : immobilisé',tourelle:'tourelle bloquée'},mm=x=>x.toLocaleString('fr-FR',{maximumFractionDigits:2});
   const dmg=[...Object.keys(v.comp||{}).filter(k=>v.comp[k]).map(k=>CMP[k]||k),...(v.fire>0?['en feu']:[])];
@@ -623,7 +627,8 @@ function groupVehicleOrder(ids,w){const vs=ids.map(id=>world.s.vehicles.find(v=>
   vs.forEach((v,i)=>{const off=(i-(vs.length-1)/2)*gap,tx=w.x+nx*off,ty=w.y+ny*off;const ok=world.vehMove(v,tx,ty)||world.vehMove(v,w.x,w.y);if(!ok)bad++;view.marks.push({x:tx,y:ty,age:0,bad:!ok});});
   if(bad)say(`${bad} engin${bad>1?'s':''} sur ${vs.length} ne peu${bad>1?'vent':'t'} pas y aller (pas de conducteur, ou pas de chemin).`,'bad');else audio.play('order');renderPanel(true);}
 function vehicleOrder(w){const v=world.s.vehicles.find(x=>x.id===view.selV);if(!v)return;
-  if(world.isCombatVehicle(v)){const ok=world.vehMove(v,w.x,w.y);view.marks.push({x:w.x,y:w.y,age:0,bad:!ok});if(!ok)say(v.why,'bad');else audio.play('order');renderPanel(true);return;}
+  if(world.isCombatVehicle(v)){const tg=world.targetAt(w.x,w.y);const tv=tg?.type==='vehicle'?world.s.vehicles.find(o=>o.id===tg.id):null;if(tv&&tv!==v&&tv.f==='meumeu'&&world.vehDef(tv).nav==='eau'&&world.vehDef(v).nav!=='eau'){const r=world.vehEmbarkOrder(v,tv);say(r.ok?r.text:r.why[0],r.ok?'good':'bad');if(r.ok)audio.play('order');renderPanel(true);return;}
+    const ok=world.vehMove(v,w.x,w.y);view.marks.push({x:w.x,y:w.y,age:0,bad:!ok});if(!ok)say(v.why,'bad');else audio.play('order');renderPanel(true);return;}
   if(v.k==='porteur'&&v.u){const u=v.u;world.releasePorter(v);view.selV=null;view.sel.clear();view.sel.add(u.id);const t=world.targetAt(w.x,w.y);const r=ui.order?null:null;view.ui.order([u.id],t||{type:'point',x:w.x,y:w.y});renderPanel(true);return;}if(v.k==='bombardier'){const r=world.bomb(v.id,w.x,w.y);say(r.ok?r.text:r.why[0],r.ok?'good':'bad');audio.play(r.ok?'order':'bad');if(r.ok)view.marks.push({x:w.x,y:w.y,age:0,bad:true});return;}
   const t=world.targetAt(w.x,w.y);if(t?.type==='building'){if(!ui.pick)ui.pick={v:v.id,a:null,need:''};pickStop(t.id);}}
 function selectSquad(id,go){const sq=world.squad(id);if(!sq)return;view.sel.clear();view.selB=null;view.selV=null;for(const u of world.members(sq))view.sel.add(u.id);if(go){const L=world.unit(sq.leader)||world.members(sq)[0];if(L)view.lookAt(L.x,L.y);}renderPanel(true);}
@@ -708,6 +713,8 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   else if(a==='grow'){const bd=world.building(view.selB);if(bd){bd.grow=bd.grow===false;say(bd.grow?`${bd.city} : croissance.`:`${bd.city} : croissance arrêtée.`);}}
   else if(a==='porters'){const bd=world.building(view.selB);const r=world.addPorters(bd,1);say(r.ok?`${world.porters(bd).length} porteur${world.porters(bd).length>1?'s':''} pour ${world.depotName(bd)}.`:r.why[0],r.ok?'good':'bad');}
   else if(a==='porters-off'){const bd=world.building(view.selB);const v=bd&&world.porters(bd).pop();if(v){world.releasePorter(v);say('Un porteur rendu au village.');}}
+  else if(a==='boat-ramp'){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v){const r=world.boatRamp(v,(v.rampTo||0)<.5);say(r.ok?r.text:r.why[0],r.ok?'':'bad');}renderPanel(true);}
+  else if(a==='boat-unload'){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v){const r=world.boatUnload(v,'passagers');say(r.ok?r.text:r.why[0],r.ok?'good':'bad');}renderPanel(true);}
   else if(a==='veh-out-pass'||a==='veh-out-all'){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v){const out=world.vehUnboard(v,a==='veh-out-pass'?'passagers':'tous');say(`${out.length} Meumeu descend${out.length>1?'ent':''} de ${v.name}.`);}renderPanel(true);}
   else if(a==='porter-free'){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v){world.releasePorter(v);view.selV=null;say('Rendu au village.');}}
   else if(a==='evac'){const bd=world.building(view.selB);if(bd){bd.evac=bd.evac===false?true:false;say(bd.evac?'Le trop-plein part au grand dépôt le plus proche.':'Le trop-plein reste ici.');}}
