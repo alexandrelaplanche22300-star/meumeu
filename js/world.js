@@ -1039,7 +1039,9 @@ export class World{
   // la portée d'engagement : ce que l'arme porte utilement (un peu plus), et ce qu'on voit
   engageRange(u){const D=UDEF(u);if(!u.w)return D.img?D.range:3;const W=this.W(u.w);if(D.img||ACTIONS[W.p.action]?.mortar)return Math.max(8,this.zoneRange(W)*.95);const reach=W.optic?.mag>1?1+(W.optic.day-1)*.8:1;return clamp(Math.max(14,W.eff*1.6/TILE_M),12,34*reach);}
   // voir : un bâtiment entre deux points cache (on ne voit pas à travers les maisons)
-  los(ax,ay,bx,by){for(const s of this.s.smokes){const dx=bx-ax,dy=by-ay,L2=dx*dx+dy*dy||1;const t=Math.max(0,Math.min(1,((s.x-ax)*dx+(s.y-ay)*dy)/L2));if(Math.hypot(ax+dx*t-s.x,ay+dy*t-s.y)<s.r*Math.min(1,(s.end-this.s.t)/1+.3))return false;}
+  // vrai si un nuage de fumée est sur la ligne
+  smokeBetween(ax,ay,bx,by){for(const s of this.s.smokes){const dx=bx-ax,dy=by-ay,L2=dx*dx+dy*dy||1;const t=Math.max(0,Math.min(1,((s.x-ax)*dx+(s.y-ay)*dy)/L2));if(Math.hypot(ax+dx*t-s.x,ay+dy*t-s.y)<s.r*Math.min(1,(s.end-this.s.t)/1+.3))return true;}return false;}
+  los(ax,ay,bx,by,noSmoke=false){for(const s of noSmoke?[]:this.s.smokes){const dx=bx-ax,dy=by-ay,L2=dx*dx+dy*dy||1;const t=Math.max(0,Math.min(1,((s.x-ax)*dx+(s.y-ay)*dy)/L2));if(Math.hypot(ax+dx*t-s.x,ay+dy*t-s.y)<s.r*Math.min(1,(s.end-this.s.t)/1+.3))return false;}
   const d=d2(ax,ay,bx,by);const n=Math.ceil(d*2);for(let k=1;k<n;k++){const x=ax+(bx-ax)*k/n,y=ay+(by-ay)*k/n;const ix=Math.floor(y)*this.N+Math.floor(x),o=this.occ[ix];if(o>=0){const b=this.bIndex.get(o);if(b&&!b.ruin){if(this.fort[ix]){if(!this.emb[ix])return false;}else if(this.distB(b,ax,ay)>.6&&this.distB(b,bx,by)>.6)return false;}}}return true;}
   // ---------- la détection ----------
   // On ne tire que sur ce qu'on a repéré. La signature d'une unité : debout, accroupie, couchée ; en marche ; l'éclair de son
@@ -1094,7 +1096,7 @@ export class World{
       this.blast(c.x,c.y,'grenade',c.f,c.by,1,'shell');if(!b||b.ruin)continue;const B=BUILDINGS[b.k];
       if(BUILDINGS[b.k].bunker){this.breakDoorsNear(b,c.x,c.y);}
       if(b.k==='mine'){b.sabUntil=this.t+24;b.why='accès saboté : remise en état';}
-      if(this.volatile?.(b)>2)this.depotBlow?.(b,c.by);else{this.damage(b,b.max*.5,c.f);if(B.factory||B.store){b.sabUntil=this.s.t+14;b.why='saboté : réparations en cours';}}
+      if(BUILDINGS[b.k]?.bunker){this.damage(b,b.max*.03,c.f);const ds=this.bunkerDoors(b).length;this.bunkerBlast?.(b,c);}else if(this.volatile?.(b)>2)this.depotBlow?.(b,c.by);else{this.damage(b,b.max*.5,c.f);if(B.factory||B.store){b.sabUntil=this.s.t+14;b.why='saboté : réparations en cours';}}
       const who=b.f==='meumeu';this.log(this.cityName(b),who?`Sabotage ! ${B.name} a sauté dans la nuit${b.sabUntil>this.s.t?' — arrêt le temps des réparations':''}.`:`Nos saboteurs ont fait sauter ${B.name.toLowerCase()} bèè.`,who?'bad':'good');}}
   quietOk(u,e){if(!u.w)return false;const W=this.W(u.w);const d=d2(u.x,u.y,e.x,e.y);if(d>14)return false;
     const S=W.sup;let dB=W.dB;if(S){let R=S.R;const use=(u.supUse||0)+1;if(S.life)R*=1-(1-S.floor)*Math.min(1,(use-1)/S.life);if(S.wet)R*=use<=S.wet?S.wetK:1;dB=Math.max(W.actDb||100,Math.round(W.dB0-Math.min(38,R)));}
@@ -1131,7 +1133,9 @@ export class World{
     // un mortier ne tire qu'en cloche : sur l'ennemi qu'il voit, il règle son tir coup après coup
     if(ACTIONS[W.p.action]?.mortar){if(isB||e.wall!=null)return false;if(!u.lob||u.lob.id!==e.id)u.lob={id:e.id,x,y,high:true,bias:null,fired:0,n:Infinity};u.lob.x=x;u.lob.y=y;return this.zoneTick(u,u.lob,true);}
     if(distT>this.engageRange(u))return false;
-    if(!isB&&e.wall==null&&!this.los(u.x,u.y,x,y))return false;
+    if(!isB&&e.wall==null&&!this.los(u.x,u.y,x,y)){
+      // la fumée ne coupe pas le tir au jugé : sur une cible qui vient de tirer (ou qu'on visait déjà), mais à travers rien d'autre (un mur arrête toujours)
+      if(!(this.smokeBetween(u.x,u.y,x,y)&&this.los(u.x,u.y,x,y,true)&&(this.s.t-(e.firedAt??-9)<.6||u.aimAt===e.id)))return false;}
     this.face(u,x-u.x,y-u.y);u.anim='aim';u.path=null;
     // on ne tire pas en marchant : on s'arrête, on se cale, on vise ; seule la charge tire en avançant (et mal)
     if(!u.charge&&this.s.t-(u.moved||-9)<SETTLE)return true;
@@ -1162,7 +1166,7 @@ export class World{
   // l'erreur d'estimation de la distance (la chute), puis ce qu'elle rencontre : le couvert (et s'il le perce), le corps.
   resolve(u,e,W,R,burst,share=null){const D=UDEF(u);const skill=(D.skill||2.4)/(1+(u.xp||0)/60)/(u.f==='meumeu'?this.mod('tir'):1);const moving=this.s.t-(u.moved||-9)<.03;
     const irBlur=u.nvOn&&(u.irLeft??0)>0&&this.light()<.4&&d2(u.x,u.y,e.x,e.y)>this.sight()?2.5:1;   // (à l'infrarouge, au-delà de la vue nue : image floue, sans relief)
-    const sigS=irBlur*skill*POST[u.post||'debout']*(moving?2.4:1)*(1+1.5*(u.supp||0))*(u.h?malus(u.h).aim:1)*(u.armor?1+((this.armorOf(u.armor)?.D.aim||1)-1)*(UDEF(u).choc?.load??1):1);
+    const sigS=irBlur*(this.smokeBetween(u.x,u.y,e.x,e.y)?4.5:1)*skill*POST[u.post||'debout']*(moving?2.4:1)*(1+1.5*(u.supp||0))*(u.h?malus(u.h).aim:1)*(u.armor?1+((this.armorOf(u.armor)?.D.aim||1)-1)*(UDEF(u).choc?.load??1):1);
     const sigW=W.moa*.291*(u.mount?1:(W.mountOk||u.k==='choc'&&W.need==='bipied')?1:2+Math.min(4,W.rk0))*(u.mount?.8:this.trenchRest(u,W));const sigR=burst*W.rk*(u.k==='choc'?.5:1)*9*(u.mount?.5:1);const crewU=u.k==='choc'?crewOf(W,.5):W.crew;const missing=crewU>1&&!u.mount?Math.max(0,crewU-1-this.servants(u).length):0;
     // Le viseur réduit l'erreur angulaire propre du tireur; il n'ajoute pas de
     // vitesse ni de portée balistique. Tirer en mouvement/sous le feu garde ses

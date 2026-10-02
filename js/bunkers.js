@@ -39,6 +39,9 @@ export const BUNKERS={
   doorFront(b,key){const P=this.bunkerPlanOf(b),N=this.N;const a=key%N-b.i,c=((key/N)|0)-b.j;for(const [dx,dy] of [[0,-1],[1,0],[0,1],[-1,0]])if(P.at(a+dx,c+dy)===' ')return [b.i+a+dx+.5,b.j+c+dy+.5];return null;},
   // les portes encore debout, avec leur clé de case
   bunkerDoors(b){const P=this.bunkerPlanOf(b),N=this.N;if(!P)return [];return P.doors.map(([a,c])=>(b.j+c)*N+b.i+a).filter(k=>!(b.doorsDown||[]).includes(k));},
+  // le souffle d'une charge posée à la porte : deux grenades, l'une sur le seuil, l'autre trois cases à l'intérieur — les occupants près de la porte sont touchés (le béton du reste les protège)
+  bunkerBlast(b,c){const N=this.N;let door=null,bd=1e9;for(const k of (b.doorsDown||[])){const d=Math.hypot(k%N+.5-c.x,((k/N)|0)+.5-c.y);if(d<bd){bd=d;door=k;}}if(door==null||bd>3.2)return;const P=this.bunkerPlanOf(b),a=door%N-b.i,r=((door/N)|0)-b.j;
+    const ins=[[0,-1],[1,0],[0,1],[-1,0]].find(([dx,dy])=>'.oGA'.includes(P.at(a+dx,r+dy)));const x=door%N+.5,y=((door/N)|0)+.5;this.blast(x,y,'obus',c.f,c.by,1,'grenade');if(ins){this.blast(x+ins[0]*1.2,y+ins[1]*1.2,'obus',c.f,c.by,1,'grenade');this.blast(x+ins[0]*3,y+ins[1]*3,'grenade',c.f,c.by,1,'grenade');}},
   // le verrou d'une porte forcé à la main (clic droit des soldats, quelques heures de jeu sous le feu) : la porte s'ouvre, pour de bon
   unlockDoor(b,key){if((b.doorsDown||[]).includes(key))return false;(b.doorsDown??=[]).push(key);this.wall[key]=0;this.wallV=(this.wallV||0)+1;this.repath();this.emit({type:'collapse',x:key%this.N+.5,y:((key/this.N)|0)+.5,small:true});this.log(this.cityName?.(b)||'Front',`Une porte de ${BUILDINGS[b.k].name.toLowerCase()} est débloquée de l’extérieur.`,b.f==='meumeu'?'bad':'good');return true;},
   // une charge qui explose en (x, y) : les portes de ce bunker à moins de r cases sautent (seules les charges ouvrent une porte)
