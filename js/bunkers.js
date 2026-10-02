@@ -39,6 +39,8 @@ export const BUNKERS={
   doorFront(b,key){const P=this.bunkerPlanOf(b),N=this.N;const a=key%N-b.i,c=((key/N)|0)-b.j;for(const [dx,dy] of [[0,-1],[1,0],[0,1],[-1,0]])if(P.at(a+dx,c+dy)===' ')return [b.i+a+dx+.5,b.j+c+dy+.5];return null;},
   // les portes encore debout, avec leur clé de case
   bunkerDoors(b){const P=this.bunkerPlanOf(b),N=this.N;if(!P)return [];return P.doors.map(([a,c])=>(b.j+c)*N+b.i+a).filter(k=>!(b.doorsDown||[]).includes(k));},
+  // le verrou d'une porte forcé à la main (clic droit des soldats, quelques heures de jeu sous le feu) : la porte s'ouvre, pour de bon
+  unlockDoor(b,key){if((b.doorsDown||[]).includes(key))return false;(b.doorsDown??=[]).push(key);this.wall[key]=0;this.wallV=(this.wallV||0)+1;this.repath();this.emit({type:'collapse',x:key%this.N+.5,y:((key/this.N)|0)+.5,small:true});this.log(this.cityName?.(b)||'Front',`Une porte de ${BUILDINGS[b.k].name.toLowerCase()} est débloquée de l’extérieur.`,b.f==='meumeu'?'bad':'good');return true;},
   // une charge qui explose en (x, y) : les portes de ce bunker à moins de r cases sautent (seules les charges ouvrent une porte)
   breakDoorsNear(b,x,y,r=2.6){const N=this.N;let n=0;for(const k of this.bunkerDoors(b)){if(Math.hypot(k%N+.5-x,((k/N)|0)+.5-y)>r)continue;(b.doorsDown??=[]).push(k);this.wall[k]=0;n++;this.emit({type:'collapse',x:k%N+.5,y:((k/N)|0)+.5,small:true});}
     if(n){this.wallV=(this.wallV||0)+1;this.repath();this.log(this.cityName?.(b)||'Front',`${n>1?'Des portes ont':'Une porte a'} sauté sous une charge : ${BUILDINGS[b.k].name.toLowerCase()} est ouvert.`,b.f==='meumeu'?'bad':'good');}return n;},

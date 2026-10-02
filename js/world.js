@@ -28,6 +28,7 @@ import {BUNKERS} from './bunkers.js';
 import {NAVAL} from './naval.js';
 import {AIRCRAFT} from './air.js';
 import {BEEE_FORT} from './fortif.js';
+const UNLOCK_H=3;
 import {bunkerPlan} from './bunkerdata.js';
 // Le chemin d'un train : les centres des cases, et à chaque virage à angle droit un quart de cercle (rayon : une demi-case) —
 // la même courbe que celle que dessine la voie. Chaque point est [x - 0,5, y - 0,5, case] (slide ajoute la demi-case).
@@ -454,7 +455,7 @@ export class World{
     const beast=this.s.fauna?.find(a=>a.alive&&d2(a.x,a.y,x,y)<.7);if(beast)return {type:'fauna',id:beast.id};
     const carcass=this.s.fauna?.find(a=>!a.alive&&a.food>0&&d2(a.x,a.y,x,y)<.7);if(carcass)return {type:'carcass',id:carcass.id};
     if(i<0||j<0||i>=N||j>=N)return null;const k=j*N+i;
-    const bid=this.occ[k]>=0?this.occ[k]:this.fortB[k];if(bid>=0){const b=this.building(bid);if(b?.f!==f&&this.s.fog!==false&&!this.s.intel?.[b?.id]&&!this.visibleAt(f,x,y))return {type:'point',x,y};const post=BUILDINGS[b?.k]?.bunker&&b.f===f?this.bunkerPosts(b).find(p=>p.k===k):null;return post?{type:'building',id:bid,post:k}:{type:'building',id:bid};}
+    const bid=this.occ[k]>=0?this.occ[k]:this.fortB[k];if(bid>=0){const b=this.building(bid);if(b?.f!==f&&this.s.fog!==false&&!this.s.intel?.[b?.id]&&!this.visibleAt(f,x,y))return {type:'point',x,y};const post=BUILDINGS[b?.k]?.bunker&&b.f===f?this.bunkerPosts(b).find(p=>p.k===k):null;return post?{type:'building',id:bid,post:k}:this.fort[k]===3&&b?.k&&BUILDINGS[b.k]?.bunker?{type:'building',id:bid,door:k}:{type:'building',id:bid};}
     const w=this.wall[k];if(w)return {type:'wall',k};if(this.s.sacs[k])return {type:'sacs',k};
     if(this.nodeAt[k]>=0)return {type:'node',id:this.nodeAt[k]};
     if(this.rail[k]===1)return {type:'rail',k};
@@ -473,7 +474,8 @@ export class World{
         if(e.h?.state==='hors'){const carriers=us.slice(0,2);carriers.forEach(u=>set(u,{kind:'evac',id:e.id}));return {ok:true,text:`${carriers.length} vont chercher ${e.name||'le blessé'}`};}
         us.forEach((u,n)=>set(u,{kind:'move',tx:e.x+(n%3-1)*.5,ty:e.y+(((n/3)|0)%3-1)*.5}));return {ok:true,text:'on le suit'};}
       us.forEach(u=>set(u,{kind:'attack',unit:e.id}));return {ok:true,text:`${us.length} à l’attaque`};}
-    if(t.type==='building'){const bb=this.building(t.id);if(bb&&bb.f===us[0].f&&BUILDINGS[bb.k].bunker&&bb.done&&!bb.ruin)return this.garrison(bb,us,t.post);}
+    if(t.type==='building'){const bb=this.building(t.id);if(bb&&bb.f===us[0].f&&BUILDINGS[bb.k].bunker&&bb.done&&!bb.ruin)return this.garrison(bb,us,t.post);
+      if(bb&&bb.f!==us[0].f&&BUILDINGS[bb.k].bunker&&bb.done&&!bb.ruin&&t.door!=null){const sol=us.filter(u=>u.k!=='villageois'&&!UNITS[u.k]?.medic);if(!sol.length)return {ok:false,why:['il faut des soldats']};sol.forEach(u=>set(u,{kind:'unlock',b:bb.id,door:t.door,p:0}));return {ok:true,text:`${sol.length} s’attaquent au verrou de la porte`};}}
     if(t.type==='building'&&this.building(t.id)?.f==='beee'){const sab=us.filter(u=>(u.charges||0)>0);
       if(sab.length&&t.queue&&sab.every(u=>u.task?.kind==='sabotage')){for(const u of sab)(u.task.next??=[]).push(t.id);return {ok:true,text:`cible suivante ajoutée : ${BUILDINGS[this.building(t.id).k].name.toLowerCase()} (${sab[0].task.next.length+1} au programme)`};}
       if(sab.length){sab.forEach(u=>set(u,{kind:'sabotage',b:t.id,back:[u.x,u.y],next:[]}));const rest=us.filter(u=>!sab.includes(u));rest.forEach(u=>set(u,{kind:'attack',b:t.id}));
@@ -858,6 +860,10 @@ export class World{
       case 'resupply':{const b=this.building(T0.b);if(!b||!b.done||b.ruin){u.task=T0.back||null;u.path=null;return;}const [w,h]=this.sizeOf(b);if(!this.go(u,b.i+w/2,b.j+h+.7,[b.i,b.j,w,h]))return;u.anim='idle';this.resupply(u,true);const stocked=u.w?(u.mag+u.pouch>0):true;if(stocked){u.task=T0.back||{kind:'guard',tx:u.x,ty:u.y};u.path=null;u.why=null;}else u.why='attend les munitions au dépôt de sa caserne';return;}
       case 'hosp':{const b=this.building(T0.b);if(!b||!b.done||(b.wardList||[]).length>=BUILDINGS[b.k].ward){u.task=null;return;}const [w,h]=this.sizeOf(b);if(!this.go(u,b.i+w/2,b.j+h/2,[b.i,b.j,w,h]))return;
         this.admit(b,u);return;}
+      case 'unlock':{const b=this.building(T0.b);if(!b||b.ruin||!(this.bunkerDoors(b)||[]).includes(T0.door)){u.task=null;return;}const fr=this.doorFront(b,T0.door);if(!fr){u.task=null;return;}
+        if(!this.go(u,fr[0],fr[1]))return;if(Math.hypot(u.x-fr[0],u.y-fr[1])>1.4)return;u.anim='action';u.orderPost='accroupi';
+        const nb=this.s.units.filter(o=>o.task?.kind==='unlock'&&o.task.door===T0.door&&Math.hypot(o.x-fr[0],o.y-fr[1])<1.6).length;T0.p+=dt*Math.sqrt(Math.max(1,nb))/UNLOCK_H;
+        if(T0.p>=1){this.unlockDoor(b,T0.door);for(const o of this.s.units)if(o.task?.kind==='unlock'&&o.task.door===T0.door){o.task=null;o.orderPost=null;}}return;}
       case 'sabotage':{if(T0.node!=null){const nd=this.s.nodes[T0.node];if(!nd||nd.left<=0||!(u.charges>0)){u.orderPost=null;u.task=T0.back?{kind:'move',tx:T0.back[0],ty:T0.back[1]}:null;u.path=null;return;}
           if(!u.postSet)u.orderPost='accroupi';if(d2(u.x,u.y,nd.i+.5,nd.j+.5)>1.4){this.go(u,nd.i+.5,nd.j+.5);return;}u.anim='action';T0.plant=(T0.plant||0)+dt;if(T0.plant<.6)return;
           u.charges--;this.s.charges??=[];if(!this.s.charges.some(c=>c.node===T0.node))this.s.charges.push({node:T0.node,f:u.f,by:u.id,t:this.s.t+(u.fuse??.3),x:nd.i+.5,y:nd.j+.5});
