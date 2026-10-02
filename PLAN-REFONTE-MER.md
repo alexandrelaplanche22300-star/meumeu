@@ -5,9 +5,9 @@ barges de débarquement, planeurs et avion de transport (pont aérien), munition
 Règles qui ne changent pas : pas de régression, mesure avant/après avec critères écrits d'abord, un chantier à la fois,
 commit local à chaque étape, jeu relancé et testé par le joueur entre deux phases.
 
-**Un seul jeu, deux exe** (décision du joueur) : le même code, les mêmes nouveautés (munitions, plus de tranchées, fortifications,
-barges, aviation) ; la seule grande différence est la carte. Le générateur (`gen.js`) reçoit un mode « classique » ou « mer » (deux
-rives séparées par la mer, longues plages) ; `build-v10.cjs` sort deux exe à partir des mêmes sources. Pas de copie du code qui divergerait.
+**Un seul exe, deux modes de jeu** (décision du joueur) : au lancement d'une partie, on choisit la carte « classique » ou la carte
+« mer » (deux rives séparées par la mer, longues plages). Même code, mêmes nouveautés : toute amélioration sert aux deux modes.
+Le générateur (`gen.js`) reçoit le mode ; le menu de nouvelle partie le propose ; la sauvegarde le retient.
 
 Déjà fait : sol lissé (couleur moyenne de chaque terrain) à tous les zooms — 0bb4972.
 

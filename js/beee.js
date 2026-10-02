@@ -101,14 +101,14 @@ export const BEEE_AI={
         const guards=this.beeeGuards(c).length,civ=this.beeeCivilians().length;let n=0;
         if(guards<2*this.beeeGarrisonMin(c)&&civ>20)for(const u of this.beeeCivilians().filter(u=>distance(u.x,u.y,cx,cy)<30&&!u.inBarracks)){if(n>=4)break;
           const w=this.bestRifle('beee'),Wd=this.W(w);if(this.take('beee',cx,cy,'a:'+w,1,160)<1)break;const cr=this.take('beee',cx,cy,'m:'+w,1,160);
-          u.k='soldat';u.w=w;u.mag=Wd.p.mag;u.pouch=Math.max(Wd.p.mag*2,Math.round(cr*(Wd.perCrate||20)));u.carry=null;u.city=c.id;u.home=c.centre;u.task={kind:'guard',tx:cx+(this.rand()-.5)*8,ty:cy+(this.rand()-.5)*8};u.path=null;n++;}
+          u.k='soldat';u.w=w;u.mag=Wd.p.mag;u.pouch=Math.min(Wd.carry,Math.max(Wd.p.mag*2,Math.round(cr*(Wd.perCrate||20))));u.carry=null;u.city=c.id;u.home=c.centre;u.task={kind:'guard',tx:cx+(this.rand()-.5)*8,ty:cy+(this.rand()-.5)*8};u.path=null;n++;}
         if(n&&!this.s.fog)this.log(c.name,`${c.name} arme ${n} civils pour se défendre.`,'warn');}}
     // Les renforts (V12.4, demande du joueur : « beaucoup plus de soldats bèè ») : toutes les 8 h, chaque ville qui a une caserne voit arriver 1 + niveau
     // soldats armés (fusil bèè, une caisse de cartouches), tant que l'armée est sous 120 + 40 × villes. Une aide donnée à l'IA, pour des vagues massives.
     {const sol=this.s.units.filter(u=>u.f==='beee'&&u.k==='soldat'&&u.hp>0&&u.h?.state!=='hors').length,live_=cities.filter(c=>!c.fallen),capS=200+70*live_.length,L=this.beeeLevel();let room=capS-sol;
       for(const c of live_){if(room<=0)break;if(this.s.t-(c.reinfT??-99)<8)continue;const bk=this.beeeBuildings('caserne').find(b=>b.done&&!b.ruin&&this.distB(b,c.x,c.y)<28);if(!bk)continue;c.reinfT=this.s.t;
         const n=Math.min(room,2+L),w=this.bestRifle('beee'),Wd=this.W(w),[bx,by]=[bk.i+1,bk.j+3];for(let k=0;k<n;k++){const [x,y]=this.freeSpot(bx+(this.rand()-.5)*4,by+(this.rand()-.5)*3,3);const u=this.addUnit('beee','soldat',x,y,{w});
-          u.mag=Wd.p.mag;u.pouch=Math.max(Wd.p.mag*3,Wd.perCrate||0);u.city=c.id;u.home=c.centre;u.task={kind:'guard',tx:c.x+3+(this.rand()-.5)*8,ty:c.y+3+(this.rand()-.5)*8};}room-=n;}}
+          u.mag=Wd.p.mag;u.pouch=Math.max(0,Wd.carry-Wd.p.mag);   /* (V12.5) une dotation, plus une caisse entière */u.city=c.id;u.home=c.centre;u.task={kind:'guard',tx:c.x+3+(this.rand()-.5)*8,ty:c.y+3+(this.rand()-.5)*8};}room-=n;}}
     // Le ravitaillement des usines (V12.4) : sans triche. Une gare du réseau ferré alimente d'elle-même les usines proches (≤ 14 cases) — mais
     // seulement avec ce qu'elle a en stock, c'est-à-dire ce que les trains y ont apporté. Voie coupée, plus de train, plus rien dans la gare :
     // l'usine attend. Plus de prélèvement dans « tous les dépôts du pays ». Une usine sans gare proche reste servie par les porteurs.

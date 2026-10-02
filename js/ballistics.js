@@ -477,7 +477,11 @@ function compute(p){if(ACTIONS[p.action]?.mortar&&p.mag!==1)p={...p,mag:1};const
   // part plus avec une poignée de cartouches avant de dépendre d'un porteur.
   // Même un obus plus lourd que la charge de marche reste rechargeable : le servant
   // transporte au minimum un chargeur complet (ou un coup pour une pièce à coup unique).
-  const carry=Math.max(p.mag,Math.floor(.18*SHOOTER_KG*1000/rm));
+  // V12.5 (demande du joueur : « on ne recharge presque jamais ») : 18 % du poids du tireur donnait 901 cartouches à un fusil, 1 731 à un
+  // pistolet-mitrailleur. Un tireur seul porte désormais ce qu'on portait vraiment : ~60 coups pour une arme à répétition (douze lames de 5),
+  // six chargeurs pour une arme automatique ; jamais plus que ce que permet son poids. Une arme servie (équipe, bande) garde la dotation pesée.
+  const carryKg=Math.max(p.mag,Math.floor(.18*SHOOTER_KG*1000/rm));const solo=crew<=1&&!FD.belt;
+  const carry=solo?Math.max(p.mag,Math.min(carryKg,A.auto?p.mag*6:Math.max(p.mag*4,Math.ceil(60/p.mag)*p.mag))):carryKg;
   // ce qui entre dans le corps : pour une gerbe, un plomb (ou une fléchette) ; pour un sabot, le dard
   const proj={p:{...p,d:dpr,l:lpr,nose:pel>1&&!C.dart?'ronde':p.nose},m:mp,l:lpr,Sg:Math.max(Sg,pel>1||sub<1?5:Sg),dart:!!C.dart};
   const D={p:{...p,l},Dc,neckL,shL,shAng,caseless,meplat,fins,barrels,salvo,feed:FD,tube:TP,carriage:CG,bull:!!ST.bull,rocket,boost,vTop,m,mp,pel,proj,l,noseLen,v0,E0,P,eta,Sg,stab,BC,SD,A_mm2,caseLen,COL,caseMass,rm,perCrate,mass,massEmpty,recoil,rk,mg,life,heatShot,sustain,rpm,cyc,aim,moa,table,at,pen,eff,hitP,costK,costW,hoursW,carry,pistol,sigAt,hef,core:coreF,jacket,wallx,tracer:!!C.tracer,mods:[...mods],modKg,shield,need,have,mountOk,rk0,crew,fixed,roles,setup,supply,flash,ir:mods.has('infrarouge')?irOf(p):null,dB,dB0:Math.round(dB0),actDb,sup:sup&&{V:sup.V,n:sup.n,arch:sup.arch,R:+sup.R.toFixed(1),life:sup.A.life||0,floor:sup.A.floor||1,wet:sup.A.wet||0,wetK:sup.A.wetK||1},crackDb,crack:v0>C_SOUND,zero,hs,los,th,he,lead,human:HUMAN,name:`${fmt(d,1)} × ${fmt(caseLen,caseLen<10?1:0)}`};
