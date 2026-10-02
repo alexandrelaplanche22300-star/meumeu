@@ -81,3 +81,14 @@ de coups : il ne recharge presque jamais.
 1 → 2 → 3 → 4 → 5 → 6. On ne passe à la phase suivante qu'après une partie jouée par le joueur. Chaque phase
 reçoit son test dans `test/` et passe la non-régression `regress.ps1`. Les phases 5 et 6 sont les plus lourdes,
 avec un nouveau mode de déplacement chacune ; je les découperai en sous-étapes jouables.
+
+---
+## État (2026-10-02)
+- Phases 1 (munitions) et 2 (tranchées) : faites, commitées.
+- Phase 3 (carte) : **faite en première version** — bouton « Carte mer » du menu, 950 × 950 (carte carrée : 2,5 fois la surface, dont ~20 % de mer
+  en diagonale, donc une bande verticale au centre de l'écran), plages de sable de 13 à 20 cases de large sur ~1 300 cases de long, hauts-fonds.
+  Capitale meumeu sur la rive ouest, villes bèè sur la rive est. Sauvegarde : le mode de carte est mémorisé (`s.map`).
+  Restent à faire : falaises, bande de plage « sable mouillé » où l'on ne bâtit pas, rendu des vagues, filons plus proches des côtes.
+- **Les Bèè ne peuvent plus attaquer à pied** (pas de vagues dans cette carte) tant que les barges n'existent pas : ils s'étendent et se fortifient.
+- Perf : un pas de simulation coûte ~1,35 ms (contre 0,73 en 600 × 600) ; la recherche de ressources autour d'un camp ne parcourt plus toute la carte.
+- Prochaine étape : phase 4 (sacs de sable, bunkers, mines), puis 5 (barges), puis 6 (aviation).
