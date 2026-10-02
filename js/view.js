@@ -350,6 +350,10 @@ export class View{
         ctx.stroke();}
       else{ctx.strokeStyle='#e8bf62';ctx.setLineDash([4*z,3*z]);ctx.lineWidth=Math.max(1,1.5*z);ctx.beginPath();[A,B,C,D].forEach((q,n)=>n?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.closePath();ctx.stroke();}
       ctx.restore();}
+    // V12.5 : les mines — un disque sombre à pointe rouge ; on ne voit que les siennes (et celles que l'ennemi a fait sauter près de nous)
+    if(W.s.mines)for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const m=W.s.mines[j*N+i];if(!m||(m.f!=='meumeu'&&!m.seen))continue;const p=this.toScreen(i+.5,j+.5),rx=TW*.17*z,ry=TH*.17*z;
+      ctx.save();ctx.globalAlpha=m.b?1:.45;ctx.fillStyle='#2b2a26';ctx.strokeStyle=m.f==='meumeu'?'#e8bf62':'#c0392b';ctx.lineWidth=Math.max(1,1.2*z);ctx.beginPath();ctx.ellipse(p.x,p.y,rx,ry,0,0,7);ctx.fill();if(!m.b)ctx.setLineDash([3*z,2*z]);ctx.stroke();
+      ctx.setLineDash([]);ctx.fillStyle='#d1462f';ctx.beginPath();ctx.ellipse(p.x,p.y-ry*.15,rx*.28,ry*.28,0,0,7);ctx.fill();ctx.restore();}
     for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const k=j*N+i;const w=W.wall[k];if(!w)continue;const built=Math.abs(w)===2;const mine=w>0;const c=this.toScreen(i+.5,j+.5);const hgt=(built?1.1:.15)*TH*z;
       const top=mine?'#cbb893':'#6f7456',side=mine?'#9a8866':'#4c5040',side2=mine?'#b3a07c':'#5b6048';const a=this.toScreen(i,j),b=this.toScreen(i+1,j),cc=this.toScreen(i+1,j+1),d=this.toScreen(i,j+1);
       ctx.save();if(!built)ctx.globalAlpha=.5;ctx.fillStyle=side;ctx.beginPath();ctx.moveTo(d.x,d.y);ctx.lineTo(cc.x,cc.y);ctx.lineTo(cc.x,cc.y-hgt);ctx.lineTo(d.x,d.y-hgt);ctx.fill();

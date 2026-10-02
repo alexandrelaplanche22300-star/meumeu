@@ -58,7 +58,7 @@ export class World{
   // (une graine dont la carte ne se laisse pas générer — la capitale bèè introuvable — passait à « Erreur de démarrage du rendu » : on prend la suivante ;
   //  la graine retenue est celle qui est sauvée, donc un rechargement retrouve la même carte)
   init(seed,options={}){let G;for(let k=0;;k++){try{G=generate(seed,options.map);break;}catch(e){if(k>=24)throw e;seed++;}}this.G=G;this.N=G.N;this.bounds=G.bounds||[0,0,G.N,G.N];   /* (V12.5) le rectangle jouable : toute la carte, ou 1 500 × 600 sur la carte « mer » */this.rand=rng(seed*2654435761+7);for(let k=0;k<16;k++)this.rand();this.pather=new Pather(this.N);
-    const s=this.s={v:SAVE_VERSION,seed,map:G.mode,genV:G.version,t:7,solar:7,solarSettings:{...SOLAR_DEFAULT},nextId:1,units:[],buildings:[],vehicles:[],shots:[],falls:[],tracks:[],log:[],rails:{},walls:{},sacs:{},craters:[],corpses:[],squads:[],
+    const s=this.s={v:SAVE_VERSION,seed,map:G.mode,genV:G.version,t:7,solar:7,solarSettings:{...SOLAR_DEFAULT},nextId:1,units:[],buildings:[],vehicles:[],shots:[],falls:[],tracks:[],log:[],rails:{},walls:{},sacs:{},mines:{},craters:[],corpses:[],squads:[],
       designs:Object.fromEntries(DEFAULT_DESIGNS.map(d=>[d.id,JSON.parse(JSON.stringify(d))])),armors:Object.fromEntries(DEFAULT_ARMORS.map(d=>[d.id,JSON.parse(JSON.stringify(d))])),smokes:[],groundFires:[],
       nodes:G.nodes,fauna:[],beee:{cities:[],waves:0,anger:0,tension:0,phase:'war'},won:null,lost:null,cityN:0,squadN:0,
       innov:{prac:{},next:{},ideas:[],done:[],order:INNOV.map(x=>x.id).sort(()=>this.rand()-.5)}};this.remod();
@@ -126,7 +126,7 @@ export class World{
     for(const nd of this.s.nodes)if(nd.left>0||nd.type==='bush'||nd.type==='ore')this.nodeAt[nd.j*N+nd.i]=nd.id;
     for(const b of this.s.buildings)this.stamp(b,b.id);
     for(const [k,r] of Object.entries(this.s.rails))this.rail[+k]=r.b?2:1;
-    this.s.sacs??={};delete this.s.trenches;   /* (V12.5) les anciennes tranchées ont disparu : les sacs de sable les remplacent */this.s.craters??=[];this.s.groundFires??=[];for(const [k,w] of Object.entries(this.s.walls))this.wall[+k]=(w.f==='meumeu'?1:-1)*(w.b?2:1);for(const c of this.s.craters)this.stampCrater(c);
+    this.s.sacs??={};this.s.mines??={};delete this.s.trenches;   /* (V12.5) les anciennes tranchées ont disparu : les sacs de sable les remplacent */this.s.craters??=[];this.s.groundFires??=[];for(const [k,w] of Object.entries(this.s.walls))this.wall[+k]=(w.f==='meumeu'?1:-1)*(w.b?2:1);for(const c of this.s.craters)this.stampCrater(c);
     this.bIndex=new Map(this.s.buildings.map(b=>[b.id,b]));this.uIndex=new Map(this.s.units.map(u=>[u.id,u]));}
   sizeOf(b){return b.size||BUILDINGS[b.k].size;}
   // La fertilité : 0–100 par case ; ce qu'elle rend (0,12 sur la roche nue, 0,9 à 50, 1,3 à 80, 1,5 sur la terre noire).
@@ -495,6 +495,7 @@ export class World{
         armed.forEach((u,n)=>{const k=cells[Math.min(cells.length-1,n*step)];set(u,{kind:'guard',tx:k%N+.5,ty:((k/N)|0)+.5});u.orderPost='couche';});
         if(!vil.length)return {ok:true,text:`${armed.length} occupent les sacs de sable`};}
       vil.forEach(u=>set(u,{kind:'line',line:'sacs',x:t.k%this.N,y:(t.k/this.N)|0}));return {ok:true,text:'on pose les sacs de sable'};}
+    if(t.type==='mines'){vil.forEach(u=>set(u,{kind:'line',line:'mines',x:t.k%this.N,y:(t.k/this.N)|0}));return {ok:true,text:'on pose les mines'};}
     if(t.type==='rail'){vil.forEach(u=>set(u,{kind:'line',line:'rail',x:t.k%this.N,y:(t.k/this.N)|0}));return {ok:true,text:`${vil.length} posent la voie`};}
     if(t.type==='node'&&this.s.nodes[t.id]?.type==='ore'&&us.some(u=>(u.charges||0)>0)){const nd=this.s.nodes[t.id];const sab=us.filter(u=>(u.charges||0)>0);
       sab.forEach(u=>set(u,{kind:'sabotage',node:t.id,back:[u.x,u.y],next:[]}));return {ok:true,text:`${sab.length} partent faire effondrer le filon de ${nd.res} : il sera perdu pour tout le monde`};}
@@ -619,19 +620,20 @@ export class World{
         const c2=c+(this.rail[kk]?.4:1)+(nd!==d&&prev.get(st)!==-1?TURN:0);const st2=kk*4+nd;if(cost.has(st2)&&cost.get(st2)<=c2)continue;cost.set(st2,c2);prev.set(st2,st);push(c2+hh(kk),st2);}}
     if(end<0)return ell();const out=[];for(let st=end;st!==-1;st=prev.get(st))out.push([(st>>2)%N,((st>>2)/N)|0]);return out.reverse();}
   // annuler un tracé : toutes les cases prévues (pas encore bâties) reliées à celle-ci ; ce qui était payé revient au dépôt
-  cancelLine(f,kind,k0){const N=this.N;const store=kind==='rail'?this.s.rails:kind==='sacs'?this.s.sacs:this.s.walls;const o0=store[k0];if(!o0||o0.b||(kind!=='rail'&&o0.f!==f))return 0;
+  lineStore(kind){return kind==='rail'?this.s.rails:kind==='sacs'?this.s.sacs:kind==='mines'?this.s.mines:this.s.walls;}
+  cancelLine(f,kind,k0){const N=this.N;const store=this.lineStore(kind);const o0=store[k0];if(!o0||o0.b||(kind!=='rail'&&o0.f!==f))return 0;
     const seen=new Set([k0]),q=[k0];while(q.length){const k=q.pop();const i=k%N,j=(k/N)|0;for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){const kk=(j+dj)*N+i+di;const o=store[kk];if(!o||o.b||seen.has(kk)||(kind!=='rail'&&o.f!==f))continue;seen.add(kk);q.push(kk);}}
     for(const k of seen){const o=store[k];if(o.paid){const d=this.depots(f,k%N,(k/N)|0)[0];if(d)for(const [r,v] of Object.entries(LINES[kind].cost))this.put(d,r,v);}
       delete store[k];if(kind==='rail'){this.rail[k]=0;this._rnDirty=true;}else if(kind==='mur')this.wall[k]=0;}
     for(const u of this.s.units)if(u.task?.kind==='line'&&u.task.line===kind&&seen.has(u.task.k))u.task.k=null;
     return seen.size;}
   canLine(f,kind,cells){const N=this.N;const ok=[];for(const [i,j] of cells){if(i<1||j<1||i>=N-1||j>=N-1)continue;const k=j*N+i;if(!TERRAIN[this.G.terrain[k]].build||this.occ[k]>=0)continue;
-    if(kind==='rail'&&this.rail[k])continue;if(kind!=='rail'&&(this.wall[k]||this.rail[k]))continue;if(this.s.sacs[k])continue;if(this.nodeAt[k]>=0&&this.s.nodes[this.nodeAt[k]].type==='ore')continue;ok.push(k);}return ok;}
-  planLine(f,kind,cells){const ks=this.canLine(f,kind,cells);for(const k of ks){if(kind==='rail'){this.s.rails[k]={f,b:0,p:0,hp:LINES.rail.hp};this.rail[k]=1;}else if(kind==='mur'){this.s.walls[k]={f,b:0,p:0,hp:LINES.mur.hp};this.wall[k]=f==='meumeu'?1:-1;}else this.s.sacs[k]={f,b:0,p:0,hp:LINES.sacs.hp};
+    if(kind==='rail'&&this.rail[k])continue;if(kind!=='rail'&&(this.wall[k]||this.rail[k]))continue;if(this.s.sacs[k]||this.s.mines[k])continue;if(this.nodeAt[k]>=0&&this.s.nodes[this.nodeAt[k]].type==='ore')continue;ok.push(k);}return ok;}
+  planLine(f,kind,cells){const ks=this.canLine(f,kind,cells);for(const k of ks){if(kind==='rail'){this.s.rails[k]={f,b:0,p:0,hp:LINES.rail.hp};this.rail[k]=1;}else if(kind==='mur'){this.s.walls[k]={f,b:0,p:0,hp:LINES.mur.hp};this.wall[k]=f==='meumeu'?1:-1;}else if(kind==='mines')this.s.mines[k]={f,b:0,p:0,hp:LINES.mines.hp};else this.s.sacs[k]={f,b:0,p:0,hp:LINES.sacs.hp};
       const nd=this.nodeAt[k];if(nd>=0&&this.s.nodes[nd].type!=='ore'){this.s.nodes[nd].left=0;this.nodeAt[k]=-1;}}
     return {ok:ks.length>0,n:ks.length,cost:Object.fromEntries(Object.entries(LINES[kind].cost).map(([r,v])=>[r,v*ks.length]))};}
-  lineBuilt(kind,k){if(kind==='mur')this.wallV=(this.wallV||0)+1;if(kind==='rail'){const r=this.s.rails[k];r.b=1;r.p=1;this.rail[k]=2;this._rnDirty=true;}else if(kind==='mur'){const w=this.s.walls[k];w.b=1;w.p=1;w.hp=LINES.mur.hp*this.mod('mur');this.wall[k]=(w.f==='meumeu'?2:-2);this.repath();}else{const t=this.s.sacs[k];t.b=1;t.p=1;}}
-  lineBroken(kind,k){if(kind==='mur')this.wallV=(this.wallV||0)+1;if(kind==='rail'){const r=this.s.rails[k];if(!r)return;r.b=0;r.p=0;r.paid=0;r.hp=LINES.rail.hp;this.rail[k]=1;r.broken=true;this._rnDirty=true;}else if(kind==='mur'){delete this.s.walls[k];this.wall[k]=0;this.repath();}else delete this.s.sacs[k];}
+  lineBuilt(kind,k){if(kind==='mur')this.wallV=(this.wallV||0)+1;if(kind==='rail'){const r=this.s.rails[k];r.b=1;r.p=1;this.rail[k]=2;this._rnDirty=true;}else if(kind==='mur'){const w=this.s.walls[k];w.b=1;w.p=1;w.hp=LINES.mur.hp*this.mod('mur');this.wall[k]=(w.f==='meumeu'?2:-2);this.repath();}else{const t=(kind==='mines'?this.s.mines:this.s.sacs)[k];t.b=1;t.p=1;}}
+  lineBroken(kind,k){if(kind==='mur')this.wallV=(this.wallV||0)+1;if(kind==='rail'){const r=this.s.rails[k];if(!r)return;r.b=0;r.p=0;r.paid=0;r.hp=LINES.rail.hp;this.rail[k]=1;r.broken=true;this._rnDirty=true;}else if(kind==='mur'){delete this.s.walls[k];this.wall[k]=0;this.repath();}else if(kind==='mines')delete this.s.mines[k];else delete this.s.sacs[k];}
   repath(){for(const u of this.s.units)u.path=null;}
   platformAt(i,j,w,h){const N=this.N;for(let a=-1;a<=w;a++)for(let c=-1;c<=h;c++){if(a>=0&&a<w&&c>=0&&c<h)continue;const ii=i+a,jj=j+c;if(ii<0||jj<0||ii>=N||jj>=N)continue;if(this.rail[jj*N+ii])return [ii,jj];}return null;}
   platform(b){const [w,h]=this.sizeOf(b);const N=this.N;let best=null;for(let a=-1;a<=w;a++)for(let c=-1;c<=h;c++){if(a>=0&&a<w&&c>=0&&c<h)continue;const ii=b.i+a,jj=b.j+c;if(ii<0||jj<0||ii>=N||jj>=N)continue;if(this.rail[jj*N+ii]===2)return [ii,jj];if(this.rail[jj*N+ii]&&!best)best=[ii,jj];}return best;}
@@ -767,7 +769,7 @@ export class World{
     s.units=s.units.filter(u=>{if(alive(u))return true;if(u.f==='beee'&&s.beee){const L=s.beee.lossAt??=[];L.push({x:u.x,y:u.y,t:s.t});if(L.length>400)L.splice(0,L.length-400);}this.uIndex.delete(u.id);if(u.sq)this.leave(u);return false;});
     for(const b of [...s.buildings]){if(b.f==='beee'&&!(b.fire>0)&&far(b.i,b.j))lod(b,d=>this.buildingTick(b,d));else this.buildingTick(b,dt);}
     for(const v of [...s.vehicles])this.vehicleTick(v,dt);
-    this.detectTick(dt);this.intelTick(dt);this.noiseTick(dt);this.stepsTick(dt);this.chargesTick();this.salvoTick();this.shotsTick(dt);this.fallsTick(dt);this.flakTick(dt);this.defenseTick();this.squadTick();this.crewTick();this.operationTick();this.beeeTick(dt);this.bandsTick(dt);this.innovTick(dt);
+    this.detectTick(dt);this.intelTick(dt);this.noiseTick(dt);this.stepsTick(dt);this.chargesTick();this.salvoTick();this.shotsTick(dt);this.fallsTick(dt);this.minesTick();this.flakTick(dt);this.defenseTick();this.squadTick();this.crewTick();this.operationTick();this.beeeTick(dt);this.bandsTick(dt);this.innovTick(dt);
     this.bushT=(this.bushT||0)+dt;if(this.bushT>=.5){const g=this.bushT;this.bushT=0;for(const nd of this.bushes??=s.nodes.filter(n=>n.type==='bush'))if(nd.left<nd.max)nd.left=Math.min(nd.max,nd.left+g*nd.max/NODES.bush.regrow);}
     if(s.corpses.length&&s.t-s.corpses[0].t>3*DAY)s.corpses.shift();
     if(s.smokes.length)s.smokes=s.smokes.filter(m=>m.end>s.t);if(s.groundFires.length)s.groundFires=s.groundFires.filter(m=>m.end>s.t);
@@ -1314,8 +1316,8 @@ export class World{
     nd.left-=got;u.carry={k:res,n:(u.carry?.n||0)+got};this.practice(DOM_OF[nd.type],dt);if(nd.left<1&&nd.type!=='bush'){this.nodeAt[nd.j*this.N+nd.i]=-1;this.emit({type:'felled',x:nd.i,y:nd.j,nt:nd.type});}}
   deliverTick(u){const aff=u.dep!=null?this.building(u.dep):null;const b=aff&&this.isDepot(aff)&&this.room(aff)>=1&&(!BUILDINGS[aff.k].foodOnly||['vivres','grain','ble_moulu'].includes(u.carry?.k))?aff:this.dropAt(u);if(!b){u.anim='idle';u.why='aucun dépôt atteignable';return;}this.deliverTo(u,b);}
   deliverTo(u,b){const [w,h]=this.sizeOf(b);if(!this.go(u,b.i+w/2,b.j+h/2,[b.i,b.j,w,h]))return;const q=this.put(b,u.carry.k,u.carry.n);u.carry.n-=q;if(u.carry.n<.01)u.carry=null;if(u.task?.kind==='deposit'&&!u.carry)u.task=null;}
-  lineTick(u,T0,dt){const N=this.N;const kind=T0.line;const store=kind==='rail'?this.s.rails:kind==='sacs'?this.s.sacs:this.s.walls;
-    if(T0.k==null||!store[T0.k]||store[T0.k].b){let best=null,bd=14;for(const kk of Object.keys(store)){const o=store[kk];if(o.b||(kind==='mur'&&o.f!==u.f))continue;const i=kk%N,j=(kk/N)|0;const d=d2(i,j,T0.x,T0.y)*.3+d2(i,j,u.x,u.y);if(d<bd){bd=d;best=+kk;}}
+  lineTick(u,T0,dt){const N=this.N;const kind=T0.line;const store=this.lineStore(kind);
+    if(T0.k==null||!store[T0.k]||store[T0.k].b){let best=null,bd=14;for(const kk of Object.keys(store)){const o=store[kk];if(o.b||(kind!=='rail'&&o.f!==u.f))continue;const i=kk%N,j=(kk/N)|0;const d=d2(i,j,T0.x,T0.y)*.3+d2(i,j,u.x,u.y);if(d<bd){bd=d;best=+kk;}}
       // plus rien à poser : ce qui reste du sac (le plus gros) est rapporté au dépôt, à pied
       if(best==null){const L=Object.entries(T0.pack||{}).filter(([r,q])=>q>.05).sort((a,z)=>z[1]-a[1])[0];if(L&&!u.carry)u.carry={k:L[0],n:L[1]};u.task=null;return;}T0.k=best;T0.x=best%N;T0.y=(best/N)|0;u.path=null;}
     const k=T0.k,i=k%N,j=(k/N)|0;const o=store[k];const cost=LINES[kind].cost;
@@ -1592,6 +1594,13 @@ export class World{
     for(const it of due){this.s.shots.push({kind:'hshell',f:u.f,by:u.id,w:u.w,x0:u.x,y0:u.y,x1:it.x1,y1:it.y1,t:0,dur:it.dur,top:it.top});
       this.emit({type:'shot',by:u.id,x:u.x,y:u.y,x1:it.x1,y1:it.y1,f:u.f,cal:W.p.d,v0:W.v0,E:W.E0,sup:W.vTop>340,arc:true,rk:true,tip:TIPC[W.p.cons]||null,he:!!W.he,action:W.p.action,feed:W.p.feed||'',barrels:1,rof:W.rpm,fins:W.fins||0,ig:W.boost?.ig||0});this.backblast(u,it.x1-u.x,it.y1-u.y,W);}
     if(!u.salvoQ.length)u.salvoQ=null;}}
+  // V12.5 : les mines. Un soldat ou un engin à roues ou à chenilles qui pose le pied sur une mine posée par l'autre camp la fait sauter ; les mines voisines
+  // de la même main sont alors repérées (visibles) — le champ de mines se dévoile à celui qui y perd quelqu'un.
+  minesTick(){const M=this.s.mines;let any=false;for(const _ in M){any=true;break;}if(!any)return;const N=this.N;
+    for(const u of this.s.units){if(!(u.hp>0)||u.inVeh||u.h?.state==='mort')continue;const k=Math.floor(u.y)*N+Math.floor(u.x);const m=M[k];if(m&&m.b&&m.f!==u.f)this.triggerMine(k);}
+    for(const v of this.s.vehicles){if(!(v.hp>0)||v.k==='train'||v.alt>0)continue;const k=Math.floor(v.y)*N+Math.floor(v.x);const m=M[k];if(m&&m.b&&m.f!==v.f)this.triggerMine(k);}}
+  triggerMine(k){const N=this.N,m=this.s.mines[k];if(!m)return;const i=k%N,j=(k/N)|0;this.lineBroken('mines',k);this.blast(i+.5,j+.5,'mine',m.f,null,1,'grenade');
+    for(let dj=-3;dj<=3;dj++)for(let di=-3;di<=3;di++){const o=this.s.mines[(j+dj)*N+i+di];if(o)o.seen=true;}this.emit({type:'mine',x:i+.5,y:j+.5});}
   fallsTick(dt){for(const F of this.s.falls){F.t+=dt;if(F.t<F.dur)continue;F.done=true;this.blast(F.x1,F.y1,'bombe',F.f,null,1);}
     this.s.falls=this.s.falls.filter(F=>!F.done);}
   flakTick(dt){const planes=this.s.vehicles.filter(v=>v.alt>1&&v.hp>0);if(!planes.length)return;

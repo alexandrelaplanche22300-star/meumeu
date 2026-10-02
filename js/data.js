@@ -44,6 +44,7 @@ export const RES={
   explosifs:{name:'Explosifs',icon:['r','chem_explosif']},
   melange_inc:{name:'Mélange incendiaire',icon:['r','chem_explosif']},
   explosifs_brisants:{name:'Explosifs brisants',icon:['r','chem_explosif']},
+  mine:{name:'Mines',icon:['r','chem_explosif']},
   sante:{name:'Fournitures médicales',icon:['r','soie-de-falaise_fabric-roll']},
   charbon:{name:'Charbon',icon:['r','chem_charbon']},
   // l'industrie : le fer fait les armes, les pièces, les plaques ; le plomb le noyau des balles, le cuivre la chemise et
@@ -76,7 +77,7 @@ export const FAMILIES={
   energie:{name:'Charbon',goods:['charbon']},
   industrie:{name:'Pièces',goods:['pieces']},
   vivres:{name:'Vivres',goods:['vivres']},
-  guerre:{name:'Guerre',goods:['explosifs','melange_inc','explosifs_brisants','sante','batterie'],prefix:['m:','a:','p:']},
+  guerre:{name:'Guerre',goods:['explosifs','melange_inc','explosifs_brisants','mine','sante','batterie'],prefix:['m:','a:','p:']},
 };
 export const familyOf=k=>{for(const [f,F] of Object.entries(FAMILIES))if(F.goods.includes(k)||(F.prefix||[]).some(p=>k.startsWith(p)))return f;return 'materiaux';};
 // Le fret : une usine commande de quoi faire BUF lots d'avance (au moins BUF_H heures de travail) ; un porteur sert les
@@ -151,12 +152,13 @@ export const BUILD_CATS=[
   {k:'relier',name:'Relier',hint:'camp-dépôt gratuit d’abord, puis mine, gare et fret',items:['camp','gare','entrepot'],lines:['rail']},
   {k:'armer',name:'Armer',hint:'concevoir, fabriquer, former',items:['armurerie','manufacture','arsenal','caserne','caserne_elite','garage','fonderie','archives']},
   {k:'soigner',name:'Soigner',hint:'la chaîne des soins',items:['hopital','tente']},
-  {k:'defendre',name:'Défendre',hint:'tenir les villes',items:['tour'],lines:['sacs']}];
+  {k:'defendre',name:'Défendre',hint:'tenir les villes',items:['tour'],lines:['sacs','mines']}];
 
 // Ce qui se pose case par case, en traçant : les voies ferrées, les murs. Bâti par des Meumeu, payé au dépôt le plus proche.
 export const LINES={
   rail:{name:'Voie ferrée',cost:{bois:1,pierre:.5},hours:.12,hp:60},
   mur:{name:'Mur',cost:{pierre:4},hours:.6,hp:500,block:true},
+  mines:{name:'Mines',cost:{mine:1},hours:.2,hp:30},   // (V12.5) une mine par case, invisible de l'ennemi tant qu'elle n'a pas sauté près de lui
   sacs:{name:'Sacs de sable',cost:{pierre:1,bois:.5},hours:.25,hp:220},   // (V12.5) un parapet bas : couvre le tireur à genou ou couché, ne gêne pas la marche
 };
 
@@ -193,6 +195,7 @@ export const BLASTS={
   grenade:{frags:400,mass:.02,d:1.2,v:1000,lambda:3,radius:.45,blast:.07,dmgB:60,throw:6,fuse:2.5},
   obus:{frags:1500,mass:.05,d:1.8,v:1100,lambda:6,radius:1,blast:.2,dmgB:45},
   bombe:{frags:6000,mass:.2,d:3,v:1400,lambda:12,radius:2.2,blast:.5,dmgB:110},
+  mine:{frags:900,mass:.03,d:1.4,v:1000,lambda:5,radius:.7,blast:.12,dmgB:70},   // (V12.5) une mine antipersonnel : éclats et souffle à bout portant
 };
 // Les innovations. Les Meumeu qui travaillent ont des idées : à force de couper du bois, de miner, de soigner, de tirer, l'un
 // d'eux propose quelque chose. On la développe au laboratoire. Chaque partie tire ses idées dans un ordre différent.
@@ -269,6 +272,8 @@ export const PRODUCTS={
   explosifs:{name:'Explosifs',at:'poudrerie',in:{salpetre:5},out:{explosifs:2},hours:9,limit:30},   // du salpêtre seul, mais lentement (la nitration, le séchage)
   melange_inc:{name:'Mélange incendiaire',at:'poudrerie',in:{salpetre:2,charbon:2,cuivre:1},out:{melange_inc:2},hours:3,limit:20},
   explosifs_brisants:{name:'Explosifs brisants',at:'poudrerie',in:{explosifs:2,salpetre:2,fer:1,pieces:1},out:{explosifs_brisants:1},hours:5,limit:16},
+  // V12.5 : une mine (explosifs, fer, pièces) fondue et chargée à la manufacture d'armes ; les villageois la posent sur le terrain, elle explose sous l'ennemi
+  mine:{name:'Mines',at:'manufacture',in:{explosifs:1,fer:2,pieces:1},out:{mine:1},hours:1.5,limit:60},
   sante:{name:'Fournitures médicales',at:'hopital',in:{pieces:2},out:{sante:4},hours:3,limit:12},
   // des jumelles simples (laiton, lentilles) : la vue porte plus loin de jour — l'outil de l'éclaireur
   jumelles:{name:'Jumelles',at:'atelier',in:{pieces:2,cuivre:2},out:{jumelles:1},hours:3,limit:8},
