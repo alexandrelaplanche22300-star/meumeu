@@ -26,7 +26,7 @@ export const BUNKERS={
     // un poste désigné : celui qui l'occupe déjà cède sa place (il retourne à ses affaires)
     if(want!=null&&o[want]&&!us.some(u=>u.id===o[want])){const old=this.unit(o[want]);if(old){old.task=null;old.path=null;old.sentry=false;}delete o[want];}
     const posts=this.bunkerFree(b);if(!posts.length)return {ok:false,why:['le bunker est plein']};
-    const pref=u=>{const W=u.w&&this.W(u.w);if(u.k==='medecin'||u.k==='infirmier'||u.k==='villageois')return ['abri','soute'];if(!W)return ['soute','abri'];if(W.crew>1)return ['gun','tir','abri'];return ['tir','abri','gun'];};
+    const pref=u=>{const W=u.w&&this.W(u.w);if(u.k==='medecin'||u.k==='infirmier'||u.k==='villageois')return ['abri','soute'];if(!W)return ['soute','abri'];if(W.crew>1)return ['gun','tir','abri'];return b.f==='beee'?['gun','tir','soute','abri']:['tir','abri','gun'];};   // (les Bèè : la pièce d'abord — l'état-major y met ensuite l'arme lourde)
     let n=0;const taken=new Set();
     // l'ordre au poste désigné : le premier soldat qui peut le tenir (une arme lourde pour un emplacement de pièce, un fusil pour un poste de tir), sinon le premier
     let first=null;const wp=want!=null?posts.find(p=>p.k===want):null;if(wp){first=us.find(u=>{const W=u.w&&this.W(u.w);return wp.kind==='gun'?W&&W.crew>1:wp.kind==='tir'?W&&!(W.crew>1):true;})||us[0];}
