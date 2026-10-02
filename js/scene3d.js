@@ -16,13 +16,10 @@ import {bargeModel,bateauModel} from './barge3d.js';
 export const HK=Math.sqrt(2/3);
 const PI=Math.PI;
 // un modèle par bâtiment : [modèle, part de l'empreinte occupée, rotation (quarts de tour), hauteur maximale en unités]
+// (V12.5, demande du joueur) tous les bâtiments en modèles faits par le code — low poly, la palette du jeu (bldg3d.js) — sauf le moulin, qui garde le modèle du joueur
 export const BUILDING_MODEL={
-  centre:['architectural_building',1.0,0],camp:['stylized_camp_tent_3d_model',1.0,0],maison:['steampunk_hut',1.0,0],ferme:['coastal_tavern',1.0,0],
-  moulin:['windmill',.8,0],grenier:['industrial_warehouse_3d_model',1.0,0],atelier:['medieval_forge_3d_model',1.0,0],four:['medieval_stone_oven_3d_model',1.0,0],
-  mine:['industrial_plant',1.0,0],gare:['industrial_warehouse_3d_model',1.0,0],entrepot:['industrial_warehouse_3d_model',1.0,0],labo:['steampunk_refinery_3d_model',1.0,0],
-  caserne:['architectural_building',1.0,0],caserne_elite:['architectural_building',1.0,0,0xb8a8c8],poudrerie:['steampunk_refinery_3d_model',.9,0],arsenal:['industrial_warehouse_3d_model',.95,0,0xc4cdb0],armurerie:['medieval_forge_3d_model',1.0,0],
-  manufacture:['industrial_plant',1.0,0],garage:['industrial_warehouse_3d_model',1.0,1,0xb8c0a4],hopital:['coastal_tavern',1.0,0],tente:['stylized_camp_tent_3d_model',1.0,0],archives:['steampunk_hut',1.0,0],
-  fonderie:['medieval_forge_3d_model',1.0,0],barge:[':barge_chantier',1.0,0],bateau_bee:[':bateau_chantier',1.0,2],tour:[':tour',.8,0]};   // (les modèles du joueur, remis à la demande du joueur ; ceux faits par le code restent dans bldg3d.js, non utilisés)
+  centre:[':centre',1.0,0],camp:[':camp',1.0,0],maison:[':maison',1.0,0],ferme:[':ferme',1.0,0],grenier:[':grenier',1.0,0],atelier:[':atelier',1.0,0],four:[':four',1.0,0],mine:[':mine',1.0,0],gare:[':gare',1.0,0],entrepot:[':entrepot',1.0,0],labo:[':labo',1.0,0],caserne:[':caserne',1.0,0],caserne_elite:[':caserne_elite',1.0,0],poudrerie:[':poudrerie',1.0,0],arsenal:[':arsenal',1.0,0],armurerie:[':armurerie',1.0,0],manufacture:[':manufacture',1.0,0],garage:[':garage',1.0,0],hopital:[':hopital',1.0,0],tente:[':tente',1.0,0],archives:[':archives',1.0,0],fonderie:[':fonderie',1.0,0],
+  moulin:['windmill',.8,0],barge:[':barge_chantier',1.0,0],bateau_bee:[':bateau_chantier',1.0,2],tour:[':tour',.8,0]};
 export const OUTCROP_MODEL={fer:'rocky_outcrop',charbon:'lava_rock',pierre:'stone_rock_pile',cuivre:'crystal_rock',plomb:'rock_formation',salpetre:'multicolored_crystal_pile',or:'rock_with_gold_veins'};
 export const MODEL_NAMES=[...new Set([...Object.values(BUILDING_MODEL).map(b=>b[0]).filter(n=>n[0]!==':'),...Object.values(OUTCROP_MODEL),'meumeu','meumeu_soldat','plush_cow_knight','meumeu_casque','goat_plush_toy','gewehr_43_rifle','heavy_machine_gun','assault_rifle','vintage_military_jeep_logistic_unarmed','vintage_military_logistic_jeep_with_gun','ww2_locomotive','ww2_wagon','armored_car','stone_rock_pile','silbervogel_bomber_3d_model',...Object.values(VEHDEF).map(V=>V.modele).filter(n=>n&&n[0]!==":")])];
 

@@ -126,6 +126,8 @@ const uiZ={auto(){return Math.min(1,near((window.okmApp?.zoom?screen.width:inner
     say(`Taille de l’interface : ${Math.round(this.cur*100)} % (Ctrl + / Ctrl −).`);},
   init(){let z=NaN;try{z=parseFloat(localStorage.getItem('okm-zoom'));}catch(e){}this.set(z>0?z:this.auto(),false);}};
 window.okmZoom=d=>uiZ.step(d);
+// après un plantage du rendu (la page rechargée par l'application, la partie reprise à la sauvegarde automatique) : on le dit au joueur
+window.okmNotice=why=>{say(`Le rendu du jeu a planté (${why}) et a été relancé : la partie a repris à la dernière sauvegarde automatique.`,'bad');try{world?.log?.('Front',`Le rendu a planté (${why}) : partie reprise à la dernière sauvegarde automatique.`,'bad');}catch(e){}};
 uiZ.init();
 function setSpeed(v){ui.speed=v;document.querySelectorAll('[data-speed]').forEach(b=>b.classList.toggle('on',+b.dataset.speed===v));}
 const wounded=()=>{const L=world.s.units.filter(u=>u.f==='meumeu'&&u.h&&u.h.state!=='ok').map(u=>({u,where:'terrain'}));for(const b of world.s.buildings)if(b.f==='meumeu')for(const u of b.wardList||[])L.push({u,where:b});return L;};

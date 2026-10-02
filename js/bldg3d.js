@@ -1,4 +1,4 @@
-// Les bâtiments faits par le code (V12.4) : un modèle distinct par bâtiment, à la taille exacte de son empreinte (une case = une unité).
+// Les bâtiments faits par le code (V12.4, tous depuis V12.5 sauf le moulin) : un modèle distinct par bâtiment, à la taille exacte de son empreinte (une case = une unité).
 // Avant, dix modèles convertis se partageaient vingt-trois bâtiments (la caserne reprenait le centre-ville, cinq bâtiments l'entrepôt, trois la forge…).
 // Repère : x vers la droite, z vers la caméra (la façade, la porte, les fenêtres sont du côté +Z et +X, ceux que l'on voit), y vers le haut, centré en x et z.
 import * as THREE from './lib/three.module.js';
@@ -114,6 +114,51 @@ const MAKERS={
   poudrerie:(W,D)=>{const B=new Build();slab(B,W,D,0x8a8678,.06);B.cyl(-.4,.06,-.3,.34,.34,.9,0xe0d28a,14);B.cone(-.4,.96,-.3,.36,.2,PAL.metal,14);B.cyl(.35,.06,-.35,.28,.28,1.2,0xcfd0c6,14);B.dome(.35,1.26,-.35,.28,PAL.metal);
     B.rod([-.4,.7,-.3],[.35,.8,-.35],.04,PAL.rouille);B.rod([-.1,.7,-.32],[-.1,.1,.2],.03,PAL.rouille);B.box(.2,.06,.35,.8,.5,.6,PAL.creme);B.gable(.2,.56,.35,.8,.6,.22,PAL.rouille,'x');
     B.winsZ(.35+.3,.3,[-.1,.2,.5],.16,.16);B.box(-.45,.06,.4,.3,.12,.3,PAL.jaune);B.box(-.45,.06,.4,.3,.02,.1,PAL.noir);B.cyl(-.7,.06,.2,.05,.05,.5,PAL.rouge,6);return B.geo();},
+  // le centre-ville : l'hôtel de ville de pierre claire, deux ailes, un beffroi à horloge, un perron, une fontaine sur la place
+  centre:(W,D)=>{const B=new Build();slab(B,W,D,0xb3ab96,.08);const bw=W*.84,bd=D*.46,z0=-D*.14;
+    B.box(0,.08,z0,bw,1.0,bd,PAL.creme);B.gable(0,1.08,z0,bw,bd,.55,PAL.ardoise,'x');B.box(0,.08,z0+bd/2-.02,bw*1.0,.12,.06,PAL.pierre);
+    for(const sx of [-1,1]){B.box(sx*bw*.36,.08,z0+bd*.38,bw*.28,.85,bd*.5,PAL.creme);B.gable(sx*bw*.36,.93,z0+bd*.38,bw*.28,bd*.5,.36,PAL.ardoise,'z');}
+    B.box(0,.08,z0+bd*.18,.8,1.75,.8,PAL.pierre);B.box(0,1.83,z0+bd*.18,.86,.08,.86,PAL.pierreSombre);B.cone(0,1.91,z0+bd*.18,.62,.7,PAL.toitVert,4);B.cyl(0,2.6,z0+bd*.18,.02,.02,.3,PAL.metalClair,5);
+    {const cg=new THREE.CylinderGeometry(.22,.22,.04,16);cg.rotateX(PI/2);cg.translate(0,1.42,z0+bd*.18+.42);B.add(cg,PAL.blanc);B.box(0,1.36,z0+bd*.18+.445,.025,.14,.02,PAL.noir).box(.05,1.41,z0+bd*.18+.445,.1,.025,.02,PAL.noir);}   // l'horloge, face à la place
+    B.box(0,.08,z0+bd*.18+.41,.36,.6,.04,PAL.boisSombre);B.box(0,.08,z0+bd*.18+.6,1.0,.06,.4,PAL.pierre);B.box(0,.14,z0+bd*.18+.55,.8,.06,.3,PAL.pierre);
+    B.winsZ(z0+bd/2,.5,[-1.25,-.8,.8,1.25].map(v=>v*W/4),.22,.36,0x4a6a8a);B.winsZ(z0+bd*.38+bd*.25,.45,[-1,1].map(v=>v*bw*.36),.26,.3,0x4a6a8a);B.winsX(bw/2,.5,[-.4,.1].map(v=>v*D/3+z0),.22,.36,0x4a6a8a);
+    B.cyl(W*.3,.08,D*.34,.36,.4,.16,PAL.pierre,14);B.cyl(W*.3,.24,D*.34,.3,.3,.02,0x5a8aa8,14);B.cyl(W*.3,.08,D*.34,.06,.06,.42,PAL.pierre,8);
+    flag(B,-W*.36,D*.36,PAL.rouge);for(const x of [-W*.12,W*.08])B.cyl(x,.08,D*.42,.03,.03,.5,PAL.noir,5).box(x,.58,D*.42,.12,.1,.12,PAL.jaune);return B.geo();},
+  // le camp-dépôt : une grande tente de toile, des caisses, un tas de bûches, une charrette
+  camp:(W,D)=>{const B=new Build();slab(B,W,D,0x8a8466,.04);B.gable(-.15,.04,-.15,W*.62,D*.5,.75,0xcbbd94,'x',0);B.box(-.15,.04,-.15+D*.25-.02,.24,.5,.03,0x6a5a3a);
+    B.cyl(-.15-W*.31,.04,-.15,.025,.025,.8,PAL.boisSombre,5);B.cyl(-.15+W*.31,.04,-.15,.025,.025,.8,PAL.boisSombre,5);
+    crates(B,W*.2,D*.25);for(let k=0;k<4;k++){const g=new THREE.CylinderGeometry(.06,.06,.5,7);g.rotateZ(PI/2);g.translate(-W*.28,.1+(k>2?.11:0),D*.3+(k%3)*.12-.06);B.add(g,PAL.bois);}
+    B.box(W*.32,.12,-D*.32,.36,.1,.24,PAL.boisClair);for(const z of [-.12,.12]){const w=new THREE.CylinderGeometry(.1,.1,.03,10);w.rotateX(PI/2);w.translate(W*.32,.11,-D*.32+z*1.1);B.add(w,PAL.boisSombre);}return B.geo();},
+  // la maison : murs crème à colombages, toit de chaume, cheminée, une porte et deux fenêtres, un muret
+  maison:(W,D)=>{const B=new Build();slab(B,W,D,0x7f8a5c,.04);const bw=W*.62,bd=D*.5;B.box(0,.04,-.1,bw,.62,bd,PAL.creme);
+    for(const x of [-bw/2+.02,bw/2-.02])B.box(x,.04,-.1+bd/2+.005,.04,.62,.02,PAL.boisSombre);B.box(0,.6,-.1+bd/2+.005,bw,.04,.02,PAL.boisSombre);
+    B.gable(0,.66,-.1,bw,bd,.48,PAL.chaume,'x',.1);B.box(bw*.3,.8,-.2,.14,.42,.14,PAL.brique);B.box(-.12,.04,-.1+bd/2+.01,.18,.36,.03,PAL.boisSombre);
+    B.winsZ(-.1+bd/2,.28,[.2],.16,.16,0x4a6a8a);B.winsX(bw/2,.28,[-.15],.16,.16,0x4a6a8a);B.box(0,.04,D*.4,W*.7,.12,.06,PAL.pierre);B.cyl(-W*.3,.04,D*.28,.08,.1,.18,0x5a7a3a,7);return B.geo();},
+  // la ferme (bèè) : une grange rouge à grande porte, un enclos de piquets, des bottes de foin
+  ferme:(W,D)=>{const B=new Build();slab(B,W,D,0x7c8a52,.04);B.box(-.2,.04,-.25,W*.5,.8,D*.42,0xa8432e);B.gable(-.2,.84,-.25,W*.5,D*.42,.45,0x5a4a3e,'x');
+    B.box(-.2,.04,-.25+D*.21+.01,.5,.56,.03,PAL.blanc);B.box(-.2,.04,-.25+D*.21+.03,.44,.5,.02,0x8a3424);
+    for(let k=0;k<9;k++){const a=k/8;B.cyl(-W*.4+a*W*.8,.04,D*.4,.025,.025,.3,PAL.boisSombre,5);}B.box(0,.22,D*.4,W*.8,.03,.02,PAL.boisClair);B.box(0,.14,D*.4,W*.8,.03,.02,PAL.boisClair);
+    for(const [x,z] of [[W*.28,D*.12],[W*.36,-D*.1],[W*.2,-D*.28]]){const g=new THREE.CylinderGeometry(.14,.14,.24,10);g.rotateZ(PI/2);g.translate(x,.18,z);B.add(g,PAL.chaume);}return B.geo();},
+  // l'atelier : un bâtiment de brique, un auvent sur l'établi, une forge rougeoyante et sa cheminée, des engrenages
+  atelier:(W,D)=>{const B=new Build();slab(B,W,D,0x857e6e,.06);const bw=W*.66,bd=D*.48;B.box(-.12,.06,-.18,bw,.7,bd,PAL.brique);B.gable(-.12,.76,-.18,bw,bd,.34,PAL.ardoise,'x');
+    B.cyl(bw*.3-.12,.76,-.3,.1,.08,.6,PAL.briqueSombre,8);B.box(-.12,.06,-.18+bd/2+.01,.32,.46,.03,PAL.boisSombre);B.winsX(bw/2-.12,.35,[-.25],.18,.2,PAL.feu);
+    B.box(-.12,.58,-.18+bd/2+.2,bw,.03,.42,PAL.rouille);for(const x of [-bw/2-.08,bw/2-.16])B.cyl(x,.06,-.18+bd/2+.38,.02,.02,.52,PAL.boisSombre,5);
+    B.box(-.35,.06,D*.3,.5,.28,.2,PAL.bois);B.box(-.35,.34,D*.3,.5,.03,.22,PAL.boisClair);const g=new THREE.CylinderGeometry(.12,.12,.04,10);g.rotateX(PI/2);g.translate(W*.32,.25,D*.32);B.add(g,PAL.metal);
+    B.box(W*.32,.06,D*.32,.08,.14,.08,PAL.metal);return B.geo();},
+  // le four à charbon de bois : une meule de terre fumante, un hangar ouvert, des sacs de charbon, du bois empilé
+  four:(W,D)=>{const B=new Build();slab(B,W,D,0x5e5a4e,.04);B.dome(-.2,.04,-.15,.5,0x5a4a3c);B.cyl(-.2,.45,-.15,.06,.08,.12,PAL.noir,8);B.dome(-.2,.6,-.15,.1,0x9a9a9a);B.dome(-.12,.78,-.12,.08,0xb0b0b0);
+    B.box(-.2,.04,-.15+.48,.16,.14,.04,PAL.feu);for(const [x,z] of [[W*.22,-D*.3],[W*.42,-D*.3],[W*.22,D*.05],[W*.42,D*.05]])B.cyl(x,.04,z,.025,.025,.55,PAL.boisSombre,5);
+    B.box(W*.32,.59,-D*.12,.5,.04,.62,PAL.rouille);for(let k=0;k<3;k++)B.box(W*.32,.04+k*.1,-D*.12,.36,.09,.5,PAL.bois);for(let k=0;k<3;k++)B.box(-W*.32+k*.17,.04,D*.36,.15,.13,.12,PAL.noir);return B.geo();},
+  // le laboratoire : un pavillon blanc, une verrière, une coupole d'observation, des cornues sur le perron
+  labo:(W,D)=>{const B=new Build();slab(B,W,D,0xb9b4a4,.06);const bw=W*.7,bd=D*.5;B.box(-.15,.06,-.2,bw,.85,bd,PAL.blanc);B.gable(-.15,.91,-.2,bw,bd,.32,0x2c5f6a,'x');
+    B.box(-.15,.06,-.2+bd/2+.01,.36,.55,.03,PAL.boisSombre);B.winsZ(-.2+bd/2,.32,[-.75,-.45,.2,.5].map(v=>v*bw),.2,.38,0x5a8aaa);B.winsX(bw/2-.15,.32,[-.4,.15].map(v=>v*bd),.2,.38,0x5a8aaa);
+    B.box(W*.3,.06,D*.18,.7,.5,.6,0x8ab0b8);B.gable(W*.3,.56,D*.18,.7,.6,.22,0x6a9aa4,'z',.02);for(const x of [-.3,0,.3])B.box(W*.3+x,.06,D*.18+.31,.02,.5,.02,PAL.metalClair);
+    B.cyl(-W*.32,.91,-.3,.28,.3,.2,PAL.blanc,12);B.dome(-W*.32,1.11,-.3,.3,PAL.cuivre);B.box(-W*.32,1.2,-.05,.08,.08,.14,PAL.noir);
+    B.box(-W*.38,.06,D*.4,.44,.22,.2,PAL.boisClair);B.cyl(-W*.44,.28,D*.4,.05,.03,.12,0x6ad08a,8);B.cyl(-W*.32,.28,D*.4,.05,.03,.12,0xd06a8a,8);return B.geo();},
+  // la tente médicale : une toile blanche sur deux mâts, une croix rouge sur chaque pan, deux brancards
+  tente:(W,D)=>{const B=new Build();slab(B,W,D,0x8a9070,.03);B.gable(0,.03,-.1,W*.66,D*.56,.78,0xeee8d8,'x',0);B.cyl(-W*.33,.03,-.1,.025,.025,.84,PAL.boisSombre,5);B.cyl(W*.33,.03,-.1,.025,.025,.84,PAL.boisSombre,5);
+    for(const s of [-1,1]){B.box(0,.42,-.1+s*D*.15,.24,.07,.02,PAL.rouge);B.box(0,.42,-.1+s*D*.15,.07,.24,.02,PAL.rouge);}
+    for(const x of [-.35,.25]){B.box(x,.08,D*.38,.18,.03,.5,0xd8d0b8);for(const dx of [-.08,.08])B.box(x+dx,.03,D*.38,.02,.06,.5,PAL.boisSombre);}return B.geo();},
 };
 
 // les géométries et leurs mesures, prêtes pour la scène : { nom: {ext:[largeur,hauteur,profondeur], geo} }
