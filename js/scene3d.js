@@ -11,7 +11,7 @@ import {gunModel} from './gun3d.js';
 import {VEHDEF} from './vehicules.js';
 import {buildingModels} from './bldg3d.js';
 import {bunkerModels,bunkerDoorGeo,bunkerRoofGeo} from './bunker3d.js';
-import {bargeModel,caleGeo} from './barge3d.js';
+import {bargeModel,bateauModel,caleGeo} from './barge3d.js';
 
 export const HK=Math.sqrt(2/3);
 const PI=Math.PI;
@@ -133,7 +133,7 @@ export class Scene3D{
     this.booms=[];this.boomGeo={ball:new THREE.IcosahedronGeometry(1,2),ring:new THREE.RingGeometry(.86,1,56).rotateX(-PI/2),dome:new THREE.SphereGeometry(1,16,8,0,PI*2,0,PI/2)};
     this.pools.fusil=mk('gewehr_43_rifle',{cap:1500});this.pools.mg=mk('heavy_machine_gun',{cap:200});
     for(let k=0;k<3;k++){const p=new Pool(boulder(k+1),{cap:1400});this.pools['rock'+k]=p;this.scene.add(p.mesh);}
-    this.M[':tour']={ext:[.9,1.8,.9],geo:TOWER_GEO()};Object.assign(this.M,buildingModels(),bunkerModels());this.M[':barge']=bargeModel();{const cg=caleGeo(5,3);cg.computeBoundingBox();const bb=cg.boundingBox;this.M[':cale']={ext:[bb.max.x-bb.min.x,bb.max.y,bb.max.z-bb.min.z],geo:cg};}this.doorGeo=bunkerDoorGeo();this.doorMat=new THREE.MeshStandardMaterial({color:0x50565a,roughness:.7,metalness:.4});
+    this.M[':tour']={ext:[.9,1.8,.9],geo:TOWER_GEO()};Object.assign(this.M,buildingModels(),bunkerModels());this.M[':barge']=bargeModel();this.M[':bateau_bee']=bateauModel();{const cg=caleGeo(5,3);cg.computeBoundingBox();const bb=cg.boundingBox;this.M[':cale']={ext:[bb.max.x-bb.min.x,bb.max.y,bb.max.z-bb.min.z],geo:cg};}this.doorGeo=bunkerDoorGeo();this.doorMat=new THREE.MeshStandardMaterial({color:0x50565a,roughness:.7,metalness:.4});
     for(const [res,name] of Object.entries(OUTCROP_MODEL)){this.pools['ore_'+res]=mk(name,{cap:300});}
     this.pools.jeep=mk('vintage_military_jeep_logistic_unarmed',{cap:40});this.pools.loco=mk('ww2_locomotive',{cap:20});this.pools.wagon=mk('ww2_wagon',{cap:200});
     this.ok=true;

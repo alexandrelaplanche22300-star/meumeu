@@ -68,6 +68,11 @@ VEHDEF.planeur_lourd={name:'Planeur lourd',air:{power:false,silent:true,heavy:tr
   blindage:{avant:[.12,0],flanc:[.1,0],arriere:[.1,0],dessus:[.1,0]},hp:180,places:{servants:0,passagers:36},soute:40,armes:[],
   cout:{bois:200,fer:60,pieces:60,cuivre:6},heures:60,
   why:'Le mammouth : un pilote, trente-cinq soldats, quarante caisses. Plus lourd à remorquer, plus lent à planer (finesse 10) : il demande une longue piste d’arrivée et un grand champ.'};
+// Le bateau de débarquement bèè (voir naval.js : mêmes règles que la barge) : une coque de planches, une planche en guise de rampe, seize Bèè, pas de véhicule. Les Bèè en construisent des dizaines.
+VEHDEF.bateau_bee={name:'Bateau bèè',faction:'beee',nav:'eau',modele:':bateau_bee',avant:'+x',long:3,large:1.2,roues:'chenilles',pivot:30,vmax:13,t0:3,frein:2,deck:[-.2],
+  blindage:{avant:[.35,0],flanc:[.22,0],arriere:[.2,0],dessus:[0,0]},hp:150,places:{servants:0,passagers:16},soute:16,armes:[],
+  cout:{bois:90,pieces:10,fer:6},heures:14,
+  why:'Une coque de planches, une rampe de bois, seize soldats : la coque arrête à peine le fusil. Les Bèè en construisent des dizaines pour leurs grands assauts.'};
 export const VEH_KINDS=Object.keys(VEHDEF);
 const VEDF=v=>VEHDEF[v.k];
 // la vitesse sur chaque terrain (part de vmax) : les roues s'enlisent dans le sable et peinent dans la lande, les chenilles moins

@@ -29,6 +29,19 @@ export function bargeModel(){const {L,W,hinge}=BARGE,H=hull(),R=ramp();const bh=
   return {ext:[L,Math.max(.7,bh.max.y),W],name:'barge',geo:H,mat:null,
     parts:[{name:'caisse',geo:H,pivot:[0,0,0]},{name:'rampe',geo:R,pivot:[hinge[0],hinge[1],hinge[2]]}],byName:{caisse:{geo:H,pivot:[0,0,0]},rampe:{geo:R,pivot:hinge}}};}
 
+// le bateau bèè : une coque de planches (bois clair, bords renforcés), une barre à l'arrière, une planche à l'avant qui sert de rampe (pivot comme la barge)
+function boatHull(){const {L,W}=BARGE,B=new Build(),BOIS=0x9a6a3a,BOIS2=0x6a4426,CLAIR=0xc89a5a;L;
+  B.box(0,0,0,L*.86,.12,W*.7,BOIS2);
+  for(const s of [-1,1]){B.box(-.1,.12,s*W*.4,L*.74,.3,.08,BOIS);B.box(-.1,.42,s*W*.4,L*.74,.04,.1,CLAIR);}
+  for(const s of [-1,1]){const g=new THREE.BoxGeometry(.8,.3,.08);g.rotateY(-s*.55);g.translate(L*.34,.12+.15,s*W*.28);B.add(g,BOIS);}
+  B.box(-L*.42,.12,0,.08,.3,W*.72,BOIS);B.box(-.1,.12,0,L*.8,.03,W*.62,0x7a5a36);
+  for(let k=0;k<4;k++)B.box(.5-k*.5,.15,0,.06,.04,W*.64,BOIS2);   // les bancs
+  B.cyl(-L*.4,.12,0,.03,.03,.7,BOIS2,6);B.box(-L*.4,.8,0,.08,.03,.5,BOIS2);   // la barre
+  return B.geo();}
+function boatRamp(){const {W,hinge}=BARGE,B=new Build();B.box(hinge[0]-.06,hinge[1],0,.08,.36,W*.62,0x7a5a36);B.box(hinge[0]-.06,hinge[1]+.34,0,.1,.04,W*.64,0xc89a5a);return B.geo();}
+export function bateauModel(){const {L,W,hinge}=BARGE,H=boatHull(),R=boatRamp();const bh=H.boundingBox;
+  return {ext:[L,Math.max(.6,bh.max.y),W],name:'bateau_bee',geo:H,mat:null,parts:[{name:'caisse',geo:H,pivot:[0,0,0]},{name:'rampe',geo:R,pivot:[hinge[0]-.06,hinge[1],hinge[2]]}],byName:{caisse:{geo:H,pivot:[0,0,0]},rampe:{geo:R,pivot:[hinge[0]-.06,hinge[1],hinge[2]]}}};}
+
 // la cale : un chantier sur la plage — deux longrines et des traverses vers la mer, des couples de coque en construction, un hangar de treuil, un portique
 export function caleGeo(W,D){const B=new Build();
   B.box(0,0,0,W,.05,D,0x8a7a5a);                                    // le sol damé (W : le long de la plage, D : en travers)

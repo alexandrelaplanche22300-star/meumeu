@@ -27,6 +27,7 @@ import {PERSISTENCE} from './persistence.js';
 import {BUNKERS} from './bunkers.js';
 import {NAVAL} from './naval.js';
 import {AIRCRAFT} from './air.js';
+import {BEEE_FORT} from './fortif.js';
 import {bunkerPlan} from './bunkerdata.js';
 // Le chemin d'un train : les centres des cases, et à chaque virage à angle droit un quart de cercle (rayon : une demi-case) —
 // la même courbe que celle que dessine la voie. Chaque point est [x - 0,5, y - 0,5, case] (slide ajoute la demi-case).
@@ -564,11 +565,11 @@ export class World{
     // directement les matériaux disponibles dans un autre dépôt proche.
     const [x,y]=this.bc(b);let found=this.depots(b.f,x,y,SITE_RANGE).map(dep=>({dep,item:want.find(([k,n])=>(dep.stock[k]||0)>=Math.min(1,n)-1e-6)})).find(o=>o.item);
     // rien à portée : on attend un convoi une heure, puis on va chercher soi-même, plus loin (à pied, dix par voyage)
-    if(!found){b.waitT??=this.s.t;if(this.s.t-b.waitT>1)found=this.depots(b.f,x,y,90).map(dep=>({dep,item:want.find(([k,n])=>(dep.stock[k]||0)>=Math.min(1,n)-1e-6)})).find(o=>o.item);}else b.waitT=null;
+    if(!found){b.waitT??=this.s.t;if(this.s.t-b.waitT>1)found=this.depots(b.f,x,y,BUILDINGS[b.k].bunker?450:90).map(dep=>({dep,item:want.find(([k,n])=>(dep.stock[k]||0)>=Math.min(1,n)-1e-6)})).find(o=>o.item);}else b.waitT=null;
     const has=found?.item;if(has&&this.distB(found.dep,x,y)>SITE_RANGE)b.why=`les bâtisseurs vont chercher ${this.goodName(has[0]).toLowerCase()} au ${this.depotName(found.dep)}, loin`;
     if(!has){b.why=`attend au ${this.depotName(D)} : ${want.map(([k,n])=>`${Math.ceil(n)} ${this.goodName(k).toLowerCase()}`).join(', ')} (commandé)`;return false;}
     if(u.carry){const R=this.depots(u.f,u.x,u.y,SITE_RANGE)[0];if(R)this.put(R,u.carry.k,u.carry.n);u.carry=null;}
-    T0.fetch=has[0];T0.fetchN=Math.min(CARRY,has[1]);T0.fetchDepot=found.dep.id;T0.fetchT=this.s.t;u.path=null;if(this.distB(found.dep,x,y)<=SITE_RANGE)b.why=null;
+    T0.fetch=has[0];T0.fetchN=Math.min(CARRY*(BUILDINGS[b.k].bunker?3:1),has[1]);T0.fetchDepot=found.dep.id;T0.fetchT=this.s.t;u.path=null;if(this.distB(found.dep,x,y)<=SITE_RANGE)b.why=null;
     // le compte « en route » de l'instant le sait tout de suite : le bâtisseur suivant n'ira pas chercher la même chose
     if(this._er&&this._erT===this.s.t){let o=this._er.get(b.id);if(!o)this._er.set(b.id,o={});o[has[0]]=(o[has[0]]||0)+T0.fetchN;}return false;}
   // (un voyage de plus d'un jour est abandonné : sa réservation « en route » ne doit pas bloquer le chantier — le plus long mesuré dure dix heures)
@@ -655,7 +656,7 @@ export class World{
   // Un soldat part avec une arme de la conception choisie : elle doit être dans un dépôt proche de la caserne.
   draftCandidate(b,skip=null){const city=this.cityOf(b),reserved=new Set();for(const x of this.s.buildings)for(const q of x.queue||[])if(q!==skip&&q.draftId!=null)reserved.add(q.draftId);
     return this.s.units.filter(u=>u.f===b.f&&u.k==='villageois'&&alive(u)&&!reserved.has(u.id)&&(!city||this.homeOf(u)===city)).sort((a,z)=>Number(!!a.task)-Number(!!z.task)||d2(a.x,a.y,b.i,b.j)-d2(z.x,z.y,b.i,b.j))[0]||null;}
-  canTrain(b,k,w=null,armor=null){const B=BUILDINGS[b.k],why=[],D=UNITS[k]||VEHICLES[k]||(VEHDEF[k]&&{name:VEHDEF[k].name,cost:VEHDEF[k].cout,hours:VEHDEF[k].heures});if(!b.done)why.push('pas fini');if(!(B.trains||[]).includes(k))why.push('pas ici');if(b.queue.length>=5)why.push('cinq en attente');
+  canTrain(b,k,w=null,armor=null){const B=BUILDINGS[b.k],why=[],D=UNITS[k]||VEHICLES[k]||(VEHDEF[k]&&{name:VEHDEF[k].name,cost:VEHDEF[k].cout,hours:VEHDEF[k].heures});if(!b.done)why.push('pas fini');if(!(B.trains||[]).includes(k))why.push('pas ici');if(VEHDEF[k]?.faction&&VEHDEF[k].faction!==b.f)why.push('pas pour ce camp');if(VEHDEF[k]&&!VEHDEF[k].faction&&b.f==='beee'&&VEHDEF[k].nav)why.push('les Bèè n’ont pas ce bateau');if(b.queue.length>=5)why.push('cinq en attente');
     const draft=null;if(UNITS[k]?.arm)why.push('envoyez-y des villageois, puis faites-les sortir équipés');
     // pas de maisons à bâtir : un Meumeu de plus, ce sont des vivres de plus (sa formation, puis sa ration chaque heure)
     if(UNITS[k]&&!UNITS[k]?.arm){const c=this.cityOf(b)||b;if(c.k==='centre'&&(c.ration??1)<.5)why.push('la ville a faim : moins de la moitié des rations');}if(k==='train'&&!this.platform(b))why.push('la gare n’a pas de voie');
@@ -1342,7 +1343,7 @@ export class World{
         const n=Math.max(1,Math.floor(CARRY*3/Object.values(cost).reduce((a,b)=>a+b,0)));const P=T0.pack??={};for(const [r,q] of Object.entries(cost)){const t=Math.min(q*n,D.stock[r]||0);if(t>0){D.stock[r]-=t;P[r]=(P[r]||0)+t;}}
         T0.fetchD=null;u.path=null;u.why=null;return;}}
     if(!o.paid){const P=T0.pack;const inPack=P&&Object.entries(cost).every(([r,q])=>(P[r]||0)>=q-1e-9);
-      if(!inPack&&!this.canPay(u.f,i,j,cost).ok){const D=this.depots(u.f,u.x,u.y,120).find(d=>!BUILDINGS[d.k].foodOnly&&Object.entries(cost).every(([r,q])=>(d.stock[r]||0)>=q));
+      if(!inPack&&!this.canPay(u.f,i,j,cost).ok){const D=this.depots(u.f,u.x,u.y,u.f==='beee'?450:120).find(d=>!BUILDINGS[d.k].foodOnly&&Object.entries(cost).every(([r,q])=>(d.stock[r]||0)>=q));
         if(D){T0.fetchD=D.id;u.path=null;u.why=`va chercher ${Object.keys(cost).map(r=>this.goodName(r).toLowerCase()).join(' et ')} au ${this.depotName(D)}`;return;}
         u.anim='idle';u.why=`il manque ${this.canPay(u.f,i,j,cost).miss.join(' et ')} : aucun dépôt à moins de 120 cases n’en a`;return;}}
     if(!this.go(u,i+.5,j+.5,[i,j,1,1]))return;
@@ -1723,3 +1724,4 @@ Object.assign(World.prototype,PERSISTENCE);
 Object.assign(World.prototype,BUNKERS);
 Object.assign(World.prototype,NAVAL);
 Object.assign(World.prototype,AIRCRAFT);
+Object.assign(World.prototype,BEEE_FORT);

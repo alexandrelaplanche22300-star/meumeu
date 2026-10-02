@@ -34,7 +34,7 @@ export const BEEE_AI={
   beeeNextArm(H,mix){const tot=Object.values(mix).reduce((a,b)=>a+b,0)+1;return this.beeeArms().filter(id=>(H['a:'+id]||0)>=1&&(H['m:'+id]||0)>=.3).sort((a,z)=>(mix[a]||0)/tot/DOCTRINE[a]-(mix[z]||0)/tot/DOCTRINE[z])[0]||null;},
   beeeTick(dt){const B=this.s.beee;B.econT=(B.econT||0)+dt;
     if(B.econT>=1){B.econT%=1;this.beeeEconomy();}
-    this.beeeLevelTick();
+    this.beeeLevelTick();this.fortTick?.();
     const cities=B.cities.filter(c=>!c.fallen&&this.building(c.centre)?.done);if(this.atWar)this.beeeSearch(cities);
     // l'état-major veille toujours (défense, contre-batterie, reprise) ; l'offensive attend que les deux peuples soient installés
     this.beeeStaff(cities,this.day>=BEEE.firstRaid&&this.beeeReady());},
@@ -81,7 +81,7 @@ export const BEEE_AI={
     // moins payé n'est pas là, mais les livraisons comptent comme de l'avancement)
     for(const b of this.beeeBuildings().filter(b=>!b.done)){const adv=b.progress+Object.values(b.paid||{}).reduce((a,v)=>a+v,0)/1000;if(b.stallP!==adv){b.stallP=adv;b.stallT=this.s.t;continue;}
       // (l'industrie de guerre payée à plus de moitié attend dix jours ses derniers matériaux plutôt que de tout recommencer)
-      const paidF=Object.values(b.paid||{}).reduce((a,v)=>a+v,0)/Math.max(1,Object.values(BUILDINGS[b.k].cost||{}).reduce((a,v)=>a+v,0));if(['manufacture','arsenal','caserne','poudrerie'].includes(b.k)&&paidF>=.5&&this.s.t-(b.stallT??this.s.t)<=240)continue;
+      const paidF=Object.values(b.paid||{}).reduce((a,v)=>a+v,0)/Math.max(1,Object.values(BUILDINGS[b.k].cost||{}).reduce((a,v)=>a+v,0));if(['manufacture','arsenal','caserne','poudrerie'].includes(b.k)&&paidF>=.5&&this.s.t-(b.stallT??this.s.t)<=240)continue;if(BUILDINGS[b.k]?.bunker)continue;   // (un ouvrage de la côte n'est jamais abandonné : l'état-major le relance)
       if(this.s.t-(b.stallT??this.s.t)>96){if(b.k==='centre'||b.k==='camp')for(const n of this.s.nodes)if(n.type==='ore'&&distance(n.i,n.j,b.i,b.j)<12)n.beeeFail=this.s.t+10*24;this.cancel(b.id);}}
     // l'entretien : chaque ville bèè brûle du bois pour vivre (le chauffage, les fours à pain, les forges), à la mesure de ses habitants —
     // un peuple gourmand, qui épuise ses forêts et doit aller en chercher toujours plus loin
@@ -105,7 +105,7 @@ export const BEEE_AI={
         if(n&&!this.s.fog)this.log(c.name,`${c.name} arme ${n} civils pour se défendre.`,'warn');}}
     // Les renforts (V12.4, demande du joueur : « beaucoup plus de soldats bèè ») : toutes les 8 h, chaque ville qui a une caserne voit arriver 1 + niveau
     // soldats armés (fusil bèè, une caisse de cartouches), tant que l'armée est sous 120 + 40 × villes. Une aide donnée à l'IA, pour des vagues massives.
-    {const sol=this.s.units.filter(u=>u.f==='beee'&&u.k==='soldat'&&u.hp>0&&u.h?.state!=='hors').length,live_=cities.filter(c=>!c.fallen),capS=200+70*live_.length,L=this.beeeLevel();let room=capS-sol;
+    {const sol=this.s.units.filter(u=>u.f==='beee'&&u.k==='soldat'&&u.hp>0&&u.h?.state!=='hors').length,live_=cities.filter(c=>!c.fallen),capS=200+70*live_.length+Math.min(400,this.fortNeed?.()||0),L=this.beeeLevel();let room=capS-sol;
       for(const c of live_){if(room<=0)break;if(this.s.t-(c.reinfT??-99)<8)continue;const bk=this.beeeBuildings('caserne').find(b=>b.done&&!b.ruin&&this.distB(b,c.x,c.y)<28);if(!bk)continue;c.reinfT=this.s.t;
         const n=Math.min(room,2+L),w=this.bestRifle('beee'),Wd=this.W(w),[bx,by]=[bk.i+1,bk.j+3];for(let k=0;k<n;k++){const [x,y]=this.freeSpot(bx+(this.rand()-.5)*4,by+(this.rand()-.5)*3,3);const u=this.addUnit('beee','soldat',x,y,{w});
           u.mag=Wd.p.mag;u.pouch=Math.max(0,Wd.carry-Wd.p.mag);   /* (V12.5) une dotation, plus une caisse entière */u.city=c.id;u.home=c.centre;u.task={kind:'guard',tx:c.x+3+(this.rand()-.5)*8,ty:c.y+3+(this.rand()-.5)*8};}room-=n;}}
@@ -153,7 +153,7 @@ export const BEEE_AI={
     {const T=plan.T,short=plan.sold<plan.pop*.3;const heavyK=new Set(this.beeeHeavyWants().flatMap(w=>['a:'+w.id,'m:'+w.id]));const wt=k=>k==='a:bee_fusil'||k==='m:bee_fusil'?(short?3:1.2):heavyK.has(k)?.9:k.startsWith('p:')?(short?.3:.6):short?.35:1;   // les armes lourdes voulues par l'escalade passent devant les autres armes, jamais devant le fusil
       const need=k=>Math.max(0,(T[k]||0)-(plan.nat[k]||0))/Math.max(1,T[k]||1)*wt(k);
       const can=(m,k)=>{const R=this.recipe(m,k);return !!R&&Object.entries(R.in||{}).every(([r,n])=>(plan.nat[r]||0)>=Math.max(n*6,4));};
-      for(const [kind,pre] of [['manufacture',/^[ap]:/],['arsenal',/^m:/]]){const L=Object.keys(T).filter(k=>pre.test(k)).sort((a,z)=>need(z)-need(a));const taken=new Set();
+      for(const [kind,pre] of [['manufacture',/^([ap]:|mine$)/],['arsenal',/^m:/]]){const L=Object.keys(T).filter(k=>pre.test(k)).sort((a,z)=>need(z)-need(a));const taken=new Set();
         for(const m of this.beeeBuildings(kind).filter(b=>b.done)){if(m.prod&&L.includes(m.prod)&&need(m.prod)>.12&&!taken.has(m.prod)&&can(m,m.prod)){taken.add(m.prod);continue;}
           const want=L.find(k=>!taken.has(k)&&need(k)>.05&&can(m,k))||L.find(k=>can(m,k));if(!want)continue;taken.add(want);if(m.prod!==want)this.setProduct(m,want);}}}
     // la dotation des casernes : chaque ville qui en a une (la capitale comprise) réclame au réseau des armes de chaque sorte, leurs
@@ -340,6 +340,7 @@ export const BEEE_AI={
     // le stock de guerre : des armes de chaque sorte pour les recrues à venir, des cartouches pour ceux qui les portent, des protections
     {const share=[.32,.45,.62][Math.min(2,Math.floor(this.beeeLevel()/2))];const R=Math.max(8,Math.ceil(civ*.12),Math.ceil((civ+sold)*share-sold)),mix=this.beeeArmyMix();   // (les armes suivent l'armée VOULUE, pas un petit stock : au jour 72 les usines n'avaient plus aucun ouvrier)for(const w of this.beeeArms()){T['a:'+w]=Math.max(1,Math.ceil(R*DOCTRINE[w]));T['m:'+w]=Math.max(2,Math.ceil((mix[w]||0)*1.2+R*DOCTRINE[w]));}
       if(this.beeeStable())if(this.armorsOf?.('beee')?.some(a=>a.id==='bee_casque'))T['p:bee_casque']=Math.ceil(R*.9);if(this.beeeStable())if(this.armorsOf?.('beee')?.some(a=>a.id==='bee_plaque'))T['p:bee_plaque']=Math.ceil(R*.3);}
+    {const mw=this.fortMineWant?.();if(mw){T.mine=mw;T.explosifs=Math.max(T.explosifs||14,14+mw);}}
     this.beeeHeavyPlan(T);   // l'escalade : des armes lourdes et leurs munitions, selon le niveau de la guerre
     const D={};for(const [k,n] of Object.entries(T))D[k]=Math.max(0,Math.min(1,(n-(nat[k]||0))/n));
     // ce que les usines attendent à leur dépôt : le pays en a peut-être ailleurs, mais là où il le faut il en manque — on continue à
@@ -355,7 +356,7 @@ export const BEEE_AI={
     // chaque ville : ce qu'elle mange, ce qu'elle a (son centre et ses dépôts), en jours de réserve
     const city=new Map();for(const c of B.cities.filter(c=>!c.fallen)){const ct=this.building(c.centre);if(!ct?.done)continue;const eatD=this.cityFoodRate(ct)*24;const have=this.have('beee',ct.i+1,ct.j+1,26).vivres||0;city.set(ct.id,{eatD,have,days:have/Math.max(1,eatD)});}
     // la chaîne : un manque en aval tire sur l'amont (sauf si l'amont déborde déjà)
-    const CH={poudre:['salpetre','charbon'],pieces:['fer','bois'],charbon:['bois']};for(const k of Object.keys(T)){if(k.startsWith('m:'))CH[k]=['poudre','fer','pieces','plomb','cuivre'];else if(k.startsWith('a:'))CH[k]=['fer','pieces','bois'];else if(k.startsWith('p:'))CH[k]=['fer','pieces'];}
+    const CH={poudre:['salpetre','charbon'],pieces:['fer','bois'],charbon:['bois']};if(T.mine)CH.mine=['explosifs','fer','pieces'];if(T.explosifs)CH.explosifs=['salpetre'];for(const k of Object.keys(T)){if(k.startsWith('m:'))CH[k]=['poudre','fer','pieces','plomb','cuivre'];else if(k.startsWith('a:'))CH[k]=['fer','pieces','bois'];else if(k.startsWith('p:'))CH[k]=['fer','pieces'];}
     for(let r=0;r<3;r++)for(const [p,ins] of Object.entries(CH))for(const k of ins){const rich=(nat[k]||0)>T[k]*2;D[k]=Math.max(D[k]||0,(D[p]||0)*(rich?.15:.85));}
     // les fermes s'arrêtent quand leur dépôt a de quoi (sinon les vivres engorgent les centres des colonies, qui ne reçoivent plus rien)
     const overV=(nat.vivres||0)>T.vivres*2;for(const f of this.beeeBuildings(FOOD))f.limit=overV?600:0;

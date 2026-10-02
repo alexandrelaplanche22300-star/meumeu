@@ -151,8 +151,8 @@ export function bunkerPlan(id,rot=0){rot=((rot%4)+4)%4;const key=id+'|'+rot;let 
     else if(ch==='A')posts.push({a,c,kind:'soute',fx:0,fy:0});
     else if(facing)posts.push({a,c,kind:'tir',fx:facing[0],fy:facing[1]});
     else posts.push({a,c,kind:'abri',fx:0,fy:0});}
-  // le sens du front : la moyenne des embrasures par rapport au centre
-  let fx=0,fy=0;for(const [ea,ec] of embr){fx+=ea+.5-w/2;fy+=ec+.5-h/2;}const front=embr.length?(Math.abs(fx)>Math.abs(fy)?[Math.sign(fx),0]:[0,Math.sign(fy)]):[0,-1];
+  // le sens du front : par convention le HAUT du plan (rot 0), tourné comme le plan (un quart de tour par rotation, dans le sens des aiguilles d'une montre)
+  const front=[[0,-1],[1,0],[0,1],[-1,0]][rot];
   P={id,rot,w,h,rows,posts,doors,walls,embr,floors,guns,stores,front,at};cache.set(key,P);return P;}
 
 // le coût, les heures et la solidité se déduisent du plan : tant de béton (pierre), du fer pour les embrasures et les portes, un peu de bois (coffrages)

@@ -144,7 +144,7 @@ export const BUILDINGS={
     why:'Des canons, avec du fer. Ils portent loin et abattent les murs, les tours, les maisons.'},
   hangar:{name:'Hangar',sprite:'foundry',size:[9,7],cost:{pierre:80,bois:140,fer:60,pieces:40},hours:30,hp:1200,store:300,trains:['avion','planeur','planeur_lourd'],needsRunway:true,
     why:'À bâtir à côté d’une piste (44 cases de long, 3 de large, posées par les villageois : onglet Relier). On y construit l’avion de transport et les planeurs, qui sortent sur la piste. C’est aussi un dépôt : on y charge les caisses du pont aérien.'},
-  cale:{name:'Cale de lancement',sprite:'foundry',size:[5,3],cost:{pierre:50,bois:80,fer:25},hours:16,hp:900,trains:['barge'],coastal:true,
+  cale:{name:'Cale de lancement',sprite:'foundry',size:[5,3],cost:{pierre:50,bois:80,fer:25},hours:16,hp:900,trains:['barge','bateau_bee'],coastal:true,
     why:'À bâtir sur la plage, face à la mer : on y construit les barges de débarquement. Elles sortent à l’eau devant la cale ; chargez-les (soldats, véhicule, caisses à un dépôt voisin), puis envoyez-les sur la plage d’en face.'},
   tour:{name:'Tour',sprite:'turret',size:[2,2],cost:{pierre:50,bois:20},hours:10,hp:1000,defense:{range:11,shooters:3},
     why:'Elle tire seule sur tout Bèè à portée. Plusieurs lignes de tours derrière un mur : la défense en profondeur.'},
