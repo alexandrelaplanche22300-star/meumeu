@@ -120,6 +120,7 @@ a{color:var(--teal);cursor:pointer;text-decoration:underline;text-underline-offs
 .bb-img.line-rail{background:repeating-linear-gradient(90deg,transparent 0 9px,#6b4a2e 9px 13px),linear-gradient(transparent 38%,#9aa0a6 38% 44%,transparent 44% 56%,#9aa0a6 56% 62%,transparent 62%)}
 .bb-img.line-gomme{background:repeating-linear-gradient(90deg,transparent 0 6px,rgba(232,191,98,.8) 6px 11px) center/100% 18% no-repeat,linear-gradient(135deg,transparent 45%,#bd4b3d 45% 55%,transparent 55%),linear-gradient(45deg,transparent 45%,#bd4b3d 45% 55%,transparent 55%)}
 .bb-img.line-sacs{background:radial-gradient(ellipse 9px 5px at 25% 35%,#d2bd8a 0 70%,transparent 72%),radial-gradient(ellipse 9px 5px at 75% 35%,#c4ad78 0 70%,transparent 72%),radial-gradient(ellipse 9px 5px at 50% 70%,#b39d68 0 70%,transparent 72%);border:0}
+.bb-img.line-fosses{background:linear-gradient(#8c7150 0 18%,#2c2218 18% 100%);border:0}
 .bb-img.line-mines{background:radial-gradient(circle at 50% 50%,#d1462f 0 14%,#2b2a26 15% 38%,transparent 40%);border:0}
 .bb-img.line-mur{background:linear-gradient(#cbb893 0 30%,#9a8866 30%);background-size:22px 100%;border:0}
 /* les boutons du haut */

@@ -340,6 +340,13 @@ export class View{
     this.drawRails(i0,i1,j0,j1);
     // V12.5 : les sacs de sable — un parapet bas en relief (dessus clair, deux faces plus sombres, des rangs de sacs en quinconce) ; en pointillés tant qu'il n'est pas posé
     for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const t=W.s.sacs?.[j*N+i];if(!t)continue;const T=W.s.sacs,nb=(di,dj)=>{const o=T[(j+dj)*N+i+di];return !!o&&o.f===t.f;};
+      if(t.t==='fosses'){   // V12.5 : une fosse — le fond du trou, un parapet de terre sur les bords extérieurs (les cases voisines se raccordent en boyau), l'ombre du bord haut
+        const x0=nb(-1,0)?0:.1,x1=nb(1,0)?1:.9,y0=nb(0,-1)?0:.1,y1=nb(0,1)?1:.9,A=this.toScreen(i+x0,j+y0),B=this.toScreen(i+x1,j+y0),C=this.toScreen(i+x1,j+y1),D=this.toScreen(i+x0,j+y1);
+        ctx.save();ctx.globalAlpha=t.b?1:.5;ctx.fillStyle=t.b?'#2c2218':'#5a4733';ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.lineTo(C.x,C.y);ctx.lineTo(D.x,D.y);ctx.closePath();ctx.fill();
+        const edge=(p,q,col,w)=>{ctx.strokeStyle=col;ctx.lineWidth=Math.max(1,w*z);ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke();};
+        if(t.b){if(!nb(0,-1)){edge(A,B,'#17110c',3);}if(!nb(-1,0)){edge(D,A,'#17110c',3);}if(!nb(0,1)){edge(C,D,t.f==='beee'?'#8f775a':'#a98a5b',4.5);}if(!nb(1,0)){edge(B,C,t.f==='beee'?'#8f775a':'#a98a5b',4.5);}}
+        else{ctx.setLineDash([4*z,3*z]);ctx.strokeStyle='#e8bf62';ctx.lineWidth=Math.max(1,1.5*z);ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.lineTo(C.x,C.y);ctx.lineTo(D.x,D.y);ctx.closePath();ctx.stroke();}
+        ctx.restore();continue;}
       const hgt=(t.b?.42:.1)*TH*z,m=.08,A=this.toScreen(i+m,j+m),B=this.toScreen(i+1-m,j+m),C=this.toScreen(i+1-m,j+1-m),D=this.toScreen(i+m,j+1-m);
       const col=t.f==='beee'?['#b9b69a','#908d74','#76735d']:['#d2bd8a','#a99660','#8c7b4d'];
       ctx.save();ctx.globalAlpha=t.b?1:.45;const poly=(p,c)=>{ctx.fillStyle=c;ctx.beginPath();p.forEach((q,n)=>n?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.closePath();ctx.fill();};

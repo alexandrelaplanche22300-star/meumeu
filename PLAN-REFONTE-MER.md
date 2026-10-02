@@ -175,3 +175,11 @@ Les étapes se **chevauchent** (on continue de renforcer la ligne pendant que le
 A. Secteurs de côte + carte de menace (sans rien construire) → B. première ligne (sacs de sable, murs, fosses) par secteur → C. bunkers à mitrailleuse
 et champs de tir croisés → D. dépôts de secteur et logistique → E. couche 2 et batteries lourdes → F. garnisons, réparations, réaction à un débarquement
 → G. offensives navales et têtes de pont → H. réglage fin sur de longues parties, comparaison avec un joueur automatique qui débarque.
+
+## État (2026-10-02, nuit) — phase 4 faite
+- **4A sacs de sable**, **4B mines** (manufacture d'armes → villageois → explosent sous l'ennemi), **4C bunkers** (17 plans dans `bunkerdata.js`, `bunkers.js`, `bunker3d.js` : portes,
+  embrasures, postes de tir / pièce / soute / abri, garnison par pathfinding, béton qui arrête vue et balles, portes qui ne cèdent qu'aux charges, pose avec la touche R,
+  jamais sur le sable mouillé du bord), **4D fosses et boyaux** (même mécanisme que les sacs, meilleur couvert, bois seulement).
+- Tests : `test/sacs.mjs` (sacs + fosses), `test/mines.mjs`, `test/bunkers_plans.mjs` (17 plans × 4 orientations : étanchéité, accès, postes), `test/bunkers.mjs`.
+- Pas encore fait pour la phase 4 : panneau d'information d'un bunker sélectionné (postes occupés), explosion des mines vue en 3D, soldats « baissés » dans les fosses en 3D.
+- Prochaine étape : **phase 5, les barges de débarquement**.

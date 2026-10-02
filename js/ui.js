@@ -64,13 +64,13 @@ const view=new View($('#view'),world,{
     // la fiche du chantier s'ouvre : ce qu'il lui faut, qui y travaille, d'où viennent les matériaux
     view.sel.clear();view.selV=null;view.selB=r.b.id;
     say(`${B.name} posé${vil.length?` : ${vil.length} villageois ${view.sel.size?'y vont':'oisifs y vont d’eux-mêmes'}`:' — aucun villageois libre : choisissez-en, clic droit sur le chantier'}.`,'good');audio.play('order');renderPanel(true);return r;},
-  planLine:(kind,cells)=>{if(kind==='gomme'){let n=0;const N=world.N;for(const [i,j] of cells){const k=j*N+i;n+=world.cancelLine('meumeu','rail',k)+world.cancelLine('meumeu','mur',k)+world.cancelLine('meumeu','sacs',k);}
+  planLine:(kind,cells)=>{if(kind==='gomme'){let n=0;const N=world.N;for(const [i,j] of cells){const k=j*N+i;n+=world.cancelLine('meumeu','rail',k)+world.cancelLine('meumeu','mur',k)+world.cancelLine('meumeu','sacs',k)+world.cancelLine('meumeu','fosses',k)+world.cancelLine('meumeu','mines',k);}
       say(n?`Tracé annulé : ${n} case${n>1?'s':''} prévue${n>1?'s':''} retirée${n>1?'s':''} ; ce qui était payé revient au dépôt.`:'Aucun tracé prévu ici (seules les cases pas encore bâties s’annulent).',n?'good':'bad');renderPanel(true);return;}
     // une voie trouée ne servirait à rien : on ne la pose pas, on dit pourquoi
     if(kind==='rail'){const N=world.N;const ok=new Set(world.canLine('meumeu','rail',cells));const bad=cells.filter(([i,j])=>!ok.has(j*N+i)&&!world.rail[j*N+i]).length;
       if(bad){say(`Voie impossible : ${bad} case${bad>1?'s':''} barrée${bad>1?'s':''} (roc, eau, bâtiment, filon). Tracez vers une case libre : la voie contourne d’elle-même ce qui la gêne.`,'bad');return;}}
     const r=world.planLine('meumeu',kind,cells);if(!r.ok){say('rien à poser là','bad');return;}let vil=[...view.sel].map(id=>world.unit(id)).filter(u=>u?.k==='villageois');
-    const [i,j]=cells[0];if(!vil.length)vil=world.idle().filter(u=>Math.hypot(u.x-i,u.y-j)<45).slice(0,4);if(vil.length)world.order(vil.map(u=>u.id),{type:kind==='rail'?'rail':kind==='sacs'?'sacs':kind==='mines'?'mines':'wall',k:j*world.N+i});
+    const [i,j]=cells[0];if(!vil.length)vil=world.idle().filter(u=>Math.hypot(u.x-i,u.y-j)<45).slice(0,4);if(vil.length)world.order(vil.map(u=>u.id),{type:kind==='rail'?'rail':kind==='sacs'||kind==='fosses'?'sacs':kind==='mines'?'mines':'wall',k:j*world.N+i});
     say(`${LINES[kind].name} : ${r.n} cases en plan · ${Object.entries(r.cost).map(([k,v])=>v+' '+RES[k].name.toLowerCase()).join(', ')}, payés case par case${vil.length?` · ${vil.length} villageois y vont`:' — envoyez des villageois (clic droit sur le tracé)'}.`);},
   inspect:t=>{ui.inspect=t;},
   // à la sélection, ils répondent « meu ? » (« bè ? » si l'on clique un Bèè) ; à l'ordre, « meu ! »
@@ -106,7 +106,7 @@ function describe(t){if(!t)return null;const peace=!world.atWar;
   if(t.type==='building'){const b=world.building(t.id);const B=BUILDINGS[b.k];if(b.f==='beee')return `à l’assaut : ${B.name.toLowerCase()} bèè${peace?' — ce sera la guerre':''}`;if(!b.done)return `${b.ruin?'rebâtir':'bâtir'} : ${B.name.toLowerCase()}${b.why?' · '+b.why:''}`;
     if(b.fire>0||b.hp<b.max-1)return b.fire>0?'éteindre le feu, réparer':'réparer';if(B.hub)return `récolter autour du camp (${world.workers(b).length}/${B.workers})`;if(B.workers)return `travailler : ${B.name.toLowerCase()} (${world.workers(b).length}/${B.workers})`;if(B.airfield)return 'embarquer dans les avions';if(B.store)return 'déposer';return B.name;}
   if(t.type==='node'){const nd=world.s.nodes[t.id];return nd.type==='ore'?`extraire ${RES[nd.res].name.toLowerCase()} à la main (${n0(nd.left)})`:`${nd.type==='tree'?'couper':nd.type==='rock'?'casser':'cueillir'} (${n0(nd.left)})`;}
-  if(t.type==='rail')return 'poser la voie';if(t.type==='sacs')return world.s.sacs[t.k]?.b?'occuper les sacs de sable (soldats)':'poser les sacs de sable (villageois)';if(t.type==='wall'){const w=world.s.walls[t.k];return w?.f==='beee'?`abattre le mur${peace?' — ce sera la guerre':''}`:'bâtir le mur';}return 'aller là';}
+  if(t.type==='rail')return 'poser la voie';if(t.type==='sacs')return world.s.sacs[t.k]?.b?(world.s.sacs[t.k]?.t==='fosses'?'occuper la fosse (soldats)':'occuper les sacs de sable (soldats)'):(world.s.sacs[t.k]?.t==='fosses'?'creuser la fosse (villageois)':'poser les sacs de sable (villageois)');if(t.type==='wall'){const w=world.s.walls[t.k];return w?.f==='beee'?`abattre le mur${peace?' — ce sera la guerre':''}`:'bâtir le mur';}return 'aller là';}
 function say(text,tone=''){const h=$('#hint');h.textContent=text;h.className='hint show '+tone;clearTimeout(ui.sayT);ui.sayT=setTimeout(()=>h.className='hint',4500);}
 // La taille de l'interface (A− / A+, Ctrl + / Ctrl −). Dans l'application : un vrai zoom de page, net, les clics justes ;
 // dans un navigateur : le zoom CSS. Par défaut, calée pour que l'écran fasse ~1650 points de large quel que soit le

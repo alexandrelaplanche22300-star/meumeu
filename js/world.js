@@ -494,10 +494,10 @@ export class World{
       if(w&&!w.b){vil.forEach(u=>set(u,{kind:'line',line:'mur',x:t.k%this.N,y:(t.k/this.N)|0}));return {ok:true,text:'on bâtit le mur'};}}
     if(t.type==='sacs'){const armed=us.filter(u=>u.k!=='villageois'&&!UNITS[u.k]?.medic);
       if(armed.length){const N=this.N;const seen=new Set([t.k]),q=[t.k],cells=[];while(q.length&&cells.length<armed.length*3){const k=q.shift();if(this.s.sacs[k]?.b)cells.push(k);const i=k%N,j=(k/N)|0;for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){const kk=(j+dj)*N+i+di;if(!seen.has(kk)&&this.s.sacs[kk]){seen.add(kk);q.push(kk);}}}
-        if(!cells.length)return {ok:false,why:['les sacs de sable ne sont pas encore posés']};const step=Math.max(1,Math.floor(cells.length/armed.length));
+        if(!cells.length)return {ok:false,why:['ce n’est pas encore fait : il faut d’abord poser les sacs ou creuser la fosse']};const step=Math.max(1,Math.floor(cells.length/armed.length));
         armed.forEach((u,n)=>{const k=cells[Math.min(cells.length-1,n*step)];set(u,{kind:'guard',tx:k%N+.5,ty:((k/N)|0)+.5});u.orderPost='couche';});
-        if(!vil.length)return {ok:true,text:`${armed.length} occupent les sacs de sable`};}
-      vil.forEach(u=>set(u,{kind:'line',line:'sacs',x:t.k%this.N,y:(t.k/this.N)|0}));return {ok:true,text:'on pose les sacs de sable'};}
+        if(!vil.length)return {ok:true,text:`${armed.length} occupent ${this.s.sacs[t.k]?.t==='fosses'?'la fosse':'les sacs de sable'}`};}
+      vil.forEach(u=>set(u,{kind:'line',line:this.s.sacs[t.k]?.t||'sacs',x:t.k%this.N,y:(t.k/this.N)|0}));return {ok:true,text:this.s.sacs[t.k]?.t==='fosses'?'on creuse la fosse':'on pose les sacs de sable'};}
     if(t.type==='mines'){vil.forEach(u=>set(u,{kind:'line',line:'mines',x:t.k%this.N,y:(t.k/this.N)|0}));return {ok:true,text:'on pose les mines'};}
     if(t.type==='rail'){vil.forEach(u=>set(u,{kind:'line',line:'rail',x:t.k%this.N,y:(t.k/this.N)|0}));return {ok:true,text:`${vil.length} posent la voie`};}
     if(t.type==='node'&&this.s.nodes[t.id]?.type==='ore'&&us.some(u=>(u.charges||0)>0)){const nd=this.s.nodes[t.id];const sab=us.filter(u=>(u.charges||0)>0);
@@ -625,19 +625,19 @@ export class World{
         const c2=c+(this.rail[kk]?.4:1)+(nd!==d&&prev.get(st)!==-1?TURN:0);const st2=kk*4+nd;if(cost.has(st2)&&cost.get(st2)<=c2)continue;cost.set(st2,c2);prev.set(st2,st);push(c2+hh(kk),st2);}}
     if(end<0)return ell();const out=[];for(let st=end;st!==-1;st=prev.get(st))out.push([(st>>2)%N,((st>>2)/N)|0]);return out.reverse();}
   // annuler un tracé : toutes les cases prévues (pas encore bâties) reliées à celle-ci ; ce qui était payé revient au dépôt
-  lineStore(kind){return kind==='rail'?this.s.rails:kind==='sacs'?this.s.sacs:kind==='mines'?this.s.mines:this.s.walls;}
-  cancelLine(f,kind,k0){const N=this.N;const store=this.lineStore(kind);const o0=store[k0];if(!o0||o0.b||(kind!=='rail'&&o0.f!==f))return 0;
-    const seen=new Set([k0]),q=[k0];while(q.length){const k=q.pop();const i=k%N,j=(k/N)|0;for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){const kk=(j+dj)*N+i+di;const o=store[kk];if(!o||o.b||seen.has(kk)||(kind!=='rail'&&o.f!==f))continue;seen.add(kk);q.push(kk);}}
+  lineStore(kind){return kind==='rail'?this.s.rails:kind==='sacs'||kind==='fosses'?this.s.sacs:kind==='mines'?this.s.mines:this.s.walls;}
+  cancelLine(f,kind,k0){const N=this.N;const store=this.lineStore(kind);const o0=store[k0];if(!o0||o0.b||(kind!=='rail'&&o0.f!==f))return 0;const mine=o=>(kind!=='sacs'&&kind!=='fosses')||(o.t||'sacs')===kind;if(!mine(o0))return 0;
+    const seen=new Set([k0]),q=[k0];while(q.length){const k=q.pop();const i=k%N,j=(k/N)|0;for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){const kk=(j+dj)*N+i+di;const o=store[kk];if(!o||o.b||seen.has(kk)||(kind!=='rail'&&o.f!==f)||!mine(o))continue;seen.add(kk);q.push(kk);}}
     for(const k of seen){const o=store[k];if(o.paid){const d=this.depots(f,k%N,(k/N)|0)[0];if(d)for(const [r,v] of Object.entries(LINES[kind].cost))this.put(d,r,v);}
       delete store[k];if(kind==='rail'){this.rail[k]=0;this._rnDirty=true;}else if(kind==='mur')this.wall[k]=0;}
     for(const u of this.s.units)if(u.task?.kind==='line'&&u.task.line===kind&&seen.has(u.task.k))u.task.k=null;
     return seen.size;}
   canLine(f,kind,cells){const N=this.N;const ok=[];for(const [i,j] of cells){if(i<1||j<1||i>=N-1||j>=N-1)continue;const k=j*N+i;if(!TERRAIN[this.G.terrain[k]].build||this.occ[k]>=0)continue;
     if(kind==='rail'&&this.rail[k])continue;if(kind!=='rail'&&(this.wall[k]||this.rail[k]))continue;if(this.s.sacs[k]||this.s.mines[k])continue;if(this.nodeAt[k]>=0&&this.s.nodes[this.nodeAt[k]].type==='ore')continue;ok.push(k);}return ok;}
-  planLine(f,kind,cells){const ks=this.canLine(f,kind,cells);for(const k of ks){if(kind==='rail'){this.s.rails[k]={f,b:0,p:0,hp:LINES.rail.hp};this.rail[k]=1;}else if(kind==='mur'){this.s.walls[k]={f,b:0,p:0,hp:LINES.mur.hp};this.wall[k]=f==='meumeu'?1:-1;}else if(kind==='mines')this.s.mines[k]={f,b:0,p:0,hp:LINES.mines.hp};else this.s.sacs[k]={f,b:0,p:0,hp:LINES.sacs.hp};
+  planLine(f,kind,cells){const ks=this.canLine(f,kind,cells);for(const k of ks){if(kind==='rail'){this.s.rails[k]={f,b:0,p:0,hp:LINES.rail.hp};this.rail[k]=1;}else if(kind==='mur'){this.s.walls[k]={f,b:0,p:0,hp:LINES.mur.hp};this.wall[k]=f==='meumeu'?1:-1;}else if(kind==='mines')this.s.mines[k]={f,b:0,p:0,hp:LINES.mines.hp};else this.s.sacs[k]={f,b:0,p:0,hp:LINES[kind].hp,t:kind};
       const nd=this.nodeAt[k];if(nd>=0&&this.s.nodes[nd].type!=='ore'){this.s.nodes[nd].left=0;this.nodeAt[k]=-1;}}
     return {ok:ks.length>0,n:ks.length,cost:Object.fromEntries(Object.entries(LINES[kind].cost).map(([r,v])=>[r,v*ks.length]))};}
-  lineBuilt(kind,k){if(kind==='mur')this.wallV=(this.wallV||0)+1;if(kind==='rail'){const r=this.s.rails[k];r.b=1;r.p=1;this.rail[k]=2;this._rnDirty=true;}else if(kind==='mur'){const w=this.s.walls[k];w.b=1;w.p=1;w.hp=LINES.mur.hp*this.mod('mur');this.wall[k]=(w.f==='meumeu'?2:-2);this.repath();}else{const t=(kind==='mines'?this.s.mines:this.s.sacs)[k];t.b=1;t.p=1;}}
+  lineBuilt(kind,k){if(kind==='mur')this.wallV=(this.wallV||0)+1;if(kind==='rail'){const r=this.s.rails[k];r.b=1;r.p=1;this.rail[k]=2;this._rnDirty=true;}else if(kind==='mur'){const w=this.s.walls[k];w.b=1;w.p=1;w.hp=LINES.mur.hp*this.mod('mur');this.wall[k]=(w.f==='meumeu'?2:-2);this.repath();}else{const t=(kind==='mines'?this.s.mines:this.s.sacs)[k];t.b=1;t.p=1;}}   // (les sacs et les fosses : même magasin, t dit lequel)
   lineBroken(kind,k){if(kind==='mur')this.wallV=(this.wallV||0)+1;if(kind==='rail'){const r=this.s.rails[k];if(!r)return;r.b=0;r.p=0;r.paid=0;r.hp=LINES.rail.hp;this.rail[k]=1;r.broken=true;this._rnDirty=true;}else if(kind==='mur'){delete this.s.walls[k];this.wall[k]=0;this.repath();}else if(kind==='mines')delete this.s.mines[k];else delete this.s.sacs[k];}
   repath(){for(const u of this.s.units)u.path=null;}
   platformAt(i,j,w,h){const N=this.N;for(let a=-1;a<=w;a++)for(let c=-1;c<=h;c++){if(a>=0&&a<w&&c>=0&&c<h)continue;const ii=i+a,jj=j+c;if(ii<0||jj<0||ii>=N||jj>=N)continue;if(this.rail[jj*N+ii])return [ii,jj];}return null;}
@@ -1228,7 +1228,7 @@ export class World{
     return {gun,S,D:{zones:{bouclier:{mat:S.mat,t:S.t,eq:S.eq,kg:S.kg}}}};}
   coverFor(e,sx,sy){const dx=sx-e.x,dy=sy-e.y;const L=Math.hypot(dx,dy)||1;let best=null;
     for(const s of [.35,.6,.9]){const x=e.x+dx/L*s,y=e.y+dy/L*s;const i=Math.floor(x),j=Math.floor(y);if(i<0||j<0||i>=this.N||j>=this.N)continue;const k=j*this.N+i;
-      let c=null;const trench=this.s.sacs[k];if(trench?.b&&Math.hypot(e.x-(i+.5),e.y-(j+.5))<.8)c={kind:'sacs',h:.5,eq:6,p:.92};const w=this.wall[k];if(!c&&Math.abs(w)===3)c={kind:'porte',h:1,eq:24,p:1};else if(!c&&Math.abs(w)===2)c={kind:'mur',h:.25,eq:3*(w>0?this.mod('couvert'):1),p:.95};
+      let c=null;const trench=this.s.sacs[k];if(trench?.b&&Math.hypot(e.x-(i+.5),e.y-(j+.5))<.8)c=trench.t==='fosses'?{kind:'fosse',h:.9,eq:10,p:.9}:{kind:'sacs',h:.5,eq:6,p:.92};const w=this.wall[k];if(!c&&Math.abs(w)===3)c={kind:'porte',h:1,eq:24,p:1};else if(!c&&Math.abs(w)===2)c={kind:'mur',h:.25,eq:3*(w>0?this.mod('couvert'):1),p:.95};
       else if(!c&&this.occ[k]>=0){const b=this.bIndex.get(this.occ[k]);if(b){const BD=BUILDINGS[b.k];c=b.ruin?{kind:'ruine',h:.16,eq:2.5,p:.8}:BD.bunker?(this.emb[k]?{kind:'embrasure',h:.6,eq:BD.eq||40,p:.55}:{kind:'beton',h:1,eq:BD.eq||40,p:1}):{kind:'maison',h:.6,eq:1.2,p:1};}}
       else if(!c&&this.nodeAt[k]>=0){const nd=this.s.nodes[this.nodeAt[k]];if(nd.type==='tree'&&nd.left>0)c={kind:'arbre',h:1,eq:4,p:.35};else if(nd.type==='rock'&&nd.left>0)c={kind:'rocher',h:.12,eq:8,p:.7};}
       if(c&&(!best||c.h*c.p>best.h*best.p))best=c;}
@@ -1323,7 +1323,7 @@ export class World{
   deliverTick(u){const aff=u.dep!=null?this.building(u.dep):null;const b=aff&&this.isDepot(aff)&&this.room(aff)>=1&&(!BUILDINGS[aff.k].foodOnly||['vivres','grain','ble_moulu'].includes(u.carry?.k))?aff:this.dropAt(u);if(!b){u.anim='idle';u.why='aucun dépôt atteignable';return;}this.deliverTo(u,b);}
   deliverTo(u,b){const [w,h]=this.sizeOf(b);if(!this.go(u,b.i+w/2,b.j+h/2,[b.i,b.j,w,h]))return;const q=this.put(b,u.carry.k,u.carry.n);u.carry.n-=q;if(u.carry.n<.01)u.carry=null;if(u.task?.kind==='deposit'&&!u.carry)u.task=null;}
   lineTick(u,T0,dt){const N=this.N;const kind=T0.line;const store=this.lineStore(kind);
-    if(T0.k==null||!store[T0.k]||store[T0.k].b){let best=null,bd=14;for(const kk of Object.keys(store)){const o=store[kk];if(o.b||(kind!=='rail'&&o.f!==u.f))continue;const i=kk%N,j=(kk/N)|0;const d=d2(i,j,T0.x,T0.y)*.3+d2(i,j,u.x,u.y);if(d<bd){bd=d;best=+kk;}}
+    if(T0.k==null||!store[T0.k]||store[T0.k].b){let best=null,bd=14;for(const kk of Object.keys(store)){const o=store[kk];if(o.b||(kind!=='rail'&&o.f!==u.f)||((kind==='sacs'||kind==='fosses')&&(o.t||'sacs')!==kind))continue;const i=kk%N,j=(kk/N)|0;const d=d2(i,j,T0.x,T0.y)*.3+d2(i,j,u.x,u.y);if(d<bd){bd=d;best=+kk;}}
       // plus rien à poser : ce qui reste du sac (le plus gros) est rapporté au dépôt, à pied
       if(best==null){const L=Object.entries(T0.pack||{}).filter(([r,q])=>q>.05).sort((a,z)=>z[1]-a[1])[0];if(L&&!u.carry)u.carry={k:L[0],n:L[1]};u.task=null;return;}T0.k=best;T0.x=best%N;T0.y=(best/N)|0;u.path=null;}
     const k=T0.k,i=k%N,j=(k/N)|0;const o=store[k];const cost=LINES[kind].cost;

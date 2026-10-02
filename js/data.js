@@ -155,13 +155,14 @@ export const BUILD_CATS=[
   {k:'relier',name:'Relier',hint:'camp-dépôt gratuit d’abord, puis mine, gare et fret',items:['camp','gare','entrepot'],lines:['rail']},
   {k:'armer',name:'Armer',hint:'concevoir, fabriquer, former',items:['armurerie','manufacture','arsenal','caserne','caserne_elite','garage','fonderie','archives']},
   {k:'soigner',name:'Soigner',hint:'la chaîne des soins',items:['hopital','tente']},
-  {k:'defendre',name:'Défendre',hint:'tenir les villes',items:['tour',...BUNKER_IDS.map(bunkerKey)],lines:['sacs','mines']}];
+  {k:'defendre',name:'Défendre',hint:'tenir les villes',items:['tour',...BUNKER_IDS.map(bunkerKey)],lines:['sacs','fosses','mines']}];
 
 // Ce qui se pose case par case, en traçant : les voies ferrées, les murs. Bâti par des Meumeu, payé au dépôt le plus proche.
 export const LINES={
   rail:{name:'Voie ferrée',cost:{bois:1,pierre:.5},hours:.12,hp:60},
   mur:{name:'Mur',cost:{pierre:4},hours:.6,hp:500,block:true},
   mines:{name:'Mines',cost:{mine:1},hours:.2,hp:30},   // (V12.5) une mine par case, invisible de l'ennemi tant qu'elle n'a pas sauté près de lui
+  fosses:{name:'Fosses et boyaux',cost:{bois:.4},hours:.5,hp:260},   // (V12.5) un trou dans le sol, parapet de terre : bon couvert, on y entre et on y circule (les cases voisines forment un boyau)
   sacs:{name:'Sacs de sable',cost:{pierre:1,bois:.5},hours:.25,hp:220},   // (V12.5) un parapet bas : couvre le tireur à genou ou couché, ne gêne pas la marche
 };
 
