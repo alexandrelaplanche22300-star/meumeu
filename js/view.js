@@ -1086,7 +1086,7 @@ export class View{
       if(D.btn===1)return;
       if(D.box){const {x0,y0,x1,y1}=D.box;const [a,b]=[Math.min(x0,x1),Math.max(x0,x1)],[c,d]=[Math.min(y0,y1),Math.max(y0,y1)];if(!D.shift){this.sel.clear();this.selVs.clear();}this.selB=null;this.selV=null;
         // (les engins de combat aussi : une colonne de blindés se choisit d'un cadre)
-        for(const v of this.world.s.vehicles){if(v.f!=='meumeu'||!VEHDEF[v.k]||v.hp<=0)continue;const q=this.toScreen(v.x,v.y);if(q.x>=a&&q.x<=b&&q.y-10*this.dpr>=c&&q.y-10*this.dpr<=d)this.selVs.add(v.id);}
+        for(const v of this.world.s.vehicles){if(v.f!=='meumeu'||v.ally||!VEHDEF[v.k]||v.hp<=0)continue;const q=this.toScreen(v.x,v.y);if(q.x>=a&&q.x<=b&&q.y-10*this.dpr>=c&&q.y-10*this.dpr<=d)this.selVs.add(v.id);}
         const inBox=this.world.s.units.filter(u=>u.f==='meumeu'&&!u.ally).filter(u=>{const q=this.toScreen(u.x,u.y);return q.x>=a&&q.x<=b&&q.y-10*this.dpr>=c&&q.y-10*this.dpr<=d;});
         const mil=inBox.filter(u=>u.k!=='villageois');for(const u of (mil.length&&!D.shift?mil:inBox))this.sel.add(u.id);this.ui.changed();return;}
       if(D.moved&&D.btn!==2)return;
@@ -1098,8 +1098,8 @@ export class View{
             this.selVs.clear();if(e.detail>=2){for(const o of this.world.s.units)if(o.f==='meumeu'&&!o.ally&&o.k===u.k){const q=this.toScreen(o.x,o.y);if(q.x>0&&q.y>0&&q.x<this.canvas.width&&q.y<this.canvas.height)this.sel.add(o.id);}}}
           this.selB=null;this.selV=null;this.ui.changed();return;}
         if(u&&u.f!=='meumeu'&&this.ui.unitInfo){this.ui.unitInfo(u);return;}
-        if(v&&D.shift&&VEHDEF[v.k]&&v.f==='meumeu'){if(this.selV!=null&&this.selV!==v.id&&VEHDEF[this.world.s.vehicles.find(o=>o.id===this.selV)?.k])this.selVs.add(this.selV);this.selV=null;this.selB=null;this.selVs.has(v.id)?this.selVs.delete(v.id):this.selVs.add(v.id);this.ui.changed();return;}
-        if(v){this.sel.clear();this.selVs.clear();this.selB=null;this.selV=v.id;this.ui.changed();return;}
+        if(v&&D.shift&&VEHDEF[v.k]&&v.f==='meumeu'&&!v.ally){if(this.selV!=null&&this.selV!==v.id&&VEHDEF[this.world.s.vehicles.find(o=>o.id===this.selV)?.k])this.selVs.add(this.selV);this.selV=null;this.selB=null;this.selVs.has(v.id)?this.selVs.delete(v.id):this.selVs.add(v.id);this.ui.changed();return;}
+        if(v&&!v.ally){this.sel.clear();this.selVs.clear();this.selB=null;this.selV=v.id;this.ui.changed();return;}
         const t=this.world.targetAt(w.x,w.y);this.sel.clear();this.selVs.clear();this.selV=null;this.selB=t?.type==='building'?t.id:null;this.ui.inspect(t);this.ui.changed();return;}
       if(e.button===2){if(this.selV){this.ui.vehicleOrder(w);return;}if(this.selVs.size)this.ui.groupVehicleOrder([...this.selVs],w);if(this.selB&&!this.sel.size&&!this.selVs.size){this.ui.rally(w);return;}if(!this.sel.size)return;const t=this.world.targetAt(w.x,w.y);if(t&&e.shiftKey)t.queue=true;const r=this.ui.order([...this.sel],t);this.marks.push({x:w.x,y:w.y,age:0,bad:!r.ok});}});
     cv.addEventListener('wheel',e=>{e.preventDefault();const [sx,sy]=this.pos(e);const before=this.toWorld(sx,sy);this.zoom=Math.max(.18,Math.min(6,this.zoom*(e.deltaY<0?1.15:1/1.15)));const after=this.toWorld(sx,sy);this.cx+=before.x-after.x;this.cy+=before.y-after.y;},{passive:false});}

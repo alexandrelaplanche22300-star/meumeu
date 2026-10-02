@@ -22,7 +22,7 @@ export const AMPHI={
     const gl=Math.hypot(gx,gy)||1;const nx=-gx/gl,ny=-gy/gl;return {x:best[0],y:best[1],nx,ny,tx:-ny,ty:nx};},
   // le joueur (ou un état-major) a-t-il des troupes d'un côté de la mer et un point sur l'autre rive ?
   amphiAcross(a,b){return this.G.mode==='mer'&&(a.x<this.N/2)!==(b.x<this.N/2);},
-  amphiFreeBoats(f,x,y,r=80){const kinds=this.amphiBoatKinds(f);return this.s.vehicles.filter(v=>v.f===f&&kinds.includes(v.k)&&v.hp>0&&!v.dead&&!v.op&&d2(v.x,v.y,x,y)<r).sort((a,z)=>d2(a.x,a.y,x,y)-d2(z.x,z.y,x,y));},
+  amphiFreeBoats(f,x,y,r=80){const kinds=this.amphiBoatKinds(f);return this.s.vehicles.filter(v=>v.f===f&&!v.ally&&kinds.includes(v.k)&&v.hp>0&&!v.dead&&!v.op&&d2(v.x,v.y,x,y)<r).sort((a,z)=>d2(a.x,a.y,x,y)-d2(z.x,z.y,x,y));},
   // lancer : des troupes (unités), des barges, une plage visée. opts : ferry (revenir chercher du monde), onLanded (rappel de l'état-major)
   amphiLaunch(f,units,boats,tx,ty,opts={}){const beach=this.amphiBeach(tx,ty);if(!beach)return {ok:false,why:['pas de plage à cet endroit']};if(!boats.length)return {ok:false,why:['aucune barge libre à proximité']};if(!units.length)return {ok:false,why:['personne à embarquer']};
     const op={id:this.id(),f,state:'load',t0:this.s.t,tl:this.s.t,boats:boats.map(b=>b.id),units:units.map(u=>u.id),beach,wave:1,ferry:!!opts.ferry,maxWave:opts.maxWave||1,landed:0,lost:0,origin:Object.fromEntries(boats.map(b=>[b.id,[b.x,b.y]])),log:[]};

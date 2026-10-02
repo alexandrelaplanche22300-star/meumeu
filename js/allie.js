@@ -3,7 +3,8 @@
 // et l'allié ne touche jamais à ce qui est au joueur ni ne bâtit dans sa moitié. Il joue avec les règles du joueur (mêmes ordres, chantiers, dépôts, barges).
 //   · les villes : chacune suit son ordre de construction ; une pénurie (pièces, charbon, fer, pierre) fait bâtir son producteur d'abord ; un chantier bloqué
 //     36 h est abandonné (les matériaux reviennent) ; des villageois tant que les vivres suivent ; un moulin pour vingt-quatre bouches ;
-//   · l'expansion : une nouvelle ville près des filons de sa moitié, tous les deux jours, jusqu'à six ;
+//   · l'expansion : une nouvelle ville près des filons de sa moitié, tous les deux jours, jusqu'à six ; chacune reliée au réseau par une voie ferrée,
+//     une gare à chaque bout et un train ;
 //   · l'armée : des recrues par six à chaque caserne ; une garnison par ville, le reste en armée de campagne ; tout Bèè VU dans sa moitié (ou à ses abords)
 //     est attaqué ; deux postes de mitrailleuse sur la côte de chaque ville côtière, tenus par deux hommes ;
 //   · l'offensive : des barges bâties sur sa plage ; quand l'armée de campagne est assez forte, un débarquement sur la côte bèè (une cible reconnue,
@@ -44,7 +45,7 @@ export const ALLIE={
   allyTick(){const A=this.s.ally;if(!A)return;const t=this.s.t;if(t-(A.t??-9)<.5)return;A.t=t;const cities=this.allyCities();
     if(!cities.length){if(!A.fallen){A.fallen=true;this.log('Front','Les villes alliées sont toutes tombées.','bad');}return;}
     const us=this.allyUnits();for(const c of cities)this.allyCity(c,us,cities);
-    this.allyExpand(cities,us);this.allyArmy(cities,us);this.allyCoast(cities,us);this.allyNaval(cities,us);},
+    this.allyExpand(cities,us);this.allyRail(cities,us);this.allyArmy(cities,us);this.allyCoast(cities,us);this.allyNaval(cities,us);},
   // une ville : chantiers, pénuries, bras, croissance
   allyCity({b:C,C:S},us,cities){const t=this.s.t,[cx,cy]=[C.i+2,C.j+2],near=b=>d2(b.i,b.j,cx,cy)<40;
     const mine=k=>this.s.buildings.filter(b=>b.ally&&b.k===k&&!b.ruin&&near(b));
@@ -64,7 +65,7 @@ export const ALLIE={
     if(S.main&&mine('caserne').some(b=>b.done)&&!S.want){S.want=1;this.setWant(C,'pieces',40);this.setWant(C,'a:mle1',12);this.setWant(C,'m:mle1',12);this.setPrio?.(C,5);}
     // les bras : chantiers (trois), usines et mines (au complet), camps (quatre), puis la récolte de ce qui manque
     for(const s of sites){for(let n=V.filter(u=>u.task?.b===s.id).length;n<3&&idle.length;n++)go(idle.shift(),{type:'building',id:s.id});}
-    const enough=b=>b.k==='mine'&&(st[this.s.nodes[b.ore]?.res]||0)>600;
+    const enough=b=>b.k==='mine'&&(st[this.s.nodes[b.ore]?.res]||0)>600||b.k==='camp'&&(st.bois||0)>1500&&(st.pierre||0)>400;
     for(const b of this.s.buildings)if(b.ally&&b.done&&!b.ruin&&near(b)&&enough(b))for(const u of this.workers(b))if(u.ally){u.task=null;u.path=null;}
     // un dépôt plein à 90 % : un entrepôt de plus (une fois par jour)
     if(t>=(S.storeT||0)&&this.s.buildings.some(D=>D.ally&&D.done&&near(D)&&BUILDINGS[D.k].store&&!BUILDINGS[D.k].foodOnly&&this.stored(D)>BUILDINGS[D.k].store*.9)){S.storeT=t+24;this.allyPlace('entrepot',cx,cy);}
@@ -117,6 +118,30 @@ export const ALLIE={
       if(u.task?.kind==='guard'&&u.task.allyPost&&d2(u.task.tx,u.task.ty,tx,ty)<1)continue;u.task={kind:'guard',tx,ty,allyPost:1};u.path=null;}
     // les troupes débarquées : la cible reconnue la plus proche, sinon fouiller l'intérieur
     this.allyRaidTick(sold.filter(u=>u.allyRaid));},
+  // ---------- les chemins de fer : chaque ville est reliée au réseau allié par une voie, une gare à chaque bout, un train sur la ligne ----------
+  // (comme les Bèè : la voie part vers la ville déjà reliée la plus proche ; jusqu'à six poseurs ; une voie qui n'avance plus change d'équipe,
+  // ses dernières cases introuvables sont posées d'office ; la ligne finie, un train y roule)
+  allyRail(cities,us){const t=this.s.t,N=this.N;if(this.day<3)return;const main=cities.find(c=>c.C.main)||cities[0];
+    const near=(c,k)=>this.s.buildings.filter(b=>b.ally&&b.k===k&&!b.ruin&&d2(b.i,b.j,c.b.i,c.b.j)<26);
+    for(const c of cities){if(c===main||!c.b.done)continue;const S=c.C;
+      if(!S.railCells&&t>=(S.railTry||0)){S.railTry=t+12;const st=this.have('meumeu',c.b.i+2,c.b.j+2,60);if((st.bois||0)<100)continue;const a=[Math.round(c.b.i-6),Math.round(c.b.j-6)];
+        const hubs=cities.filter(o=>o!==c&&(o===main||o.C.railCells)).map(o=>o===main?[main.b.i-7,main.b.j-6]:o.C.railCells[0]);const z=hubs.sort((p,q)=>d2(p[0],p[1],a[0],a[1])-d2(q[0],q[1],a[0],a[1]))[0];
+        const cells=z&&this.railRoute(a[0],a[1],z[0],z[1]);if(cells?.length>1){this.planLine('meumeu','rail',cells);S.railCells=cells;S.railT=t;this.log(c.b.city||'Allié',`L’allié trace une voie ferrée de ${c.b.city||'sa ville'} à son réseau.`,'info');}}
+      if(!S.railCells)continue;const A=S.railCells[0],Z=S.railCells[S.railCells.length-1];
+      // une gare à chaque bout (au bord des rails)
+      if(!near(c,'gare').length&&t>=(S.gareT||0)){S.gareT=t+6;this.allyNeedDepot(A[0],A[1])||this.allyPlace('gare',A[0],A[1],0,6);}
+      if(!this.s.buildings.some(g=>g.ally&&g.k==='gare'&&!g.ruin&&d2(g.i,g.j,Z[0],Z[1])<10)&&t>=(S.gareZT||0)){S.gareZT=t+6;this.allyPlace('gare',Z[0],Z[1],0,6);}
+      for(const g of this.s.buildings)if(g.ally&&g.k==='gare'&&!g.done&&!g.ruin&&d2(g.i,g.j,c.b.i,c.b.j)<200){const n=us.filter(u=>u.task?.kind==='build'&&u.task.b===g.id).length;if(n<2){const V=us.filter(u=>u.k==='villageois'&&(!u.task||u.task.kind==='gather')).sort((p,q)=>d2(p.x,p.y,g.i,g.j)-d2(q.x,q.y,g.i,g.j)).slice(0,2-n);for(const u of V)this.order([u.id],{type:'building',id:g.id},true);}}
+      // les poseurs
+      const todo=S.railCells.filter(([i,j])=>this.s.rails[j*N+i]&&!this.s.rails[j*N+i].b);
+      if(todo.length){if(S.railTodo!==todo.length){S.railTodo=todo.length;S.railT=t;}
+        const layers=us.filter(u=>u.task?.kind==='line'&&u.task.line==='rail');
+        if(t-S.railT>36&&t-(S.railReset||0)>36){S.railReset=t;for(const u of layers)if(todo.some(([i,j])=>d2(i,j,u.x,u.y)<16)){u.task=null;u.path=null;}}
+        if(t-S.railT>96&&todo.length<=4){for(const [i,j] of todo){const k=j*N+i;this.s.rails[k].paid=1;this.lineBuilt('rail',k);}S.railT=t;}
+        const V=us.filter(u=>u.k==='villageois'&&(!u.task||u.task.kind==='gather'));for(let n=layers.length;n<Math.min(6,layers.length+2)&&V.length;n++){const [i,j]=todo[Math.floor(this.rand()*todo.length)];const u=V.sort((p,q)=>d2(p.x,p.y,i,j)-d2(q.x,q.y,i,j)).shift();u.task={kind:'line',line:'rail',x:i,y:j};u.path=null;u.goal=null;}}
+      // la ligne finie : un train, une fois (la gare commande ce qu'il lui faut)
+      else if(!S.trainAsked){const gz=this.s.buildings.find(g=>g.ally&&g.k==='gare'&&g.done&&!g.ruin&&d2(g.i,g.j,Z[0],Z[1])<10);if(gz){const r=this.train(gz,'train');if(r.ok){S.trainAsked=true;this.log(c.b.city||'Allié',`Un train allié roule sur la ligne de ${c.b.city||'sa ville'}.`,'info');}
+        else{gz.want??={};for(const [k,n] of Object.entries(VEHICLES.train.cost))gz.want[k]=Math.max(gz.want[k]||0,n);gz.prio=5;}}}}},
   // ---------- la côte : deux postes de mitrailleuse face à la mer pour chaque ville côtière ----------
   allyCoast(cities,us){const t=this.s.t,A=this.s.ally;if(!this.G.dcoast||t<(A.coastT??0))return;A.coastT=t+12;const dc=this.G.dcoast,N=this.N;
     const sold=us.filter(u=>u.k==='soldat'&&!u.inBarracks&&!u.inVeh&&u.amphi==null&&!u.allyRaid);
