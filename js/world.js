@@ -126,7 +126,7 @@ export class World{
     for(const nd of this.s.nodes)if(nd.left>0||nd.type==='bush'||nd.type==='ore')this.nodeAt[nd.j*N+nd.i]=nd.id;
     for(const b of this.s.buildings)this.stamp(b,b.id);
     for(const [k,r] of Object.entries(this.s.rails))this.rail[+k]=r.b?2:1;
-    this.s.trenches??={};this.s.craters??=[];this.s.groundFires??=[];for(const [k,w] of Object.entries(this.s.walls))this.wall[+k]=(w.f==='meumeu'?1:-1)*(w.b?2:1);for(const c of this.s.craters)this.stampCrater(c);
+    this.s.trenches={};for(const u of this.s.units)if(u.task?.kind==='line'&&u.task.line==='tranchee'){u.task=null;u.path=null;}   /* (V12.5, demande du joueur) plus de tranchées : celles d'une ancienne sauvegarde disparaissent */this.s.craters??=[];this.s.groundFires??=[];for(const [k,w] of Object.entries(this.s.walls))this.wall[+k]=(w.f==='meumeu'?1:-1)*(w.b?2:1);for(const c of this.s.craters)this.stampCrater(c);
     this.bIndex=new Map(this.s.buildings.map(b=>[b.id,b]));this.uIndex=new Map(this.s.units.map(u=>[u.id,u]));}
   sizeOf(b){return b.size||BUILDINGS[b.k].size;}
   // La fertilité : 0–100 par case ; ce qu'elle rend (0,12 sur la roche nue, 0,9 à 50, 1,3 à 80, 1,5 sur la terre noire).

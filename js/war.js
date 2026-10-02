@@ -156,7 +156,8 @@ export const WAR={
     (this.s.fog?0:this.log(L.name,`Contre-attaque bèè : ${pool.length} Bèè marchent sur ${L.name} pour la reprendre.`,'bad'));this.s.fog||this.emit({type:'wave',n:pool.length,x:L.x,y:L.y,from:[from.x,from.y]});},
   // Se retrancher : une ville menacée (bombardée, voisine d'une ville perdue) creuse ses tranchées, face au danger ;
   // dig 1 : une ligne ; dig 2 : un réseau — deux lignes en arc et des boyaux. Les civils creusent, le pays paie.
-  beeeFortify(cities){const B=this.s.beee;B.digT=(B.digT||0)+1;if(B.digT<3)return;B.digT=0;
+  beeeFortify(cities){return;   /* (V12.5, demande du joueur) plus de tranchées ni de fosses : les Bèè ne creusent plus */
+    const B=this.s.beee;B.digT=(B.digT||0)+1;if(B.digT<3)return;B.digT=0;
     const foes=this.s.buildings.filter(b=>b.f==='meumeu'&&!b.ruin&&typeof B.known?.[b.id]==='object'&&(b.k==='centre'||b.done));
     // la ville la plus proche de notre capitale, et toute ville à moins de 140 cases de nos bâtiments, se couvre d'une ligne dès le
     // dixième jour (quand sa garnison est là)

@@ -148,7 +148,7 @@ export const BUILD_CATS=[
   {k:'relier',name:'Relier',hint:'camp-dépôt gratuit d’abord, puis mine, gare et fret',items:['camp','gare','entrepot'],lines:['rail']},
   {k:'armer',name:'Armer',hint:'concevoir, fabriquer, former',items:['armurerie','manufacture','arsenal','caserne','caserne_elite','garage','fonderie','archives']},
   {k:'soigner',name:'Soigner',hint:'la chaîne des soins',items:['hopital','tente']},
-  {k:'defendre',name:'Défendre',hint:'tenir les villes',items:['tour'],lines:['tranchee']}];
+  {k:'defendre',name:'Défendre',hint:'tenir les villes',items:['tour']}   /* (V12.5) les tranchées retirées */];
 
 // Ce qui se pose case par case, en traçant : les voies ferrées, les murs. Bâti par des Meumeu, payé au dépôt le plus proche.
 export const LINES={
