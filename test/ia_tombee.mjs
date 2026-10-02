@@ -4,7 +4,7 @@
 const out={textContent:''};globalThis.document??={getElementById:()=>out};
 const {World}=await import('../js/world.js');
 const S0=+(process.argv[2]||11),NS=+(process.argv[3]||10);
-const T=W=>Object.values(W.s.trenches).filter(t=>t.f==='beee');
+const T=W=>Object.values(W.s.trenches||{}).filter(t=>t.f==='beee');   // (les tranchées bèè n'existent plus : 0)
 const rows=[];
 for(let seed=S0;seed<S0+NS;seed++){
   const W=new World(seed);for(let h=0;h<24*4;h++)W.update(1);

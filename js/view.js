@@ -282,6 +282,8 @@ export class View{
       for(const u of s.units)if(u.h&&inView(u.x,u.y)&&seen(u)){const lost=1-u.h.blood/BLOOD,dn=u.h.state==='hors';if(dn||lost>.06){const q=this.toScreen(u.x,u.y);this.pool(q.x,q.y,lost,z,u.id);}}
       for(const c of s.corpses)if(inView(c.x,c.y)){const a=Math.max(0,Math.min(1,1-(W.t-c.t)/(3*DAY)));if(a>0){const q=this.toScreen(c.x,c.y);ctx.save();ctx.globalAlpha=.35+.65*a;this.pool(q.x,q.y,Math.max(.3,c.bl||.3),z,Math.round(c.x*97+c.y*31));ctx.restore();}}
       for(const b of s.buildings){const [w,h]=W.sizeOf(b);if(!inView(b.i+w/2,b.j+h/2,Math.max(w,h)/2+6))continue;this.groundDecor(b,w,h,z);}
+      // en 3D, le brouillard du SOL passe sous les modèles ; les modèles prennent celui de leur propre case dans la scène (scene3d.fog)
+      if(fog)this.drawFog();g3.fog(this,fog);
       g3.setCamera(this);g3.sync(this,dt,this.vis);ctx.drawImage(g3.render(),0,0);}
     for(const it of items)it.f();
     this.drawTracks(inView);
@@ -294,7 +296,7 @@ export class View{
       const q=this.toScreen(u.x,u.y);ctx.save();ctx.globalAlpha=.7;ctx.strokeStyle=u.f==='beee'?'#ff8060':'#ffd36a';ctx.lineWidth=1.3*this.dpr;
       ctx.beginPath();ctx.ellipse(q.x,q.y,9*z,4.5*z,0,0,7);ctx.stroke();
       ctx.beginPath();ctx.moveTo(q.x,q.y-41*z);ctx.lineTo(q.x,q.y-47*z);ctx.stroke();ctx.beginPath();ctx.arc(q.x,q.y-49*z,2.6*z,0,7);ctx.fillStyle=u.f==='beee'?'#ff8060':'#ffd36a';ctx.fill();ctx.restore();}
-    if(fog)this.drawFog();
+    if(fog&&!g3)this.drawFog();
     this.drawNight();
     if(fog)this.drawIntel();else this.drawHeard();
     this.stepParts(dt);this.drawShots();this.drawStreaks(dt);this.drawParts(false);this.drawSmokes();this.drawFx(dt);this.drawLogistics();this.drawFocus();
@@ -372,6 +374,8 @@ export class View{
       if(built){ctx.fillStyle=side;for(const t of [.25,.75]){const q=this.toScreen(i+t,j+t);ctx.fillRect(q.x-3*z,q.y-hgt-5*z,6*z,5*z);}const wo=W.s.walls[k];if(wo&&wo.hp<LINES.mur.hp*.99)this.bar(c.x,c.y-hgt-10*z,22*z,wo.hp/LINES.mur.hp,'#bd4b3d');}ctx.restore();}}
   oreGlow(n){const ctx=this.ctx,z=this.z();const q=this.toScreen(n.i+.5,n.j+.5);const w=TW*1.7*z;const pulse=.5+.5*Math.sin(this.frame/3);const col=ORE_COL[n.res]||'#ffd36a';ctx.save();const g=ctx.createRadialGradient(q.x,q.y,0,q.x,q.y,w*.75);g.addColorStop(0,col);g.addColorStop(1,col+'00');ctx.globalAlpha=(.35+.25*pulse)*(n.left>0?1:.3);ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(q.x,q.y,w*.75,w*.34,0,0,7);ctx.fill();ctx.restore();}
   drawNode(n){const ctx=this.ctx,z=this.z();const q=this.toScreen(n.i+.5,n.j+.5);const W=this.world;
+    // un filon jamais vu ne montre ni son nom ni sa réserve (en 3D le brouillard ne recouvre plus les étiquettes)
+    if(n.type==='ore'&&W.s.fog!==false&&this.explored&&!this.explored[n.j*W.N+n.i])return;
     if(n.type==='ore'){const im=prop(OUTCROP[n.res]);const w=TW*1.7*z;const col=ORE_COL[n.res]||'#ffd36a';if(!this.o3)this.oreGlow(n);
       if(this.zoom>.45){const t=`${RES[n.res]?.name||n.res} · ${Math.round(n.left)}`;ctx.font=`600 ${Math.round(11*Math.min(1.6,Math.max(.8,z)))}px system-ui`;const tw=ctx.measureText(t).width;const ly=q.y-w*.62;ctx.fillStyle='rgba(12,18,22,.78)';ctx.fillRect(q.x-tw/2-5,ly-12,tw+10,16);ctx.fillStyle=col;ctx.fillRect(q.x-tw/2-5,ly-12,3,16);ctx.fillStyle='#e8eef0';ctx.textAlign='center';ctx.fillText(t,q.x+1,ly);ctx.textAlign='left';}
       if(!this.o3&&im&&!W.s.buildings.some(b=>b.ore===n.id))ctx.drawImage(im,q.x-w/2,q.y-w*.75,w,w);const ic=icon(n.res);if(ic&&this.zoom>.5)ctx.drawImage(ic,q.x-9*z,q.y-w*.9,18*z,18*z);return;}
@@ -571,7 +575,7 @@ export class View{
     const wedge=(x,y,r,fx,fy,cosMin)=>{const r2=r*r;const i0=Math.max(0,Math.floor(x-r)),i1=Math.min(N-1,Math.ceil(x+r)),j0=Math.max(0,Math.floor(y-r)),j1=Math.min(N-1,Math.ceil(y+r));for(let j=j0;j<=j1;j++){const dy=j+.5-y;for(let i=i0;i<=i1;i++){const dx=i+.5-x;const d2_=dx*dx+dy*dy;if(d2_<=r2&&(d2_<4||(dx*fx+dy*fy)/Math.sqrt(d2_)>=cosMin)){vis[j*N+i]=1;ex[j*N+i]=1;}}}};
     W.visibilityMask('meumeu',vis,ex);
     if(!this.fogCv){this.fogCv=document.createElement('canvas');}const cv=this.fogCv;if(cv.width!==N){cv.width=N;cv.height=N;this.fogImg=null;}
-    if(cv.width!==N||!this.fogImg)this.fogFilled=false;const x=cv.getContext('2d');const im=this.fogImg||(this.fogImg=x.createImageData(N,N));const d=im.data;const fy0=W.bounds?W.bounds[1]:0,fy1=W.bounds?W.bounds[3]:N;if(!this.fogFilled){for(let k=0;k<N*N;k++){d[k*4]=6;d[k*4+1]=12;d[k*4+2]=18;d[k*4+3]=232;}this.fogFilled=true;}for(let k=fy0*N;k<fy1*N;k++){const a=vis[k]?0:ex[k]?125:232;d[k*4]=6;d[k*4+1]=12;d[k*4+2]=18;d[k*4+3]=a;}x.putImageData(im,0,0);}
+    if(cv.width!==N||!this.fogImg)this.fogFilled=false;const x=cv.getContext('2d');const im=this.fogImg||(this.fogImg=x.createImageData(N,N));const d=im.data;const fy0=W.bounds?W.bounds[1]:0,fy1=W.bounds?W.bounds[3]:N;if(!this.fogFilled){for(let k=0;k<N*N;k++){d[k*4]=6;d[k*4+1]=12;d[k*4+2]=18;d[k*4+3]=232;}this.fogFilled=true;}for(let k=fy0*N;k<fy1*N;k++){const a=vis[k]?0:ex[k]?125:232;d[k*4]=6;d[k*4+1]=12;d[k*4+2]=18;d[k*4+3]=a;}x.putImageData(im,0,0);this.fogVer=(this.fogVer||0)+1;}
   // l'étiquette d'un renseignement : depuis quand
   intelTag(x,y,t0,extra){const ctx=this.ctx,W=this.world,dpr=this.dpr;const q=this.toScreen(x,y,2.2);const age=W.s.t-t0;const txt=`vu il y a ${age<1?'moins d’1 h':age<48?Math.round(age)+' h':Math.round(age/24)+' j'}${extra?' · '+extra:''}`;
     ctx.save();ctx.font=`600 ${9.5*dpr}px system-ui`;ctx.textAlign='center';const w=ctx.measureText(txt).width+8*dpr;ctx.fillStyle='rgba(10,16,22,.75)';ctx.fillRect(q.x-w/2,q.y-11*dpr,w,14*dpr);ctx.fillStyle='#cfd6da';ctx.fillText(txt,q.x,q.y);ctx.restore();}

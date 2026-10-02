@@ -68,6 +68,17 @@ const boulder=seed=>{const g=new THREE.IcosahedronGeometry(.5,1);const pos=g.att
   g.setAttribute('color',new THREE.BufferAttribute(col,3));g.computeVertexNormals();return g;};
 const TREE_KIND=name=>/fir|pine|spruce|snow/.test(name)?'conifere':/palm|banana|umbrella/.test(name)?'palmier':/dead|cypress|bamboo/.test(name)?'sec':'feuillu';
 
+// ---- le brouillard de guerre DANS la scène (V12.5) : chaque fragment prend le brouillard de SA case (la carte du brouillard, une texture N × N, lue à la
+// position monde x, z). Avant, un calque plat posé sur l'image coupait les arbres et les toits en bandes : un arbre vu dépassait dans une case cachée de l'écran.
+// Le matériau garde ses propres retouches (l'animation des peluches) : on les enchaîne, et la clé de programme les distingue.
+function fowMaterial(m,U){const prev=m.onBeforeCompile,key0=m.customProgramCacheKey();
+  m.onBeforeCompile=function(sh,r){if(prev)prev.call(this,sh,r);sh.uniforms.fowMap=U.map;sh.uniforms.fowN=U.N;sh.uniforms.fowOn=U.on;
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec2 vFow;')
+      .replace('#include <project_vertex>','#include <project_vertex>\n{vec4 fw=vec4(transformed,1.);\n#ifdef USE_INSTANCING\nfw=instanceMatrix*fw;\n#endif\nfw=modelMatrix*fw;vFow=fw.xz;}');
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec2 vFow;uniform sampler2D fowMap;uniform float fowN;uniform float fowOn;')
+      .replace('#include <dithering_fragment>','#include <dithering_fragment>\nif(fowOn>.5){float fa=texture2D(fowMap,vFow/fowN).a;gl_FragColor.rgb=mix(gl_FragColor.rgb,vec3(.024,.047,.071),fa);}');};
+  m.customProgramCacheKey=()=>key0+'|fow';m.needsUpdate=true;}
+
 // ---- un groupe d'instances (un seul dessin pour des centaines de copies)
 class Pool{
   constructor(geo,{cap=1024,anim=null,flat=true,color=true,ghost=false,base=null}={}){
@@ -113,6 +124,7 @@ export class Scene3D{
     this.hemi=new THREE.HemisphereLight(0xfcfbf7,0x9a9a90,2.0);this.scene.add(this.hemi);
     this.sun=new THREE.DirectionalLight(0xfff8ef,2.2);this.sun.castShadow=true;this.sun.shadow.mapSize.set(2048,2048);this.sun.shadow.bias=-.0008;this.sun.shadow.normalBias=.04;this.scene.add(this.sun,this.sun.target);
     const sh=new THREE.Mesh(new THREE.PlaneGeometry(4000,4000),new THREE.ShadowMaterial({opacity:.4}));sh.rotation.x=-PI/2;sh.receiveShadow=true;this.scene.add(sh);
+    this.fowU={map:{value:null},N:{value:1},on:{value:0}};this.fowMats=new WeakSet();this.fowTex=null;
     this.pools={};this.kicks=new Map();this.shellCarrier=new Map();this.guns=new Map();this.blds=new Map();this.vehs=new Map();this.yaw=new Map();this.tintMats=new Map();
     const mk=(name,opt)=>{const m=this.M[name];const p=new Pool(m.geo,{...opt,base:m.mat||null});this.scene.add(p.mesh);return p;};
     const ch=n=>({H:this.M[n].ext[1],W:this.M[n].ext[0]});
@@ -410,7 +422,15 @@ export class Scene3D{
     this.boomsTick(dtc);
     for(const k in P)P[k].end();for(const e of this.guns.values())if(e.pool)e.pool.end();
   }
-  render(){this.r.render(this.scene,this.cam);return this.cv;}
+  // la carte du brouillard de la vue (une case = un texel ; transparente = vue, mi-sombre = explorée, sombre = jamais vue), envoyée quand elle change
+  fog(view,on){const U=this.fowU,cv=view.fogCv;U.on.value=on&&cv?1:0;if(!U.on.value)return;
+    if(!this.fowTex||this.fowTex.image!==cv||this.fowW!==cv.width){this.fowTex?.dispose();const t=new THREE.CanvasTexture(cv);t.flipY=false;t.magFilter=t.minFilter=THREE.LinearFilter;t.generateMipmaps=false;
+      this.fowTex=t;this.fowW=cv.width;U.map.value=t;this.fowVer=-1;}
+    if(this.fowVer!==view.fogVer){this.fowTex.needsUpdate=true;this.fowVer=view.fogVer;}U.N.value=cv.width;}
+  // les matériaux nouveaux venus (armes conçues, bâtiments, engins) reçoivent le brouillard une fois
+  fowPatch(){this.scene.traverse(o=>{if(!o.isMesh)return;const ms=Array.isArray(o.material)?o.material:[o.material];
+    for(const m of ms)if(m&&!this.fowMats.has(m)){this.fowMats.add(m);if(m.isMeshStandardMaterial||m.isMeshLambertMaterial||m.isMeshPhongMaterial||m.isMeshBasicMaterial||m.isMeshToonMaterial)fowMaterial(m,this.fowU);}});}
+  render(){this.fowPatch();this.r.render(this.scene,this.cam);return this.cv;}
 }
 
 const treeName=(t)=>t;
