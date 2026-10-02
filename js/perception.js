@@ -28,7 +28,7 @@ export const PERCEPTION={
   visibleAt(f,x,y,sig=1){
     if(!Number.isFinite(x+y))return false;
     const look=o=>o.f===f&&active(o)&&distance(o.x,o.y,x,y)<=this.visualRange(o,x,y,sig)&&this.los(o.x,o.y,x,y);
-    if(this.near(x,y,220,look))return true;
+    if(this.nearF(x,y,220,f,look))return true;
     for(const b of this.s.buildings){if(b.f!==f||!b.done||b.ruin)continue;const [bx,by]=this.bc(b),r=BUILDINGS[b.k].defense?this.sight()*1.8:4+Math.max(...this.sizeOf(b))/2;if(distance(bx,by,x,y)<=r&&this.los(bx,by,x,y))return true;}
     for(const v of this.s.vehicles)if(v.f===f&&distance(v.x,v.y,x,y)<(v.alt>0?14:v.crew?.length?this.sight()*1.05:4)&&this.los(v.x,v.y,x,y))return true;
     return false;

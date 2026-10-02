@@ -245,7 +245,7 @@ export const WAR={
     const out=[];const ok=r.done&&P.length>5;if(ok){for(let k=14;k<P.length;k+=15)out.push([P[k][0]+.5,P[k][1]+.5]);out.push([P[P.length-1][0]+.5,P[P.length-1][1]+.5]);}
     else{const L=d2(p[0],p[1],c.x,c.y),n=Math.max(1,Math.ceil(L/15));for(let k=1;k<=n;k++)out.push(this.freeSpot(c.x+(p[0]-c.x)*k/n,c.y+(p[1]-c.y)*k/n,4));}   // pas de chemin connu : en ligne droite, étape par étape
     const back=out.slice(0,-1).reverse();back.push([c.x,c.y]);return out.concat(back);},
-  beeeGuards(c){return this.s.units.filter(u=>u.f==='beee'&&u.city===c.id&&u.task?.kind==='guard'&&active(u)&&!u.band&&!u.sentry&&!u.heavy);},
+  beeeGuards(c){return (this.beeeByCity?this.beeeByCity(c.id):this.s.units).filter(u=>u.f==='beee'&&u.city===c.id&&u.task?.kind==='guard'&&active(u)&&!u.band&&!u.sentry&&!u.heavy);},
   // La garnison : ce qu'une ville garde toujours, selon sa taille (quatre à dix soldats ; la capitale et les greniers un peu plus).
   beeeGarrisonMin(c){const ct=this.building(c.centre);if(!ct)return 0;const res=ct.done?this.cityStats(ct).res:0;const cap=c===this.s.beee.cities.find(x=>!x.fallen);
     return Math.min(10,4+Math.floor(res/10)+(cap?2:0)+(ct.granary?1:0));},

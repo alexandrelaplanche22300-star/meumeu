@@ -150,8 +150,16 @@ export class World{
   // La grille des unités (carrés de 8 cases), refaite à chaque tick : trouver ses voisins sans parcourir toute la population.
   gridBuild(){const C=8,M=Math.ceil(this.N/C);let g=this.ug;if(!g||g.M!==M)g=this.ug={M,C,cells:Array.from({length:M*M},()=>[]),used:[]};else{for(const c of g.used)c.length=0;g.used.length=0;}
     for(const u of this.s.units){if(!(u.hp>0))continue;const ci=Math.min(M-1,Math.max(0,Math.floor(u.x/C))),cj=Math.min(M-1,Math.max(0,Math.floor(u.y/C)));const c=g.cells[cj*M+ci];if(!c.length)g.used.push(c);c.push(u);}
+    // la grille par camp (mêmes carrés de 8) : chercher un ennemi ne parcourt plus ses propres camarades — mesuré à J33 (3 745 unités, 2 305 gardes bèè) :
+    // le rappel de nearestEnemy et la détection prenaient 12 % du temps à écarter des alliés
+    {const fc=g.fc??={meumeu:Array.from({length:M*M},()=>[]),beee:Array.from({length:M*M},()=>[])},fu=g.fu??={meumeu:[],beee:[]};for(const f in fu){for(const c of fu[f])c.length=0;fu[f].length=0;}
+     for(const u of this.s.units){if(!(u.hp>0))continue;const A=fc[u.f];if(!A)continue;const ci=Math.min(M-1,Math.max(0,Math.floor(u.x/C))),cj=Math.min(M-1,Math.max(0,Math.floor(u.y/C)));const c=A[cj*M+ci];if(!c.length)fu[u.f].push(c);c.push(u);}}
     // la grille fine (une case) : l'écartement entre voisins (rayon 0,3) ne parcourt plus des carrés de 8 × 8 cases bondés de monde
     const F=this.ugf??=new Map();F.clear();const N=this.N;for(const u of this.s.units){if(!(u.hp>0))continue;const k=Math.floor(u.y)*N+Math.floor(u.x);const a=F.get(k);if(a)a.push(u);else F.set(k,[u]);}}
+  // comme near, mais seulement les unités du camp f
+  nearF(x,y,r,f,fn){const g=this.ug,A=g?.fc?.[f];if(!A)return this.near(x,y,r,o=>o.f===f&&fn(o));const C=g.C,M=g.M;
+    const i0=Math.max(0,Math.floor((x-r)/C)),i1=Math.min(M-1,Math.floor((x+r)/C)),j0=Math.max(0,Math.floor((y-r)/C)),j1=Math.min(M-1,Math.floor((y+r)/C));
+    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const c=A[j*M+i];for(let k=0;k<c.length;k++)if(fn(c[k]))return c[k];}return null;}
   nearFine(x,y,r,fn){const F=this.ugf;if(!F)return this.near(x,y,r,fn);const N=this.N;for(let j=Math.floor(y-r);j<=Math.floor(y+r);j++)for(let i=Math.floor(x-r);i<=Math.floor(x+r);i++){const a=F.get(j*N+i);if(a)for(let k=0;k<a.length;k++)if(fn(a[k]))return a[k];}return null;}
   // chaque unité (vivante au début du tick) dans le carré de rayon r autour de (x,y) ; fn rend true pour s'arrêter
   near(x,y,r,fn){const g=this.ug;if(!g){for(const u of this.s.units)if(fn(u))return u;return null;}const C=g.C,M=g.M;
@@ -1118,7 +1126,7 @@ export class World{
         const sg=R/Math.max(.01,base);
         const look=o=>{if(o.f!==f||!o.tower&&!active(o))return;const d=d2(o.x,o.y,e.x,e.y);const r=this.visualRange(o,e.x,e.y,sg);if(d>r)return;
           const q=d<Math.min(o._civ&&night?1.2:2,r*.35)?0:d/r;if(q<best&&(d<2||this.los(o.x,o.y,e.x,e.y))){best=q;by=o;if(q===0)return true;}};
-        if(!this.near(e.x,e.y,Math.max(R*Math.max(1.73,gmax*1.05),R/base*40),look))for(const o of tw)if(look(o))break;
+        if(!this.nearF(e.x,e.y,Math.max(R*Math.max(1.73,gmax*1.05),R/base*40),f,look))for(const o of tw)if(look(o))break;
         const det=(e.det??={});
         if(by){const warm=(this.s.beee.alerts||[]).some(a=>f==='beee'&&t-a.t<3&&this.alertCovers(a,e.x,e.y,8))||e.spot?.[f]!=null&&t-e.spot[f]<1;
           const T=(night?.75:.14)*(.12+best)*(warm?.33:1)*(!by.tower&&(by.scoutRole||UDEF(by).scout)?.7:1)*(!by.tower&&by._civ?3:1);det[f]=best===0?1.2:Math.min(1.2,(det[f]||0)+step/Math.max(.02,T));
@@ -1138,7 +1146,7 @@ export class World{
     const hear=Math.max(4,(dB-110)/1.6),crack=W.crackDb>dB+2?Math.max(4,(W.crackDb-110)/1.6):0;const see=this.sight()*.8;
     return !this.near(e.x,e.y,Math.max(hear,crack,see)+2,o=>o!==e&&o.f===e.f&&active(o)&&this.spotted(o,u.f)&&(d2(o.x,o.y,u.x,u.y)<hear||crack&&d2(o.x,o.y,e.x,e.y)<crack*.7||d2(o.x,o.y,e.x,e.y)<see&&this.los(o.x,o.y,e.x,e.y)));}
   spotted(e,f,mem=.3){const m=e.spot?.[f];return m!=null&&this.s.t-m<=mem;}
-  nearestEnemy(u,r){let best=null,score=-Infinity;const D0=UDEF(u);this.near(u.x,u.y,r,e=>{if(e.f===u.f||!active(e))return;const d=d2(e.x,e.y,u.x,u.y);if(d>r||!this.spotted(e,u.f)||!this.los(u.x,u.y,e.x,e.y))return;
+  nearestEnemy(u,r){let best=null,score=-Infinity;const D0=UDEF(u);this.nearF(u.x,u.y,r,u.f==='meumeu'?'beee':'meumeu',e=>{if(e.f===u.f||!active(e))return;const d=d2(e.x,e.y,u.x,u.y);if(d>r||!this.spotted(e,u.f)||!this.los(u.x,u.y,e.x,e.y))return;
       const armed=!!(e.w||UDEF(e).img),reach=d<=this.engageRange(u),threat=(armed?4:0)+(e.task?.kind==='attack'||e.task?.kind==='assault'?2:0)
         +(D0.sniper?(e.serve?4:0)+(e.w&&this.W(e.w).crew>1?5:0)+(UDEF(e).scout?3:0)+(UDEF(e).medic?2:0)+(e.k==='commando'?2:0):0);
       // un vrai feu se répartit : une cible déjà prise à partie par des camarades vaut moins ; chacun préfère ce qu'il a devant lui

@@ -47,14 +47,15 @@ export const STRATEGY={
   // La mobilisation d'une ville : ses soldats en ronde ou en fouille, et la place qu'il lui reste avant le plafond (40 % de la garnison,
   // 60 % face à un danger avéré). Les éclaireurs de campagne comptent aussi : ils quittent la ville.
   // (la reconnaissance lointaine — task.recon — ne compte pas dans les sorties de la ville et n'est jamais rappelée : c'est la mission de l'état-major)
-  beeeOut(c){return this.s.units.filter(u=>u.f==='beee'&&u.city===c.id&&alive(u)&&!u.band&&!u.task?.recon&&(u.task?.kind==='patrol'||u.task?.kind==='search')).length;},
+  beeeByCity(id){if(this._bcT!==this.s.t||this._bcN!==this.s.units.length){this._bcT=this.s.t;this._bcN=this.s.units.length;const M=this._bc??=new Map();for(const a of M.values())a.length=0;for(const u of this.s.units){if(u.f!=='beee'||u.city==null)continue;let a=M.get(u.city);if(!a)M.set(u.city,a=[]);a.push(u);}}return this._bc.get(id)||[];},
+  beeeOut(c){return this.beeeByCity(c.id).filter(u=>u.f==='beee'&&u.city===c.id&&alive(u)&&!u.band&&!u.task?.recon&&(u.task?.kind==='patrol'||u.task?.kind==='search')).length;},
   // la bande de défense de la ville compte aussi : ses membres sont dehors et dans le total
   // (comptés par ville d'ORIGINE : un renfort venu d'une voisine pèse sur le plafond de sa ville, pas sur celui de la ville défendue)
   beeeBandOut(c){return (this.s.beee.bands||[]).filter(b=>b.kind==='defense').reduce((n,b)=>n+b.m.filter(id=>{const u=this.unit(id);return u&&alive(u)&&u.from===c.id;}).length,0);},
   // les soldats de la ville engagés localement face à un intrus (assault) : ils comptent parmi les sorties
-  beeeEngaged(c){return this.s.units.filter(u=>u.f==='beee'&&u.k==='soldat'&&u.city===c.id&&alive(u)&&!u.band&&u.task?.kind==='assault').length;},
+  beeeEngaged(c){return this.beeeByCity(c.id).filter(u=>u.f==='beee'&&u.k==='soldat'&&u.city===c.id&&alive(u)&&!u.band&&u.task?.kind==='assault').length;},
   // la garnison sert de base au plafond : gardes, rondes, fouilles ET soldats engagés localement (assault), plus la bande de défense
-  beeeAll(c){return this.s.units.filter(u=>u.f==='beee'&&u.k==='soldat'&&u.city===c.id&&alive(u)&&!u.band&&['guard','patrol','search','assault'].includes(u.task?.kind)).length;},
+  beeeAll(c){return this.beeeByCity(c.id).filter(u=>u.f==='beee'&&u.k==='soldat'&&u.city===c.id&&alive(u)&&!u.band&&['guard','patrol','search','assault'].includes(u.task?.kind)).length;},
   beeeCap(c,danger=false){const n=this.beeeAll(c)+this.beeeBandOut(c),reserve=Math.max(2,Math.ceil(this.beeeGarrisonMin(c)/2));return Math.max(0,Math.min(Math.floor(n*(danger?.6:.4)),n-reserve));},
   beeeRoom(c,danger=false){return Math.max(0,this.beeeCap(c,danger)-this.beeeOut(c)-this.beeeBandOut(c)-this.beeeEngaged(c));},
   // Le rappel : si la garnison a fondu (une offensive est partie, des pertes) les sorties au-delà du plafond rentrent, une par veille, en
