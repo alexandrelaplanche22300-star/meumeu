@@ -63,7 +63,8 @@ export const BEEE_FORT={
     // --- tier 2 : des bunkers entre les premiers (champs de tir croisés), la fosse-boyau qui les relie, les mines de la bande mouillée
     for(let q=0;q<nB;q++){const s=sec.smin+(q+1)*span/nB;if(s>sec.smax-4)continue;const p=this.fortPoint(sec,s,14);if(p)el.push({key:key(),tier:2,kind:'bunker',type:FORT_KIT.line1[(q+3)%FORT_KIT.line1.length],x:p[0],y:p[1],rot,s});}
     {const cells=[];for(let s=sec.smin;s<=sec.smax;s+=1){const p=this.fortPoint(sec,s,10);if(p)cells.push([Math.floor(p[0]),Math.floor(p[1])]);}if(cells.length>10)el.push({key:key(),tier:2,kind:'line',line:'fosses',cells:this.fortUniq(cells)});}
-    for(let band=0;band<2;band++){const cells=[];for(let s=sec.smin;s<=sec.smax;s+=2)for(const d of band?[4,6]:[3,5]){const p=this.fortPoint(sec,s+(d%2?0:1),d);if(p)cells.push([Math.floor(p[0]),Math.floor(p[1])]);}const u=this.fortUniq(cells);if(u.length>8)el.push({key:key(),tier:2+band,kind:'mines',cells:u});}
+    if(false)for(let band=0;band<2;band++){const cells=[];   // (les mines : retirées du plan bèè, demande du joueur — trop complexe pour ce qu'elles apportent)
+for(let s=sec.smin;s<=sec.smax;s+=2)for(const d of band?[4,6]:[3,5]){const p=this.fortPoint(sec,s+(d%2?0:1),d);if(p)cells.push([Math.floor(p[0]),Math.floor(p[1])]);}const u=this.fortUniq(cells);if(u.length>8)el.push({key:key(),tier:2+band,kind:'mines',cells:u});}
     // --- tier 3 : la défense en profondeur
     for(let q=0;q<Math.max(1,Math.floor(span/48));q++){const s=sec.smin+(q+.5)*span/Math.max(1,Math.floor(span/48));const p=this.fortPoint(sec,s,40);if(p)el.push({key:key(),tier:3,kind:'bunker',type:FORT_KIT.line2[q%FORT_KIT.line2.length],x:p[0],y:p[1],rot,s});}
     for(const e of [-1,1]){const p=this.fortPoint(sec,e<0?sec.smin+2:sec.smax-2,22);if(p)el.push({key:key(),tier:3,kind:'bunker',type:FORT_KIT.obs,x:p[0],y:p[1],rot,s:e});}
@@ -97,31 +98,56 @@ export const BEEE_FORT={
     const base=cities.length>=4&&this.day>=(BEEE_FORT_DAY)&&['caserne','arsenal','manufacture'].every(k=>this.beeeBuildings(k).some(b=>b.done));   // (pas de verrou sur la réserve de vivres : elle oscille autour de 0,6 sans famine et bloquait tout jusqu'au jour 15)
     F.on=base;this.fortMaintain();if(!base)return;
     this.fortThreatTick();const secs=this.fortSectors().slice();secs.sort((a,z)=>this.fortScore(z)-this.fortScore(a));
-    const tierMax=this.fortTierAllowed(),nat=plan.nat;const reserve={pierre:130,fer:60,bois:110,pieces:40,mine:0};
+    const tierMax=Math.min(4,this.fortTierAllowed()+1),nat=plan.nat;const reserve={pierre:130,fer:60,bois:110,pieces:40,mine:0};
     // ce qui est en cours (éléments posés, pas finis)
     let open=0;const perSec=new Map();for(const sec of secs){if(!sec.el)continue;let n=0;for(const el of sec.el){if(!el.placed)continue;if(this.fortLost(el)){el.placed=false;el.pid=null;continue;}if(!this.fortDone(el)){n++;open++;}}perSec.set(sec.id,n);}
-    const maxConc=Math.min(10,2+Math.floor(cities.length/3)+Math.floor(this.beeeLevel()/2));let started=0;
+    const maxConc=Math.min(30,6+Math.floor(cities.length/2)+this.beeeLevel()*2);let started=0;
     for(const sec of secs.slice(0,6+Math.floor(cities.length/2))){if(open+started>=maxConc)break;const els=this.fortPlan(sec);if(!els.length)continue;
       const tierHere=Math.min(4,tierMax+(sec.threat>3?1:0));let secOpen=perSec.get(sec.id)||0;
-      for(let tier=1;tier<=tierHere&&open+started<maxConc&&secOpen<(sec.threat>3?3:2);tier++){
+      for(let tier=1;tier<=tierHere&&open+started<maxConc&&secOpen<(sec.threat>3?6:4);tier++){
         const prev=els.filter(e=>e.tier===tier-1&&!e.failed),prevDone=prev.filter(e=>this.fortDone(e)).length;if(tier>1&&prev.length&&prevDone<prev.length*.7)break;
         const campEl=els.find(e=>e.kind==='camp'),campOk=!campEl||campEl.placed&&this.fortDone(campEl);
-        for(const el of els){if(el.tier!==tier||el.placed||el.failed||(el.retryT||0)>t)continue;if(el.kind!=='camp'&&!campOk)continue;if(open+started>=maxConc||secOpen>=(sec.threat>3?3:2))break;
+        for(const el of els){if(el.tier!==tier||el.placed||el.failed||(el.retryT||0)>t)continue;if(el.kind!=='camp'&&!campOk)continue;if(open+started>=maxConc||secOpen>=(sec.threat>3?6:4))break;
           // un camp avant tout : sans dépôt à moins de 36 cases, rien ne se bâtit
           const cost=this.fortCost(el);let afford=true;for(const [k,n] of Object.entries(cost))if((nat[k]||0)<n*.45+(reserve[k]||0)){afford=false;break;}if(!afford){el.retryT=t+6;continue;}
           if(this.fortPlace(el,sec)){started++;secOpen++;F.count++;}else{el.fails=(el.fails||0)+1;el.retryT=t+10+el.fails*6;if(el.fails>=4)el.failed=true;}}}}
     // les ouvrages détruits ou en ruine reprennent par les réparations (voir beeeLabour) ; les lignes dont des cases ont sauté sont retracées une fois par jour
     if(t-(F.relayT||0)>24){F.relayT=t;for(const sec of secs){if(!sec.el)continue;for(const el of sec.el){if(!el.placed||(el.kind!=='line'&&el.kind!=='mines'))continue;const store=this.lineStore(el.kind==='mines'?'mines':el.line);if(!el.keys.some(k=>!store[k])||!this.fortDone(el)&&el.keys.some(k=>store[k]))continue;
         if(el.keys.every(k=>!store[k]||store[k].b)&&el.keys.some(k=>!store[k])){const r=this.planLine('beee',el.kind==='mines'?'mines':el.line,el.cells);if(r.n){el.keys=this.fortKeys(el.cells);this.fortWorkers(el);}}}}}
-    this.fortGarrison();},
+    this.fortGarrison();this.fortArm();},
   // les chantiers en cours gardent leurs ouvriers : deux bâtisseurs par ouvrage, trois poseurs par ligne (ils viennent des villes voisines)
   fortMaintain(){for(const sec of this._fsec||[]){if(!sec.el)continue;for(const el of sec.el){if(!el.placed)continue;if(this.fortLost(el)){el.placed=false;el.pid=null;continue;}if(this.fortDone(el))continue;
-      if(el.kind==='bunker'||el.kind==='camp'){const b=this.building(el.pid);const have=this.s.units.filter(u=>u.task?.b===b.id&&u.task.kind==='build').length;for(const u of this.beeeAvailable(b.i,b.j,600).slice(0,Math.max(0,2-have)))this.beeeAssign(u,{kind:'build',b:b.id});}
+      if(el.kind==='bunker'||el.kind==='camp'){const b=this.building(el.pid);const have=this.s.units.filter(u=>u.task?.b===b.id&&u.task.kind==='build').length;for(const u of this.beeeAvailable(b.i,b.j,600).slice(0,Math.max(0,4-have)))this.beeeAssign(u,{kind:'build',b:b.id});}
       else this.fortWorkers(el);}this.fortSupply(sec);}},
   // le dépôt d'un secteur réclame au fret ce que demandent ses lignes en cours (les ouvrages ont leur propre commande de chantier)
   fortSupply(sec){const campEl=sec.el?.find(e=>e.kind==='camp');const camp=campEl?.placed&&this.building(campEl.pid);if(!camp?.done)return;const want={pierre:30,bois:20};
     for(const el of sec.el){if(!el.placed||this.fortDone(el)||(el.kind!=='line'&&el.kind!=='mines'))continue;const st=this.lineStore(el.kind==='mines'?'mines':el.line);const left=el.keys.filter(k=>st[k]&&!st[k].b).length;const c=LINES[el.kind==='mines'?'mines':el.line].cost;for(const [k,v] of Object.entries(c))want[k]=(want[k]||0)+Math.min(80,v*left);}
     camp.want=want;camp.prio=6;},
+  // ---------- l'armement des ouvrages ----------
+  // l'emplacement de pièce d'un Tobrouk reçoit une mitrailleuse lourde ; celui d'une casemate, d'une fosse ou d'une batterie un canon ; dans les blockhaus, les premiers postes de
+  // tir (selon le type) reçoivent un fusil-mitrailleur ; une arme servie a ses servants (les camarades de l'ouvrage, à la case voisine de la pièce)
+  fortHeavyOf(type){return {tobrouk:'bee_mg_lourde',tobrouk_double:'bee_mg_lourde',fosse_mortier:'bee_canon',casemate_canon:'bee_canon',casemate_lourde:'bee_canon',batterie:'bee_canon'}[type]||null;},
+  fortMgPosts(type){return {poste_mg:2,double_mg:2,blockhaus_s:1,blockhaus_m:2,blockhaus_l:3,fortin:4,blockhaus_rond:2,blockhaus_l_coin:2,poste_commandement:1}[type]||0;},
+  // ce que les ouvrages (finis ou en chantier) réclament en armes : {id: nombre}
+  fortArmsWant(){const out={};if(!this.fortActive?.())return out;for(const b of this.s.buildings){if(b.f!=='beee'||b.ruin)continue;const id=BUILDINGS[b.k]?.bunker;if(!id)continue;
+      const H=this.fortHeavyOf(id);const P=this.bunkerPlanOf(b);if(H){const n=P.posts.filter(p=>p.kind==='gun').length;const armed=this.fortArmedCount(b,H);out[H]=(out[H]||0)+Math.max(0,n-armed);}
+      const m=this.fortMgPosts(id);if(m){out.bee_mg=(out.bee_mg||0)+Math.max(0,m-this.fortArmedCount(b,'bee_mg'));}}
+    return out;},
+  fortArmedCount(b,w){const o=b.occ||{};let n=0;for(const id of Object.values(o)){const u=this.unit(id);if(u&&u.w===w)n++;}return n;},
+  // changer l'arme d'un Bèè : l'ancienne rendue au dépôt le plus proche, la nouvelle prise dans les dépôts (jusqu'à 450 cases : un convoi la porte), avec ses munitions
+  fortRearm(u,w,x,y){const W=this.W(w);if(!W||u.w===w)return false;const got=this.take('beee',x,y,'a:'+w,1,450);if(got<1)return false;
+    const D=this.depots('beee',x,y,450)[0];if(D&&u.w){this.put(D,'a:'+u.w,1);const Wo=this.W(u.w);const back=((u.mag||0)+(u.pouch||0))/Math.max(1,Wo?.perCrate||1);if(back>0)this.put(D,'m:'+u.w,back);}
+    u.w=w;u.mag=0;u.pouch=0;const crates=this.take('beee',x,y,'m:'+w,Math.max(.2,W.carry/Math.max(1,W.perCrate)),450);const rounds=Math.floor(crates*W.perCrate+1e-6);u.mag=Math.min(W.p.mag,rounds);u.pouch=Math.max(0,rounds-u.mag);u.heavy=W.crew>1;return true;},
+  fortArm(){const t=this.s.t,F=this.s.beee.fort;if(!F||t-(F.armT||-99)<4)return;F.armT=t;
+    for(const b of this.s.buildings){if(b.f!=='beee'||!b.done||b.ruin)continue;const id=BUILDINGS[b.k]?.bunker;if(!id)continue;const occ=this.bunkerOcc(b);const posts=this.bunkerPosts(b);const [bx,by]=[b.i+1,b.j+1];
+      const H=this.fortHeavyOf(id);
+      if(H){const W=this.W(H);for(const p of posts.filter(p=>p.kind==='gun')){const u=this.unit(occ[p.k]);if(!u)continue;if(u.w!==H&&!this.fortRearm(u,H,bx,by))continue;
+          // les servants : les autres occupants de l'ouvrage (hors pièces), postés à côté de la pièce
+          const need=Math.max(0,(W.crew||1)-1),have=this.s.units.filter(o=>o.serve===u.id&&o.hp>0).length;if(have>=need)continue;
+          const mates=Object.values(occ).map(i=>this.unit(i)).filter(o=>o&&o!==u&&o.serve==null&&!(o.w&&this.W(o.w)?.crew>1)).sort((a,z)=>Math.hypot(a.x-u.x,a.y-u.y)-Math.hypot(z.x-u.x,z.y-u.y)).slice(0,need-have);
+          const P=this.bunkerPlanOf(b);const side=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]].map(([dx,dy])=>[p.i+dx,p.j+dy]).filter(([i,j])=>{const ch=P.at(i-b.i,j-b.j);return '.oA'.includes(ch);});
+          mates.forEach((o,n)=>{o.serve=u.id;o.servant=true;const c=side[n%Math.max(1,side.length)];if(c&&o.task){o.task.tx=c[0]+.5;o.task.ty=c[1]+.5;o.path=null;o.goal=null;}});}}
+      const m=this.fortMgPosts(id);if(m){let have=this.fortArmedCount(b,'bee_mg');for(const p of posts.filter(p=>p.kind==='tir')){if(have>=m)break;const u=this.unit(occ[p.k]);if(!u||u.w==='bee_mg'||u.serve!=null)continue;if(this.fortRearm(u,'bee_mg',bx,by))have++;}}}},
   fortKeys(cells){return cells.map(([i,j])=>j*this.N+i);},
   // pose un élément : un bâtiment (au plus près de l'endroit voulu, tourné vers la mer) ou une ligne ; les bâtisseurs de la ville voisine y vont
   fortPlace(el,sec){const t=this.s.t;
@@ -136,7 +162,7 @@ export const BEEE_FORT={
   // des poseurs pour une ligne : trois villageois, qui y vont chercher leurs matériaux au dépôt du secteur
   fortWorkers(el){const kind=el.kind==='mines'?'mines':el.line,store=this.lineStore(kind);const todo=el.cells.filter(([i,j])=>{const o=store[j*this.N+i];return o&&!o.b;});if(!todo.length)return;
     const [i0,j0]=todo[Math.floor(todo.length/2)];const busy=this.s.units.filter(u=>u.f==='beee'&&u.task?.kind==='line'&&u.task.line===kind&&todo.some(([i,j])=>dist(i,j,u.x,u.y)<40)).length;
-    for(let n=busy;n<3;n++){const u=this.beeeAvailable(i0,j0,600)[0];if(!u)break;const [ci,cj]=todo[Math.floor((n+.5)*todo.length/3)]||todo[0];this.beeeAssign(u,{kind:'line',line:kind,x:ci,y:cj,k:cj*this.N+ci});}},
+    for(let n=busy;n<5;n++){const u=this.beeeAvailable(i0,j0,600)[0];if(!u)break;const [ci,cj]=todo[Math.floor((n+.5)*todo.length/5)]||todo[0];this.beeeAssign(u,{kind:'line',line:kind,x:ci,y:cj,k:cj*this.N+ci});}},
   // ---------- la garnison ----------
   // les ouvrages terminés reçoivent leurs hommes : un par poste de tir, un par emplacement de pièce, un à la soute ; ils viennent des gardes des villes voisines
   fortGarrison(){const t=this.s.t,B=this.s.beee,F=B.fort;if(t-(F.gT||-99)<3)return;F.gT=t;let need=0,given=0;
@@ -150,7 +176,7 @@ export const BEEE_FORT={
   // des soldats en plus pour tenir les ouvrages (voir les renforts de beeeTick)
   fortNeed(){return this.s.beee.fort?.need||0;},
   // la demande de mines de la fabrication : tant qu'un champ de mines est prévu ou en cours, la manufacture en fait
-  fortMineWant(){const F=this.s.beee.fort;if(!F?.on)return 0;let w=0;for(const sec of this._fsec||[]){if(!sec.el)continue;for(const el of sec.el)if(el.kind==='mines'&&!el.failed&&!this.fortDone(el))w+=Math.min(40,el.cells.length);}return Math.min(70,w);},
+  fortMineWant(){return 0;const F=this.s.beee.fort;if(!F?.on)return 0;let w=0;for(const sec of this._fsec||[]){if(!sec.el)continue;for(const el of sec.el)if(el.kind==='mines'&&!el.failed&&!this.fortDone(el))w+=Math.min(40,el.cells.length);}return Math.min(70,w);},
   // un bilan (pour les tests et le journal)
   fortStats(){const out={sectors:0,open:0,bunkers:{},lines:{sacs:0,fosses:0,mines:0},total:0,garrison:0,posts:0};for(const sec of this._fsec||[]){if(!sec.el)continue;out.sectors++;let any=false;
       for(const el of sec.el){if(!el.placed)continue;any=true;if(el.kind==='bunker'&&this.fortDone(el)){out.bunkers[el.type]=(out.bunkers[el.type]||0)+1;out.total++;}else if(el.kind==='line'||el.kind==='mines'){const st=this.lineStore(el.kind==='mines'?'mines':el.line);const n=el.keys.filter(k=>st[k]?.b).length;out.lines[el.kind==='mines'?'mines':el.line]+=n;}}

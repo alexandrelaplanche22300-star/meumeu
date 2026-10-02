@@ -143,14 +143,14 @@ export const BEEE_AI={
     // les usines chimiques : la poudre d'abord (les cartouches en dépendent) ; une seule fait des explosifs — pour les charges de
     // démolition de leurs saboteurs, rien d'autre (pas de grenades) : lents (le salpêtre seul, neuf heures), et seulement quand la
     // poudre dépasse ce qu'il faut
-    {const P=this.beeeBuildings('poudrerie').filter(b=>b.done);const ex=(plan.nat.explosifs||0)<(plan.T.explosifs||14)&&(plan.nat.poudre||0)>=(plan.T.poudre||30)*1.2;
+    {const P=this.beeeBuildings('poudrerie').filter(b=>b.done);const ex=(plan.nat.explosifs||0)<(plan.T.explosifs||14)&&((plan.nat.poudre||0)>=(plan.T.poudre||30)*1.2||(this.fortMineWant?.()||0)>0&&(plan.nat.poudre||0)>=(plan.T.poudre||30)*.5);
       P.forEach((b,i)=>{const want=ex&&i>=P.length-Math.max(1,Math.floor(P.length/3))&&(P.length>1||(plan.nat.poudre||0)>(plan.T.poudre||30)*2)?'explosifs':'poudre';if(b.prod!==want)this.setProduct(b,want);});}
     // l'armurerie : chaque manufacture fabrique ce qui manque le plus au stock de guerre (les armes de la doctrine pour les recrues
     // à venir, les casques, les plastrons), chaque arsenal les cartouches les plus en retard ; on ne change pas de fabrication pour
     // un rien (un lot commencé serait démonté)
     // (le fusil d'abord tant que l'armée est trop petite pour ses garnisons ; les protections après les armes ; jamais ce que le pays
     // ne peut pas fabriquer faute de matière — un fusil à lunette sans cuivre bloquait toute la manufacture)
-    {const T=plan.T,short=plan.sold<plan.pop*.3;const heavyK=new Set(this.beeeHeavyWants().flatMap(w=>['a:'+w.id,'m:'+w.id]));const wt=k=>k==='a:bee_fusil'||k==='m:bee_fusil'?(short?3:1.2):heavyK.has(k)?.9:k.startsWith('p:')?(short?.3:.6):short?.35:1;   // les armes lourdes voulues par l'escalade passent devant les autres armes, jamais devant le fusil
+    {const T=plan.T,short=plan.sold<plan.pop*.3;const heavyK=new Set([...this.beeeHeavyWants().flatMap(w=>['a:'+w.id,'m:'+w.id]),...Object.keys(this.fortArmsWant?.()||{}).flatMap(w=>['a:'+w,'m:'+w])]);const wt=k=>k==='a:bee_fusil'||k==='m:bee_fusil'?(short?3:1.2):heavyK.has(k)?.9:k.startsWith('p:')?(short?.3:.6):short?.35:1;   // les armes lourdes voulues par l'escalade passent devant les autres armes, jamais devant le fusil
       const need=k=>Math.max(0,(T[k]||0)-(plan.nat[k]||0))/Math.max(1,T[k]||1)*wt(k);
       const can=(m,k)=>{const R=this.recipe(m,k);return !!R&&Object.entries(R.in||{}).every(([r,n])=>(plan.nat[r]||0)>=Math.max(n*6,4));};
       for(const [kind,pre] of [['manufacture',/^([ap]:|mine$)/],['arsenal',/^m:/]]){const L=Object.keys(T).filter(k=>pre.test(k)).sort((a,z)=>need(z)-need(a));const taken=new Set();
@@ -340,6 +340,7 @@ export const BEEE_AI={
     // le stock de guerre : des armes de chaque sorte pour les recrues à venir, des cartouches pour ceux qui les portent, des protections
     {const share=[.32,.45,.62][Math.min(2,Math.floor(this.beeeLevel()/2))];const R=Math.max(8,Math.ceil(civ*.12),Math.ceil((civ+sold)*share-sold)),mix=this.beeeArmyMix();   // (les armes suivent l'armée VOULUE, pas un petit stock : au jour 72 les usines n'avaient plus aucun ouvrier)for(const w of this.beeeArms()){T['a:'+w]=Math.max(1,Math.ceil(R*DOCTRINE[w]));T['m:'+w]=Math.max(2,Math.ceil((mix[w]||0)*1.2+R*DOCTRINE[w]));}
       if(this.beeeStable())if(this.armorsOf?.('beee')?.some(a=>a.id==='bee_casque'))T['p:bee_casque']=Math.ceil(R*.9);if(this.beeeStable())if(this.armorsOf?.('beee')?.some(a=>a.id==='bee_plaque'))T['p:bee_plaque']=Math.ceil(R*.3);}
+    {const AW=this.fortArmsWant?.()||{};for(const [w,n] of Object.entries(AW)){if(!n||!this.design(w))continue;const Wd=this.W(w);T['a:'+w]=Math.max(T['a:'+w]||0,Math.min(12,n));T['m:'+w]=Math.max(T['m:'+w]||0,Math.ceil(Math.min(12,n)*Wd.carry/Math.max(1,Wd.perCrate))+2);}}
     {const mw=this.fortMineWant?.();if(mw){T.mine=mw;T.explosifs=Math.max(T.explosifs||14,14+mw);}}
     this.beeeHeavyPlan(T);   // l'escalade : des armes lourdes et leurs munitions, selon le niveau de la guerre
     const D={};for(const [k,n] of Object.entries(T))D[k]=Math.max(0,Math.min(1,(n-(nat[k]||0))/n));
