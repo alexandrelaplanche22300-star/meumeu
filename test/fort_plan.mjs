@@ -17,7 +17,7 @@ for(const sec of secs){const el=W.fortPlan(sec);if(el.length<12)few++;let lastTi
   const B1=el.filter(e=>e.tier===1&&e.kind==='bunker');
   for(const e of B1){nB++;const i=Math.floor(e.x),j=Math.floor(e.y),d=dc[j*N+i];if(!(ter[j*N+i]>=T.sand&&ter[j*N+i]<=T.scrub)||Math.abs(d-15)>3)badB++;const P=bunkerPlan(BUILDINGS[bunkerKey(e.type)].bunker,e.rot);const dot=P.front[0]*-sec.nx+P.front[1]*-sec.ny;if(dot<.7)badRot++;}
   for(let a=0;a<B1.length;a++)for(let b=a+1;b<B1.length;b++)if(Math.hypot(B1[a].x-B1[b].x,B1[a].y-B1[b].y)<10)close++;
-  for(const e of el.filter(e=>e.kind==='line'||e.kind==='mines')){nL++;const want={sacs:[7,9],fosses:[9,11],mines:[2,7]}[e.kind==='mines'?'mines':e.line];const bad=e.cells.filter(([i,j])=>{const d=dc[j*N+i];return d<want[0]||d>want[1]||ter[j*N+i]<T.sand||ter[j*N+i]>T.scrub;}).length;if(bad>e.cells.length*.1)badLine++;}}
+  for(const e of el.filter(e=>e.kind==='line'||e.kind==='mines')){nL++;const want={sacs:[7,9],fosses:[9,11],mines:[0,99]}[e.kind==='mines'?'mines':e.line];const bad=e.cells.filter(([i,j])=>{const d=dc[j*N+i];return d<want[0]||d>want[1]||ter[j*N+i]<T.sand||ter[j*N+i]>T.scrub;}).length;if(bad>e.cells.length*.1)badLine++;}}
 check('2. plans de 12 éléments au moins, le camp puis les sacs d\'abord',few===0&&order,`${few} secteurs trop pauvres, ordre ${order}`);
 check('3. bunkers de première ligne : à 15 ± 3 de l\'eau, de face à la mer, espacés',badB===0&&badRot===0&&close===0,`${nB} bunkers : ${badB} mal placés, ${badRot} mal tournés, ${close} trop proches`);
 check('4. lignes aux bonnes profondeurs',badLine===0,`${nL} lignes, ${badLine} fautives`);

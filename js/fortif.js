@@ -52,7 +52,7 @@ export const BEEE_FORT={
   // ---------- le plan d'ensemble d'un secteur ----------
   // une liste d'éléments, chacun : {key, tier, kind:'camp'|'bunker'|'line'|'mines', type, x, y, rot, line, cells, done}
   // tier 1 : le dépôt, la plage (sacs, premiers bunkers) ; tier 2 : bunkers de remplissage, fosses, mines ; tier 3 : casemates, observatoires, commandement ; tier 4 : batteries.
-  fortPlan(sec){if(sec.el)return sec.el;const el=[];const rot=this.fortRot(sec);let n=0;const key=()=>sec.id+':'+(n++);
+  fortPlan(sec){if(sec.el)return sec.el;{const F=this.s.beee.fort;const saved=F?.plans?.[sec.id];if(saved){sec.el=saved;return saved;}}const el=[];const rot=this.fortRot(sec);let n=0;const key=()=>sec.id+':'+(n++);
     const span=sec.smax-sec.smin;
     // --- le dépôt de sector : un camp-dépôt (gratuit) au centre, à 26 de l'eau
     {const p=this.fortPoint(sec,(sec.smin+sec.smax)/2,26);if(p)el.push({key:key(),tier:1,kind:'camp',x:p[0],y:p[1]});}
@@ -73,7 +73,8 @@ for(let s=sec.smin;s<=sec.smax;s+=2)for(const d of band?[4,6]:[3,5]){const p=thi
     // --- tier 4 : les batteries à l'intérieur, qui couvrent la plage et la première ligne
     {const p=this.fortPoint(sec,(sec.smin+sec.smax)/2,75);if(p)el.push({key:key(),tier:4,kind:'bunker',type:'batterie',x:p[0],y:p[1],rot});}
     for(const e of [-.28,.28]){const p=this.fortPoint(sec,(sec.smin+sec.smax)/2+e*span,58);if(p)el.push({key:key(),tier:4,kind:'bunker',type:'casemate_lourde',x:p[0],y:p[1],rot});}
-    sec.el=el;return el;},
+    sec.el=el;{const F=(this.s.beee.fort??={on:false,t:-99,count:0});(F.plans??={})[sec.id]=el;}   // (le plan est dans la sauvegarde : un rechargement ne pose pas les ouvrages une deuxième fois)
+    return el;},
   fortUniq(cells){const seen=new Set(),out=[];for(const [i,j] of cells){const k=j*this.N+i;if(seen.has(k))continue;seen.add(k);out.push([i,j]);}return out;},
   // ---------- l'exécution ----------
   fortTierAllowed(){const d=this.day;return 1+(d>=11?1:0)+(d>=17?1:0)+(d>=25?1:0);},
@@ -98,7 +99,7 @@ for(let s=sec.smin;s<=sec.smax;s+=2)for(const d of band?[4,6]:[3,5]){const p=thi
     const base=cities.length>=4&&this.day>=(BEEE_FORT_DAY)&&['caserne','arsenal','manufacture'].every(k=>this.beeeBuildings(k).some(b=>b.done));   // (pas de verrou sur la réserve de vivres : elle oscille autour de 0,6 sans famine et bloquait tout jusqu'au jour 15)
     F.on=base;this.fortMaintain();if(!base)return;
     this.fortThreatTick();const secs=this.fortSectors().slice();secs.sort((a,z)=>this.fortScore(z)-this.fortScore(a));
-    const tierMax=Math.min(4,this.fortTierAllowed()+1),nat=plan.nat;const reserve={pierre:130,fer:60,bois:110,pieces:40,mine:0};
+    const tierMax=Math.min(4,this.fortTierAllowed()+1),nat=plan.nat;const reserve={pierre:130,fer:60,bois:110,pieces:40,mine:0};for(const [k,n] of Object.entries(this.amphiBeeReserve?.()||{}))reserve[k]=(reserve[k]||0)+n;   // (la flotte d'assaut a sa part : la côte ne prend pas tout)
     // ce qui est en cours (éléments posés, pas finis)
     let open=0;const perSec=new Map();for(const sec of secs){if(!sec.el)continue;let n=0;for(const el of sec.el){if(!el.placed)continue;if(this.fortLost(el)){el.placed=false;el.pid=null;continue;}if(!this.fortDone(el)){n++;open++;}}perSec.set(sec.id,n);}
     const maxConc=Math.min(30,6+Math.floor(cities.length/2)+this.beeeLevel()*2);let started=0;

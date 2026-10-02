@@ -118,7 +118,8 @@ export const STRATEGY={
     }
   },
   reachablePatrol(c,p){const N=this.N,cl=v=>Math.max(0,Math.min(N-1,Math.floor(v))),cost=this.costFn('beee'),ti=cl(p[0]),tj=cl(p[1]);
-    const home=this.freeSpot(c.x,c.y,8),r=this.pather.find(cl(home[0]),cl(home[1]),ti,tj,cost,k=>Math.abs(k%N-ti)<=2&&Math.abs((k/N|0)-tj)<=2&&cost(k)!==Infinity,100000);
+    const home=this.freeSpot(c.x,c.y,8);{const L=this.landComp(),q=this.walkTarget({x:home[0],y:home[1]},p[0],p[1]);if(!q||L[cl(q[1])*N+cl(q[0])]!==L[cl(home[1])*N+cl(home[0])])return [];}   // (une autre rive : pas à pied)
+    const r=this.pather.find(cl(home[0]),cl(home[1]),ti,tj,cost,k=>Math.abs(k%N-ti)<=2&&Math.abs((k/N|0)-tj)<=2&&cost(k)!==Infinity,100000);
     if(!r.done||r.path.length<4)return [];const pts=r.path.filter((_,n)=>n%15===0).map(([x,y])=>[x+.5,y+.5]);const end=r.path.at(-1);pts.push([end[0]+.5,end[1]+.5]);return [...pts,...pts.slice(0,-1).reverse(),home];
   },
   // Les défenseurs autour d'un point, d'après les relevés datés. Chaque relevé compte les soldats à 18 cases DE SON bâtiment : les mêmes
