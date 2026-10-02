@@ -1570,6 +1570,9 @@ export class World{
   heBlast(x,y,E,f,by,o={}){const s=this.s,N=this.N;const kind=o.kind||'obus';
     // Equilibrage de jeu : même fiche de charge, souffle plus dangereux et infrastructures plus vulnérables.
     E={...E,blast:E.blast*1.45,inj:E.inj*1.35,conc:E.conc*1.2,stun:E.stun*1.15,dmgB:E.dmgB*3.4,radius:(E.radius||0)*1.2};if(o.rB!=null)o={...o,rB:o.rB*1.25};
+    // (V12.5, demande du joueur : « l'artillerie devrait être plus létale ») un obus de pièce (20 mm et plus) : souffle, lésions et commotion à la mesure du calibre,
+    // éclats plus nombreux à porter — mesuré avant : un 36 mm au milieu de 60 Bèè serrés ne tuait personne (0,8 hors de combat), le souffle ne tuait qu'à 0,6 m
+    {const Wo=o.w&&this.W(o.w),cal=Wo?.p?.d||0;if(cal>=20&&!o.at){const k=cal/36;E={...E,blast:Math.max(E.blast,4.3*k),inj:Math.max(E.inj,8*k),conc:Math.max(E.conc,12.5*k),stun:Math.max(E.stun,20*k),geo:(E.geo||.6)*1.8};}}
     const fd=new Map();const Df=c=>{let d=fd.get(c);if(!d){d=fragDesign(c.m,c.d);fd.set(c,d);}return d;};
     const shooter=by!=null?this.unit(by):null;const fragReach=Math.min(250,Math.max(0,...(E.cls||[]).map(c=>c.lam*Math.log(Math.max(1,E.vg)/55))));const Rmax=Math.max(E.radius||0,E.stun*1.5,fragReach)+.1;if(shooter?.f==='meumeu'&&f==='meumeu')this.beeeShelled(x,y,shooter,E);const note=(u,what)=>(u.h.log??=[]).push({t:s.t,what,by:shooter?.name||''});
     for(const u of [...s.units]){if(!alive(u)||u.id===o.skip)continue;let r=Math.max(.05,d2(u.x,u.y,x,y)*TILE_M);if(E.air)r=Math.hypot(r,.6);if(o.at?.id===u.id)r=o.at.r;if(this.s.sacs[Math.floor(u.y)*N+Math.floor(u.x)]?.b)r*=1.9;if(r>Math.max(Rmax,E.fire||0))continue;
