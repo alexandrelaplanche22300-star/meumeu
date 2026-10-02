@@ -695,7 +695,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   else if(a==='bb'){ui.bb=!ui.bb;ui.bbHtml='';$('#buildbar').innerHTML='';buildBar();return;}
   else if(a==='tent'){pitchTent();return;}
   else if(a==='idle'){const idle=world.idle();if(idle.length){view.sel.clear();view.selB=null;view.selV=null;idle.forEach(u=>view.sel.add(u.id));view.lookAt(idle[0].x,idle[0].y);}}
-  else if(a==='army'){view.sel.clear();view.selB=null;view.selV=null;world.s.units.filter(u=>u.f==='meumeu'&&u.k!=='villageois').forEach(u=>view.sel.add(u.id));}
+  else if(a==='army'){view.sel.clear();view.selB=null;view.selV=null;world.s.units.filter(u=>u.f==='meumeu'&&!u.ally&&u.k!=='villageois').forEach(u=>view.sel.add(u.id));}
   else if(a==='squad')formSquad();
   else if(a==='dissolve'){const u=world.unit([...view.sel][0]);if(u?.sq){const n=world.squad(u.sq)?.name;world.dissolve(u.sq);say(`${n} dissoute.`);}}
   else if(a==='to-hosp'){const u=world.unit([...view.sel][0]);const hb=u&&(world.hospitalFor(u)||world.careFor(u));if(hb){u.task={kind:'hosp',b:hb.id};u.path=null;say(`${unitName(u)} va vers ${BUILDINGS[hb.k].name.toLowerCase()}.`);}else say('Aucun lit libre : une tente médicale, un hôpital, ou le poste de secours d’un centre-ville.','bad');}

@@ -1087,15 +1087,15 @@ export class View{
       if(D.box){const {x0,y0,x1,y1}=D.box;const [a,b]=[Math.min(x0,x1),Math.max(x0,x1)],[c,d]=[Math.min(y0,y1),Math.max(y0,y1)];if(!D.shift){this.sel.clear();this.selVs.clear();}this.selB=null;this.selV=null;
         // (les engins de combat aussi : une colonne de blindés se choisit d'un cadre)
         for(const v of this.world.s.vehicles){if(v.f!=='meumeu'||!VEHDEF[v.k]||v.hp<=0)continue;const q=this.toScreen(v.x,v.y);if(q.x>=a&&q.x<=b&&q.y-10*this.dpr>=c&&q.y-10*this.dpr<=d)this.selVs.add(v.id);}
-        const inBox=this.world.s.units.filter(u=>u.f==='meumeu').filter(u=>{const q=this.toScreen(u.x,u.y);return q.x>=a&&q.x<=b&&q.y-10*this.dpr>=c&&q.y-10*this.dpr<=d;});
+        const inBox=this.world.s.units.filter(u=>u.f==='meumeu'&&!u.ally).filter(u=>{const q=this.toScreen(u.x,u.y);return q.x>=a&&q.x<=b&&q.y-10*this.dpr>=c&&q.y-10*this.dpr<=d;});
         const mil=inBox.filter(u=>u.k!=='villageois');for(const u of (mil.length&&!D.shift?mil:inBox))this.sel.add(u.id);this.ui.changed();return;}
       if(D.moved&&D.btn!==2)return;
       if(this.zoning){this.ui.zoneAt?.(w,e.shiftKey);if(!e.shiftKey)this.zoning=false;this.ui.changed();return;}
       if(this.placing){if(e.button===2){this.placing=null;this.ui.changed();return;}const r=this.ui.place(this.placing,this.ghost[0],this.ghost[1],BUILDINGS[this.placing]?.bunker?(this.placeRot||0):0);if(r.ok&&!e.shiftKey)this.placing=null;return;}
       if(e.button===0){const u=this.unitAt(sx,sy);const v=u?null:this.vehicleAt(sx,sy);
         if(this.ui.pickStop&&!u){const t=this.world.targetAt(w.x,w.y);if(t?.type==='building'){this.ui.pickStop(t.id);return;}}
-        if(u&&u.f==='meumeu'){const grp=u.sq&&!e.altKey?this.world.members(this.world.squad(u.sq)||{m:[]}).map(m=>m.id):[u.id];if(D.shift){for(const id of grp)this.sel.has(u.id)?this.sel.delete(id):this.sel.add(id);}else{this.sel.clear();for(const id of grp)this.sel.add(id);
-            this.selVs.clear();if(e.detail>=2){for(const o of this.world.s.units)if(o.f==='meumeu'&&o.k===u.k){const q=this.toScreen(o.x,o.y);if(q.x>0&&q.y>0&&q.x<this.canvas.width&&q.y<this.canvas.height)this.sel.add(o.id);}}}
+        if(u&&u.f==='meumeu'&&!u.ally){const grp=u.sq&&!e.altKey?this.world.members(this.world.squad(u.sq)||{m:[]}).map(m=>m.id):[u.id];if(D.shift){for(const id of grp)this.sel.has(u.id)?this.sel.delete(id):this.sel.add(id);}else{this.sel.clear();for(const id of grp)this.sel.add(id);
+            this.selVs.clear();if(e.detail>=2){for(const o of this.world.s.units)if(o.f==='meumeu'&&!o.ally&&o.k===u.k){const q=this.toScreen(o.x,o.y);if(q.x>0&&q.y>0&&q.x<this.canvas.width&&q.y<this.canvas.height)this.sel.add(o.id);}}}
           this.selB=null;this.selV=null;this.ui.changed();return;}
         if(u&&u.f!=='meumeu'&&this.ui.unitInfo){this.ui.unitInfo(u);return;}
         if(v&&D.shift&&VEHDEF[v.k]&&v.f==='meumeu'){if(this.selV!=null&&this.selV!==v.id&&VEHDEF[this.world.s.vehicles.find(o=>o.id===this.selV)?.k])this.selVs.add(this.selV);this.selV=null;this.selB=null;this.selVs.has(v.id)?this.selVs.delete(v.id):this.selVs.add(v.id);this.ui.changed();return;}

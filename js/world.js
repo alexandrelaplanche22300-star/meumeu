@@ -28,6 +28,7 @@ import {BUNKERS} from './bunkers.js';
 import {NAVAL} from './naval.js';
 import {AMPHI} from './amphi.js';
 import {AMPHI_BEE} from './amphibee.js';
+import {ALLIE} from './allie.js';
 import {AIRCRAFT} from './air.js';
 import {BEEE_FORT} from './fortif.js';
 const UNLOCK_H=3;
@@ -75,6 +76,10 @@ export class World{
     this.grids();
     const [ci,cj]=G.capital;const cap=this.addBuilding('meumeu','centre',ci-2,cj-2,true);cap.capital=true;cap.goal=true;cap.city=CITY_NAMES[0];s.cityN=1;Object.assign(cap.stock,START.stock);
     for(let n=0;n<START.villagers;n++){const a=n/START.villagers*Math.PI*2;this.addUnit('meumeu','villageois',ci+Math.cos(a)*3.2,cj+Math.sin(a)*3.2);}
+    // l'allié : une ville meumeu menée par l'IA (voir allie.js), avec ses villageois
+    if(G.ally){const [ai,aj]=G.ally;const c=this.addBuilding('meumeu','centre',ai-2,aj-2,true);c.ally=true;c.city=CITY_NAMES[1]+' (allié)';s.cityN=2;Object.assign(c.stock,START.stock);
+      for(let n=0;n<START.villagers;n++){const a=n/START.villagers*Math.PI*2;this.addUnit('meumeu','villageois',ai+Math.cos(a)*3.2,aj+Math.sin(a)*3.2).ally=true;}
+      s.ally={cities:[{c:c.id,main:true}],land:this.landComp()[aj*this.N+ai],split:Math.round((aj+cj)/2),up:aj<cj};}
     if(options.assisted||options.dev)this.assistedStart(cap,ci,cj);
     if(options.dev)this.devStart(cap,ci,cj);   // partie de test : le départ établi, plus de gros stocks ; le brouillard reste (bouton « Brouillard » pour le lever)
     for(const [n,p] of G.beee.slice(0,BEEE.cities).entries())this.makeBeeeCity(...p,BEEE_CITIES[n]);
@@ -500,7 +505,7 @@ export class World{
     if(this.nodeAt[k]>=0)return {type:'node',id:this.nodeAt[k]};
     if(this.rail[k]===1)return {type:'rail',k};
     return {type:'point',x,y};}
-  order(ids,t,internal=false){const us=ids.map(id=>this.unit(id)).filter(u=>u&&u.f==='meumeu'&&active(u));if(!us.length||!t)return {ok:false,why:['personne en état']};if(!internal)this.interruptOperations(ids);for(const u of us)u.observe=null;const vil=us.filter(u=>u.k==='villageois');
+  order(ids,t,internal=false){const us=ids.map(id=>this.unit(id)).filter(u=>u&&u.f==='meumeu'&&active(u)&&(!u.ally||internal));if(!us.length||!t)return {ok:false,why:['personne en état']};if(!internal)this.interruptOperations(ids);for(const u of us)u.observe=null;const vil=us.filter(u=>u.k==='villageois');
     const set=(u,task)=>{u.task=task;u.path=null;u.goal=null;u.pathExact=null;u.pathWait=0;u.idleT=0;u.hold=false;u.why=null;};
     const hostile=(t.type==='unit'&&this.unit(t.id)?.f==='beee')||(t.type==='building'&&this.building(t.id)?.f==='beee')||(t.type==='wall'&&this.s.walls[t.k]?.f==='beee');
     if(hostile&&!this.atWar)this.declareWar('meumeu');
@@ -523,7 +528,7 @@ export class World{
       if(sab.length&&t.queue&&sab.every(u=>u.task?.kind==='sabotage')){for(const u of sab)(u.task.next??=[]).push(t.id);return {ok:true,text:`cible suivante ajoutée : ${BUILDINGS[this.building(t.id).k].name.toLowerCase()} (${sab[0].task.next.length+1} au programme)`};}
       if(sab.length){sab.forEach(u=>set(u,{kind:'sabotage',b:t.id,back:[u.x,u.y],next:[]}));const rest=us.filter(u=>!sab.includes(u));rest.forEach(u=>set(u,{kind:'attack',b:t.id}));
         return {ok:true,text:`${sab.length} partent saboter ${BUILDINGS[this.building(t.id).k].name.toLowerCase()} : ils s’infiltrent courbés, posent leurs charges et s’éclipsent`};}}
-    if(t.type==='building'){const b=this.building(t.id);const B=BUILDINGS[b.k];
+    if(t.type==='building'){const b=this.building(t.id);if(!b)return {ok:false,why:['ce bâtiment n’existe plus']};const B=BUILDINGS[b.k];
       if(b.f!=='meumeu'){us.forEach(u=>set(u,{kind:'attack',b:b.id}));return {ok:true,text:`${us.length} à l’assaut de : ${B.name.toLowerCase()}`};}
       // tenir un bâtiment : les soldats se postent contre ses murs, du côté de l'ennemi d'abord, accroupis, et ne le quittent pas pour poursuivre
       const [bw,bh]=this.sizeOf(b);const mil=us.filter(u=>u.k!=='villageois');if(mil.length){const cx=b.i+bw/2,cy=b.j+bh/2;const foe=this.s.beee.cities.filter(c=>!c.fallen).sort((p,q)=>d2(p.x,p.y,cx,cy)-d2(q.x,q.y,cx,cy))[0];const fa=foe?Math.atan2(foe.y-cy,foe.x-cx):0;
@@ -610,7 +615,7 @@ export class World{
     // directement les matériaux disponibles dans un autre dépôt proche.
     const [x,y]=this.bc(b);let found=this.depots(b.f,x,y,SITE_RANGE).map(dep=>({dep,item:want.find(([k,n])=>(dep.stock[k]||0)>=Math.min(1,n)-1e-6)})).find(o=>o.item);
     // rien à portée : on attend un convoi une heure, puis on va chercher soi-même, plus loin (à pied, dix par voyage)
-    if(!found){b.waitT??=this.s.t;if(this.s.t-b.waitT>1)found=this.depots(b.f,x,y,(BUILDINGS[b.k].bunker||b.f==='beee'&&BUILDINGS[b.k].launch)?450:90).map(dep=>({dep,item:want.find(([k,n])=>(dep.stock[k]||0)>=Math.min(1,n)-1e-6)})).find(o=>o.item);}else b.waitT=null;
+    if(!found){b.waitT??=this.s.t;if(this.s.t-b.waitT>1)found=this.depots(b.f,x,y,(BUILDINGS[b.k].bunker||(b.f==='beee'||b.ally)&&BUILDINGS[b.k].launch)?450:90).map(dep=>({dep,item:want.find(([k,n])=>(dep.stock[k]||0)>=Math.min(1,n)-1e-6)})).find(o=>o.item);}else b.waitT=null;
     const has=found?.item;if(has&&this.distB(found.dep,x,y)>SITE_RANGE)b.why=`les bâtisseurs vont chercher ${this.goodName(has[0]).toLowerCase()} au ${this.depotName(found.dep)}, loin`;
     if(!has){b.why=`attend au ${this.depotName(D)} : ${want.map(([k,n])=>`${Math.ceil(n)} ${this.goodName(k).toLowerCase()}`).join(', ')} (commandé)`;return false;}
     if(u.carry){const R=this.depots(u.f,u.x,u.y,SITE_RANGE)[0];if(R)this.put(R,u.carry.k,u.carry.n);u.carry=null;}
@@ -620,7 +625,7 @@ export class World{
   // (un voyage de plus d'un jour est abandonné : sa réservation « en route » ne doit pas bloquer le chantier — le plus long mesuré dure dix heures)
   fetchTick(u,T0,b,dt){const D=this.building(T0.fetchDepot);if(!D||!this.isDepot(D)||this.s.t-(T0.fetchT??this.s.t)>24){T0.fetch=null;T0.fetchDepot=null;T0.fetchN=0;u.path=null;return;}const [w,h]=BUILDINGS[D.k].size;if(!this.go(u,D.i+w/2,D.j+h/2,[D.i,D.j,w,h]))return;
     const k=T0.fetch;const q=Math.min(T0.fetchN,D.stock[k]||0);if(q>0){D.stock[k]-=q;u.carry={k,n:q};T0.bring=true;}T0.fetch=null;T0.fetchDepot=null;T0.fetchN=0;u.path=null;}
-  idle(f='meumeu'){return this.s.units.filter(u=>u.f===f&&u.k==='villageois'&&!u.task&&active(u));}
+  idle(f='meumeu'){return this.s.units.filter(u=>u.f===f&&u.k==='villageois'&&!u.task&&active(u)&&!u.ally);}
   setPosture(ids,post){for(const id of ids){const u=this.unit(id);if(u&&u.h){u.orderPost=post==='auto'?null:post;u.postSet=post!=='auto';}}}
 
   // ---------- bâtir ----------
@@ -829,7 +834,7 @@ export class World{
     s.units=s.units.filter(u=>{if(alive(u))return true;if(u.f==='beee'&&s.beee){const L=s.beee.lossAt??=[];L.push({x:u.x,y:u.y,t:s.t});if(L.length>400)L.splice(0,L.length-400);}this.uIndex.delete(u.id);if(u.sq)this.leave(u);return false;});
     for(const b of [...s.buildings]){if(b.f==='beee'&&!(b.fire>0)&&far(b.i,b.j))lod(b,d=>this.buildingTick(b,d));else this.buildingTick(b,dt);}
     for(const v of [...s.vehicles])this.vehicleTick(v,dt);
-    this.detectTick(dt);this.intelTick(dt);this.noiseTick(dt);this.stepsTick(dt);this.chargesTick();this.salvoTick();this.shotsTick(dt);this.fallsTick(dt);this.minesTick();this.bunkerTick();this.amphiTick();this.flakTick(dt);this.defenseTick();this.squadTick();this.crewTick();this.operationTick();this.beeeTick(dt);this.bandsTick(dt);this.innovTick(dt);
+    this.detectTick(dt);this.intelTick(dt);this.noiseTick(dt);this.stepsTick(dt);this.chargesTick();this.salvoTick();this.shotsTick(dt);this.fallsTick(dt);this.minesTick();this.bunkerTick();this.amphiTick();this.allyTick();this.flakTick(dt);this.defenseTick();this.squadTick();this.crewTick();this.operationTick();this.beeeTick(dt);this.bandsTick(dt);this.innovTick(dt);
     this.bushT=(this.bushT||0)+dt;if(this.bushT>=.5){const g=this.bushT;this.bushT=0;for(const nd of this.bushes??=s.nodes.filter(n=>n.type==='bush'))if(nd.left<nd.max)nd.left=Math.min(nd.max,nd.left+g*nd.max/NODES.bush.regrow);}
     if(s.corpses.length&&s.t-s.corpses[0].t>3*DAY)s.corpses.shift();
     if(s.smokes.length)s.smokes=s.smokes.filter(m=>m.end>s.t);if(s.groundFires.length)s.groundFires=s.groundFires.filter(m=>m.end>s.t);
@@ -1454,7 +1459,7 @@ export class World{
     // le bureau d'études : le prototype avance
     if(b.proto){b.proto.left-=dt;b.working=true;if(b.proto.left<=0){const d=this.design(b.proto.id);if(d){d.status='adopte';this.log(this.cityName(b),`Prototype réussi : ${d.name} est adopté. La manufacture et l’arsenal peuvent le fabriquer.`,'good');this.emit({type:'design',id:d.id});}b.proto=null;}}
     const q=b.queue[0];if(q){q.left-=dt;if(q.left<=0){if(q.draftId!=null){let draft=this.unit(q.draftId);if(!draft||draft.k!=='villageois'||!alive(draft)){draft=this.draftCandidate(b,q);if(!draft){q.left=1;b.why='attend un civil mobilisable';return;}q.draftId=draft.id;}this.s.units.splice(this.s.units.indexOf(draft),1);this.uIndex.delete(draft.id);}b.queue.shift();const [w,h]=this.sizeOf(b);
-      if(UNITS[q.k]||(b.f==='beee'&&BEEE.units[q.k])){const u=this.addUnit(b.f,q.k,b.i+w/2+(this.rand()-.5)*w,b.j+h+.7,{w:q.w,rounds:0,armor:q.armor});if(q.role==='munitions')this.setRole(u,'munitions');const centre=this.cityOf(b)||this.centreOf(b);u.home=centre?.id??null;if(UNITS[q.k]?.arm&&(b.k==='caserne'||b.k==='caserne_elite'))u.homeBarracks=b.id;this.resupply(u,!!u.homeBarracks);
+      if(UNITS[q.k]||(b.f==='beee'&&BEEE.units[q.k])){const u=this.addUnit(b.f,q.k,b.i+w/2+(this.rand()-.5)*w,b.j+h+.7,{w:q.w,rounds:0,armor:q.armor});if(b.ally)u.ally=true;if(q.role==='munitions')this.setRole(u,'munitions');const centre=this.cityOf(b)||this.centreOf(b);u.home=centre?.id??null;if(UNITS[q.k]?.arm&&(b.k==='caserne'||b.k==='caserne_elite'))u.homeBarracks=b.id;this.resupply(u,!!u.homeBarracks);
         const enemyCity=b.f==='beee'&&centre&&this.s.beee.cities.find(c=>c.centre===centre.id);if(enemyCity){u.city=enemyCity.id;if(u.k!=='villageois'){const a=this.rand()*Math.PI*2,r=5+this.rand()*3;u.task={kind:'guard',tx:enemyCity.x+Math.cos(a)*r,ty:enemyCity.y+Math.sin(a)*r};}}
         else if(b.rally)u.task={kind:u.k==='villageois'?'move':'guard',tx:b.rally[0],ty:b.rally[1]};this.emit({type:'trained',x:u.x,y:u.y,k:q.k,f:b.f});}
       else if(VEHDEF[q.k]){const v=VEHDEF[q.k].air?this.vehFromHangar(b,q.k):this.vehFromGarage(b,q.k);if(!v){b.queue.unshift({...q,left:.5});b.why=VEHDEF[q.k].air?'pas de place sur la piste voisine':'la sortie est encombrée';return;}this.log(this.cityName(b),VEHDEF[q.k].nav==='eau'?`${v.name} est à l’eau.`:VEHDEF[q.k].air?`${v.name} sort du hangar.`:`${v.name} sort du garage.`,'good');this.emit({type:'trained',x:v.x,y:v.y,k:q.k,f:b.f});}
@@ -1782,5 +1787,6 @@ Object.assign(World.prototype,BUNKERS);
 Object.assign(World.prototype,NAVAL);
 Object.assign(World.prototype,AMPHI);
 Object.assign(World.prototype,AMPHI_BEE);
+Object.assign(World.prototype,ALLIE);
 Object.assign(World.prototype,AIRCRAFT);
 Object.assign(World.prototype,BEEE_FORT);

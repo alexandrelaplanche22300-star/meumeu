@@ -23,7 +23,8 @@ export const AMPHI_BEE={
     // 1. les bateaux se construisent sur la plage, comme des bâtiments : trois chantiers à la fois au plus, sur la côte de la ville la plus proche de la mer
     //    (ses dépôts fournissent le bois et le fer) ; fini, le bateau glisse à l'eau devant son chantier
     const want=this.amphiBeeWant(),have=this.amphiBeeBoats().length,sites=this.amphiBeeSites();
-    if(have+sites.length<want&&sites.length<SITES&&t>=(B.siteT??0)){B.siteT=t+4;let at=null,bd=1e9;for(const o of cities){const p=this.amphiBeeBoatSite(o);if(!p)continue;const d=d2(p[0],p[1],o.x,o.y);if(d<bd){bd=d;at=p;}}
+    if(have+sites.length<want&&sites.length<SITES&&t>=(B.siteT??0)){B.siteT=t+4;let at=null,bd=1e9;const cost=BUILDINGS.bateau_bee.cost;const stocked=this.depotList('beee').filter(D=>D.done&&!D.ruin&&!BUILDINGS[D.k].foodOnly&&Object.entries(cost).every(([k,n])=>k==='pieces'||(this.have('beee',D.i+1,D.j+1)[k]||0)>=n*2));
+      for(const o of [...stocked.map(D=>({x:D.i+1,y:D.j+1,R:70})),...cities.map(c=>({x:c.x,y:c.y,R:170,far:1}))]){const p=this.amphiBeeBoatSite(o,o.R);if(!p)continue;const d=d2(p[0],p[1],o.x,o.y)+(o.far?400:0);if(d<bd){bd=d;at=p;}if(at&&!o.far&&bd<25)break;}
       if(at){const b=this.beeeBuild('bateau_bee',at[0],at[1],4);if(b){b.prio=3;B.amphiWhy=null;}else B.amphiWhy='pas de place pour un bateau';}else B.amphiWhy='pas de plage près des villes';}
     for(const b of sites){const n=this.s.units.filter(u=>u.task?.kind==='build'&&u.task.b===b.id).length;for(const u of this.beeeAvailable(b.i,b.j,600).slice(0,Math.max(0,4-n)))this.beeeAssign(u,{kind:'build',b:b.id});}
     // 3. l'assaut : assez de bateaux libres, assez de monde dans les villes de la côte, et l'intervalle écoulé
@@ -38,7 +39,7 @@ export const AMPHI_BEE={
     const boats=free.slice(0,Math.ceil(pool.length/cap));const R=this.amphiLaunch('beee',pool.slice(0,boats.length*cap),boats,aim[0],aim[1]);
     if(R.ok){B.amphiNext=t+24*(8+this.rand()*6);B.amphiCount=(B.amphiCount||0)+1;B.amphiWhy=null;this.log?.('Bèè',`Une flotte bèè appareille : ${R.op.units.length} soldats, ${boats.length} bateaux.`,'warn');}else B.amphiWhy=R.why?.[0];},
   // un chantier de bateau près d'une ville : du sable à 1-3 cases de l'eau, le plus proche du centre (le coin haut-gauche du chantier de 4 × 2)
-  amphiBeeBoatSite(c){const N=this.N,dc=this.G.dcoast;let best=null,bd=1e9;const R=170;
+  amphiBeeBoatSite(c,R=170){const N=this.N,dc=this.G.dcoast;let best=null,bd=1e9;
     for(let dj=-R;dj<=R;dj+=2)for(let di=-R;di<=R;di+=2){const i=Math.floor(c.x)+di,j=Math.floor(c.y)+dj;if(i<6||j<6||i>=N-6||j>=N-6)continue;const k=j*N+i;if(dc[k]<1||dc[k]>3||this.occ[k]>=0)continue;const d=Math.hypot(di,dj);if(d<bd&&this.canPlace('beee','bateau_bee',i-2,j-1).ok){bd=d;best=[i,j];}}return best;},
   // la plage visée : une tête de pont qui tient encore (on la renforce), sinon près d'un bâtiment meumeu connu, sinon en face de la base (la traversée la plus courte)
   amphiBeeAim(base){const B=this.s.beee,mid=this.N/2,bee=base.x>mid;let tgt=null,bd=1e9;
