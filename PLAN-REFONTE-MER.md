@@ -5,9 +5,9 @@ barges de débarquement, planeurs et avion de transport (pont aérien), munition
 Règles qui ne changent pas : pas de régression, mesure avant/après avec critères écrits d'abord, un chantier à la fois,
 commit local à chaque étape, jeu relancé et testé par le joueur entre deux phases.
 
-**Deux exe distincts** (décision du joueur) : la partie plage-mer (phases 3 à 6 : carte coupée par la mer, fortifications,
-barges, aviation) sera un **autre exe**, construit à partir d'une copie de ce code dans son propre dossier et son propre dépôt git.
-Le jeu actuel (V12.4) continue de son côté. Phases 1 et 2 (munitions, tranchées) : à confirmer — jeu actuel, nouvel exe, ou les deux.
+**Un seul jeu, deux exe** (décision du joueur) : le même code, les mêmes nouveautés (munitions, plus de tranchées, fortifications,
+barges, aviation) ; la seule grande différence est la carte. Le générateur (`gen.js`) reçoit un mode « classique » ou « mer » (deux
+rives séparées par la mer, longues plages) ; `build-v10.cjs` sort deux exe à partir des mêmes sources. Pas de copie du code qui divergerait.
 
 Déjà fait : sol lissé (couleur moyenne de chaque terrain) à tous les zooms — 0bb4972.
 
