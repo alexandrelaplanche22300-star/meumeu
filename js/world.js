@@ -340,6 +340,20 @@ export class World{
     return k=>{if(k<0||k>=ter.length||!TERRAIN[ter[k]]?.walk||occ[k]>=0)return Infinity;const w=wall[k];if(w===-3*mine)return Infinity;if(w===-2*mine)return 25;return 1+Math.min(2.2,crater[k]||0);};}
   stampCrater(c){if(!this.crater)return;const N=this.N,r=Math.max(.25,c.r||.5);for(let j=Math.max(0,Math.floor(c.y-r));j<=Math.min(N-1,Math.ceil(c.y+r));j++)for(let i=Math.max(0,Math.floor(c.x-r));i<=Math.min(N-1,Math.ceil(c.x+r));i++){const d=d2(i+.5,j+.5,c.x,c.y);if(d<r)this.crater[j*N+i]=Math.max(this.crater[j*N+i],(1-d/r)*(c.force||1));}}
   addCrater(x,y,r,force=1){const C=this.s.craters??=[];const c={x,y,r:Math.max(.3,Math.min(3.8,r)),force:Math.max(.2,Math.min(2.2,force)),seed:this.rand()*10000,t:this.s.t};C.push(c);this.stampCrater(c);this.navDirty=true;if(C.length>500){C.splice(0,C.length-500);this.crater.fill(0);for(const q of C)this.stampCrater(q);}return c;}
+  // Une usine bèè à qui manque une matière que le pays a ailleurs : un de ses ouvriers part la chercher, à pied, avec une charrette (trois charges),
+  // au dépôt le plus proche qui en a (200 cases au plus), et la rapporte au dépôt qui approvisionne l'usine — un vrai convoi, qu'on peut intercepter.
+  // (mesuré : les deux ateliers bèè avaient l'un du fer sans bois, l'autre du bois sans fer, à 0 ouvrier : plus aucune pièce dans le pays)
+  fetchInput(u,b,T0){const N=this.N;
+    if(u.carry&&T0.fx){const S=this.building(b.sup)||this.depots(u.f,b.i+1,b.j+1)[0];if(!S){u.carry=null;T0.fx=null;return false;}const [w,h]=this.sizeOf(S);if(!this.go(u,S.i+w/2,S.j+h/2,[S.i,S.j,w,h]))return true;
+      this.put(S,u.carry.k,u.carry.n);u.carry=null;T0.fx=null;T0.chk=this.s.t+1;return true;}
+    if(T0.fx){const D=this.building(T0.fx.d);if(!D||D.ruin||!D.done){T0.fx=null;return false;}const [w,h]=this.sizeOf(D);if(!this.go(u,D.i+w/2,D.j+h/2,[D.i,D.j,w,h]))return true;
+      const q=Math.min(T0.fx.q,D.stock[T0.fx.k]||0);if(q<=0){T0.fx=null;return false;}D.stock[T0.fx.k]-=q;u.carry={k:T0.fx.k,n:q};return true;}
+    if(this.s.t<(T0.chk||0)||!b.prod)return false;T0.chk=this.s.t+2;const R=this.recipe(b,b.prod);if(!R)return false;const H=this.have(u.f,b.i+1,b.j+1);
+    // un seul chercheur par usine à la fois
+    if(this.s.units.some(o=>o!==u&&o.task?.kind==='work'&&o.task.b===b.id&&o.task.fx))return false;
+    for(const [k,n] of Object.entries(R.in||{})){if((H[k]||0)>=n*4)continue;const D=this.depots(u.f,u.x,u.y,200).find(d=>!BUILDINGS[d.k].foodOnly&&(d.stock[k]||0)>=n*6&&this.distB(d,b.i+1,b.j+1)>RADIUS);if(!D)continue;
+      T0.fx={d:D.id,k,q:Math.min(CARRY*3,D.stock[k])};u.why=`va chercher ${this.goodName(k).toLowerCase()} au ${this.depotName(D)}`;return true;}
+    return false;}
   // les terres d'un seul tenant (le terrain ne change pas) : deux points sur deux rives différentes ne se rejoignent pas à pied
   landComp(){if(this._land)return this._land;const N=this.N,ter=this.G.terrain,C=new Int32Array(N*N).fill(-1),Q=new Int32Array(N*N);let id=0;
     for(let s=0;s<N*N;s++){if(C[s]>=0||!TERRAIN[ter[s]]?.walk)continue;let h=0,t=0;Q[t++]=s;C[s]=id;
@@ -946,7 +960,7 @@ export class World{
           if(b.progress>=1){b.done=true;const was=b.ruin;b.ruin=false;b.why=null;b.hp=Math.max(b.hp,b.max*.6);this.autoLink(b);this.log(this.cityName(b),`${BUILDINGS[b.k].name} : ${was?'rebâti':'terminé'}.`,'good');this.emit({type:'built',x:b.i+w/2,y:b.j+h/2,k:b.k});u.task=null;
             if(BUILDINGS[b.k].workers&&this.workers(b,true).length<BUILDINGS[b.k].workers)u.task={kind:'work',b:b.id};}}
         else{if(b.fire>0){b.fire=Math.max(0,b.fire-dt*3);}else b.hp=Math.min(b.max,b.hp+dt*60);}return;}
-      case 'work':{const b=this.building(T0.b);if(!b||!b.done){u.task=null;return;}if(BUILDINGS[b.k].hub)return this.hubTick(u,b,dt);const [w,h]=this.sizeOf(b);u.at=this.go(u,b.i+w/2,b.j+h/2,[b.i,b.j,w,h]);u.anim=u.at&&b.working?'action':'idle';return;}
+      case 'work':{const b=this.building(T0.b);if(!b||!b.done){u.task=null;return;}if(BUILDINGS[b.k].hub)return this.hubTick(u,b,dt);if(u.f==='beee'&&BUILDINGS[b.k].factory&&this.fetchInput(u,b,T0))return;const [w,h]=this.sizeOf(b);u.at=this.go(u,b.i+w/2,b.j+h/2,[b.i,b.j,w,h]);u.anim=u.at&&b.working?'action':'idle';return;}
       case 'line':return this.lineTick(u,T0,dt);
       case 'zone':return this.zoneTick(u,T0);
       case 'evac':return this.evacTick(u,T0);
@@ -1375,8 +1389,10 @@ export class World{
         T0.fetchD=null;u.path=null;u.why=null;return;}}
     if(!o.paid){const P=T0.pack;const inPack=P&&Object.entries(cost).every(([r,q])=>(P[r]||0)>=q-1e-9);
       if(!inPack&&!this.canPay(u.f,i,j,cost).ok){const D=this.depots(u.f,u.x,u.y,u.f==='beee'?450:120).find(d=>!BUILDINGS[d.k].foodOnly&&Object.entries(cost).every(([r,q])=>(d.stock[r]||0)>=q));
-        if(D){T0.fetchD=D.id;u.path=null;u.why=`va chercher ${Object.keys(cost).map(r=>this.goodName(r).toLowerCase()).join(' et ')} au ${this.depotName(D)}`;return;}
-        u.anim='idle';u.why=`il manque ${this.canPay(u.f,i,j,cost).miss.join(' et ')} : aucun dépôt à moins de 120 cases n’en a`;return;}}
+        if(D){T0.fetchD=D.id;T0.waitT=null;u.path=null;u.why=`va chercher ${Object.keys(cost).map(r=>this.goodName(r).toLowerCase()).join(' et ')} au ${this.depotName(D)}`;return;}
+        u.anim='idle';u.why=`il manque ${this.canPay(u.f,i,j,cost).miss.join(' et ')} : aucun dépôt à moins de 120 cases n’en a`;
+        if(u.f==='beee'){T0.waitT??=this.s.t;if(this.s.t-T0.waitT>2){u.task=null;u.why=null;}}   // (mesuré : 88 poseurs bèè sur 177 civils attendaient de la pierre sans fin, plus personne ne récoltait)
+        return;}}
     if(!this.go(u,i+.5,j+.5,[i,j,1,1]))return;
     if(!o.paid){const P=T0.pack;if(P&&Object.entries(cost).every(([r,q])=>(P[r]||0)>=q-1e-9)){for(const [r,q] of Object.entries(cost))P[r]-=q;}else if(!this.pay(u.f,i,j,cost)){u.anim='idle';u.why=`il manque ${this.canPay(u.f,i,j,cost).miss.join(' et ')} à moins de ${RADIUS} cases`;return;}o.paid=1;u.why=null;}
     u.anim='action';this.face(u,i+.5-u.x,j+.5-u.y);o.p+=dt/LINES[kind].hours;if(o.p>=1){this.lineBuilt(kind,k);T0.k=null;}}

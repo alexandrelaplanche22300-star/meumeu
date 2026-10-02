@@ -402,7 +402,7 @@ export const WAR={
             const L=b.lastI,tg=L&&up.length>=6&&b.morale>.55&&this.s.buildings.filter(o=>o.f==='meumeu'&&B.known?.[o.id]&&typeof B.known[o.id]==='object'&&!B.known[o.id].ruin&&this.t-B.known[o.id].t<3*DAY&&d2(o.i,o.j,L[0],L[1])<80).sort((p,q)=>d2(p.i,p.j,L[0],L[1])-d2(q.i,q.j,L[0],L[1]))[0];
             if(tg){b.kind=null;b.target=tg.id;b.aim='contre-attaque';b.calmT=0;this.bandSet(b,'approche','contre-attaque');this.s.fog||this.log(this.cityName(tg),`Les Bèè contre-attaquent : ${up.length} poursuivent vers ${this.cityName(tg)} (${BUILDINGS[tg.k].name.toLowerCase()}) !`,'bad');continue;}
             this.bandDisband(b,up);continue;}goal=city?[city.x,city.y]:b.from;}}
-      if(b.kind==='contre'&&b.state!=='repli'){goal=b.pt;if(d2(b.pt[0],b.pt[1],c[0],c[1])<4&&this.s.t-b.contactT>1){b.calmT=(b.calmT||0)+dt;if(b.calmT>2){this.bandRetreat(b,up,c,true);continue;}}}
+      if((b.kind==='contre'||b.kind==='riposte')&&b.state!=='repli'){goal=b.pt;if(d2(b.pt[0],b.pt[1],c[0],c[1])<4&&this.s.t-b.contactT>1){b.calmT=(b.calmT||0)+dt;if(b.calmT>2){this.bandRetreat(b,up,c,true);continue;}}}
       const seen=this.bandContacts(b,up);if(seen.length){b.contactT=this.s.t;b.fightT=(b.fightT||0)+dt;}
       // sous le brouillard : on apprend l'existence d'une colonne quand un des nôtres la voit
       if(this.s.fog&&!b.meuSeen&&up.some(u=>this.spotted(u,'meumeu'))){b.meuSeen=true;const tg=this.building(b.target);this.log(tg?this.cityName(tg):'Front',`Une colonne bèè d’environ ${up.length} est repérée${tg?` en direction de ${this.cityName(tg)}`:''} !`,'bad');this.emit({type:'wave',n:up.length,x:c[0],y:c[1],from:b.from});}

@@ -16,7 +16,7 @@ export const AMPHI_BEE={
   amphiBeeBoats(){return this.s.vehicles.filter(v=>v.f==='beee'&&v.k==='bateau_bee'&&v.hp>0&&!v.dead);},
   amphiBeeCales(){return this.s.buildings.filter(b=>b.f==='beee'&&b.k==='cale'&&!b.ruin);},
   // l'état-major : toutes les quatre heures de jeu
-  amphiBeeTick(){if(this.G?.mode!=='mer'||!this.G.dcoast)return;const B=this.s.beee,t=this.s.t;if(t-(B.amphiT??-99)<2)return;B.amphiT=t;this.amphiBeeHeadTick();
+  amphiBeeTick(){if(this.G?.mode!=='mer'||!this.G.dcoast)return;this.amphiBeeRiposteTick();const B=this.s.beee,t=this.s.t;if(t-(B.amphiT??-99)<2)return;B.amphiT=t;this.amphiBeeHeadTick();
     if(this.day<BEE_AMPHI_DAY||(B.fort?.count||0)<BEE_AMPHI_BUNKERS)return;
     const cities=B.cities.filter(c=>!c.fallen&&this.building(c.centre)?.done);if(cities.length<4)return;
     // 1. les cales : jusqu'à trois, au bord de l'eau, près d'une ville (une à la fois)
@@ -80,4 +80,27 @@ export const AMPHI_BEE={
         for(const u of free.slice(-2)){u.task={kind:'search',pts:[p1,p2,[H.x,H.y]],i:0,scout:1,until:t+20+D*.3,home:[H.x,H.y],t0:t};u.path=null;}}}
       // les éclaireurs rentrés (garde sans place) et les renforts reprennent leur place dans l'arc
       if(sold.some(u=>!u.task||u.task.kind==='guard'&&!u.task.hold))this.amphiBeeHeadPlace(H);}},
+  // ---------- la riposte : des Meumeu vus sur la rive bèè ----------
+  // toutes les heures : les Meumeu VUS (pas devinés) sur la terre des Bèè sont regroupés par carrés de 48 cases ; le plus gros groupe déclenche une riposte
+  // à sa mesure (deux Bèè pour un Meumeu, plus six), prise dans les villes proches — jamais dans les garnisons des ouvrages, qui tiennent leurs postes.
+  // Le groupe de riposte suit l'ennemi (son point est remis à jour), reçoit des renforts s'il fond, et rentre quand la zone est calme.
+  amphiBeeRiposteTick(){const B=this.s.beee,t=this.s.t;if(t-(B.ripT??-9)<1)return;B.ripT=t;
+    const cities=B.cities.filter(c=>!c.fallen&&this.building(c.centre)?.done);if(!cities.length)return;const L=this.landComp(),N=this.N;
+    const home=L[Math.floor(cities[0].y)*N+Math.floor(cities[0].x)];if(home<0)return;
+    const G=new Map();for(const u of this.s.units){if(u.f!=='meumeu'||!(u.hp>0)||u.inVeh||u.h?.state==='hors'||u.h?.state==='mort')continue;const k=Math.floor(u.y)*N+Math.floor(u.x);if(L[k]!==home||!this.spotted(u,'beee'))continue;
+      const g=Math.floor(u.x/48)+','+Math.floor(u.y/48);let a=G.get(g);if(!a)G.set(g,a=[]);a.push(u);}
+    const rip=(B.bands||[]).filter(b=>b.kind==='riposte');
+    for(const b of rip){const g=[...G.values()].map(a=>[a,d2(a.reduce((n,u)=>n+u.x,0)/a.length,a.reduce((n,u)=>n+u.y,0)/a.length,b.pt[0],b.pt[1])]).sort((p,q)=>p[1]-q[1])[0];
+      if(g&&g[1]<90){const a=g[0];b.pt=[a.reduce((n,u)=>n+u.x,0)/a.length,a.reduce((n,u)=>n+u.y,0)/a.length];b.seenT=t;b.enemy=a.length;}}
+    for(const a of [...G.values()].sort((p,q)=>q.length-p.length)){if(a.length<2)break;const x=a.reduce((n,u)=>n+u.x,0)/a.length,y=a.reduce((n,u)=>n+u.y,0)/a.length;
+      const need=Math.min(140,a.length*2+6);let band=rip.find(b=>d2(b.pt[0],b.pt[1],x,y)<90);
+      const c=cities.slice().sort((p,q)=>d2(p.x,p.y,x,y)-d2(q.x,q.y,x,y))[0];
+      if(band){const have=this.bandMembers(band).filter(u=>u.hp>0).length;if(have>=need*.7||t-(band.reinfT??-9)<6)continue;band.reinfT=t;
+        const more=this.beeeMuster(c,cities,need-have,2,300).filter(u=>!u.task?.bunker&&!u.head);for(const u of more){band.m.push(u.id);u.from=u.city??u.from;u.city=null;u.band=band.id;u.task={kind:'band',tx:u.x,ty:u.y};u.path=null;}continue;}
+      if(t<(B.ripRetry??0))continue;
+      const pool=this.beeeMuster(c,cities,need,2,300).filter(u=>!u.task?.bunker&&!u.head);if(pool.length<Math.max(6,Math.ceil(need*.5))){B.ripRetry=t+2;continue;}
+      const b=this.makeBand(pool,this.building(c.centre),c);b.city=c.id;b.pt=[x,y];b.seenT=t;b.enemy=a.length;b.kind='riposte';
+      this.log?.(c.name,`${c.name} lance ${pool.length} hommes contre ${a.length} Meumeu débarqués.`,'warn');}
+    // une riposte sans ennemi vu depuis 8 h rentre
+    for(const b of rip)if(t-(b.seenT??t)>8){const up=this.bandMembers(b).filter(u=>u.hp>0);this.bandRetreat(b,up,b.pt,true);}},
 };

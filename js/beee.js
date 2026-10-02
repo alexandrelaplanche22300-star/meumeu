@@ -388,7 +388,7 @@ export const BEEE_AI={
         add('w'+b.id,.45+1.2*d*Math.min(1.3,b.yield??this.cropYield(b)),d>.1?BUILDINGS[FOOD].workers:Math.min(2,BUILDINGS[FOOD].workers),go,at);}}
       else if(k==='mine'){const n=this.s.nodes[b.ore];if(n&&n.left>0&&!jam(b)&&!over[n.res])add('w'+b.id,.15+1.1*(D[n.res]||0),BUILDINGS.mine.workers,go,at);}
       else if(k==='camp'){if(this.room(b)>60&&!(over.bois&&over.pierre)){const local=siteWait.some(s=>distance(s.i,s.j,b.i,b.j)<30);const dd=Math.max(D.bois||0,D.pierre||0,local?.6:0);add('w'+b.id,.18+.6*dd,dd>.3?3:1,go,at);}}
-      else if(BUILDINGS[k].factory&&b.prod&&!(b.sabUntil>t)&&!capped(b)){const o=outOf(b);add('w'+b.id,fed(b)?.12+1.1*(D[o]??.3):.02,Math.min(2,BUILDINGS[k].workers),go,at);}}
+      else if(BUILDINGS[k].factory&&b.prod&&!(b.sabUntil>t)&&!capped(b)){const o=outOf(b);add('w'+b.id,fed(b)?.12+1.1*(D[o]??.3):.1+.9*(D[o]??.3),fed(b)?Math.min(2,BUILDINGS[k].workers):1,go,at);   /* (sans sa matière : un ouvrier qui va la chercher) */}}
     // la cueillette : le bois et la pierre toujours un peu ; un filon sans mine, à la main, s'il manque
     const ore=r=>(D[r]||0)>.3?2+Math.floor(P.civ/25):1;const caps={bois:(D.bois||0)>.05?2+Math.floor(P.civ/7):1,pierre:(D.pierre||0)>.05?2+Math.floor(P.civ/10):1,fer:ore('fer'),salpetre:ore('salpetre'),charbon:1,plomb:ore('plomb'),cuivre:ore('cuivre')};
     for(const res of Object.keys(caps)){if(over[res])continue;const base=res==='bois'||res==='pierre';const v=(base?.15:.05)+(D[res]||0)*(base?1:.6);

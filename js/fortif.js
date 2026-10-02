@@ -162,7 +162,10 @@ for(let s=sec.smin;s<=sec.smax;s+=2)for(const d of band?[4,6]:[3,5]){const p=thi
     const r=this.planLine('beee',kind,el.cells);if(!r.ok)return false;el.placed=true;el.keys=this.fortKeys(el.cells);this.fortWorkers(el);return true;},
   // des poseurs pour une ligne : trois villageois, qui y vont chercher leurs matériaux au dépôt du secteur
   fortWorkers(el){const kind=el.kind==='mines'?'mines':el.line,store=this.lineStore(kind);const todo=el.cells.filter(([i,j])=>{const o=store[j*this.N+i];return o&&!o.b;});if(!todo.length)return;
-    const [i0,j0]=todo[Math.floor(todo.length/2)];const busy=this.s.units.filter(u=>u.f==='beee'&&u.task?.kind==='line'&&u.task.line===kind&&todo.some(([i,j])=>dist(i,j,u.x,u.y)<40)).length;
+    const [i0,j0]=todo[Math.floor(todo.length/2)];
+    {const C=LINES[kind]?.cost||{};const five=Object.fromEntries(Object.entries(C).map(([r,q])=>[r,q*5]));if(!this.canPay('beee',i0,j0,five,450).ok)return;
+     const civ=this.beeeCivilians().length,all=this.s.units.filter(u=>u.f==='beee'&&u.task?.kind==='line').length;if(all>=Math.max(6,Math.floor(civ*.08)))return;}
+    const busy=this.s.units.filter(u=>u.f==='beee'&&u.task?.kind==='line'&&u.task.line===kind&&todo.some(([i,j])=>dist(i,j,u.x,u.y)<40)).length;
     for(let n=busy;n<5;n++){const u=this.beeeAvailable(i0,j0,600)[0];if(!u)break;const [ci,cj]=todo[Math.floor((n+.5)*todo.length/5)]||todo[0];this.beeeAssign(u,{kind:'line',line:kind,x:ci,y:cj,k:cj*this.N+ci});}},
   // ---------- la garnison ----------
   // les ouvrages terminés reçoivent leurs hommes : un par poste de tir, un par emplacement de pièce, un à la soute ; ils viennent des gardes des villes voisines
