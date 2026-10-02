@@ -85,7 +85,7 @@ export class View{
     // (V12.4) une image d'un pixel par case (la couleur moyenne de la texture de chaque terrain), posée en losange par UNE seule opération : la carte graphique
     // l'agrandit et l'adoucit (lissage bilinéaire). Avant : 360 000 losanges dessinés un par un, plus un flou — plus de 2 s de gel au premier dézoom.
     {const tiny=document.createElement('canvas');tiny.width=N;tiny.height=N;const tx=tiny.getContext('2d');const im=tx.createImageData(N,N),d=im.data;
-      for(let j=0;j<N;j++)for(let i=0;i<N;i++){const t=G.terrain[j*N+i];const [r,g,b]=this.tiles?this.tileMeanOf(t):TERRAIN[t].tint;const n=((i*7919+j*104729)%13)/13*.1+.95;const k=(j*N+i)*4;d[k]=r*n;d[k+1]=g*n;d[k+2]=b*n;d[k+3]=255;}
+      for(let j=0;j<N;j++)for(let i=0;i<N;i++){const t=G.terrain[j*N+i];const [r,g,b]=this.tiles&&!TERRAIN[t].water&&t!==T.sand?this.tileMeanOf(t):TERRAIN[t].tint;   /* (V12.5) la mer et le sable gardent leur teinte propre */const n=((i*7919+j*104729)%13)/13*.1+.95;const k=(j*N+i)*4;d[k]=r*n;d[k+1]=g*n;d[k+2]=b*n;d[k+3]=255;}
       tx.putImageData(im,0,0);x.save();x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.setTransform(s/2,s/4,-s/2,s/4,N*s/2,0);x.drawImage(tiny,0,0);x.restore();}
     this.overview=c;this.ovS=s;this.ovTex=!!this.tiles;}
   // Les forêts vues de haut : chaque arbre dessiné en petit sur une grande image, refaite quand des arbres tombent
@@ -553,7 +553,7 @@ export class View{
     const wedge=(x,y,r,fx,fy,cosMin)=>{const r2=r*r;const i0=Math.max(0,Math.floor(x-r)),i1=Math.min(N-1,Math.ceil(x+r)),j0=Math.max(0,Math.floor(y-r)),j1=Math.min(N-1,Math.ceil(y+r));for(let j=j0;j<=j1;j++){const dy=j+.5-y;for(let i=i0;i<=i1;i++){const dx=i+.5-x;const d2_=dx*dx+dy*dy;if(d2_<=r2&&(d2_<4||(dx*fx+dy*fy)/Math.sqrt(d2_)>=cosMin)){vis[j*N+i]=1;ex[j*N+i]=1;}}}};
     W.visibilityMask('meumeu',vis,ex);
     if(!this.fogCv){this.fogCv=document.createElement('canvas');}const cv=this.fogCv;if(cv.width!==N){cv.width=N;cv.height=N;this.fogImg=null;}
-    const x=cv.getContext('2d');const im=this.fogImg||(this.fogImg=x.createImageData(N,N));const d=im.data;for(let k=0;k<N*N;k++){const a=vis[k]?0:ex[k]?125:232;d[k*4]=6;d[k*4+1]=12;d[k*4+2]=18;d[k*4+3]=a;}x.putImageData(im,0,0);}
+    if(cv.width!==N||!this.fogImg)this.fogFilled=false;const x=cv.getContext('2d');const im=this.fogImg||(this.fogImg=x.createImageData(N,N));const d=im.data;const fy0=W.bounds?W.bounds[1]:0,fy1=W.bounds?W.bounds[3]:N;if(!this.fogFilled){for(let k=0;k<N*N;k++){d[k*4]=6;d[k*4+1]=12;d[k*4+2]=18;d[k*4+3]=232;}this.fogFilled=true;}for(let k=fy0*N;k<fy1*N;k++){const a=vis[k]?0:ex[k]?125:232;d[k*4]=6;d[k*4+1]=12;d[k*4+2]=18;d[k*4+3]=a;}x.putImageData(im,0,0);}
   // l'étiquette d'un renseignement : depuis quand
   intelTag(x,y,t0,extra){const ctx=this.ctx,W=this.world,dpr=this.dpr;const q=this.toScreen(x,y,2.2);const age=W.s.t-t0;const txt=`vu il y a ${age<1?'moins d’1 h':age<48?Math.round(age)+' h':Math.round(age/24)+' j'}${extra?' · '+extra:''}`;
     ctx.save();ctx.font=`600 ${9.5*dpr}px system-ui`;ctx.textAlign='center';const w=ctx.measureText(txt).width+8*dpr;ctx.fillStyle='rgba(10,16,22,.75)';ctx.fillRect(q.x-w/2,q.y-11*dpr,w,14*dpr);ctx.fillStyle='#cfd6da';ctx.fillText(txt,q.x,q.y);ctx.restore();}
@@ -1005,7 +1005,9 @@ export class View{
 
   // ---------- la minicarte ----------
   drawMini(mc){const x=mc.getContext('2d');const W=this.world,N=W.N;if(!this.overview)return;const w=mc.width,h=mc.height;x.setTransform(1,0,0,1,0,0);x.fillStyle='#1c1d14';x.fillRect(0,0,w,h);
-    x.drawImage(this.overview,0,0,w,h);const P=(i,j)=>[(i-j+N)/(2*N)*w,(i+j)/(2*N)*h];
+    const P=(i,j)=>[(i-j+N)/(2*N)*w,(i+j)/(2*N)*h];const [rx0,ry0,rx1,ry1]=W.bounds||[0,0,N,N];const rc=[[rx0,ry0],[rx1,ry0],[rx0,ry1],[rx1,ry1]].map(([i,j])=>P(i,j));
+    const mx0=Math.min(...rc.map(c=>c[0])),mx1=Math.max(...rc.map(c=>c[0])),my0=Math.min(...rc.map(c=>c[1])),my1=Math.max(...rc.map(c=>c[1]));const mkx=w/(mx1-mx0),mky=h/(my1-my0);   // (V12.5) la minicarte montre le rectangle jouable, pas toute la grille
+    x.setTransform(mkx,0,0,mky,-mkx*mx0,-mky*my0);x.drawImage(this.overview,0,0,w,h);
     const fog=W.s.fog!==false&&this.explored;for(const b of W.s.buildings){if(fog&&b.f==='beee'&&!W.s.intel?.[b.id])continue;const shown=fog&&b.f==='beee'&&!this.fxVisible(b.i+1,b.j+1,b.f)?W.s.intel?.[b.id]?.snapshot||b:b;const [px,py]=P(shown.i+1,shown.j+1);x.fillStyle=b.f==='beee'?(shown.ruin?'#6a3a30':'#e0503a'):(b.ruin?'#555':'#ffd36a');x.fillRect(px-2,py-1.5,b.k==='centre'?5:3,b.k==='centre'?4:3);}
     for(const n of W.s.nodes){if(n.type!=='ore'||n.left<=0)continue;const [px,py]=P(n.i+.5,n.j+.5);x.fillStyle='#000a';x.fillRect(px-2.5,py-2.5,5,5);x.fillStyle=ORE_COL[n.res]||'#ffd36a';x.fillRect(px-1.8,py-1.8,3.6,3.6);}
     for(const [k,r] of Object.entries(W.s.rails)){if(!r.b||fog&&r.f==='beee'&&!this.fxVisible(+k%N,(+k/N)|0,r.f))continue;const [px,py]=P(+k%N,(+k/N)|0);x.fillStyle='#cfd3d6';x.fillRect(px,py,1,1);}
@@ -1013,7 +1015,7 @@ export class View{
     for(const v of W.s.vehicles){if(fog&&v.f!=='meumeu'&&!this.fxVisible(v.x,v.y,v.f))continue;const [px,py]=P(v.x,v.y);x.fillStyle=v.f==='beee'?'#ff3b2f':'#9fe8ff';x.beginPath();x.arc(px,py,2.5,0,7);x.fill();}
     // le champ de vision
     const cw=this.canvas.width,ch=this.canvas.height;const cs=[this.toWorld(0,0),this.toWorld(cw,0),this.toWorld(cw,ch),this.toWorld(0,ch)].map(p=>P(p.x,p.y));x.strokeStyle='#fff';x.lineWidth=1;x.beginPath();cs.forEach(([a,b],n)=>n?x.lineTo(a,b):x.moveTo(a,b));x.closePath();x.stroke();
-    this.miniP=(mx,my)=>{const a=mx/w*2*N-N,b=my/h*2*N;return {x:(a+b)/2,y:(b-a)/2};};}
+    this.miniP=(mx,my)=>{const a=(mx/mkx+mx0)/w*2*N-N,b=(my/mky+my0)/h*2*N;return {x:(a+b)/2,y:(b-a)/2};};}
 
   // ---------- la souris ----------
   pos(e){const r=this.canvas.getBoundingClientRect();return [(e.clientX-r.left)*this.dpr,(e.clientY-r.top)*this.dpr];}
@@ -1131,6 +1133,6 @@ export class View{
       let inR=0;for(const u of guns){const Wd=W.W(u.w);const R=Math.hypot(p.x-u.x,p.y-u.y)*TM;const A=W.arcOf(Wd);const ok=R<=A.max*.96&&R>=Math.max(6,A.min*.9);if(ok)inR++;const g=this.toScreen(u.x,u.y),t=this.toScreen(p.x,p.y);ctx.save();ctx.strokeStyle=ok?'rgba(255,211,106,.6)':'rgba(235,90,70,.6)';ctx.setLineDash([3,5]);ctx.beginPath();ctx.moveTo(g.x,g.y);ctx.lineTo(t.x,t.y);ctx.stroke();ctx.restore();}
       const u=guns[0];const Wd=W.W(u.w);const R=Math.hypot(p.x-u.x,p.y-u.y)*TM;const A=W.arcOf(Wd);
       zone(p.x,p.y,Wd.he,`${Math.round(R)} m · ${inR}/${guns.length} à portée · ${W.observer('meumeu',p.x,p.y)?'observée':'sans observateur'}`,inR?'#ffd36a':'#eb5a46');}}
-  pan(dx,dy){const w0=this.toWorld(this.canvas.width/2,this.canvas.height/2),w1=this.toWorld(this.canvas.width/2+dx,this.canvas.height/2+dy);this.cx+=w1.x-w0.x;this.cy+=w1.y-w0.y;{const N=this.world.N,m=Math.min(12,N/4);this.cx=Math.max(m,Math.min(N-m,this.cx));this.cy=Math.max(m,Math.min(N-m,this.cy));}const N=this.world.N;this.cx=Math.max(0,Math.min(N,this.cx));this.cy=Math.max(0,Math.min(N,this.cy));}
+  pan(dx,dy){const w0=this.toWorld(this.canvas.width/2,this.canvas.height/2),w1=this.toWorld(this.canvas.width/2+dx,this.canvas.height/2+dy);this.cx+=w1.x-w0.x;this.cy+=w1.y-w0.y;{const N=this.world.N,[bx0,by0,bx1,by1]=this.world.bounds||[0,0,N,N],m=Math.min(12,N/4);this.cx=Math.max(bx0+m,Math.min(bx1-m,this.cx));this.cy=Math.max(by0+m,Math.min(by1-m,this.cy));}}   // (V12.5) la caméra reste dans le rectangle jouable
 }
 const sum=o=>Object.values(o||{}).reduce((a,b)=>a+b,0);

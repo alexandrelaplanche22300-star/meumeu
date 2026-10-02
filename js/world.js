@@ -57,7 +57,7 @@ export class World{
   constructor(seed=Date.now()%100000,options={}){this.events=[];this.init(seed,options);}
   // (une graine dont la carte ne se laisse pas générer — la capitale bèè introuvable — passait à « Erreur de démarrage du rendu » : on prend la suivante ;
   //  la graine retenue est celle qui est sauvée, donc un rechargement retrouve la même carte)
-  init(seed,options={}){let G;for(let k=0;;k++){try{G=generate(seed,options.map);break;}catch(e){if(k>=24)throw e;seed++;}}this.G=G;this.N=G.N;this.rand=rng(seed*2654435761+7);for(let k=0;k<16;k++)this.rand();this.pather=new Pather(this.N);
+  init(seed,options={}){let G;for(let k=0;;k++){try{G=generate(seed,options.map);break;}catch(e){if(k>=24)throw e;seed++;}}this.G=G;this.N=G.N;this.bounds=G.bounds||[0,0,G.N,G.N];   /* (V12.5) le rectangle jouable : toute la carte, ou 1 500 × 600 sur la carte « mer » */this.rand=rng(seed*2654435761+7);for(let k=0;k<16;k++)this.rand();this.pather=new Pather(this.N);
     const s=this.s={v:SAVE_VERSION,seed,map:G.mode,t:7,solar:7,solarSettings:{...SOLAR_DEFAULT},nextId:1,units:[],buildings:[],vehicles:[],shots:[],falls:[],tracks:[],log:[],rails:{},walls:{},trenches:{},craters:[],corpses:[],squads:[],
       designs:Object.fromEntries(DEFAULT_DESIGNS.map(d=>[d.id,JSON.parse(JSON.stringify(d))])),armors:Object.fromEntries(DEFAULT_ARMORS.map(d=>[d.id,JSON.parse(JSON.stringify(d))])),smokes:[],groundFires:[],
       nodes:G.nodes,fauna:[],beee:{cities:[],waves:0,anger:0,tension:0,phase:'war'},won:null,lost:null,cityN:0,squadN:0,

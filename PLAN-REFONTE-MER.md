@@ -92,3 +92,12 @@ avec un nouveau mode de déplacement chacune ; je les découperai en sous-étape
 - **Les Bèè ne peuvent plus attaquer à pied** (pas de vagues dans cette carte) tant que les barges n'existent pas : ils s'étendent et se fortifient.
 - Perf : un pas de simulation coûte ~1,35 ms (contre 0,73 en 600 × 600) ; la recherche de ressources autour d'un camp ne parcourt plus toute la carte.
 - Prochaine étape : phase 4 (sacs de sable, bunkers, mines), puis 5 (barges), puis 6 (aviation).
+
+## Correction (2026-10-02, soir) — la carte mer
+- Retour du joueur : mer trop petite, carte trop petite, « un rectangle », mer affichée brune, rochers sur la plage, « retire le biome rocher ».
+- Maintenant : rectangle jouable de **1 500 × 600** (600 de terre, 300 de mer, 600 de terre) dans une grille carrée de 1 500 (hors rectangle : mer profonde).
+  `world.bounds` borne la caméra, le brouillard et la minicarte. Plages de sable de 17 à 21 cases sur toutes les côtes, hauts-fonds, mer bleue
+  (la mer et le sable gardent leur teinte propre au lieu de la couleur moyenne de la texture).
+- **Plus de biome rocher ni de neige, sur les deux cartes** : les anciennes montagnes sont de l'herbe. Plus de roche ni de filon à moins de 34 cases de l'eau
+  (les tas de pierre ordinaires restent : on en a besoin pour bâtir).
+- Mesure (graine 104, 20 jours) : carte mer, 18 villes bèè et 1 403 soldats ; carte classique, 16 villes et 886 soldats ; aucune erreur.
