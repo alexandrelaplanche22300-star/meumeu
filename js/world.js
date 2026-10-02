@@ -259,7 +259,7 @@ export class World{
   armorOf(id){const A=id&&this.s.armors[id];return A?{A,D:deriveArmor(A.a)}:null;}
   armorsOf(f,status='adopte'){return Object.values(this.s.armors).filter(a=>a.f===f&&(!status||a.status===status));}
   proposeArmor(b,name,a){if(!b||b.k!=='armurerie'||!b.done)return {ok:false,why:['un bureau d’études']};if(b.proto||b.protoA)return {ok:false,why:['un prototype est déjà en cours']};const D=deriveArmor(a);
-    const cost=Object.fromEntries(Object.entries(D.cost).map(([k,v])=>[k,+(v*3).toFixed(1)]));const p=this.canPay(b.f,b.i+1,b.j+1,cost,b.f==='beee'&&b.k==='cale'?450:undefined);if(!p.ok)return {ok:false,why:[`il manque : ${p.miss.join(', ')}`]};
+    const cost=Object.fromEntries(Object.entries(D.cost).map(([k,v])=>[k,+(v*3).toFixed(1)]));const p=this.canPay(b.f,b.i+1,b.j+1,cost);if(!p.ok)return {ok:false,why:[`il manque : ${p.miss.join(', ')}`]};
     this.pay(b.f,b.i+1,b.j+1,cost);const id='p'+this.id();this.s.armors[id]={id,f:b.f,name:name||`Protection ${Object.keys(this.s.armors).length}`,status:'prototype',a:JSON.parse(JSON.stringify(a))};b.protoA={id,left:PROTO_HOURS_ARMOR};
     this.log(this.cityName(b),`Prototype de protection : ${this.s.armors[id].name} (${Math.round(D.mass*1000)} g).`,'good');return {ok:true,id,text:`Prototype lancé : ${this.s.armors[id].name} (${PROTO_HOURS_ARMOR} h)`};}
   // ---------- les choses ----------
@@ -684,7 +684,7 @@ export class World{
     // pas de maisons à bâtir : un Meumeu de plus, ce sont des vivres de plus (sa formation, puis sa ration chaque heure)
     if(UNITS[k]&&!UNITS[k]?.arm){const c=this.cityOf(b)||b;if(c.k==='centre'&&(c.ration??1)<.5)why.push('la ville a faim : moins de la moitié des rations');}if(k==='train'&&!this.platform(b))why.push('la gare n’a pas de voie');
     const cost={...D.cost};if(UNITS[k]?.arm){const d=this.design(w||'mle1');if(!d||d.status!=='adopte')why.push('une arme adoptée');else cost['a:'+d.id]=1;if(armor){const ar=this.s.armors[armor];if(!ar||ar.status!=='adopte')why.push('une protection adoptée');else cost['p:'+armor]=1;}}
-    const pay=this.canPay(b.f,b.i+1,b.j+1,cost);if(!pay.ok)why.push('il manque : '+pay.miss.join(', '));return {ok:!why.length,why,cost,draftId:draft?.id??null};}
+    const pay=this.canPay(b.f,b.i+1,b.j+1,cost,b.f==='beee'&&b.k==='cale'?450:undefined);if(!pay.ok)why.push('il manque : '+pay.miss.join(', '));return {ok:!why.length,why,cost,draftId:draft?.id??null};}
   train(b,k,w=null,armor=null,role='tireur'){const r=this.canTrain(b,k,w,armor);if(!r.ok)return r;const D=UNITS[k]||VEHICLES[k]||{name:VEHDEF[k].name,hours:VEHDEF[k].heures};this.pay(b.f,b.i+1,b.j+1,r.cost,b.f==='beee'&&b.k==='cale'?450:undefined);b.queue.push({k,left:D.hours,w:w||'mle1',armor:UNITS[k]?.arm?armor:null,role:UNITS[k]?.arm&&role==='munitions'?'munitions':'tireur',...(r.draftId!=null?{draftId:r.draftId}:{})});return {ok:true,text:D.name+(role==='munitions'&&UNITS[k]?.arm?' · porteur de munitions':'')+(r.draftId!=null?' — un civil mobilisé':'')+' en préparation'};}
   pop(f){const cap=this.s.buildings.filter(b=>b.f===f&&b.done&&BUILDINGS[b.k].pop).reduce((a,b)=>a+BUILDINGS[b.k].pop,0);const used=this.s.units.filter(u=>u.f===f).reduce((a,u)=>a+(UDEF(u).pop||1),0)+this.s.buildings.filter(b=>b.f===f).reduce((a,b)=>a+(b.inside?.length||0),0)+this.s.vehicles.filter(v=>v.f===f&&v.k==='porteur').length;return {cap,used};}
 
