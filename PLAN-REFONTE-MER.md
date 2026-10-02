@@ -101,3 +101,77 @@ avec un nouveau mode de déplacement chacune ; je les découperai en sous-étape
 - **Plus de biome rocher ni de neige, sur les deux cartes** : les anciennes montagnes sont de l'herbe. Plus de roche ni de filon à moins de 34 cases de l'eau
   (les tas de pierre ordinaires restent : on en a besoin pour bâtir).
 - Mesure (graine 104, 20 jours) : carte mer, 18 villes bèè et 1 403 soldats ; carte classique, 16 villes et 886 soldats ; aucune erreur.
+
+---
+# Phase 7 (dernière) — L'IA bèè sur la carte mer : la défense de la côte, puis l'offensive navale
+Demande du joueur (2026-10-02) : l'IA doit **impressionner par sa maîtrise de la fortification**. Elle est prête et nous attend ; ses défenses rendent
+nos débarquements complexes ; de temps en temps, elle lance un assaut massif de dizaines de bateaux pour briser nos lignes côtières et établir une tête de
+pont (avec dépôts et villes). Cette phase vient **après** 4 (fortifications), 5 (barges) et 6 (aviation).
+
+**Qui a quoi (décision du joueur)** : les **planeurs, l'avion de transport et le pont aérien sont réservés aux Meumeu** (c'est le joueur qui les commande). Les Bèè
+n'ont **que des bateaux** pour traverser ; face aux planeurs, ils ne font que **détecter** et **se protéger**.
+
+## Ce qu'il faut ajouter aux phases 4 à 6 pour que l'IA puisse s'en servir
+- **Bunkers entrables** (phase 4, précisé) : on entre dedans et on s'y déplace comme sur du terrain normal (cases « intérieur », murs épais qui arrêtent
+  les balles selon leur matériau, tir par les embrasures). Plusieurs tailles : poste à mitrailleuse (2-3 servants), Tobrouk (une mitrailleuse sur affût
+  pivotant, un servant, une soute), gros blockhaus (une dizaine de tireurs), casemate à pièce d'artillerie (la pièce, ses servants, sa soute à munitions).
+- **Fosses et boyaux « bien modélisés »** (phase 4, précisé) : les anciennes tranchées ne marchaient pas et ont été retirées. Leur remplaçant : de vraies fosses
+  de tireur et des boyaux de liaison creusés dans le sol, avec une profondeur, un parapet, des parois et des abris. Le soldat y entre, s'y déplace et en sort.
+- **Bateaux bèè** (phase 5) : l'IA bâtit des barges comme le joueur, en dizaines pour un assaut.
+- **Détection des planeurs** (phase 6) : silencieux ; l'IA les repère à vue, surtout de nuit, donc elle protège ses arrières avec des patrouilles et des projecteurs.
+
+## 7.1 Les étapes de l'IA (chacune ne démarre qu'à une condition mesurable)
+1. **Économie et villes** : vivres, fonderies, villes (déjà en place). Sortie : au moins N villes, vivres pour 5 jours, usines d'armes qui tournent.
+2. **Base solide** : casernes, arsenal, gares, dépôts, rail qui longe la côte. Condition : réserves de sacs, béton, armes et munitions suffisantes.
+3. **Première ligne de la plage** : sacs de sable, murs, fosses, mines, bunkers à mitrailleuse, le tout sectorisé (7.2).
+4. **Défense en profondeur** : bunkers à canon et casemates à 200-400 m de la plage, boyaux de liaison, réserves mobiles.
+5. **Artillerie lourde fortifiée à l'intérieur des terres** : batteries abritées qui couvrent la plage et la première ligne, au cas où nous ferions une brèche.
+6. **Offensives navales occasionnelles** : dizaines de bateaux, tête de pont, dépôts, villes (7.7).
+Les étapes se **chevauchent** (on continue de renforcer la ligne pendant que les batteries se bâtissent), mais jamais la 3 sans la 2.
+
+## 7.2 Planifier la côte (très longue : ~600 cases de plage nord-sud, sur deux côtes)
+- Découper la côte en **secteurs** (~40 cases). Pour chacun : largeur de la plage, relief derrière, distance à la ville et au dépôt le plus proche,
+  **menace observée** (barges vues, bombardements reçus, planeurs, mouvements meumeu repérés).
+- Carte de menace qui se met à jour (sons, vues, renseignement déjà existants) ; priorité de chantier = menace × valeur du secteur (villes, usines derrière).
+- Un budget de construction par heure ; la ligne avance secteur par secteur, d'abord les plus exposés, sans laisser de « trou » de plus de N cases.
+
+## 7.3 Défense en couches
+- **Couche 1, la plage** : mines (fonderie d'armes + explosifs, jamais sur le sable mouillé du bord pour laisser débarquer), sacs de sable, murs, fosses, bunkers à mitrailleuse
+  en quinconce avec **champs de tir croisés** (chaque portion de plage vue par au moins deux positions).
+- **Couche 2, en profondeur** : bunkers à canon (arme anti-barge et anti-char), boyaux, postes de commandement, dépôts de munitions enterrés par secteur.
+- **Couche 3, les batteries** : artillerie lourde (obusiers, longues pièces) dans des casemates à l'intérieur des terres, avec soute, observateurs et
+  calcul de tir sur la plage et la mer (portée, correction par les observateurs).
+- **Réserves** : troupes en arrière, prêtes à contre-attaquer sur n'importe quel secteur par le rail ou la route.
+
+## 7.4 La logistique des fortifications (le point faible que nos commandos en planeur peuvent frapper)
+- Chaque secteur est alimenté par **un ou deux dépôts** (munitions, vivres, matériaux de réparation), reliés par rail ou route. Rien n'est téléporté (même règle
+  « pas de triche » que les usines : une voie coupée ou un dépôt détruit coupe réellement l'approvisionnement).
+- Un dépôt saboté ou une voie coupée **affame le secteur** : ses mitrailleuses se taisent quand les caisses sont vides. C'est ce qui rend nos raids de planeurs utiles.
+- L'IA répare ses voies (déjà en place), reconstruit ses dépôts, change le tracé et double les dépôts des secteurs sensibles.
+
+## 7.5 Garnison et tactique
+- Occupation des bunkers par rotations ; tireurs aux embrasures, servants aux pièces, observateurs ; repli vers la couche 2 sous le feu.
+- Réparation et reconstruction après bombardement (ouvriers + matériaux) ; remplacement des morts par les réserves.
+- Tir de barrage sur les barges en approche (artillerie), mines et tir direct à l'abordage.
+
+## 7.6 Réaction à un débarquement
+- Détection (vue, son, bruit des moteurs) → alerte du secteur et des voisins → réserves locales → réserve mobile ; colmater les brèches par contre-attaque,
+  sinon repli ordonné sur la couche 2 ; les batteries lourdes ouvrent le feu sur la tête de pont.
+- **Contre-commandos** : patrouilles et sentinelles autour des dépôts et des batteries ; projecteurs la nuit ; alerte aux planeurs repérés.
+
+## 7.7 Offensives navales bèè (rares, massives)
+- Déclenchement : armée suffisante, stocks, côte adverse **reconnue** (secteur le plus faible selon leur renseignement), pas plus d'une grosse offensive par période.
+- Préparation visible : dizaines de barges construites sur leur plage, troupes embarquées (nous pouvons le voir), puis traversée groupée.
+- Objectif : briser la ligne côtière, **tenir une tête de pont**, y bâtir des dépôts, la fortifier, puis **fonder des villes** et faire venir le rail.
+- Retraite ou renforts selon le résultat ; les barges font des rotations pour apporter de nouvelles vagues.
+
+## 7.8 Mesures (écrites avant de coder, comme pour le reste)
+- Couverture : part de la plage couverte par au moins 2 positions de tir au jour D (30, 50…), temps pour poser la première ligne, nombre de bunkers par type.
+- Combat : simulation d'un débarquement meumeu type (X barges, Y soldats) ; pertes avant et après la ligne ; effet d'un dépôt saboté ; effet d'une brèche.
+- Performances : centaines de Bèè + centaines de structures, pas de saccade (pas de simulation > 3 ms sur le cas de référence).
+- L'IA ne triche pas : mêmes coûts, mêmes matériaux, mêmes distances de ravitaillement que le joueur.
+
+## Ordre de mise en œuvre de la phase 7 (chaque étape jouable et testée)
+A. Secteurs de côte + carte de menace (sans rien construire) → B. première ligne (sacs de sable, murs, fosses) par secteur → C. bunkers à mitrailleuse
+et champs de tir croisés → D. dépôts de secteur et logistique → E. couche 2 et batteries lourdes → F. garnisons, réparations, réaction à un débarquement
+→ G. offensives navales et têtes de pont → H. réglage fin sur de longues parties, comparaison avec un joueur automatique qui débarque.
