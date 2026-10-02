@@ -183,3 +183,12 @@ et champs de tir croisés → D. dépôts de secteur et logistique → E. couche
 - Tests : `test/sacs.mjs` (sacs + fosses), `test/mines.mjs`, `test/bunkers_plans.mjs` (17 plans × 4 orientations : étanchéité, accès, postes), `test/bunkers.mjs`.
 - Pas encore fait pour la phase 4 : panneau d'information d'un bunker sélectionné (postes occupés), explosion des mines vue en 3D, soldats « baissés » dans les fosses en 3D.
 - Prochaine étape : **phase 5, les barges de débarquement**.
+
+## État (2026-10-02, nuit) — phase 5 faite
+- **Barges de débarquement** (`naval.js`, `barge3d.js`) : un engin naval (VEHDEF.barge, `nav:'eau'`) : blindage (le fusil et la mitrailleuse bèè ne percent pas sa coque, l'antichar si), un pilote, 24 passagers,
+  soute de 60 caisses, un véhicule sur le pont. Construite dans la **cale de lancement** (bâtiment à poser au bord de l'eau, onglet Armer). Navigation sur l'eau seulement (A* sur les cases d'eau), échouage sur une plage,
+  rampe (baissée : les passagers sortent par l'avant et courent ; le pilote reste), désengagement (la barge recule puis vire), retour, naufrage (les passagers se noient au large, gagnent la rive près de terre),
+  chargement d'un véhicule (clic droit du véhicule sur la barge). Panneau de commande dans l'interface ; clic droit sur l'eau ou sur une plage pour la diriger. Test : `test/naval.mjs`.
+- Pas encore : bateaux bèè (rustiques, sans véhicule), son et écume, barges qui gênent le tir des soldats embarqués (ils tirent depuis le pont ?), file d'attente des barges.
+- Note : `test/vehicules_conduite.mjs` C1 échoue déjà avant la phase 5 (automitrailleuse 3/4 buts) : à regarder à part.
+- Prochaine étape : **phase 6, l'aviation** (hangar, piste, avion de transport, planeurs, pont aérien), puis phase 7 (IA).
