@@ -11,6 +11,8 @@ function noise2(r){const P=256,g=new Float32Array(P*P);for(let i=0;i<g.length;i+
     return (at(xi,yi)*(1-sx)+at(xi+1,yi)*sx)*(1-sy)+(at(xi,yi+1)*(1-sx)+at(xi+1,yi+1)*sx)*sy;};}
 function fbm(n,x,y,oct){let a=0,w=.5,f=1,s=0;for(let o=0;o<oct;o++){a+=w*n(x*f,y*f);s+=w;w*=.5;f*=2.03;}return a/s;}
 
+// V12.5 : version de la génération de la carte « mer » — une sauvegarde faite avec une autre version a des arbres, des rochers et des filons qui ne correspondent plus au terrain
+export const GEN_VERSION_MER=3;
 export function generate(seed,mode='classique'){const SEA=mode==='mer';const N=SEA?MAP_N_MER:MAP_N;
   // V12.5 : la carte « mer » — un rectangle de 1 500 × 600 : une rive de 600 de large à l'ouest (les Meumeu), 300 cases de mer au milieu, une rive de 600
   // à l'est (les Bèè), de longues plages de sable le long de toutes les côtes. Hors du rectangle : mer profonde (terrain 0, la valeur par défaut).
@@ -132,4 +134,4 @@ export function generate(seed,mode='classique'){const SEA=mode==='mer';const N=S
     for(const b of blobs){const d=Math.hypot(b.i-i,b.j-j);if(d<b.r)v+=48*Math.pow(1-d/b.r,.6);}
     const c=dC(i,j),e=dB(i,j);if(c<55)v=Math.max(v,78*(1-c/70))+14*(1-c/55);if(e<60)v=Math.min(v,30+30*e/60);
     let fv=v*tf;if(c<50)fv=Math.max(fv,82*(1-c/70));fert[k]=Math.max(0,Math.min(100,Math.round(fv)));}
-  return {N,terrain,nodes,nodeAt,comp,main,capital,beee,deposits,passes,fert,blobs,mode,bounds:[RECT.x0,RECT.y0,RECT.x1,RECT.y1]};}
+  return {N,terrain,nodes,nodeAt,comp,main,capital,beee,deposits,passes,fert,blobs,mode,version:SEA?GEN_VERSION_MER:0,bounds:[RECT.x0,RECT.y0,RECT.x1,RECT.y1]};}
