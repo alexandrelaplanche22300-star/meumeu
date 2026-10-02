@@ -338,9 +338,12 @@ export const BEEE_AI={
       // l'armement suit l'armée : des fusils pour les recrues à venir, des caisses de munitions pour la tenir au feu
     };
     // le stock de guerre : des armes de chaque sorte pour les recrues à venir, des cartouches pour ceux qui les portent, des protections
-    {const share=[.32,.45,.62][Math.min(2,Math.floor(this.beeeLevel()/2))];const R=Math.max(8,Math.ceil(civ*.12),Math.ceil((civ+sold)*share-sold)),mix=this.beeeArmyMix();   // (les armes suivent l'armée VOULUE, pas un petit stock : au jour 72 les usines n'avaient plus aucun ouvrier)for(const w of this.beeeArms()){T['a:'+w]=Math.max(1,Math.ceil(R*DOCTRINE[w]));T['m:'+w]=Math.max(2,Math.ceil((mix[w]||0)*1.2+R*DOCTRINE[w]));}
+    {const share=[.32,.45,.62][Math.min(2,Math.floor(this.beeeLevel()/2))];const R=Math.max(8,Math.ceil(civ*.12),Math.ceil((civ+sold)*share-sold)),mix=this.beeeArmyMix();   /* (les armes suivent l'armée VOULUE, pas un petit stock : au jour 72 les usines n'avaient plus aucun ouvrier) */for(const w of this.beeeArms()){T['a:'+w]=Math.max(1,Math.ceil(R*DOCTRINE[w]));T['m:'+w]=Math.max(2,Math.ceil((mix[w]||0)*1.2+R*DOCTRINE[w]));}
       if(this.beeeStable())if(this.armorsOf?.('beee')?.some(a=>a.id==='bee_casque'))T['p:bee_casque']=Math.ceil(R*.9);if(this.beeeStable())if(this.armorsOf?.('beee')?.some(a=>a.id==='bee_plaque'))T['p:bee_plaque']=Math.ceil(R*.3);}
     {const AW=this.fortArmsWant?.()||{};for(const [w,n] of Object.entries(AW)){if(!n||!this.design(w))continue;const Wd=this.W(w);T['a:'+w]=Math.max(T['a:'+w]||0,Math.min(12,n));T['m:'+w]=Math.max(T['m:'+w]||0,Math.ceil(Math.min(12,n)*Wd.carry/Math.max(1,Wd.perCrate))+2);}}
+    // la flotte d'assaut : ce que coûtent les bateaux qui manquent entre dans le plan (les ateliers font aussi leurs pièces — mesuré : chantiers ouverts à J21,
+    // premier bateau à J30, faute de pièces prises par les armes)
+    {const AR=this.amphiBeeReserve?.()||{};for(const [k,n] of Object.entries(AR))if(n>0)T[k]=(T[k]||0)+n;}
     {const mw=this.fortMineWant?.();if(mw){T.mine=mw;T.explosifs=Math.max(T.explosifs||14,14+mw);}}
     this.beeeHeavyPlan(T);   // l'escalade : des armes lourdes et leurs munitions, selon le niveau de la guerre
     const D={};for(const [k,n] of Object.entries(T))D[k]=Math.max(0,Math.min(1,(n-(nat[k]||0))/n));

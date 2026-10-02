@@ -7,8 +7,8 @@
 //     une gare à chaque bout et un train ;
 //   · l'armée : des recrues par six à chaque caserne ; une garnison par ville, le reste en armée de campagne ; tout Bèè VU dans sa moitié (ou à ses abords)
 //     est attaqué ; deux postes de mitrailleuse sur la côte de chaque ville côtière, tenus par deux hommes ;
-//   · l'offensive : des barges bâties sur sa plage ; quand l'armée de campagne est assez forte, un débarquement sur la côte bèè (une cible reconnue,
-//     sinon en face) ; à terre, ses troupes attaquent les bâtiments bèè reconnus, sinon elles fouillent l'intérieur.
+//   · l'offensive : des barges bâties sur sa plage ; quand l'armée de campagne est assez forte, un débarquement sur la côte bèè (la plage la moins gardée) ;
+//     à terre, jamais de repli : ses troupes marchent sur la ville bèè reconnue la plus proche, sinon poussent vers l'intérieur ; les renforts débarquent là où elles sont.
 import {BUILDINGS,VEHICLES} from './data.js';
 import {bunkerKey} from './bunkerdata.js';
 
@@ -169,18 +169,20 @@ export const ALLIE={
     // l'assaut : au moins deux barges libres, vingt soldats de campagne libres, un débarquement à la fois, dix jours entre deux
     if(this.s.amphi?.some(o=>o.ally)||t<(A.navalNext??0))return;const free=boats.filter(v=>!v.op);if(free.length<2)return;
     const field=us.filter(u=>u.k==='soldat'&&u.w&&!u.inBarracks&&!u.inVeh&&!u.task?.bunker&&!u.allyRaid&&u.amphi==null&&u.allyHome==null);
-    if(field.length<20)return;const cap=23,take=field.slice(0,Math.min(field.length,free.length*cap));const aim=this.allyAim(main);if(!aim)return;
-    const fleet=free.slice(0,Math.ceil(take.length/cap));for(const v of fleet){const D=this.depots('meumeu',v.x,v.y,40)[0];if(!D)continue;v.cargo??={};const n=Math.min(20-(v.cargo['m:mle1']||0),D.stock['m:mle1']||0);if(n>0){D.stock['m:mle1']-=n;v.cargo['m:mle1']=(v.cargo['m:mle1']||0)+n;}}
+    if(field.length<60||free.length<3)return;   /* (un assaut lourd : 60 hommes et trois barges au moins — 41 fusiliers sur une côte fortifiée : 4 survivants le lendemain) */const cap=23,take=field.slice(0,Math.min(field.length,free.length*cap));const aim=this.allyAim(main);if(!aim)return;
+    const fleet=free.slice(0,Math.ceil(take.length/cap));for(const v of fleet){v.cargo??={};const need=20-(v.cargo['m:mle1']||0);if(need<=0)continue;const got=this.take('meumeu',v.x,v.y,'m:mle1',need,120);if(got>0)v.cargo['m:mle1']=(v.cargo['m:mle1']||0)+got;}   /* (les soldats qui embarquent passent par les dépôts alliés à 120 cases et montent les caisses à bord) */
     const R=this.amphiLaunch('meumeu',take,fleet,aim[0],aim[1]);
     if(R.ok){R.op.ally=true;A.navalNext=t+24*10;A.navalN=(A.navalN||0)+1;for(const u of take)u.allyRaid=true;this.log('Front',`L’allié embarque ${take.length} soldats sur ${R.op.boats.length} barges pour la côte bèè.`,'info');}},
   // un site de barge : du sable à 1-3 cases de l'eau, dans sa moitié, au plus près de sa première ville (le chantier de 4 × 2)
   allyBeachSite(cx,cy,raw=false){const N=this.N,dc=this.G.dcoast;let best=null,bd=1e9;for(let dj=-150;dj<=150;dj+=2)for(let di=-60;di<=300;di+=2){const i=Math.floor(cx)+di,j=Math.floor(cy)+dj;if(i<6||j<6||i>=N-6||j>=N-6)continue;const k=j*N+i;if(dc[k]<1||dc[k]>3||this.occ[k]>=0)continue;
       if(!this.allyZone(i,j))continue;const d=Math.hypot(di,dj);if(d<bd&&(raw||this.canPlace('meumeu','barge',i-2,j-1).ok)){bd=d;best=raw?[i,j]:[i-2,j-1];}}return best;},
-  // la plage visée : celle de ses troupes déjà à terre (des renforts), sinon près du bâtiment bèè reconnu le plus proche de sa côte, sinon en face de sa première ville
+  // la plage visée : la plus proche de ses troupes déjà à terre (des renforts), sinon près du bâtiment bèè reconnu le plus proche de sa côte, sinon en face de sa première ville
   allyAim(main){const I=this.s.intel||{},mid=this.N/2,R=this.s.ally.raid;let tgt=null,bd=1e9;
-    if(R?.beach&&this.allyUnits().some(u=>u.allyRaid&&!u.inVeh&&u.x>mid))tgt=R.beach;
-    if(!tgt)for(const b of this.s.buildings){if(b.f!=='beee'||b.ruin||!I[b.id])continue;const d=d2(b.i,b.j,main.b.i,main.b.j);if(d<bd){bd=d;tgt=[b.i+1,b.j+1];}}
-    if(!tgt)tgt=[mid+160,main.b.j+2];const beach=this.amphiBeach(tgt[0],tgt[1],120);return beach&&beach.x>mid?[beach.x,beach.y]:null;},
+    {const a=this.allyUnits().filter(u=>u.allyRaid&&!u.inVeh&&u.x>mid);if(a.length)tgt=[a.reduce((n,u)=>n+u.x,0)/a.length,a.reduce((n,u)=>n+u.y,0)/a.length];}   // (les renforts : la plage la plus proche des troupes déjà à terre)
+    if(!tgt){const [,y0,,y1]=this.bounds;const known=this.s.buildings.filter(b=>b.f==='beee'&&!b.ruin&&I[b.id]),forts=known.filter(b=>BUILDINGS[b.k]?.bunker),towns=known.filter(b=>b.k==='centre');let bs=1e9;
+      const cand=[];for(let y=y0+40;y<=y1-40;y+=25)cand.push([mid+170,y,1]);for(let x=mid+250;x<=this.bounds[2]-80;x+=50){cand.push([x,y0+20,0]);cand.push([x,y1-20,0]);}
+      for(const [cx0,cy0,west] of cand){const p=this.amphiBeach(cx0,cy0,50);if(!p||p.x<=mid+60)continue;const nb=forts.filter(b=>d2(b.i,b.j,p.x,p.y)<40).length;const dt=towns.length?Math.min(...towns.map(b=>d2(b.i,b.j,p.x,p.y))):Math.abs(p.y-(main.b.j+2))*.5;const sc=nb*100+(west?150:0)+dt*.3;if(sc<bs){bs=sc;tgt=[p.x,p.y];}}}
+    if(!tgt)tgt=[mid+160,main.b.j+2];const beach=this.amphiBeach(tgt[0],tgt[1],120);return beach&&beach.x>mid+40?[beach.x,beach.y]:null;},
   // à terre : un objectif, gardé jusqu'à sa destruction — le centre-ville bèè reconnu le plus proche, sinon le bâtiment reconnu le plus proche ; ceux qui sont
   // accrochés finissent leur combat ; sans cible connue, on fouille vers l'intérieur ; à moins de huit, on se retranche près de la plage en attendant des renforts
   // (mesuré : l'ordre était refait toutes les six heures vers une cible recalculée — le groupe faisait des allers-retours sans rien prendre)
@@ -188,12 +190,7 @@ export const ALLIE={
     if(!ashore.length){if(!this.s.amphi?.some(o=>o.ally)){R.target=null;R.beach=null;}return;}
     const cx=ashore.reduce((n,u)=>n+u.x,0)/ashore.length,cy=ashore.reduce((n,u)=>n+u.y,0)/ashore.length;R.beach??=[cx,cy];
     const engaged=u=>u.task&&(u.task.kind==='attack'&&u.task.unit!=null&&up(this.unit(u.task.unit))||u.task.kind==='assault'||u.task.kind==='hosp'||u.task.kind==='evac');
-    // trop faibles (moins de huit), ou débordés (plus de deux Bèè vus pour un des nôtres à 30 cases) : repli sur la plage jusqu'aux renforts (ou un jour de calme)
-    const seen=this.s.units.filter(e=>e.f==='beee'&&up(e)&&!e.inVeh&&d2(e.x,e.y,cx,cy)<30&&this.spotted(e,'meumeu')).length;
-    if(seen>ashore.length*2){R.outnumT=t;R.outnumN=ashore.length;}const outnum=R.outnumT!=null&&t-R.outnumT<24&&ashore.length<=(R.outnumN||0)+5;
-    if(ashore.length<8||outnum){if(!R.hold){R.hold=true;this.log('Front',outnum?`Débordées (${seen} Bèè contre ${ashore.length}), les troupes alliées débarquées se replient sur leur plage et attendent des renforts.`:`Les troupes alliées débarquées (${ashore.length}) se retranchent près de leur plage et attendent des renforts.`,'info');}
-      ashore.forEach((u,n)=>{if(engaged(u))return;const a=n/ashore.length*6.283;const tx=R.beach[0]+Math.cos(a)*4,ty=R.beach[1]+Math.sin(a)*4;if(u.task?.kind==='guard'&&d2(u.task.tx,u.task.ty,tx,ty)<1)return;u.task={kind:'guard',tx,ty};u.path=null;});return;}
-    if(R.hold){R.hold=false;}
+    // (pas de repli : une fois débarqué, on ne retourne pas à la plage — la mer est dans le dos ; on avance ou on tient sur place, au contact)
     let T=R.target!=null&&this.building(R.target);if(T&&BUILDINGS[T.k]?.bunker)T=null;
     // (jamais un ouvrage de béton : le fusil n'y fait rien — mesuré : le raid allait d'un Tobrouk à l'autre sans en abattre un ; il les contourne)
     if(!T||T.ruin){const known=this.s.buildings.filter(b=>b.f==='beee'&&!b.ruin&&!BUILDINGS[b.k]?.bunker&&(I[b.id]||this.visibleAt('meumeu',b.i+1,b.j+1))&&d2(b.i,b.j,cx,cy)<220);
@@ -201,8 +198,9 @@ export const ALLIE={
       // (les petites cibles — camps, maisons — seulement en passant, à 40 cases : un camp de côte se relève aussitôt, le raid y piétinait)
       T=known.filter(b=>rank(b)<2||d2(b.i,b.j,cx,cy)<40).sort((a,z)=>rank(a)-rank(z)||d2(a.i,a.j,cx,cy)-d2(z.i,z.j,cx,cy))[0]||null;
       R.target=T?.id??null;if(T)this.log('Front',`Les troupes alliées débarquées marchent sur ${T.k==='centre'?'une ville bèè':'un bâtiment bèè'}.`,'info');}
+    for(const u of ashore)if(u.task?.kind==='evac'){u.task=null;u.path=null;}
     const ammoBoats=this.s.vehicles.filter(v=>v.ally&&v.k==='barge'&&v.hp>0&&(v.cargo?.['m:mle1']||0)>=1&&v.x>this.N/2&&!(v.spd>.5));
-    for(const u of ashore){const Wd=u.w&&this.W(u.w);if(Wd&&ammoBoats.length&&(u.mag||0)+(u.pouch||0)<(Wd.carry||Wd.p.mag*4)*.3){const v=ammoBoats.sort((a,z)=>d2(a.x,a.y,u.x,u.y)-d2(z.x,z.y,u.x,u.y))[0];if(d2(v.x,v.y,u.x,u.y)>2){if(!(u.task?.kind==='move'&&u.task.toBoat===v.id)){u.task={kind:'move',tx:v.x,ty:v.y,toBoat:v.id};u.path=null;}}continue;}
+    for(const u of ashore){const Wd=u.w&&this.W(u.w);if(Wd&&ammoBoats.length&&(u.mag||0)+(u.pouch||0)<(Wd.carry||Wd.p.mag*4)*.3){const v=ammoBoats.sort((a,z)=>d2(a.x,a.y,u.x,u.y)-d2(z.x,z.y,u.x,u.y))[0];if(d2(v.x,v.y,u.x,u.y)>25){/* trop loin : on ne recule pas pour des cartouches */}else if(d2(v.x,v.y,u.x,u.y)>2){if(!(u.task?.kind==='move'&&u.task.toBoat===v.id)){u.task={kind:'move',tx:v.x,ty:v.y,toBoat:v.id};u.path=null;}}continue;}
       if(engaged(u))continue;
       if(T){if(u.task?.kind==='attack'&&u.task.b===T.id)continue;this.order([u.id],{type:'building',id:T.id},true);}
       // sans cible : on pousse vers l'intérieur du pays bèè (vers son milieu), en ligne, là où sont les villes

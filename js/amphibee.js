@@ -10,7 +10,7 @@ const d2=(a,b,c,d)=>Math.hypot(a-c,b-d);
 
 export const AMPHI_BEE={
   // ce que la flotte voulue coûte encore (bateaux ni à l'eau ni en chantier) : le programme côtier le laisse en réserve
-  amphiBeeReserve(){if(this.G?.mode!=='mer'||this.day<BEE_AMPHI_DAY-2)return {};const miss=Math.max(0,Math.min(6,this.amphiBeeWant()-this.amphiBeeBoats().length-this.amphiBeeSites().length));
+  amphiBeeReserve(){if(this.G?.mode!=='mer'||this.day<BEE_AMPHI_DAY-6)return {};const miss=Math.max(0,Math.min(6,this.amphiBeeWant()-this.amphiBeeBoats().length-this.amphiBeeSites().length));
     const out={};for(const [k,n] of Object.entries(BUILDINGS.bateau_bee.cost))out[k]=n*miss;return out;},
   amphiBeeWant(){return Math.min(24,6+Math.floor(Math.max(0,this.day-BEE_AMPHI_DAY)/2));},
   amphiBeeBoats(){return this.s.vehicles.filter(v=>v.f==='beee'&&v.k==='bateau_bee'&&v.hp>0&&!v.dead);},
@@ -18,7 +18,9 @@ export const AMPHI_BEE={
   amphiBeeSites(){return this.s.buildings.filter(b=>b.f==='beee'&&b.k==='bateau_bee'&&!b.done&&!b.ruin);},
   // l'état-major : toutes les deux heures de jeu
   amphiBeeTick(){if(this.G?.mode!=='mer'||!this.G.dcoast)return;this.amphiBeeRiposteTick();const B=this.s.beee,t=this.s.t;if(t-(B.amphiT??-99)<2)return;B.amphiT=t;this.amphiBeeHeadTick();
-    if(this.day<BEE_AMPHI_DAY||(B.fort?.count||0)<BEE_AMPHI_BUNKERS)return;
+    // (les bateaux se construisent dès J16, quand la côte a dix ouvrages ; les assauts attendent J22 et quinze ouvrages — mesuré : chantiers ouverts à J22,
+    //  premiers bateaux à J29, premier assaut à J34)
+    if(this.day<BEE_AMPHI_DAY-6||(B.fort?.count||0)<10)return;
     const cities=B.cities.filter(c=>!c.fallen&&this.building(c.centre)?.done);if(cities.length<4)return;
     // 1. les bateaux se construisent sur la plage, comme des bâtiments : trois chantiers à la fois au plus, sur la côte de la ville la plus proche de la mer
     //    (ses dépôts fournissent le bois et le fer) ; fini, le bateau glisse à l'eau devant son chantier
@@ -27,6 +29,7 @@ export const AMPHI_BEE={
       for(const o of [...stocked.map(D=>({x:D.i+1,y:D.j+1,R:70})),...cities.map(c=>({x:c.x,y:c.y,R:170,far:1}))]){const p=this.amphiBeeBoatSite(o,o.R);if(!p)continue;const d=d2(p[0],p[1],o.x,o.y)+(o.far?400:0);if(d<bd){bd=d;at=p;}if(at&&!o.far&&bd<25)break;}
       if(at){const out=this.place('beee','bateau_bee',at[0]-2,at[1]-1);if(out.ok){out.b.prio=3;B.amphiWhy=null;}else B.amphiWhy='bateau refusé : '+(out.why||[]).join(', ');}   /* (posé directement : le site est déjà vérifié, et le frein « deux chantiers en attente » de beeeBuild bloquait les bateaux voisins) */else B.amphiWhy='pas de plage près des villes';}
     for(const b of sites){const n=this.s.units.filter(u=>u.task?.kind==='build'&&u.task.b===b.id).length;for(const u of this.beeeAvailable(b.i,b.j,600).slice(0,Math.max(0,4-n)))this.beeeAssign(u,{kind:'build',b:b.id});}
+    if(this.day<BEE_AMPHI_DAY||(B.fort?.count||0)<BEE_AMPHI_BUNKERS)return;
     // 3. l'assaut : assez de bateaux libres, assez de monde dans les villes de la côte, et l'intervalle écoulé
     if(t<(B.amphiNext??0)||this.s.amphi?.some(o=>o.f==='beee'))return;
     const free=this.amphiBeeBoats().filter(v=>!v.op);const need0=Math.min(want,6+2*(B.amphiCount||0));if(free.length<need0){B.amphiWhy=`flotte ${free.length}/${need0}`;return;}   /* (premier assaut à 6 bateaux, puis deux de plus à chaque fois) */
