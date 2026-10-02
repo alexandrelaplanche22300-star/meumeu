@@ -2,7 +2,7 @@
 // des collines rocheuses. Au milieu, une chaîne de montagnes le traverse en diagonale, percée de trois cols : les passages
 // où la guerre passera. La capitale meumeu est dans un coin, les villes bèè dans le coin opposé : on ne se voit pas au début.
 // Les gisements sont répartis également entre les deux camps (voir plus bas) : l'armement et le rare demandent le rail.
-import {MAP_N,T,NODES,RARE,ORE_LEFT,COMMON_ORES} from './data.js';
+import {MAP_N,MAP_N_MER,T,NODES,RARE,ORE_LEFT,COMMON_ORES} from './data.js';
 
 export function rng(seed){let s=(seed>>>0)||1;const next=()=>{s^=s<<13;s>>>=0;s^=s>>17;s^=s<<5;s>>>=0;return s/4294967296;};next.state=v=>{if(v!==undefined)s=(v>>>0)||1;return s;};return next;}
 function noise2(r){const P=256,g=new Float32Array(P*P);for(let i=0;i<g.length;i++)g[i]=r();
@@ -11,7 +11,10 @@ function noise2(r){const P=256,g=new Float32Array(P*P);for(let i=0;i<g.length;i+
     return (at(xi,yi)*(1-sx)+at(xi+1,yi)*sx)*(1-sy)+(at(xi,yi+1)*(1-sx)+at(xi+1,yi+1)*sx)*sy;};}
 function fbm(n,x,y,oct){let a=0,w=.5,f=1,s=0;for(let o=0;o<oct;o++){a+=w*n(x*f,y*f);s+=w;w*=.5;f*=2.03;}return a/s;}
 
-export function generate(seed){const N=MAP_N;const r=rng(seed*9973+17);for(let k=0;k<8;k++)r();const n1=noise2(r),n2=noise2(r),n3=noise2(r),n4=noise2(r);
+export function generate(seed,mode='classique'){const SEA=mode==='mer';const N=SEA?MAP_N_MER:MAP_N;
+  // V12.5 : la carte « mer » — deux rives séparées par un bras de mer le long de la diagonale (à l'écran : une bande verticale au milieu), de longues plages
+  // de sable sur chaque rive. Les camps sont plus près de la côte (x − y = ∓0,40) que dans la carte classique, où ils sont aux deux coins.
+  const CAP0=SEA?[.30,.70]:[.12,.88],BEE0=SEA?[.70,.30]:[.87,.13];const r=rng(seed*9973+17);for(let k=0;k<8;k++)r();const n1=noise2(r),n2=noise2(r),n3=noise2(r),n4=noise2(r);
   const terrain=new Uint8Array(N*N);
   // Le relief : pas de muraille en diagonale, des massifs naturels — un bruit déformé donne de grandes zones de hauteurs,
   // un bruit « de crête » y trace des chaînes sinueuses ; la neige n'est que sur les plus hauts sommets. Rien près des capitales.
@@ -21,13 +24,21 @@ export function generate(seed){const N=MAP_N;const r=rng(seed*9973+17);for(let k
     // déformation plus forte et bruits plus fins : des taches de quelques dizaines de cases aux bords déchiquetés, pas de grandes plaques
     const wx=x+.26*(fbm(n4,x*5,y*5,3)-.5),wy=y+.26*(fbm(n4,x*5+7.3,y*5+2.9,3)-.5);
     const mass=fbm(n1,wx*5.6,wy*5.6,4),rg=ridge(wx*11,wy*11);const dry=fbm(n3,wx*15,wy*15,5);
-    const far=Math.min(Math.hypot(x-.12,y-.88),Math.hypot(x-.87,y-.13));
+    const far=Math.min(Math.hypot(x-CAP0[0],y-CAP0[1]),Math.hypot(x-BEE0[0],y-BEE0[1]));
     // des plaines et des forêts : herbe, prairies, quelques clairières de terre, de rares landes caillouteuses ; ni dunes ni sable
     let t=dry>.69?T.scrub:dry>.62?T.dirt:dry>.45?T.meadow:T.grass;
     const high=mass>.63&&far>.13;if(high&&rg>.925)t=(mass>.7&&rg>.97)?T.snow:T.rock;else if(high&&rg>.86)t=T.scrub;
     // autour de la capitale meumeu : de bonnes terres, ni landes ni roche (la vallée grasse du départ)
-    if(Math.hypot(x-.12,y-.88)<.04&&(t===T.scrub||t===T.dirt||t===T.rock||t===T.snow))t=T.meadow;
+    if(Math.hypot(x-CAP0[0],y-CAP0[1])<.04&&(t===T.scrub||t===T.dirt||t===T.rock||t===T.snow))t=T.meadow;
     terrain[k]=t;}
+  // la mer : |i − j| < H, avec une côte sinueuse (baies et caps de ±22 cases, puis de petits accidents) ; au large, la mer profonde ;
+  // près de la côte, des hauts-fonds (six à quatorze cases) ; sur la terre, une plage de sable de 18 à 28 cases (13 à 20 en largeur réelle)
+  if(SEA){const H0=.106*N;for(let j=0;j<N;j++)for(let i=0;i<N;i++){const s=(i+j)/(2*N),off=(i-j);const sg=Math.sign(off)||1;
+      const coast=H0+(fbm(n3,s*9+sg*3.1,.37,3)-.5)*44+(fbm(n4,s*31+sg*5.3,.61,2)-.5)*9;const d=Math.abs(off)-coast;   // d < 0 : en mer
+      const k=j*N+i;
+      if(d<0)terrain[k]=d<-(6+8*fbm(n2,s*17,sg+.5,2))?T.deep:T.shallow;
+      else if(d<18+10*fbm(n1,s*13+sg*2.2,.2,2)&&terrain[k]!==T.rock&&terrain[k]!==T.snow)terrain[k]=T.sand;
+      else if(d<34&&(terrain[k]===T.rock||terrain[k]===T.snow))terrain[k]=T.grass;}}   // pas de falaise de roche en plein sur la plage de départ
   const land=k=>terrain[k]>=T.sand&&terrain[k]<=T.scrub;
   // les terres d'un seul tenant (sans les montagnes) : la plus grande est le continent
   const comp=new Int32Array(N*N).fill(-1);const sizes=[];
@@ -35,13 +46,15 @@ export function generate(seed){const N=MAP_N;const r=rng(seed*9973+17);for(let k
     while(q.length){const c=q.pop();n++;const ci=c%N,cj=(c/N)|0;for(const [di,dj] of [[1,0],[-1,0],[0,1],[0,-1]]){const a=ci+di,b=cj+dj;if(a<0||b<0||a>=N||b>=N)continue;const kk=b*N+a;if(comp[kk]<0&&land(kk)){comp[kk]=id;q.push(kk);}}}
     sizes.push(n);}
   const main=sizes.indexOf(Math.max(...sizes));
+  // la carte « mer » a deux continents (une rive chacun) : tous deux comptent comme « le continent »
+  if(SEA){const mx=Math.max(...sizes);for(let k=0;k<N*N;k++){const c=comp[k];if(c>=0&&c!==main&&sizes[c]>=.3*mx)comp[k]=main;}}
   // ce qui n'est pas relié au continent devient de la roche (pas de poches inaccessibles)
   for(let k=0;k<N*N;k++)if(land(k)&&comp[k]!==main)terrain[k]=T.rock;
   const clearAround=(ci,cj,rad)=>{for(let dj=-rad;dj<=rad;dj++)for(let di=-rad;di<=rad;di++){const a=ci+di,b=cj+dj;if(a<0||b<0||a>=N||b>=N||comp[b*N+a]!==main)return 1;}return 0;};
   const siteNear=(ti,tj,rad=5,avoid=[])=>{let best=null,bd=1e9;for(let j=8;j<N-8;j++)for(let i=8;i<N-8;i++){const d=Math.hypot(i-ti,j-tj);if(d>=bd||d>60)continue;
       if(comp[j*N+i]!==main)continue;if(avoid.some(([a,b])=>Math.hypot(a-i,b-j)<30))continue;if(clearAround(i,j,rad))continue;bd=d;best=[i,j];}return best;};
-  const capital=siteNear(N*.12,N*.87,7)||siteNear(N*.18,N*.8,5);
-  const beee=[];for(const [ti,tj] of [[N*.87,N*.13],[N*.7,N*.1],[N*.9,N*.3]]){if(beee.length>=2)break;const p=siteNear(ti,tj,5,[capital,...beee]);if(p)beee.push(p);}
+  const capital=siteNear(N*CAP0[0],N*(CAP0[1]-.01),7)||siteNear(N*(CAP0[0]+.06),N*(CAP0[1]-.08),5);
+  const beee=[];for(const [ti,tj] of (SEA?[[N*BEE0[0],N*BEE0[1]],[N*.8,N*.2],[N*.64,N*.14]]:[[N*.87,N*.13],[N*.7,N*.1],[N*.9,N*.3]])){if(beee.length>=2)break;const p=siteNear(ti,tj,5,[capital,...beee]);if(p)beee.push(p);}
   // les ressources
   const nodes=[];const nodeAt=new Int32Array(N*N).fill(-1);
   const add=(type,i,j,extra={})=>{if(i<1||j<1||i>=N-1||j>=N-1)return null;const k=j*N+i;if(nodeAt[k]>=0||!land(k))return null;const L=(extra.res&&ORE_LEFT[extra.res])||NODES[type].left;const nd={id:nodes.length,type,i,j,left:L,max:L,...extra};nodes.push(nd);nodeAt[k]=nd.id;return nd;};
@@ -112,4 +125,4 @@ export function generate(seed){const N=MAP_N;const r=rng(seed*9973+17);for(let k
     for(const b of blobs){const d=Math.hypot(b.i-i,b.j-j);if(d<b.r)v+=48*Math.pow(1-d/b.r,.6);}
     const c=dC(i,j),e=dB(i,j);if(c<55)v=Math.max(v,78*(1-c/70))+14*(1-c/55);if(e<60)v=Math.min(v,30+30*e/60);
     let fv=v*tf;if(c<50)fv=Math.max(fv,82*(1-c/70));fert[k]=Math.max(0,Math.min(100,Math.round(fv)));}
-  return {N,terrain,nodes,nodeAt,comp,main,capital,beee,deposits,passes,fert,blobs};}
+  return {N,terrain,nodes,nodeAt,comp,main,capital,beee,deposits,passes,fert,blobs,mode};}

@@ -57,8 +57,8 @@ export class World{
   constructor(seed=Date.now()%100000,options={}){this.events=[];this.init(seed,options);}
   // (une graine dont la carte ne se laisse pas générer — la capitale bèè introuvable — passait à « Erreur de démarrage du rendu » : on prend la suivante ;
   //  la graine retenue est celle qui est sauvée, donc un rechargement retrouve la même carte)
-  init(seed,options={}){let G;for(let k=0;;k++){try{G=generate(seed);break;}catch(e){if(k>=24)throw e;seed++;}}this.G=G;this.N=G.N;this.rand=rng(seed*2654435761+7);for(let k=0;k<16;k++)this.rand();this.pather=new Pather(this.N);
-    const s=this.s={v:SAVE_VERSION,seed,t:7,solar:7,solarSettings:{...SOLAR_DEFAULT},nextId:1,units:[],buildings:[],vehicles:[],shots:[],falls:[],tracks:[],log:[],rails:{},walls:{},trenches:{},craters:[],corpses:[],squads:[],
+  init(seed,options={}){let G;for(let k=0;;k++){try{G=generate(seed,options.map);break;}catch(e){if(k>=24)throw e;seed++;}}this.G=G;this.N=G.N;this.rand=rng(seed*2654435761+7);for(let k=0;k<16;k++)this.rand();this.pather=new Pather(this.N);
+    const s=this.s={v:SAVE_VERSION,seed,map:G.mode,t:7,solar:7,solarSettings:{...SOLAR_DEFAULT},nextId:1,units:[],buildings:[],vehicles:[],shots:[],falls:[],tracks:[],log:[],rails:{},walls:{},trenches:{},craters:[],corpses:[],squads:[],
       designs:Object.fromEntries(DEFAULT_DESIGNS.map(d=>[d.id,JSON.parse(JSON.stringify(d))])),armors:Object.fromEntries(DEFAULT_ARMORS.map(d=>[d.id,JSON.parse(JSON.stringify(d))])),smokes:[],groundFires:[],
       nodes:G.nodes,fauna:[],beee:{cities:[],waves:0,anger:0,tension:0,phase:'war'},won:null,lost:null,cityN:0,squadN:0,
       innov:{prac:{},next:{},ideas:[],done:[],order:INNOV.map(x=>x.id).sort(()=>this.rand()-.5)}};this.remod();
@@ -1297,11 +1297,16 @@ export class World{
     const mine=nd.type==='ore'&&this.s.buildings.some(b=>b.k==='mine'&&b.ore===nd.id&&b.done);const rate=(NODES[nd.type].rate)*(mine?0:1)*this.mod('gather_'+nd.type);this.practice(DOM_OF[nd.type],dt);
     const got=Math.min(rate*dt,nd.left,CARRY-(u.carry?.n||0));nd.left-=got;u.carry={k:res,n:(u.carry?.n||0)+got};if(nd.left<1&&nd.type!=='bush'&&nd.type!=='ore'){this.nodeAt[nd.j*this.N+nd.i]=-1;this.emit({type:'felled',x:nd.i,y:nd.j,nt:nd.type});}}
   // Au camp : chacun ramasse ce que le camp demande (ou ce qui y manque le plus) à moins de 10 cases, et le rapporte au camp
+  // V12.5 : la ressource vivante la plus proche de (x, y) dans un rayon autour d'un bâtiment — on ne parcourt que les cases voisines (la grille nodeAt),
+  // au lieu des 94 000 ressources de la carte « mer » (le coût dépendait de la taille de la carte, plus de ce qu'il y a autour du camp)
+  nodeNearest(b,r,type,x,y){const N=this.N,[w,h]=this.sizeOf(b);let best=null,bd=1e18;const nodes=this.s.nodes;
+    for(let j=Math.max(0,Math.floor(b.j-r)-1);j<=Math.min(N-1,Math.ceil(b.j+h+r)+1);j++)for(let i=Math.max(0,Math.floor(b.i-r)-1);i<=Math.min(N-1,Math.ceil(b.i+w+r)+1);i++){const id=this.nodeAt[j*N+i];if(id<0)continue;const n=nodes[id];
+      if(!n||n.type!==type||!(n.left>=1)||this.distB(b,n.i+.5,n.j+.5)>=r)continue;const d=d2(n.i,n.j,x,y);if(d<bd){bd=d;best=n;}}return best;}
   hubTick(u,b,dt){const want=b.res||'auto';const TYPE={bois:'tree',pierre:'rock',vivres:'bush'};let types=want==='auto'?['tree','rock','bush']:[TYPE[want]];
     if(want==='auto')types.sort((x,y)=>(b.stock[NODES[x].res]||0)-(b.stock[NODES[y].res]||0));
     let nd=u.hubNode!=null?this.s.nodes[u.hubNode]:null;const ok=n=>n&&n.left>=1&&types.includes(n.type)&&this.distB(b,n.i+.5,n.j+.5)<10;
     if(u.carry&&(u.carry.n>=CARRY-1e-6||!ok(nd))){if(this.room(b)<1){u.why='le camp est plein : il lui faut des porteurs';u.anim='idle';u.at=false;return;}this.deliverTo(u,b);u.at=false;return;}
-    if(!ok(nd)){if(u.hubScan>this.s.t){u.anim='idle';u.at=false;return;}nd=null;for(const t of types){const c=this.s.nodes.filter(n=>n.type===t&&n.left>=1&&this.distB(b,n.i+.5,n.j+.5)<10).sort((a,z)=>d2(a.i,a.j,u.x,u.y)-d2(z.i,z.j,u.x,u.y))[0];if(c){nd=c;break;}}
+    if(!ok(nd)){if(u.hubScan>this.s.t){u.anim='idle';u.at=false;return;}nd=null;for(const t of types){const c=this.nodeNearest(b,10,t,u.x,u.y);if(c){nd=c;break;}}
       u.hubNode=nd?nd.id:null;u.path=null;if(!nd){u.why='plus rien à ramasser autour du camp';u.anim='idle';u.at=false;u.hubScan=this.s.t+1;u.hubEmpty=(u.hubEmpty||0)+1;
         if(u.hubEmpty>=12){u.task=null;u.hubEmpty=0;u.why=null;if(!b.emptyTold&&u.f==='meumeu'){b.emptyTold=true;this.log(this.cityName(b),`${this.depotName(b)} : plus rien à ramasser à 10 cases. Ses villageois sont libres.`,'warn');}}return;}u.hubEmpty=0;b.emptyTold=false;}
     u.why=null;if(!this.go(u,nd.i+.5,nd.j+.5,[nd.i,nd.j,1,1])){u.at=false;return;}u.at=true;u.anim='action';this.face(u,nd.i+.5-u.x,nd.j+.5-u.y);const res=NODES[nd.type].res;

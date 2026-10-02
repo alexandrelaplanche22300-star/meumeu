@@ -11,6 +11,7 @@
 export const HOUR_REAL=4;      // base de la simulation ; le ralenti du cycle est appliqué par l'interface
 export const DAY=24;
 export const NIGHT=[17,8];   // quinze heures de noir : temps de gagner l'objectif et de décrocher
+export const MAP_N_MER=950;   // V12.5 : la carte « mer » — 950 × 950 = 2,5 fois la carte de 600, dont 0,5 de mer au milieu
 export const MAP_N=600;        // cases de côté (V12.4 : 440 → 600, demande du joueur : un front grand et dur à tenir ; capitale ↔ Bèè : ~450 cases)
 // un chantier, un soldat, un canon puisent dans les dépôts à moins de RADIUS cases (un dépôt sert tout un quartier)
 export const RADIUS=32;
