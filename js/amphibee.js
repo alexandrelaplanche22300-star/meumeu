@@ -25,7 +25,7 @@ export const AMPHI_BEE={
     const want=this.amphiBeeWant(),have=this.amphiBeeBoats().length,sites=this.amphiBeeSites();
     if(have+sites.length<want&&sites.length<SITES&&t>=(B.siteT??0)){B.siteT=t+4;let at=null,bd=1e9;const cost=BUILDINGS.bateau_bee.cost;const stocked=this.depotList('beee').filter(D=>D.done&&!D.ruin&&!BUILDINGS[D.k].foodOnly&&Object.entries(cost).every(([k,n])=>k==='pieces'||(this.have('beee',D.i+1,D.j+1)[k]||0)>=n*2));
       for(const o of [...stocked.map(D=>({x:D.i+1,y:D.j+1,R:70})),...cities.map(c=>({x:c.x,y:c.y,R:170,far:1}))]){const p=this.amphiBeeBoatSite(o,o.R);if(!p)continue;const d=d2(p[0],p[1],o.x,o.y)+(o.far?400:0);if(d<bd){bd=d;at=p;}if(at&&!o.far&&bd<25)break;}
-      if(at){const b=this.beeeBuild('bateau_bee',at[0],at[1],4);if(b){b.prio=3;B.amphiWhy=null;}else B.amphiWhy='pas de place pour un bateau';}else B.amphiWhy='pas de plage près des villes';}
+      if(at){const out=this.place('beee','bateau_bee',at[0]-2,at[1]-1);if(out.ok){out.b.prio=3;B.amphiWhy=null;}else B.amphiWhy='bateau refusé : '+(out.why||[]).join(', ');}   /* (posé directement : le site est déjà vérifié, et le frein « deux chantiers en attente » de beeeBuild bloquait les bateaux voisins) */else B.amphiWhy='pas de plage près des villes';}
     for(const b of sites){const n=this.s.units.filter(u=>u.task?.kind==='build'&&u.task.b===b.id).length;for(const u of this.beeeAvailable(b.i,b.j,600).slice(0,Math.max(0,4-n)))this.beeeAssign(u,{kind:'build',b:b.id});}
     // 3. l'assaut : assez de bateaux libres, assez de monde dans les villes de la côte, et l'intervalle écoulé
     if(t<(B.amphiNext??0)||this.s.amphi?.some(o=>o.f==='beee'))return;
