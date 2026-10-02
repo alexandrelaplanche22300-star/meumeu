@@ -70,7 +70,7 @@ const view=new View($('#view'),world,{
     if(kind==='rail'){const N=world.N;const ok=new Set(world.canLine('meumeu','rail',cells));const bad=cells.filter(([i,j])=>!ok.has(j*N+i)&&!world.rail[j*N+i]).length;
       if(bad){say(`Voie impossible : ${bad} case${bad>1?'s':''} barrée${bad>1?'s':''} (roc, eau, bâtiment, filon). Tracez vers une case libre : la voie contourne d’elle-même ce qui la gêne.`,'bad');return;}}
     const r=world.planLine('meumeu',kind,cells);if(!r.ok){say('rien à poser là','bad');return;}let vil=[...view.sel].map(id=>world.unit(id)).filter(u=>u?.k==='villageois');
-    const [i,j]=cells[0];if(!vil.length)vil=world.idle().filter(u=>Math.hypot(u.x-i,u.y-j)<45).slice(0,4);if(vil.length)world.order(vil.map(u=>u.id),{type:kind==='rail'?'rail':kind==='sacs'||kind==='fosses'?'sacs':kind==='mines'?'mines':'wall',k:j*world.N+i});
+    const [i,j]=cells[0];if(!vil.length)vil=world.idle().filter(u=>Math.hypot(u.x-i,u.y-j)<45).slice(0,4);if(vil.length)world.order(vil.map(u=>u.id),{type:kind==='rail'?'rail':kind==='sacs'||kind==='fosses'?'sacs':kind==='mines'?'mines':kind==='piste'?'piste':'wall',k:j*world.N+i});
     say(`${LINES[kind].name} : ${r.n} cases en plan · ${Object.entries(r.cost).map(([k,v])=>v+' '+RES[k].name.toLowerCase()).join(', ')}, payés case par case${vil.length?` · ${vil.length} villageois y vont`:' — envoyez des villageois (clic droit sur le tracé)'}.`);},
   inspect:t=>{ui.inspect=t;},
   // à la sélection, ils répondent « meu ? » (« bè ? » si l'on clique un Bèè) ; à l'ordre, « meu ! »

@@ -192,3 +192,10 @@ et champs de tir croisés → D. dépôts de secteur et logistique → E. couche
 - Pas encore : bateaux bèè (rustiques, sans véhicule), son et écume, barges qui gênent le tir des soldats embarqués (ils tirent depuis le pont ?), file d'attente des barges.
 - Note : `test/vehicules_conduite.mjs` C1 échoue déjà avant la phase 5 (automitrailleuse 3/4 buts) : à regarder à part.
 - Prochaine étape : **phase 6, l'aviation** (hangar, piste, avion de transport, planeurs, pont aérien), puis phase 7 (IA).
+
+## État (2026-10-02, nuit) — priorités revues par le joueur : l'IA d'abord, l'aviation en dernier
+- Bunkers retravaillés : murs hauts et pleins (jointifs), toit qui devient transparent seulement quand nos unités sont dedans, clic droit sur une case de poste (tir, pièce, soute, abri) pour y envoyer un soldat ou une arme lourde,
+  marqueurs de postes à la sélection.
+- **Aviation (phase 6) : moteur de vol fait** (`air.js` : piste, hangar, décollage, croisière, atterrissage, planeurs remorqués, plané avec gestion d'énergie, accidents, pont aérien ; test/air.mjs : 11 critères sur 13 verts
+  au dernier passage, restent le largage remorqué de bout en bout et le pont aérien d'une piste à l'autre). **Pas encore : modèles 3D, panneau de commande, menus** — la piste et le hangar sont cachés des menus en attendant.
+- **Maintenant : la phase 7, l'IA bèè** (défense côtière en couches, ensembles fortifiés cohérents, logistique, offensives amphibies massives).

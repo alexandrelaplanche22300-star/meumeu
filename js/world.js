@@ -26,6 +26,7 @@ import {VEHICULES,VEHDEF} from './vehicules.js';
 import {PERSISTENCE} from './persistence.js';
 import {BUNKERS} from './bunkers.js';
 import {NAVAL} from './naval.js';
+import {AIRCRAFT} from './air.js';
 import {bunkerPlan} from './bunkerdata.js';
 // Le chemin d'un train : les centres des cases, et à chaque virage à angle droit un quart de cercle (rayon : une demi-case) —
 // la même courbe que celle que dessine la voie. Chaque point est [x - 0,5, y - 0,5, case] (slide ajoute la demi-case).
@@ -61,7 +62,7 @@ export class World{
   // (une graine dont la carte ne se laisse pas générer — la capitale bèè introuvable — passait à « Erreur de démarrage du rendu » : on prend la suivante ;
   //  la graine retenue est celle qui est sauvée, donc un rechargement retrouve la même carte)
   init(seed,options={}){let G;for(let k=0;;k++){try{G=generate(seed,options.map);break;}catch(e){if(k>=24)throw e;seed++;}}this.G=G;this.N=G.N;this.bounds=G.bounds||[0,0,G.N,G.N];   /* (V12.5) le rectangle jouable : toute la carte, ou 1 500 × 600 sur la carte « mer » */this.rand=rng(seed*2654435761+7);for(let k=0;k<16;k++)this.rand();this.pather=new Pather(this.N);
-    const s=this.s={v:SAVE_VERSION,seed,map:G.mode,genV:G.version,t:7,solar:7,solarSettings:{...SOLAR_DEFAULT},nextId:1,units:[],buildings:[],vehicles:[],shots:[],falls:[],tracks:[],log:[],rails:{},walls:{},sacs:{},mines:{},craters:[],corpses:[],squads:[],
+    const s=this.s={v:SAVE_VERSION,seed,map:G.mode,genV:G.version,t:7,solar:7,solarSettings:{...SOLAR_DEFAULT},nextId:1,units:[],buildings:[],vehicles:[],shots:[],falls:[],tracks:[],log:[],rails:{},walls:{},sacs:{},mines:{},pistes:{},craters:[],corpses:[],squads:[],
       designs:Object.fromEntries(DEFAULT_DESIGNS.map(d=>[d.id,JSON.parse(JSON.stringify(d))])),armors:Object.fromEntries(DEFAULT_ARMORS.map(d=>[d.id,JSON.parse(JSON.stringify(d))])),smokes:[],groundFires:[],
       nodes:G.nodes,fauna:[],beee:{cities:[],waves:0,anger:0,tension:0,phase:'war'},won:null,lost:null,cityN:0,squadN:0,
       innov:{prac:{},next:{},ideas:[],done:[],order:INNOV.map(x=>x.id).sort(()=>this.rand()-.5)}};this.remod();
@@ -129,7 +130,7 @@ export class World{
     for(const nd of this.s.nodes)if(nd.left>0||nd.type==='bush'||nd.type==='ore')this.nodeAt[nd.j*N+nd.i]=nd.id;
     for(const b of this.s.buildings)this.stamp(b,b.id);
     for(const [k,r] of Object.entries(this.s.rails))this.rail[+k]=r.b?2:1;
-    this.s.sacs??={};this.s.mines??={};delete this.s.trenches;   /* (V12.5) les anciennes tranchées ont disparu : les sacs de sable les remplacent */this.s.craters??=[];this.s.groundFires??=[];for(const [k,w] of Object.entries(this.s.walls))this.wall[+k]=(w.f==='meumeu'?1:-1)*(w.b?2:1);for(const c of this.s.craters)this.stampCrater(c);
+    this.s.sacs??={};this.s.mines??={};this.s.pistes??={};this.pisteV=(this.pisteV|0)+1;delete this.s.trenches;   /* (V12.5) les anciennes tranchées ont disparu : les sacs de sable les remplacent */this.s.craters??=[];this.s.groundFires??=[];for(const [k,w] of Object.entries(this.s.walls))this.wall[+k]=(w.f==='meumeu'?1:-1)*(w.b?2:1);for(const c of this.s.craters)this.stampCrater(c);
     this.bIndex=new Map(this.s.buildings.map(b=>[b.id,b]));this.uIndex=new Map(this.s.units.map(u=>[u.id,u]));}
   sizeOf(b){return b.size||BUILDINGS[b.k].size;}
   // La fertilité : 0–100 par case ; ce qu'elle rend (0,12 sur la roche nue, 0,9 à 50, 1,3 à 80, 1,5 sur la terre noire).
@@ -452,7 +453,7 @@ export class World{
     const beast=this.s.fauna?.find(a=>a.alive&&d2(a.x,a.y,x,y)<.7);if(beast)return {type:'fauna',id:beast.id};
     const carcass=this.s.fauna?.find(a=>!a.alive&&a.food>0&&d2(a.x,a.y,x,y)<.7);if(carcass)return {type:'carcass',id:carcass.id};
     if(i<0||j<0||i>=N||j>=N)return null;const k=j*N+i;
-    const bid=this.occ[k]>=0?this.occ[k]:this.fortB[k];if(bid>=0){const b=this.building(bid);if(b?.f!==f&&this.s.fog!==false&&!this.s.intel?.[b?.id]&&!this.visibleAt(f,x,y))return {type:'point',x,y};return {type:'building',id:bid};}
+    const bid=this.occ[k]>=0?this.occ[k]:this.fortB[k];if(bid>=0){const b=this.building(bid);if(b?.f!==f&&this.s.fog!==false&&!this.s.intel?.[b?.id]&&!this.visibleAt(f,x,y))return {type:'point',x,y};const post=BUILDINGS[b?.k]?.bunker&&b.f===f?this.bunkerPosts(b).find(p=>p.k===k):null;return post?{type:'building',id:bid,post:k}:{type:'building',id:bid};}
     const w=this.wall[k];if(w)return {type:'wall',k};if(this.s.sacs[k])return {type:'sacs',k};
     if(this.nodeAt[k]>=0)return {type:'node',id:this.nodeAt[k]};
     if(this.rail[k]===1)return {type:'rail',k};
@@ -471,7 +472,7 @@ export class World{
         if(e.h?.state==='hors'){const carriers=us.slice(0,2);carriers.forEach(u=>set(u,{kind:'evac',id:e.id}));return {ok:true,text:`${carriers.length} vont chercher ${e.name||'le blessé'}`};}
         us.forEach((u,n)=>set(u,{kind:'move',tx:e.x+(n%3-1)*.5,ty:e.y+(((n/3)|0)%3-1)*.5}));return {ok:true,text:'on le suit'};}
       us.forEach(u=>set(u,{kind:'attack',unit:e.id}));return {ok:true,text:`${us.length} à l’attaque`};}
-    if(t.type==='building'){const bb=this.building(t.id);if(bb&&bb.f===us[0].f&&BUILDINGS[bb.k].bunker&&bb.done&&!bb.ruin)return this.garrison(bb,us);}
+    if(t.type==='building'){const bb=this.building(t.id);if(bb&&bb.f===us[0].f&&BUILDINGS[bb.k].bunker&&bb.done&&!bb.ruin)return this.garrison(bb,us,t.post);}
     if(t.type==='building'&&this.building(t.id)?.f==='beee'){const sab=us.filter(u=>(u.charges||0)>0);
       if(sab.length&&t.queue&&sab.every(u=>u.task?.kind==='sabotage')){for(const u of sab)(u.task.next??=[]).push(t.id);return {ok:true,text:`cible suivante ajoutée : ${BUILDINGS[this.building(t.id).k].name.toLowerCase()} (${sab[0].task.next.length+1} au programme)`};}
       if(sab.length){sab.forEach(u=>set(u,{kind:'sabotage',b:t.id,back:[u.x,u.y],next:[]}));const rest=us.filter(u=>!sab.includes(u));rest.forEach(u=>set(u,{kind:'attack',b:t.id}));
@@ -499,6 +500,7 @@ export class World{
         armed.forEach((u,n)=>{const k=cells[Math.min(cells.length-1,n*step)];set(u,{kind:'guard',tx:k%N+.5,ty:((k/N)|0)+.5});u.orderPost='couche';});
         if(!vil.length)return {ok:true,text:`${armed.length} occupent ${this.s.sacs[t.k]?.t==='fosses'?'la fosse':'les sacs de sable'}`};}
       vil.forEach(u=>set(u,{kind:'line',line:this.s.sacs[t.k]?.t||'sacs',x:t.k%this.N,y:(t.k/this.N)|0}));return {ok:true,text:this.s.sacs[t.k]?.t==='fosses'?'on creuse la fosse':'on pose les sacs de sable'};}
+    if(t.type==='piste'){vil.forEach(u=>set(u,{kind:'line',line:'piste',x:t.k%this.N,y:(t.k/this.N)|0}));return {ok:true,text:'on pose la piste'};}
     if(t.type==='mines'){vil.forEach(u=>set(u,{kind:'line',line:'mines',x:t.k%this.N,y:(t.k/this.N)|0}));return {ok:true,text:'on pose les mines'};}
     if(t.type==='rail'){vil.forEach(u=>set(u,{kind:'line',line:'rail',x:t.k%this.N,y:(t.k/this.N)|0}));return {ok:true,text:`${vil.length} posent la voie`};}
     if(t.type==='node'&&this.s.nodes[t.id]?.type==='ore'&&us.some(u=>(u.charges||0)>0)){const nd=this.s.nodes[t.id];const sab=us.filter(u=>(u.charges||0)>0);
@@ -586,6 +588,7 @@ export class World{
     if(B.unique&&this.s.buildings.some(b=>b.f===f&&b.k===k&&!b.ruin))why.push('un seul');
     if(k==='centre'&&this.s.buildings.some(b=>b.f===f&&b.k==='centre'&&d2(b.i,b.j,i,j)<24))why.push('trop près d’une autre ville');
     if(B.station&&!this.platformAt(i,j,w,h))why.push('au bord d’une voie ferrée');
+    if(B.needsRunway){const rw=this.airRunwayNear(i+w/2,j+h/2);if(!rw||d2(i+w/2,j+h/2,rw.cx,rw.cy)>rw.len/2+14)why.push('à côté d’une piste (44 cases de long, 3 de large) : posez-la d’abord');}
     if(B.coastal){let wet=false;for(let a=-3;a<w+3&&!wet;a++)for(let c=-3;c<h+3;c++){const ii=i+a,jj=j+c;if(ii<0||jj<0||ii>=N||jj>=N)continue;const t=this.G.terrain[jj*N+ii];if(t===T.deep||t===T.shallow){wet=true;break;}}if(!wet)why.push('au bord de la mer');}
     // un chantier se paie à mesure : il lui faut un dépôt à moins de RADIUS cases, où le fret apportera ce qui manque (le camp est gratuit)
     const site=Object.keys(B.cost).length?this.nearestDepot(f,i+w/2,j+h/2,SITE_RANGE,d=>!BUILDINGS[d.k].foodOnly):null;
@@ -627,7 +630,7 @@ export class World{
         const c2=c+(this.rail[kk]?.4:1)+(nd!==d&&prev.get(st)!==-1?TURN:0);const st2=kk*4+nd;if(cost.has(st2)&&cost.get(st2)<=c2)continue;cost.set(st2,c2);prev.set(st2,st);push(c2+hh(kk),st2);}}
     if(end<0)return ell();const out=[];for(let st=end;st!==-1;st=prev.get(st))out.push([(st>>2)%N,((st>>2)/N)|0]);return out.reverse();}
   // annuler un tracé : toutes les cases prévues (pas encore bâties) reliées à celle-ci ; ce qui était payé revient au dépôt
-  lineStore(kind){return kind==='rail'?this.s.rails:kind==='sacs'||kind==='fosses'?this.s.sacs:kind==='mines'?this.s.mines:this.s.walls;}
+  lineStore(kind){return kind==='rail'?this.s.rails:kind==='sacs'||kind==='fosses'?this.s.sacs:kind==='mines'?this.s.mines:kind==='piste'?this.s.pistes:this.s.walls;}
   cancelLine(f,kind,k0){const N=this.N;const store=this.lineStore(kind);const o0=store[k0];if(!o0||o0.b||(kind!=='rail'&&o0.f!==f))return 0;const mine=o=>(kind!=='sacs'&&kind!=='fosses')||(o.t||'sacs')===kind;if(!mine(o0))return 0;
     const seen=new Set([k0]),q=[k0];while(q.length){const k=q.pop();const i=k%N,j=(k/N)|0;for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){const kk=(j+dj)*N+i+di;const o=store[kk];if(!o||o.b||seen.has(kk)||(kind!=='rail'&&o.f!==f)||!mine(o))continue;seen.add(kk);q.push(kk);}}
     for(const k of seen){const o=store[k];if(o.paid){const d=this.depots(f,k%N,(k/N)|0)[0];if(d)for(const [r,v] of Object.entries(LINES[kind].cost))this.put(d,r,v);}
@@ -635,12 +638,15 @@ export class World{
     for(const u of this.s.units)if(u.task?.kind==='line'&&u.task.line===kind&&seen.has(u.task.k))u.task.k=null;
     return seen.size;}
   canLine(f,kind,cells){const N=this.N;const ok=[];for(const [i,j] of cells){if(i<1||j<1||i>=N-1||j>=N-1)continue;const k=j*N+i;if(!TERRAIN[this.G.terrain[k]].build||this.occ[k]>=0)continue;
-    if(kind==='rail'&&this.rail[k])continue;if(kind!=='rail'&&(this.wall[k]||this.rail[k]))continue;if(this.s.sacs[k]||this.s.mines[k])continue;if(this.nodeAt[k]>=0&&this.s.nodes[this.nodeAt[k]].type==='ore')continue;ok.push(k);}return ok;}
-  planLine(f,kind,cells){const ks=this.canLine(f,kind,cells);for(const k of ks){if(kind==='rail'){this.s.rails[k]={f,b:0,p:0,hp:LINES.rail.hp};this.rail[k]=1;}else if(kind==='mur'){this.s.walls[k]={f,b:0,p:0,hp:LINES.mur.hp};this.wall[k]=f==='meumeu'?1:-1;}else if(kind==='mines')this.s.mines[k]={f,b:0,p:0,hp:LINES.mines.hp};else this.s.sacs[k]={f,b:0,p:0,hp:LINES[kind].hp,t:kind};
+    if(kind==='rail'&&this.rail[k])continue;if(kind!=='rail'&&(this.wall[k]||this.rail[k]))continue;if(this.s.sacs[k]||this.s.mines[k]||this.s.pistes[k])continue;if(this.nodeAt[k]>=0&&this.s.nodes[this.nodeAt[k]].type==='ore')continue;ok.push(k);}return ok;}
+  // une piste fait trois cases de large : chaque case du tracé est doublée de ses deux voisines, perpendiculairement au tracé
+  pisteCells(cells){if(cells.length<2)return cells;const [a,b]=[cells[0],cells[cells.length-1]];let dx=b[0]-a[0],dy=b[1]-a[1];const L=Math.hypot(dx,dy)||1;dx/=L;dy/=L;const px=-dy,py=dx;const seen=new Set(),out=[];
+    for(const [i,j] of cells)for(const o of [-1,0,1]){const x=Math.round(i+px*o),y=Math.round(j+py*o),k=y*this.N+x;if(seen.has(k))continue;seen.add(k);out.push([x,y]);}return out;}
+  planLine(f,kind,cells){if(kind==='piste')cells=this.pisteCells(cells);const ks=this.canLine(f,kind,cells);for(const k of ks){if(kind==='rail'){this.s.rails[k]={f,b:0,p:0,hp:LINES.rail.hp};this.rail[k]=1;}else if(kind==='mur'){this.s.walls[k]={f,b:0,p:0,hp:LINES.mur.hp};this.wall[k]=f==='meumeu'?1:-1;}else if(kind==='piste')this.s.pistes[k]={f,b:0,p:0,hp:LINES.piste.hp};else if(kind==='mines')this.s.mines[k]={f,b:0,p:0,hp:LINES.mines.hp};else this.s.sacs[k]={f,b:0,p:0,hp:LINES[kind].hp,t:kind};
       const nd=this.nodeAt[k];if(nd>=0&&this.s.nodes[nd].type!=='ore'){this.s.nodes[nd].left=0;this.nodeAt[k]=-1;}}
     return {ok:ks.length>0,n:ks.length,cost:Object.fromEntries(Object.entries(LINES[kind].cost).map(([r,v])=>[r,v*ks.length]))};}
-  lineBuilt(kind,k){if(kind==='mur')this.wallV=(this.wallV||0)+1;if(kind==='rail'){const r=this.s.rails[k];r.b=1;r.p=1;this.rail[k]=2;this._rnDirty=true;}else if(kind==='mur'){const w=this.s.walls[k];w.b=1;w.p=1;w.hp=LINES.mur.hp*this.mod('mur');this.wall[k]=(w.f==='meumeu'?2:-2);this.repath();}else{const t=(kind==='mines'?this.s.mines:this.s.sacs)[k];t.b=1;t.p=1;}}   // (les sacs et les fosses : même magasin, t dit lequel)
-  lineBroken(kind,k){if(kind==='mur')this.wallV=(this.wallV||0)+1;if(kind==='rail'){const r=this.s.rails[k];if(!r)return;r.b=0;r.p=0;r.paid=0;r.hp=LINES.rail.hp;this.rail[k]=1;r.broken=true;this._rnDirty=true;}else if(kind==='mur'){delete this.s.walls[k];this.wall[k]=0;this.repath();}else if(kind==='mines')delete this.s.mines[k];else delete this.s.sacs[k];}
+  lineBuilt(kind,k){if(kind==='mur')this.wallV=(this.wallV||0)+1;if(kind==='rail'){const r=this.s.rails[k];r.b=1;r.p=1;this.rail[k]=2;this._rnDirty=true;}else if(kind==='mur'){const w=this.s.walls[k];w.b=1;w.p=1;w.hp=LINES.mur.hp*this.mod('mur');this.wall[k]=(w.f==='meumeu'?2:-2);this.repath();}else if(kind==='piste'){const t=this.s.pistes[k];t.b=1;t.p=1;this.pisteV=(this.pisteV|0)+1;}else{const t=(kind==='mines'?this.s.mines:this.s.sacs)[k];t.b=1;t.p=1;}}   // (les sacs et les fosses : même magasin, t dit lequel)
+  lineBroken(kind,k){if(kind==='mur')this.wallV=(this.wallV||0)+1;if(kind==='rail'){const r=this.s.rails[k];if(!r)return;r.b=0;r.p=0;r.paid=0;r.hp=LINES.rail.hp;this.rail[k]=1;r.broken=true;this._rnDirty=true;}else if(kind==='mur'){delete this.s.walls[k];this.wall[k]=0;this.repath();}else if(kind==='piste'){delete this.s.pistes[k];this.pisteV=(this.pisteV|0)+1;}else if(kind==='mines')delete this.s.mines[k];else delete this.s.sacs[k];}
   repath(){for(const u of this.s.units)u.path=null;}
   platformAt(i,j,w,h){const N=this.N;for(let a=-1;a<=w;a++)for(let c=-1;c<=h;c++){if(a>=0&&a<w&&c>=0&&c<h)continue;const ii=i+a,jj=j+c;if(ii<0||jj<0||ii>=N||jj>=N)continue;if(this.rail[jj*N+ii])return [ii,jj];}return null;}
   platform(b){const [w,h]=this.sizeOf(b);const N=this.N;let best=null;for(let a=-1;a<=w;a++)for(let c=-1;c<=h;c++){if(a>=0&&a<w&&c>=0&&c<h)continue;const ii=b.i+a,jj=b.j+c;if(ii<0||jj<0||ii>=N||jj>=N)continue;if(this.rail[jj*N+ii]===2)return [ii,jj];if(this.rail[jj*N+ii]&&!best)best=[ii,jj];}return best;}
@@ -1099,7 +1105,7 @@ export class World{
       const value=threat+(reach?2:0)-d/Math.max(3,r)*3-(e.h?.state==='blesse'?1:0)-aimed*1.6+face*1.2+fired-prone+mine+taste;
       if(value>score){score=value;best=e;}});
     // les engins ennemis : l'antichar d'abord ; les armes légères seulement si elles peuvent percer (voir vehThreatFor)
-    for(const v of this.cvs||[]){if(v.f===u.f||v.hp<=0)continue;const d=d2(v.x,v.y,u.x,u.y);if(d>r||!this.vehSeen(u.f,v)||!this.los(u.x,u.y,v.x,v.y))continue;const val=this.vehThreatFor(u,v,d,r);if(val>score){score=val;best=v;}}
+    for(const v of this.cvs||[]){if(v.f===u.f||v.hp<=0||v.alt>8)continue;const d=d2(v.x,v.y,u.x,u.y);if(d>r||!this.vehSeen(u.f,v)||!this.los(u.x,u.y,v.x,v.y))continue;const val=this.vehThreatFor(u,v,d,r);if(val>score){score=val;best=v;}}
     return best;}
   // combien des nôtres visent cette cible en ce moment (compté une fois par instant)
   aimCount(id,f){const t=this.s.t;if(this._aimT!==t||!this._aim){this._aimT=t;const m=this._aim={meumeu:new Map(),beee:new Map()};for(const u of this.s.units){if(u.aimAt==null||!(u.hp>0)||t-(u.firedAt??-9)>.05)continue;const M=m[u.f];if(M)M.set(u.aimAt,(M.get(u.aimAt)||0)+1);}}
@@ -1393,7 +1399,7 @@ export class World{
       if(UNITS[q.k]||(b.f==='beee'&&BEEE.units[q.k])){const u=this.addUnit(b.f,q.k,b.i+w/2+(this.rand()-.5)*w,b.j+h+.7,{w:q.w,rounds:0,armor:q.armor});if(q.role==='munitions')this.setRole(u,'munitions');const centre=this.cityOf(b)||this.centreOf(b);u.home=centre?.id??null;if(UNITS[q.k]?.arm&&(b.k==='caserne'||b.k==='caserne_elite'))u.homeBarracks=b.id;this.resupply(u,!!u.homeBarracks);
         const enemyCity=b.f==='beee'&&centre&&this.s.beee.cities.find(c=>c.centre===centre.id);if(enemyCity){u.city=enemyCity.id;if(u.k!=='villageois'){const a=this.rand()*Math.PI*2,r=5+this.rand()*3;u.task={kind:'guard',tx:enemyCity.x+Math.cos(a)*r,ty:enemyCity.y+Math.sin(a)*r};}}
         else if(b.rally)u.task={kind:u.k==='villageois'?'move':'guard',tx:b.rally[0],ty:b.rally[1]};this.emit({type:'trained',x:u.x,y:u.y,k:q.k,f:b.f});}
-      else if(VEHDEF[q.k]){const v=VEHDEF[q.k].nav==='eau'?this.vehFromCale(b,q.k):this.vehFromGarage(b,q.k);if(!v){b.queue.unshift({...q,left:.5});b.why='la sortie est encombrée';return;}this.log(this.cityName(b),VEHDEF[q.k].nav==='eau'?`${v.name} est à l’eau.`:`${v.name} sort du garage.`,'good');this.emit({type:'trained',x:v.x,y:v.y,k:q.k,f:b.f});}
+      else if(VEHDEF[q.k]){const v=VEHDEF[q.k].nav==='eau'?this.vehFromCale(b,q.k):VEHDEF[q.k].air?this.vehFromHangar(b,q.k):this.vehFromGarage(b,q.k);if(!v){b.queue.unshift({...q,left:.5});b.why=VEHDEF[q.k].air?'pas de place sur la piste voisine':'la sortie est encombrée';return;}this.log(this.cityName(b),VEHDEF[q.k].nav==='eau'?`${v.name} est à l’eau.`:VEHDEF[q.k].air?`${v.name} sort du hangar.`:`${v.name} sort du garage.`,'good');this.emit({type:'trained',x:v.x,y:v.y,k:q.k,f:b.f});}
       else{const v=this.addVehicle(b.f,q.k,b);this.log(this.cityName(b),`${VEHICLES[q.k].name} « ${v.name} » prêt.`,'good');this.emit({type:'trained',x:v.x,y:v.y,k:q.k,f:b.f});}}}
     const here=B.workers?this.workers(b).filter(u=>u.at):[];if(!here.length)return;const n=here.length;
     // les fermes et les mines livrent à leur dépôt de sortie (le plus proche, ou celui que le joueur a choisi)
@@ -1716,3 +1722,4 @@ Object.assign(World.prototype,VEHICULES);
 Object.assign(World.prototype,PERSISTENCE);
 Object.assign(World.prototype,BUNKERS);
 Object.assign(World.prototype,NAVAL);
+Object.assign(World.prototype,AIRCRAFT);

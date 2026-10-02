@@ -298,7 +298,7 @@ export class View{
     this.stepParts(dt);this.drawShots();this.drawStreaks(dt);this.drawParts(false);this.drawSmokes();this.drawFx(dt);this.drawLogistics();this.drawFocus();
     for(const v of s.vehicles)if(v.alt>0&&inView(v.x,v.y,12))this.drawVehicle(v);
     this.drawCones();this.drawCharges();this.drawParts(true);this.drawLinks();
-    if(this.placing&&this.hover)this.drawGhost();if(this.lining?.cells)this.drawLinePlan();
+    this.drawPostMarkers();if(this.placing&&this.hover)this.drawGhost();if(this.lining?.cells)this.drawLinePlan();
     if(this.drag?.box){const {x0,y0,x1,y1}=this.drag.box;ctx.fillStyle='rgba(255,211,106,.12)';ctx.strokeStyle='#ffd36a';ctx.lineWidth=1.5*this.dpr;ctx.fillRect(Math.min(x0,x1),Math.min(y0,y1),Math.abs(x1-x0),Math.abs(y1-y0));ctx.strokeRect(Math.min(x0,x1),Math.min(y0,y1),Math.abs(x1-x0),Math.abs(y1-y0));}
     this.marks=this.marks.filter(m=>(m.age+=dt)<.6);for(const m of this.marks){const q=this.toScreen(m.x,m.y);ctx.strokeStyle=m.bad?`rgba(235,90,70,${1-m.age/.6})`:`rgba(255,211,106,${1-m.age/.6})`;ctx.lineWidth=2.5*this.dpr;ctx.beginPath();ctx.ellipse(q.x,q.y,(6+m.age*30)*z,(3+m.age*15)*z,0,0,7);ctx.stroke();}
     this.drawZones(dt);this.drawCombatHud(dt);
@@ -1007,6 +1007,21 @@ export class View{
     const ctr=this.toScreen(i+w/2,j+h/2);ctx.save();ctx.strokeStyle='rgba(255,241,201,.25)';ctx.setLineDash([6*z,6*z]);ctx.beginPath();ctx.ellipse(ctr.x,ctr.y,(B.bunker?0:14)*TW/2*z*1.41,(B.bunker?0:14)*TH/2*z*1.41,0,0,7);ctx.stroke();ctx.restore();
     const Y=B.soil?this.world.cropYield(null,i,j,k):null;const nodep=(B.makes||B.factory)&&!this.world.depots('meumeu',i+w/2,j+h/2,RADIUS).length;const soil=(Y!=null?` · rendement ${Math.round(Y*100)} % (${Y>=1.15?'bonne terre':Y>=.8?'terre moyenne':'terre maigre'})`:'')+(nodep?` · aucun dépôt à ${RADIUS} cases : rien ne sortira`:'');
     this.tag(r.ok?`${B.name} : cliquez pour poser${soil}${B.bunker?` · R : tourner (les embrasures regardent ${['en haut à droite','en bas à droite','en bas à gauche','en haut à gauche'][rot]} de l’écran)`:''}`:r.why[0]+(B.bunker?' · R : tourner':''),cc.x,cc.y+14*z,r.ok?(Y!=null&&Y<.7?'bad':'ok'):'bad');}
+  // V12.5 : les postes d'un bunker — quand on le sélectionne, ou qu'on le survole avec des soldats choisis : chaque case de poste est marquée (jaune : tir, orange : pièce,
+  // vert : soute, bleu : abri ; plein : occupée) ; le survol d'une case dit ce qu'elle est et que le clic droit y envoie le soldat choisi
+  drawPostMarkers(){const W=this.world,ctx=this.ctx,z=this.z(),N=W.N;let b=null;
+    if(this.selB!=null){const bb=W.building(this.selB);if(bb&&BUILDINGS[bb.k]?.bunker&&bb.done&&!bb.ruin&&bb.f==='meumeu')b=bb;}
+    if(!b&&this.sel.size&&this.hover?.cell){const c=this.hover.cell;if(c[0]>=0&&c[1]>=0&&c[0]<N&&c[1]<N){const bid=W.fortB[c[1]*N+c[0]];if(bid>=0){const bb=W.building(bid);if(bb&&bb.f==='meumeu'&&bb.done&&!bb.ruin)b=bb;}}}
+    if(!b)return;const occ=W.bunkerOcc(b),hc=this.hover?.cell,hk=hc?hc[1]*N+hc[0]:-1;
+    const LAB={tir:'poste de tir',gun:'emplacement de pièce',soute:'soute (chargeur)',abri:'abri'},COL={tir:'232,191,98',gun:'255,154,74',soute:'143,191,106',abri:'127,179,217'};
+    ctx.save();let tagged=false;
+    for(const p of W.bunkerPosts(b)){const A=this.toScreen(p.i+.08,p.j+.08),B2=this.toScreen(p.i+.92,p.j+.08),C=this.toScreen(p.i+.92,p.j+.92),D=this.toScreen(p.i+.08,p.j+.92),taken=!!occ[p.k],hot=p.k===hk;
+      ctx.fillStyle=`rgba(${taken?'110,200,120':COL[p.kind]},${hot?.6:taken?.42:.3})`;ctx.strokeStyle=`rgba(${COL[p.kind]},${hot?1:.8})`;ctx.lineWidth=Math.max(1,(hot?3:1.6)*z);
+      ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B2.x,B2.y);ctx.lineTo(C.x,C.y);ctx.lineTo(D.x,D.y);ctx.closePath();ctx.fill();ctx.stroke();
+      const q=this.toScreen(p.i+.5,p.j+.5);ctx.fillStyle=`rgb(${COL[p.kind]})`;ctx.beginPath();ctx.arc(q.x,q.y,Math.max(2,(p.kind==='gun'?4.5:3)*z),0,7);ctx.fill();
+      if(p.fx||p.fy){const t=this.toScreen(p.i+.5+p.fx*.42,p.j+.5+p.fy*.42);ctx.strokeStyle=`rgb(${COL[p.kind]})`;ctx.lineWidth=Math.max(1.5,2*z);ctx.beginPath();ctx.moveTo(q.x,q.y);ctx.lineTo(t.x,t.y);ctx.stroke();}
+      if(hot&&!tagged){tagged=true;this.tag(`${LAB[p.kind]} · ${taken?'occupé':'libre'}${this.sel.size?' · clic droit : prendre ce poste':''}`,q.x,q.y-22*z,taken?'warn':'ok');}}
+    ctx.restore();}
   // V12.5 : la silhouette d'un bunker à la pose — murs, embrasures (fentes noires), porte (jaune), sol couvert ou ouvert, postes de tir (point + trait vers l'embrasure)
   drawBunkerPlan(id,rot,i,j,ok){const P=bunkerPlan(id,rot),ctx=this.ctx,z=this.z();const COL={'#':'rgba(126,130,120,.92)',E:'rgba(24,24,22,.95)',D:'rgba(232,191,98,.95)','.':'rgba(206,210,196,.28)',o:'rgba(214,190,130,.45)',G:'rgba(150,160,172,.8)',A:'rgba(112,124,82,.8)'};
     ctx.save();for(let c=0;c<P.h;c++)for(let a=0;a<P.w;a++){const ch=P.rows[c][a];if(ch===' ')continue;const x=i+a,y=j+c,A=this.toScreen(x,y),B2=this.toScreen(x+1,y),C=this.toScreen(x+1,y+1),D=this.toScreen(x,y+1);const up='#ED'.includes(ch)?(ch==='E'?.18:.3)*TH*z:0;

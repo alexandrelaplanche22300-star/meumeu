@@ -54,6 +54,20 @@ VEHDEF.barge={name:'Barge de débarquement',nav:'eau',modele:':barge',avant:'+x'
   blindage:{avant:[3.2,30],flanc:[2.3,0],arriere:[1.3,0],dessus:[0,0]},hp:420,places:{servants:0,passagers:24},soute:60,armes:[],
   cout:{fer:60,pieces:25,bois:70},heures:26,
   why:'Une coque blindée qu’on échoue sur la plage : un pilote, vingt-quatre Meumeu, un véhicule, des munitions. La proue relevée arrête les balles de fusil et de mitrailleuse bèè ; baissée, elle laisse courir les soldats vers la plage. Elle repart chercher du monde tant que le pilote vit.'};
+// V12.5 : le ciel (voir air.js) — un avion de transport trimoteur, un planeur d'assaut (silencieux), un planeur lourd. Mesures réelles : vitesses en m/s (qui valent des cases/h),
+// altitudes en m. Réservés aux Meumeu.
+VEHDEF.avion={name:'Avion de transport',air:{power:true,stall:27,vr:36,cruise:52,climb:3.6,descend:4.5,accel:4.2,brake:5,bank:25,cruiseAlt:150,loiter:.09},modele:':avion',avant:'+x',long:4.7,large:7.4,roues:'roues',r:1,vmax:62,t0:1,frein:1,
+  blindage:{avant:[.25,0],flanc:[.2,0],arriere:[.2,0],dessus:[.2,0]},hp:240,places:{servants:0,passagers:18},soute:80,armes:[],
+  cout:{fer:90,pieces:60,bois:50,cuivre:10,charbon:20},heures:60,
+  why:'Un trimoteur de transport : un pilote, dix-huit passagers, quatre-vingts caisses (le pont aérien : munitions d’abord), ou un planeur à la remorque. Il décolle d’une piste de 44 cases au moins, vole à 150 m, atterrit sur une piste. Les Bèè l’entendent de loin.'};
+VEHDEF.planeur={name:'Planeur d’assaut',air:{power:false,silent:true,stall:20,glide:29,ld:12,bank:30,brake:3.2,tow:44},modele:':planeur',avant:'+x',long:2.8,large:5.3,roues:'roues',r:1,vmax:60,t0:1,frein:1,
+  blindage:{avant:[.1,0],flanc:[.08,0],arriere:[.08,0],dessus:[.08,0]},hp:90,places:{servants:0,passagers:9},soute:6,armes:[],
+  cout:{bois:70,fer:10,pieces:15},heures:24,
+  why:'Un pilote et huit soldats, en toile et en bois : remorqué par l’avion, largué avant la côte, il plane en silence (finesse 12 : 12 m parcourus pour 1 m perdu) et se pose dans un champ. Tout le monde en sort d’un coup, prêt à combattre. Un arbre à grande vitesse peut tuer le pilote.'};
+VEHDEF.planeur_lourd={name:'Planeur lourd',air:{power:false,silent:true,heavy:true,stall:23,glide:33,ld:10,bank:25,brake:2.6,tow:40},modele:':planeur_lourd',avant:'+x',long:7,large:13.8,roues:'roues',r:1,vmax:60,t0:1,frein:1,
+  blindage:{avant:[.12,0],flanc:[.1,0],arriere:[.1,0],dessus:[.1,0]},hp:180,places:{servants:0,passagers:36},soute:40,armes:[],
+  cout:{bois:200,fer:60,pieces:60,cuivre:6},heures:60,
+  why:'Le mammouth : un pilote, trente-cinq soldats, quarante caisses. Plus lourd à remorquer, plus lent à planer (finesse 10) : il demande une longue piste d’arrivée et un grand champ.'};
 export const VEH_KINDS=Object.keys(VEHDEF);
 const VEDF=v=>VEHDEF[v.k];
 // la vitesse sur chaque terrain (part de vmax) : les roues s'enlisent dans le sable et peinent dans la lande, les chenilles moins
@@ -61,7 +75,7 @@ const TERRAIN_V={roues:{sand:.55,scrub:.7,dirt:1,grass:.95,meadow:.95},chenilles
 
 export const VEHICULES={
   // un engin (gros, bruyant) se voit de plus loin qu'un homme : sa signature visuelle
-  vehSeen(f,v){return this.visibleAt(f,v.x,v.y,VEH_SIG);},
+  vehSeen(f,v){return this.visibleAt(f,v.x,v.y,v.stealth?.6:VEH_SIG);},
   vehDef(v){return VEHDEF[v.k];},
   isCombatVehicle(v){return !!VEHDEF[v?.k];},
   // Un véhicule neuf (à la sortie du garage) : caisse orientée, armes vides (on les charge au dépôt), personne à bord.
@@ -185,7 +199,7 @@ export const VEHICULES={
   // conduisible (A* hybride : rayon de braquage, marche arrière, emprise, engins garés) sur les ~12 cases suivantes de l'itinéraire, refait avant d'en
   // voir le bout. Mesuré : planifier tout le trajet d'un coup coûtait jusqu'à 5,7 s et devait tout refaire à la moindre obstruction ; chaque morceau
   // local reste petit (fenêtre de 14 cases, 8 000 nœuds au plus). Faux s'il n'y a pas d'itinéraire.
-  vehMove(v,tx,ty){if(VEHDEF[v.k]?.nav==='eau')return this.boatMove(v,tx,ty);const R=this.vehPlan(v,tx,ty);if(!R){v.why='pas de chemin pour ce véhicule (arbres, rochers, tranchées, eau)';v.path=null;v.itin=null;v.state='idle';return false;}
+  vehMove(v,tx,ty){if(VEHDEF[v.k]?.nav==='eau')return this.boatMove(v,tx,ty);if(VEHDEF[v.k]?.air)return this.airGoto(v,tx,ty);const R=this.vehPlan(v,tx,ty);if(!R){v.why='pas de chemin pour ce véhicule (arbres, rochers, tranchées, eau)';v.path=null;v.itin=null;v.state='idle';return false;}
     v.itin=R;v.ri=0;v.goal=[tx,ty];v.path=null;v.state='go';v.why=null;v.man=null;v.watch=null;v.localN=0;return true;},
   // le morceau local : vers le point de l'itinéraire à ~12 cases devant (cap voulu : la direction de l'itinéraire là-bas), à défaut ~6 cases ;
   // le but lui-même s'il est à portée. À défaut de tout, l'itinéraire tel quel (le pilote manœuvre au besoin).
@@ -224,10 +238,10 @@ export const VEHICULES={
   // On charge et décharge à un dépôt à moins de 4 cases ; à l'arrêt, l'équipage, les Meumeu à 2,5 cases et les armes de l'engin s'y ravitaillent.
   soutePart(k,n){return /^(m|a|p):/.test(k)?n:n/10;},
   souteUsed(v){let s=0;for(const [k,n] of Object.entries(v.cargo||{}))s+=this.soutePart(k,n);return s;},
-  vehLoad(v,k,n){const V=VEHDEF[v.k];if(!V?.soute)return {ok:false,why:['pas de soute']};if(!this.depots(v.f,v.x,v.y,4).length)return {ok:false,why:['il faut un dépôt à moins de 4 cases']};
+  vehLoad(v,k,n){const V=VEHDEF[v.k];if(!V?.soute)return {ok:false,why:['pas de soute']};const RD=V.air?14:4;if(!this.depots(v.f,v.x,v.y,RD).length)return {ok:false,why:[`il faut un dépôt à moins de ${RD} cases`]};
     const room=V.soute-this.souteUsed(v),per=this.soutePart(k,1);const want=Math.min(n,Math.floor(room/per+1e-9));if(want<=0)return {ok:false,why:['soute pleine']};
-    const got=this.take(v.f,v.x,v.y,k,want,4);if(got<=0)return {ok:false,why:['le dépôt n’en a pas']};v.cargo[k]=(v.cargo[k]||0)+got;return {ok:true,text:`${v.name} : ${Math.round(got*10)/10} ${this.goodName(k)} chargé${got>1?'s':''}.`};},
-  vehUnload(v,k=null,n=Infinity){const D=this.depots(v.f,v.x,v.y,4)[0];if(!D)return {ok:false,why:['il faut un dépôt à moins de 4 cases']};let moved=0;
+    const got=this.take(v.f,v.x,v.y,k,want,RD);if(got<=0)return {ok:false,why:['le dépôt n’en a pas']};v.cargo[k]=(v.cargo[k]||0)+got;return {ok:true,text:`${v.name} : ${Math.round(got*10)/10} ${this.goodName(k)} chargé${got>1?'s':''}.`};},
+  vehUnload(v,k=null,n=Infinity){const RD=VEHDEF[v.k]?.air?14:4;const D=this.depots(v.f,v.x,v.y,RD)[0];if(!D)return {ok:false,why:[`il faut un dépôt à moins de ${RD} cases`]};let moved=0;
     for(const kk of k?[k]:Object.keys(v.cargo)){const q=this.put(D,kk,Math.min(n,v.cargo[kk]||0));v.cargo[kk]-=q;moved+=q;if(v.cargo[kk]<=1e-6)delete v.cargo[kk];}
     return moved>0?{ok:true,text:`${v.name} décharge au dépôt.`}:{ok:false,why:['rien à décharger, ou dépôt plein']};},
   vehSouteSupply(v){if(!v.cargo||(v.spd||0)>.5)return;if(this.s.t-(v.souteT??-9)<.25)return;v.souteT=this.s.t;
@@ -235,7 +249,7 @@ export const VEHICULES={
     for(const m of v.mounts||[])crate(m.w,0,Wd=>{if((m.pouch||0)>=Wd.p.mag*2)return false;m.pouch=(m.pouch||0)+(Wd.perCrate||Wd.p.mag);return true;});
     const near=[...(v.crew||[]),...this.s.units.filter(u=>u.f===v.f&&!u.inVeh&&u.hp>0&&Math.hypot(u.x-v.x,u.y-v.y)<2.5)];
     for(const u of near){if(!u.w)continue;crate(u.w,0,Wd=>{const carry=Wd.carry||Wd.p.mag*4;if((u.pouch||0)+(u.mag||0)>=carry*.5)return false;u.pouch=Math.min(carry,(u.pouch||0)+(Wd.perCrate||Wd.p.mag));return true;});}},
-  combatVehicleTick(v,dt){const V=VEHDEF[v.k];if(V.nav==='eau'){this.vehSouteSupply(v);this.boatTick(v,V,dt);return;}if(v.k==='char'&&v.name?.startsWith('Char léger'))v.name=v.name.replace('Char léger','Automitrailleuse à canon');if(v.hp<=0){v.spd=0;return;}this.vehSouteSupply(v);
+  combatVehicleTick(v,dt){const V=VEHDEF[v.k];if(V.air){this.airTick(v,V,dt);return;}if(V.nav==='eau'){this.vehSouteSupply(v);this.boatTick(v,V,dt);return;}if(v.k==='char'&&v.name?.startsWith('Char léger'))v.name=v.name.replace('Char léger','Automitrailleuse à canon');if(v.hp<=0){v.spd=0;return;}this.vehSouteSupply(v);
     if(v.fire>0){v.fire-=dt;v.hp-=dt*35;if(v.hp<=0){this.vehDestroyed(v,'brûlé');return;}}
     if(v.comp?.moteur||v.comp?.train){if(v.state==='go'){v.state='idle';v.path=null;v.itin=null;}v.why=v.comp.moteur?'moteur détruit : immobilisé':'train de roulement brisé : immobilisé';}
     const drv=this.vehDriver(v);
@@ -400,7 +414,8 @@ export const VEHICULES={
     v.hitAt=this.s.t;if(hurt&&v.f==='meumeu')this.log('Front',`${v.name} : une explosion tout près, ${hurt} touché(s) à bord.`,'bad');
     if(v.hp<=0)this.vehDestroyed(v,'explosion');},
   // Détruit : l'épave reste ; ceux qui sont encore à bord s'en sortent ou non, blessés
-  vehDestroyed(v,cause){if(v.dead)return;v.dead=true;v.hp=0;v.spd=0;v.state='idle';v.path=null;v.itin=null;if(VEHDEF[v.k]?.nav==='eau'){this.emit({type:'boom',kind:'shell',x:v.x,y:v.y,f:v.f});this.emit({type:'fire',x:v.x,y:v.y});this.boatSunk(v,cause);return;}
+  vehDestroyed(v,cause){if(v.dead)return;v.dead=true;v.hp=0;v.spd=0;v.state='idle';v.path=null;v.itin=null;if(VEHDEF[v.k]?.air){v.dead=false;this.airCrash(v,cause||'détruit');return;}
+    if(VEHDEF[v.k]?.nav==='eau'){this.emit({type:'boom',kind:'shell',x:v.x,y:v.y,f:v.f});this.emit({type:'fire',x:v.x,y:v.y});this.boatSunk(v,cause);return;}
     for(const u of (v.crew||[]).filter(u=>u.hp>0))if(this.rand()<(v.fire>0?.6:.45))this.vehCrewHit(v,u,fragDesign(.6+this.rand(),1.5),350+this.rand()*350,`engin détruit (${cause})`);
     this.vehUnboard(v,'tous');this.emit({type:'boom',kind:'shell',x:v.x,y:v.y,f:v.f});this.emit({type:'fire',x:v.x,y:v.y});
     this.log('Front',`${v.name} est détruit (${cause}).`,v.f==='meumeu'?'bad':'good');},

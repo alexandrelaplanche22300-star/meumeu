@@ -22,11 +22,16 @@ export const BUNKERS={
   bunkerFree(b){const o=this.bunkerOcc(b);return this.bunkerPosts(b).filter(p=>!o[p.k]);},
   // loger ces soldats : chacun au poste libre qui lui convient (tireur → poste de tir ; pièce lourde → emplacement de pièce ; sans arme → soute ; le reste dans l'abri),
   // le plus proche de lui d'abord ; ils s'y rendent par le pathfinding ordinaire (la porte est la seule entrée), se tournent vers l'embrasure et y restent
-  garrison(b,us){if(!b||b.ruin||!b.done)return {ok:false,why:['le bunker n’est pas terminé']};const o=this.bunkerOcc(b);const posts=this.bunkerFree(b);if(!posts.length)return {ok:false,why:['le bunker est plein']};
+  garrison(b,us,want=null){if(!b||b.ruin||!b.done)return {ok:false,why:['le bunker n’est pas terminé']};const o=this.bunkerOcc(b);
+    // un poste désigné : celui qui l'occupe déjà cède sa place (il retourne à ses affaires)
+    if(want!=null&&o[want]&&!us.some(u=>u.id===o[want])){const old=this.unit(o[want]);if(old){old.task=null;old.path=null;old.sentry=false;}delete o[want];}
+    const posts=this.bunkerFree(b);if(!posts.length)return {ok:false,why:['le bunker est plein']};
     const pref=u=>{const W=u.w&&this.W(u.w);if(u.k==='medecin'||u.k==='infirmier'||u.k==='villageois')return ['abri','soute'];if(!W)return ['soute','abri'];if(W.crew>1)return ['gun','tir','abri'];return ['tir','abri','gun'];};
     let n=0;const taken=new Set();
-    for(const u of us){
-      let best=null;for(const kind of pref(u)){const c=posts.filter(p=>p.kind===kind&&!taken.has(p.k)).sort((p,q)=>Math.hypot(p.i-u.x,p.j-u.y)-Math.hypot(q.i-u.x,q.j-u.y))[0];if(c){best=c;break;}}
+    // l'ordre au poste désigné : le premier soldat qui peut le tenir (une arme lourde pour un emplacement de pièce, un fusil pour un poste de tir), sinon le premier
+    let first=null;const wp=want!=null?posts.find(p=>p.k===want):null;if(wp){first=us.find(u=>{const W=u.w&&this.W(u.w);return wp.kind==='gun'?W&&W.crew>1:wp.kind==='tir'?W&&!(W.crew>1):true;})||us[0];}
+    for(const u of (first?[first,...us.filter(x=>x!==first)]:us)){
+      let best=u===first?wp:null;if(!best)for(const kind of pref(u)){const c=posts.filter(p=>p.kind===kind&&!taken.has(p.k)).sort((p,q)=>Math.hypot(p.i-u.x,p.j-u.y)-Math.hypot(q.i-u.x,q.j-u.y))[0];if(c){best=c;break;}}
       if(!best)continue;taken.add(best.k);o[best.k]=u.id;n++;
       u.task={kind:'guard',tx:best.i+.5,ty:best.j+.5,fx:best.fx||null,fy:best.fy||null,hold:true,bunker:b.id,post:best.k,postKind:best.kind};u.path=null;u.goal=null;u.orderPost=best.kind==='tir'||best.kind==='gun'?'debout':null;u.sentry=true;}
     return n?{ok:true,text:`${n} prennent leur poste dans ${BUILDINGS[b.k].name.toLowerCase()}`}:{ok:false,why:['aucun poste libre qui convienne']};},
