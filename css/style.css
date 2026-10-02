@@ -14,7 +14,7 @@ a{color:var(--teal);cursor:pointer;text-decoration:underline;text-underline-offs
 .top{display:flex;align-items:center;gap:12px;padding:6px 12px;background:var(--paper2);border-bottom:1px solid var(--line);flex-wrap:wrap;min-width:0;max-width:100%}
 .brand{display:flex;gap:8px;align-items:center}.mark{width:30px;height:30px;border-radius:9px;background:var(--teal);color:#fffaf0;display:grid;place-items:center;font-weight:900}
 .title{font-weight:900;letter-spacing:.02em}.eyebrow{font-size:10.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--orange2);font-weight:800}
-.clock{font-weight:800;font-variant-numeric:tabular-nums;min-width:110px;font-size:13px}
+.clock{font-weight:800;font-variant-numeric:tabular-nums;min-width:110px;font-size:13px;white-space:nowrap}.top{font-variant-numeric:tabular-nums}
 .speeds{display:flex;gap:3px}.speeds button{background:color-mix(in srgb,var(--ink) 9%,transparent);color:var(--ink);padding:4px 9px}.speeds button.on{background:var(--ink);color:var(--paper2)}
 .stocks{display:flex;gap:4px;flex-wrap:wrap}.rchip{display:inline-flex;gap:4px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:2px 7px;font-variant-numeric:tabular-nums}
 .rchip.rare{border-color:var(--gold)}.rchip.bad{border-color:var(--red);color:var(--red)}.spacer{flex:1 1 16px;min-width:0}.menu{display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end;min-width:0}.menu button{padding:4px 8px;font-size:12.5px}.top{row-gap:4px}.eyebrow{display:none}

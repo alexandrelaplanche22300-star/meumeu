@@ -30,7 +30,9 @@ export {icon};
 export class View{
   constructor(canvas,world,ui){this.canvas=canvas;this.ctx=canvas.getContext('2d');this.world=world;this.ui=ui;this.dir=new Director();this.cx=0;this.cy=0;this.zoom=.9;this.sx=0;this.sy=0;
     this.sel=new Set();this.selVs=new Set();this.selB=null;this.selV=null;this.placing=null;this.lining=null;this.hover=null;this.drag=null;this.parts=[];this.decals=[];this.marks=[];this.streaks=[];this.rings=[];this.waves=[];this.zoning=false;this.toppling=[];this.fx=[];this.frame=0;this.clock=0;this.shake=0;this.tiles=null;this.tinted=new Map();this.g3=null;this.o3=false;this.want3d=false;
-    this.bind();new ResizeObserver(()=>this.resize()).observe(canvas.parentElement);this.resize();}
+    // le cadre change de taille : on redessine TOUT DE SUITE (l'observateur passe avant l'affichage) — sinon le canevas, vidé par le changement de taille,
+    // s'affichait une image vide ou étirée dans le nouveau cadre : la carte « zoomait » une fraction de seconde
+    this.bind();new ResizeObserver(()=>{this.resize();try{this.draw(0);}catch(e){}}).observe(canvas.parentElement);this.resize();}
   resize(){const d=devicePixelRatio||1;const r=this.canvas.parentElement.getBoundingClientRect();this.canvas.width=Math.max(1,Math.round(r.width*d));this.canvas.height=Math.max(1,Math.round(r.height*d));this.dpr=d;}
   z(){return this.zoom*this.dpr;}
   // V12.4 : la caméra libre (3D) — azimut (yaw, 0 = l'isométrie d'origine, vue depuis +X+Z) et élévation (30° d'origine). La projection générale d'une caméra

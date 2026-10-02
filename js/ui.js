@@ -126,6 +126,12 @@ const uiZ={auto(){return Math.min(1,near((window.okmApp?.zoom?screen.width:inner
     say(`Taille de l’interface : ${Math.round(this.cur*100)} % (Ctrl + / Ctrl −).`);},
   init(){let z=NaN;try{z=parseFloat(localStorage.getItem('okm-zoom'));}catch(e){}this.set(z>0?z:this.auto(),false);}};
 window.okmZoom=d=>uiZ.step(d);
+// Le bandeau du haut ne rétrécit jamais en cours de partie : ses chiffres (ressources, horloge, puces) changent de largeur à chaque instant, et
+// une ligne de puces qui passait à la ligne puis revenait faisait sauter la carte de 29 points, plusieurs fois par minute. Il garde sa plus grande
+// hauteur ; elle se recalcule quand la fenêtre ou la taille de l'interface change.
+{const top=document.querySelector('.top');let maxH=0;
+  new ResizeObserver(()=>{const h=top.getBoundingClientRect().height;if(h>maxH+.5){maxH=h;top.style.minHeight=h+'px';}}).observe(top);
+  let vw=innerWidth,vh=innerHeight;addEventListener('resize',()=>{if(innerWidth===vw&&innerHeight===vh)return;vw=innerWidth;vh=innerHeight;maxH=0;top.style.minHeight='';});}
 // après un plantage du rendu (la page rechargée par l'application, la partie reprise à la sauvegarde automatique) : on le dit au joueur
 window.okmNotice=why=>{say(`Le rendu du jeu a planté (${why}) et a été relancé : la partie a repris à la dernière sauvegarde automatique.`,'bad');try{world?.log?.('Front',`Le rendu a planté (${why}) : partie reprise à la dernière sauvegarde automatique.`,'bad');}catch(e){}};
 uiZ.init();
