@@ -109,7 +109,7 @@ nos débarquements complexes ; de temps en temps, elle lance un assaut massif de
 pont (avec dépôts et villes). Cette phase vient **après** 4 (fortifications), 5 (barges) et 6 (aviation).
 
 **Qui a quoi (décision du joueur)** : les **planeurs, l'avion de transport et le pont aérien sont réservés aux Meumeu** (c'est le joueur qui les commande). Les Bèè
-n'ont **que des bateaux** pour traverser ; face aux planeurs, ils ne font que **détecter** et **se protéger**.
+n'ont **que des bateaux** pour traverser ; face aux planeurs, ils ne détectent presque rien : c'est à eux de **protéger leurs arrières** (sentinelles autour des dépôts et des batteries).
 
 ## Ce qu'il faut ajouter aux phases 4 à 6 pour que l'IA puisse s'en servir
 - **Bunkers entrables** (phase 4, précisé) : on entre dedans et on s'y déplace comme sur du terrain normal (cases « intérieur », murs épais qui arrêtent
@@ -118,7 +118,7 @@ n'ont **que des bateaux** pour traverser ; face aux planeurs, ils ne font que **
 - **Fosses et boyaux « bien modélisés »** (phase 4, précisé) : les anciennes tranchées ne marchaient pas et ont été retirées. Leur remplaçant : de vraies fosses
   de tireur et des boyaux de liaison creusés dans le sol, avec une profondeur, un parapet, des parois et des abris. Le soldat y entre, s'y déplace et en sort.
 - **Bateaux bèè** (phase 5) : l'IA bâtit des barges comme le joueur, en dizaines pour un assaut.
-- **Détection des planeurs** (phase 6) : silencieux ; l'IA les repère à vue, surtout de nuit, donc elle protège ses arrières avec des patrouilles et des projecteurs.
+- **Planeurs discrets** (phase 6, décision du joueur) : silencieux et peu visibles, **les Bèè ne les détectent pas normalement** (pas par le son ; à la vue seulement s'ils atterrissent à quelques cases d'une sentinelle). Une insertion de nuit peut passer totalement inaperçue.
 
 ## 7.1 Les étapes de l'IA (chacune ne démarre qu'à une condition mesurable)
 1. **Économie et villes** : vivres, fonderies, villes (déjà en place). Sortie : au moins N villes, vivres pour 5 jours, usines d'armes qui tournent.
@@ -157,7 +157,7 @@ Les étapes se **chevauchent** (on continue de renforcer la ligne pendant que le
 ## 7.6 Réaction à un débarquement
 - Détection (vue, son, bruit des moteurs) → alerte du secteur et des voisins → réserves locales → réserve mobile ; colmater les brèches par contre-attaque,
   sinon repli ordonné sur la couche 2 ; les batteries lourdes ouvrent le feu sur la tête de pont.
-- **Contre-commandos** : patrouilles et sentinelles autour des dépôts et des batteries ; projecteurs la nuit ; alerte aux planeurs repérés.
+- **Contre-commandos** : patrouilles et sentinelles autour des dépôts et des batteries ; elles ne repèrent un planeur qu'à très courte portée, jamais au bruit.
 
 ## 7.7 Offensives navales bèè (rares, massives)
 - Déclenchement : armée suffisante, stocks, côte adverse **reconnue** (secteur le plus faible selon leur renseignement), pas plus d'une grosse offensive par période.

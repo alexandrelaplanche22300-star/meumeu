@@ -1,4 +1,5 @@
 // Oberkommando der Meumeu — tout ce qui se règle est ici.
+import {bunkerDefs,BUNKER_IDS,bunkerKey} from './bunkerdata.js';
 // Une seule carte, immense et continue. Deux civilisations : les Meumeu, qui partent d'une ville sur la côte, et les Bèè,
 // qui tiennent l'autre bout du continent. On ramasse, on bâtit des villes, on les relie (rails, trains, porteurs),
 // on arme — et la guerre vient : elle vise les villes, les voies, les dépôts, tout ce qui fait tenir une civilisation.
@@ -144,7 +145,9 @@ export const BUILDINGS={
   tour:{name:'Tour',sprite:'turret',size:[2,2],cost:{pierre:50,bois:20},hours:10,hp:1000,defense:{range:11,shooters:3},
     why:'Elle tire seule sur tout Bèè à portée. Plusieurs lignes de tours derrière un mur : la défense en profondeur.'},
 };
-export const BUILD_ORDER=['camp','maison','moulin','grenier','atelier','four','mine','poudrerie','gare','entrepot','centre','caserne','arsenal','armurerie','manufacture','hopital','tente','archives','fonderie','tour'];
+// V12.5 : les bunkers — dix-sept plans (bunkerdata.js), chacun un bâtiment « bk_<plan> » ; leur empreinte est celle du plan, tournée à la pose (b.rot)
+Object.assign(BUILDINGS,bunkerDefs());
+export const BUILD_ORDER=['camp','maison','moulin','grenier','atelier','four','mine','poudrerie','gare','entrepot','centre','caserne','arsenal','armurerie','manufacture','hopital','tente','archives','fonderie','tour',...BUNKER_IDS.map(bunkerKey)];
 // le menu de construction, par familles : ce qui fait vivre, ce qui relie, ce qui arme, ce qui soigne, ce qui défend
 export const BUILD_CATS=[
   {k:'vivre',name:'Vivre',hint:'ramasser, nourrir, fonder des villes',items:['camp','moulin','grenier','maison','centre']},
@@ -152,7 +155,7 @@ export const BUILD_CATS=[
   {k:'relier',name:'Relier',hint:'camp-dépôt gratuit d’abord, puis mine, gare et fret',items:['camp','gare','entrepot'],lines:['rail']},
   {k:'armer',name:'Armer',hint:'concevoir, fabriquer, former',items:['armurerie','manufacture','arsenal','caserne','caserne_elite','garage','fonderie','archives']},
   {k:'soigner',name:'Soigner',hint:'la chaîne des soins',items:['hopital','tente']},
-  {k:'defendre',name:'Défendre',hint:'tenir les villes',items:['tour'],lines:['sacs','mines']}];
+  {k:'defendre',name:'Défendre',hint:'tenir les villes',items:['tour',...BUNKER_IDS.map(bunkerKey)],lines:['sacs','mines']}];
 
 // Ce qui se pose case par case, en traçant : les voies ferrées, les murs. Bâti par des Meumeu, payé au dépôt le plus proche.
 export const LINES={
