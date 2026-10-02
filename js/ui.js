@@ -56,7 +56,7 @@ const view=new View($('#view'),world,{
   unitInfo:u=>openFiche(u.id),
   zoneAt:(w,keep)=>{const r=world.zoneFire([...view.sel],w.x,w.y,{n:ui.zoneN||Infinity,high:ui.zoneHigh});say(r.ok?r.text:r.why[0],r.ok?'':'bad');audio.play(r.ok?'order':'bad');view.marks.push({x:w.x,y:w.y,age:0,bad:!r.ok});renderPanel(true);return r;},
   order:(ids,t)=>{const r=world.order(ids,t);say(r.ok?r.text:r.why[0],r.ok?'':'bad');audio.play(r.ok?'order':'bad');if(r.ok){const u=world.unit(ids[0]);if(u)audio.play('ack',null,{f:u.f,n:ids.length});}renderPanel(true);return r;},
-  place:(k,i,j)=>{const r=world.place('meumeu',k,i,j);if(!r.ok){say(r.why[0],'bad');audio.play('bad');return r;}
+  place:(k,i,j,rot=0)=>{const r=world.place('meumeu',k,i,j,rot);if(!r.ok){say(r.why[0],'bad');audio.play('bad');return r;}
     // ceux qu'on a choisis y vont ; sinon, les villageois oisifs les plus proches
     let vil=[...view.sel].map(id=>world.unit(id)).filter(u=>u?.k==='villageois');const B=BUILDINGS[k];
     if(!vil.length)vil=world.idle().filter(u=>Math.hypot(u.x-i,u.y-j)<45).sort((a,b)=>Math.hypot(a.x-i,a.y-j)-Math.hypot(b.x-i,b.y-j)).slice(0,B.size[0]*B.size[1]>=9?4:3);
@@ -755,6 +755,7 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','=','-',
   // V12.4 : Origine (Home) remet la caméra libre dans l'isométrie d'origine
   if(k==='Home'){view.resetCam();say('Caméra : vue isométrique d’origine (bouton du milieu : orienter ; Maj + milieu : déplacer).','info');return;}
   if(ui.modal&&k==='Escape'){ui.modal=null;renderModal();return;}keys.add(k.toLowerCase());
+  if((k==='r'||k==='R')&&view.placing&&BUILDINGS[view.placing]?.bunker){view.placeRot=((view.placeRot||0)+1)%4;e.preventDefault();return;}
   if(k==='Escape'){view.zoning=false;view.placing=null;view.lining=null;ui.pick=null;view.sel.clear();view.selVs.clear();view.selB=null;view.selV=null;renderPanel(true);}
   else if(k===' '){e.preventDefault();setSpeed(ui.speed?0:(ui.lastSpeed||1));if(ui.speed)ui.lastSpeed=ui.speed;}
   else if(k==='1'||k==='2'||k==='3'){if(ui.bb&&view.placing==null&&!view.sel.size&&view.selB==null){}setSpeed({1:1,2:2,3:4}[k]);ui.lastSpeed=ui.speed;}

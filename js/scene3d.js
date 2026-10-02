@@ -6,10 +6,11 @@
 // vertex shader (jambes, bras, rebond) d'après la distance parcourue — pas de squelette, donc pas de poids en plus.
 import * as THREE from './lib/three.module.js';
 import {loadModel,materialOf} from './mesh3d.js';
-import {T,DAY,ORE_COL,CARRY} from './data.js';
+import {T,DAY,ORE_COL,CARRY,BUILDINGS} from './data.js';
 import {gunModel} from './gun3d.js';
 import {VEHDEF} from './vehicules.js';
 import {buildingModels} from './bldg3d.js';
+import {bunkerModels,bunkerDoorGeo} from './bunker3d.js';
 
 export const HK=Math.sqrt(2/3);
 const PI=Math.PI;
@@ -131,7 +132,7 @@ export class Scene3D{
     this.booms=[];this.boomGeo={ball:new THREE.IcosahedronGeometry(1,2),ring:new THREE.RingGeometry(.86,1,56).rotateX(-PI/2),dome:new THREE.SphereGeometry(1,16,8,0,PI*2,0,PI/2)};
     this.pools.fusil=mk('gewehr_43_rifle',{cap:1500});this.pools.mg=mk('heavy_machine_gun',{cap:200});
     for(let k=0;k<3;k++){const p=new Pool(boulder(k+1),{cap:1400});this.pools['rock'+k]=p;this.scene.add(p.mesh);}
-    this.M[':tour']={ext:[.9,1.8,.9],geo:TOWER_GEO()};Object.assign(this.M,buildingModels());
+    this.M[':tour']={ext:[.9,1.8,.9],geo:TOWER_GEO()};Object.assign(this.M,buildingModels(),bunkerModels());this.doorGeo=bunkerDoorGeo();this.doorMat=new THREE.MeshStandardMaterial({color:0x50565a,roughness:.7,metalness:.4});
     for(const [res,name] of Object.entries(OUTCROP_MODEL)){this.pools['ore_'+res]=mk(name,{cap:300});}
     this.pools.jeep=mk('vintage_military_jeep_logistic_unarmed',{cap:40});this.pools.loco=mk('ww2_locomotive',{cap:20});this.pools.wagon=mk('ww2_wagon',{cap:200});
     this.ok=true;
@@ -280,9 +281,10 @@ export class Scene3D{
     const seen=new Set();
     for(const b of s.buildings){const [w,h]=W.sizeOf(b);if(b.i+w<i0-6||b.i>i1+6||b.j+h<j0-6||b.j>j1+6)continue;
       const fog=s.fog!==false;if(fog&&b.f==='beee'&&!view.fxVisible(b.i+w/2,b.j+h/2,b.f))continue;
-      const def=BUILDING_MODEL[b.k];if(!def)continue;seen.add(b.id);
-      let e=this.blds.get(b.id);const sig=b.k+'|'+w+'x'+h;if(!e||e.sig!==sig){if(e)this.scene.remove(e.g);const g=this.buildingMesh(b,def,[w,h]);if(!g)continue;e={g,sig,ruin:null,done:null,prog:-1};this.blds.set(b.id,e);this.scene.add(g);}
-      const {g}=e;const mesh=g.children[0];const cx=b.i+w/2,cz=b.j+h/2;g.position.set(cx,0,cz);
+      const def=BUILDING_MODEL[b.k]||(BUILDINGS[b.k]?.bunker?[':bk_'+BUILDINGS[b.k].bunker+'_'+(b.rot||0),1,0]:null);if(!def)continue;seen.add(b.id);
+      let e=this.blds.get(b.id);const sig=b.k+'|'+w+'x'+h+'|'+(b.rot||0);if(!e||e.sig!==sig){if(e)this.scene.remove(e.g);const g=this.buildingMesh(b,def,[w,h]);if(!g)continue;
+        if(BUILDINGS[b.k]?.bunker){const PL=W.bunkerPlanOf(b);g.userData.doors=PL.doors.map(([da,dc])=>{const dm=new THREE.Mesh(this.doorGeo,this.doorMat);dm.position.set(da+.5-PL.w/2,0,dc+.5-PL.h/2);if('#ED'.includes(PL.at(da,dc-1))||'#ED'.includes(PL.at(da,dc+1)))dm.rotation.y=Math.PI/2;dm.castShadow=true;g.add(dm);return {key:(b.j+dc)*N+b.i+da,mesh:dm};});}e={g,sig,ruin:null,done:null,prog:-1};this.blds.set(b.id,e);this.scene.add(g);}
+      const {g}=e;const mesh=g.children[0];if(g.userData.doors)for(const D of g.userData.doors)D.mesh.visible=!b.ruin&&!(b.doorsDown&&b.doorsDown.includes(D.key));const cx=b.i+w/2,cz=b.j+h/2;g.position.set(cx,0,cz);
       const prog=b.done?1:b.ruin?0:Math.max(.12,b.progress||0);// V12.4 : les dégâts se voient avant l'effondrement — quatre états selon la solidité perdue (25, 50, 75 %) : la suie noircit, puis le bâtiment
       // penche et s'affaisse un peu (rotation et position seulement : jamais déformé)
       const dmg=b.done&&!b.ruin&&b.max>0?Math.max(0,Math.min(3,Math.floor((1-b.hp/b.max)*4))):0;const stage=b.ruin?'r':b.done?'d'+dmg:prog.toFixed(2);

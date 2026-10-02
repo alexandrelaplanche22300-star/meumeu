@@ -119,3 +119,4 @@ const MAKERS={
 // les géométries et leurs mesures, prêtes pour la scène : { nom: {ext:[largeur,hauteur,profondeur], geo} }
 export function buildingModels(){const out={};for(const [k,mk] of Object.entries(MAKERS)){const [W,D]=BUILDINGS[k]?.size||[2,2];const geo=mk(W,D);const b=geo.boundingBox;out[':'+k]={ext:[b.max.x-b.min.x,b.max.y,b.max.z-b.min.z],geo};}return out;}
 export const BUILDING_KEYS=Object.keys(MAKERS);
+export {Build,PAL};

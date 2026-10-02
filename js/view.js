@@ -10,6 +10,7 @@ import {Director} from './director.js';
 import {Scene3D} from './scene3d.js';
 import {KIT_PRESETS} from './kitdata.js';
 import {building,vehicle,resource,terrain,prop,sheet,drawFrame,fx,img} from './sprites.js';
+import {bunkerPlan} from './bunkerdata.js';
 import {BLOOD,BODY_H} from './body.js';
 import {bleedRate,triage} from './health.js';
 
@@ -991,14 +992,21 @@ export class View{
     // la lueur : chaude, additive, qui éclaire le sol et les soldats autour du coup de feu ou de l'explosion
     if(L<.7&&this.flashes.length){ctx.save();ctx.globalCompositeOperation='lighter';for(const f of this.flashes){const k=1-(now-f.t0)/(f.life*1000);const q=this.toScreen(f.x,f.y,.3);const R=f.r*TW*z*.55;if(q.x<-R||q.y<-R||q.x>n.width+R||q.y>n.height+R)continue;
       const g=ctx.createRadialGradient(q.x,q.y,0,q.x,q.y,R);g.addColorStop(0,`rgba(${f.col},${(f.r>3?.5:.28)*k*(1-L)})`);g.addColorStop(1,`rgba(${f.col},0)`);ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(q.x,q.y,R,R*.6,0,0,7);ctx.fill();}ctx.restore();}}
-  drawGhost(){const k=this.placing;const B=BUILDINGS[k];const [w,h]=k==='enclos'?(this.world.penSize||B.size):B.size;const c=this.hover.cell;if(!c)return;const i=c[0]-Math.floor((w-1)/2),j=c[1]-Math.floor((h-1)/2);this.ghost=[i,j];
-    const r=this.world.canPlace('meumeu',k,i,j);const ctx=this.ctx,z=this.z();const a=this.toScreen(i,j),b=this.toScreen(i+w,j),cc=this.toScreen(i+w,j+h),d=this.toScreen(i,j+h);
+  drawGhost(){const k=this.placing;const B=BUILDINGS[k];const rot=B.bunker?(this.placeRot||0):0;const [w,h]=B.bunker?this.world.bunkerSize(B.bunker,rot):k==='enclos'?(this.world.penSize||B.size):B.size;const c=this.hover.cell;if(!c)return;const i=c[0]-Math.floor((w-1)/2),j=c[1]-Math.floor((h-1)/2);this.ghost=[i,j];
+    const r=this.world.canPlace('meumeu',k,i,j,rot);const ctx=this.ctx,z=this.z();const a=this.toScreen(i,j),b=this.toScreen(i+w,j),cc=this.toScreen(i+w,j+h),d=this.toScreen(i,j+h);
     ctx.fillStyle=r.ok?'rgba(84,170,161,.35)':'rgba(189,75,61,.35)';ctx.strokeStyle=r.ok?'#54aaa1':'#bd4b3d';ctx.lineWidth=2*this.dpr;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(cc.x,cc.y);ctx.lineTo(d.x,d.y);ctx.closePath();ctx.fill();ctx.stroke();
-    const im=this.sprite(k,3,'meumeu');const pw=(k==='enclos'?3:(w+h)/2)*TW*z*1.05;if(im){ctx.save();ctx.globalAlpha=.5;const anchor=k==='enclos'?this.toScreen(i+Math.min(w,3),j+Math.min(h,3)):cc;ctx.drawImage(im,anchor.x-pw/2,anchor.y-pw*.95,pw,pw);ctx.restore();}
+    if(B.bunker)this.drawBunkerPlan(B.bunker,rot,i,j,r.ok);const im=B.bunker?null:this.sprite(k,3,'meumeu');const pw=(k==='enclos'?3:(w+h)/2)*TW*z*1.05;if(im){ctx.save();ctx.globalAlpha=.5;const anchor=k==='enclos'?this.toScreen(i+Math.min(w,3),j+Math.min(h,3)):cc;ctx.drawImage(im,anchor.x-pw/2,anchor.y-pw*.95,pw,pw);ctx.restore();}
     // le rayon où il puise
-    const ctr=this.toScreen(i+w/2,j+h/2);ctx.save();ctx.strokeStyle='rgba(255,241,201,.25)';ctx.setLineDash([6*z,6*z]);ctx.beginPath();ctx.ellipse(ctr.x,ctr.y,14*TW/2*z*1.41,14*TH/2*z*1.41,0,0,7);ctx.stroke();ctx.restore();
+    const ctr=this.toScreen(i+w/2,j+h/2);ctx.save();ctx.strokeStyle='rgba(255,241,201,.25)';ctx.setLineDash([6*z,6*z]);ctx.beginPath();ctx.ellipse(ctr.x,ctr.y,(B.bunker?0:14)*TW/2*z*1.41,(B.bunker?0:14)*TH/2*z*1.41,0,0,7);ctx.stroke();ctx.restore();
     const Y=B.soil?this.world.cropYield(null,i,j,k):null;const nodep=(B.makes||B.factory)&&!this.world.depots('meumeu',i+w/2,j+h/2,RADIUS).length;const soil=(Y!=null?` · rendement ${Math.round(Y*100)} % (${Y>=1.15?'bonne terre':Y>=.8?'terre moyenne':'terre maigre'})`:'')+(nodep?` · aucun dépôt à ${RADIUS} cases : rien ne sortira`:'');
-    this.tag(r.ok?`${B.name} : cliquez pour poser${soil}`:r.why[0],cc.x,cc.y+14*z,r.ok?(Y!=null&&Y<.7?'bad':'ok'):'bad');}
+    this.tag(r.ok?`${B.name} : cliquez pour poser${soil}${B.bunker?` · R : tourner (les embrasures regardent ${['en haut à droite','en bas à droite','en bas à gauche','en haut à gauche'][rot]} de l’écran)`:''}`:r.why[0]+(B.bunker?' · R : tourner':''),cc.x,cc.y+14*z,r.ok?(Y!=null&&Y<.7?'bad':'ok'):'bad');}
+  // V12.5 : la silhouette d'un bunker à la pose — murs, embrasures (fentes noires), porte (jaune), sol couvert ou ouvert, postes de tir (point + trait vers l'embrasure)
+  drawBunkerPlan(id,rot,i,j,ok){const P=bunkerPlan(id,rot),ctx=this.ctx,z=this.z();const COL={'#':'rgba(126,130,120,.92)',E:'rgba(24,24,22,.95)',D:'rgba(232,191,98,.95)','.':'rgba(206,210,196,.28)',o:'rgba(214,190,130,.45)',G:'rgba(150,160,172,.8)',A:'rgba(112,124,82,.8)'};
+    ctx.save();for(let c=0;c<P.h;c++)for(let a=0;a<P.w;a++){const ch=P.rows[c][a];if(ch===' ')continue;const x=i+a,y=j+c,A=this.toScreen(x,y),B2=this.toScreen(x+1,y),C=this.toScreen(x+1,y+1),D=this.toScreen(x,y+1);const up='#ED'.includes(ch)?(ch==='E'?.18:.3)*TH*z:0;
+      ctx.fillStyle=COL[ch];ctx.beginPath();ctx.moveTo(A.x,A.y-up);ctx.lineTo(B2.x,B2.y-up);ctx.lineTo(C.x,C.y-up);ctx.lineTo(D.x,D.y-up);ctx.closePath();ctx.fill();}
+    ctx.strokeStyle=ok?'rgba(255,255,255,.85)':'rgba(255,120,100,.9)';ctx.fillStyle=ctx.strokeStyle;ctx.lineWidth=Math.max(1,1.5*z);
+    for(const p of P.posts){if(p.kind!=='tir'&&p.kind!=='gun')continue;const q=this.toScreen(i+p.a+.5,j+p.c+.5),t=this.toScreen(i+p.a+.5+p.fx*.45,j+p.c+.5+p.fy*.45);ctx.beginPath();ctx.moveTo(q.x,q.y);ctx.lineTo(t.x,t.y);ctx.stroke();ctx.beginPath();ctx.arc(q.x,q.y,Math.max(1.5,2.2*z),0,7);ctx.fill();}
+    ctx.restore();}
   drawLinePlan(){const L=this.lining;const ctx=this.ctx,z=this.z();
     if(L.kind==='gomme'){const W=this.world,N=W.N;let n=0;for(const [i,j] of L.cells){const k=j*N+i;const hit=(W.s.rails[k]&&!W.s.rails[k].b)||(W.s.walls[k]&&!W.s.walls[k].b&&W.s.walls[k].f==='meumeu')||(W.s.sacs[k]&&!W.s.sacs[k].b&&W.s.sacs[k].f==='meumeu');if(hit)n++;
         const a=this.toScreen(i,j),b=this.toScreen(i+1,j),c=this.toScreen(i+1,j+1),d=this.toScreen(i,j+1);ctx.fillStyle=hit?'rgba(189,75,61,.6)':'rgba(255,255,255,.12)';ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(c.x,c.y);ctx.lineTo(d.x,d.y);ctx.closePath();ctx.fill();}
@@ -1061,7 +1069,7 @@ export class View{
         const mil=inBox.filter(u=>u.k!=='villageois');for(const u of (mil.length&&!D.shift?mil:inBox))this.sel.add(u.id);this.ui.changed();return;}
       if(D.moved&&D.btn!==2)return;
       if(this.zoning){this.ui.zoneAt?.(w,e.shiftKey);if(!e.shiftKey)this.zoning=false;this.ui.changed();return;}
-      if(this.placing){if(e.button===2){this.placing=null;this.ui.changed();return;}const r=this.ui.place(this.placing,this.ghost[0],this.ghost[1]);if(r.ok&&!e.shiftKey)this.placing=null;return;}
+      if(this.placing){if(e.button===2){this.placing=null;this.ui.changed();return;}const r=this.ui.place(this.placing,this.ghost[0],this.ghost[1],BUILDINGS[this.placing]?.bunker?(this.placeRot||0):0);if(r.ok&&!e.shiftKey)this.placing=null;return;}
       if(e.button===0){const u=this.unitAt(sx,sy);const v=u?null:this.vehicleAt(sx,sy);
         if(this.ui.pickStop&&!u){const t=this.world.targetAt(w.x,w.y);if(t?.type==='building'){this.ui.pickStop(t.id);return;}}
         if(u&&u.f==='meumeu'){const grp=u.sq&&!e.altKey?this.world.members(this.world.squad(u.sq)||{m:[]}).map(m=>m.id):[u.id];if(D.shift){for(const id of grp)this.sel.has(u.id)?this.sel.delete(id):this.sel.add(id);}else{this.sel.clear();for(const id of grp)this.sel.add(id);
