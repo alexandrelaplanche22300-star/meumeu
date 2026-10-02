@@ -24,6 +24,8 @@ import {STRATEGY} from './strategy.js';
 import {ESCALADE} from './escalade.js';
 import {VEHICULES,VEHDEF} from './vehicules.js';
 import {PERSISTENCE} from './persistence.js';
+import {BUNKERS} from './bunkers.js';
+import {bunkerPlan} from './bunkerdata.js';
 // Le chemin d'un train : les centres des cases, et à chaque virage à angle droit un quart de cercle (rayon : une demi-case) —
 // la même courbe que celle que dessine la voie. Chaque point est [x - 0,5, y - 0,5, case] (slide ajoute la demi-case).
 export function railCurve(cells,N){const P=cells.map(k=>[k%N+.5,((k/N)|0)+.5,k]);const out=[];
@@ -122,7 +124,7 @@ export class World{
     for(let n=0;n<8;n++)this.addUnit(F,'soldat',ci-3+n*.9,cj+8,{rounds:14,armor:'gilet'});
     this.log(CITY_NAMES[0],`Partie de test : ${built.length} mines en service (${built.join(', ')||'aucune'}), usines d'armes, gros stocks, douze soldats. Le brouillard de guerre est en place : bouton « Brouillard » ou touche N pour le lever.`,'good');
   }
-  grids(){const N=this.N,M=N*N;this.occ=new Int32Array(M).fill(-1);this.rail=new Uint8Array(M);this.wall=new Int8Array(M);this.crater=new Float32Array(M);this.nodeAt=new Int32Array(M).fill(-1);
+  grids(){const N=this.N,M=N*N;this.occ=new Int32Array(M).fill(-1);this.rail=new Uint8Array(M);this.wall=new Int8Array(M);this.crater=new Float32Array(M);this.nodeAt=new Int32Array(M).fill(-1);this.fort=new Uint8Array(M);this.emb=new Uint8Array(M);this.fortB=new Int32Array(M).fill(-1);
     for(const nd of this.s.nodes)if(nd.left>0||nd.type==='bush'||nd.type==='ore')this.nodeAt[nd.j*N+nd.i]=nd.id;
     for(const b of this.s.buildings)this.stamp(b,b.id);
     for(const [k,r] of Object.entries(this.s.rails))this.rail[+k]=r.b?2:1;
@@ -147,7 +149,7 @@ export class World{
     const i0=Math.max(0,Math.floor((x-r)/C)),i1=Math.min(M-1,Math.floor((x+r)/C)),j0=Math.max(0,Math.floor((y-r)/C)),j1=Math.min(M-1,Math.floor((y+r)/C));
     for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const c=g.cells[j*M+i];for(let k=0;k<c.length;k++)if(fn(c[k]))return c[k];}return null;}
   penCapacity(b){const [w,h]=this.sizeOf(b);return Math.max(2,Math.floor(w*h*.75));}
-  stamp(b,v){this.occV=(this.occV||0)+1;const [w,h]=this.sizeOf(b);for(let a=0;a<w;a++)for(let c=0;c<h;c++)this.occ[(b.j+c)*this.N+b.i+a]=v;}
+  stamp(b,v){if(BUILDINGS[b.k].bunker){this.stampBunker(b,v);return;}this.occV=(this.occV||0)+1;const [w,h]=this.sizeOf(b);for(let a=0;a<w;a++)for(let c=0;c<h;c++)this.occ[(b.j+c)*this.N+b.i+a]=v;}
   id(){return this.s.nextId++;}
   log(where,text,tone='info'){this.s.log.unshift({t:this.s.t,where,text,tone});if(this.s.log.length>160)this.s.log.pop();}
   emit(e){this.events.push(e);
@@ -258,13 +260,13 @@ export class World{
     u.armor=o.armor??null;u.plates={};
     if(k==='villageois'||D.medic||D.arm){const used=new Set(this.s.units.map(x=>x.name));u.name=NAMES.find(n=>!used.has(n))||'Meumeu '+u.id;if(f==='beee')u.name='Bèè '+u.id;}
     this.s.units.push(u);this.uIndex?.set(u.id,u);return u;}
-  addBuilding(f,k,i,j,done=false,size=null){const B=BUILDINGS[k];const b={id:this.id(),f,k,i,j,done,progress:done?1:0,hp:done?B.hp:B.hp*.1,max:B.hp,queue:[],fire:0,ruin:false};if(k==='enclos'&&size)b.size=[...size];
+  addBuilding(f,k,i,j,done=false,size=null,rot=0){const B=BUILDINGS[k];const b={id:this.id(),f,k,i,j,done,progress:done?1:0,hp:done?B.hp:B.hp*.1,max:B.hp,queue:[],fire:0,ruin:false};if(k==='enclos'&&size)b.size=[...size];if(B.bunker){b.rot=rot;b.size=[...size];}
     if(B.store){b.stock={};b.no=this.s.buildings.filter(x=>x.f===f&&x.k===k).length+1;b.prio=k==='tente'?4:3;b.want=k==='tente'?{sante:6}:k==='centre'?{vivres:80}:k==='grenier'?{vivres:120,ble_moulu:30}:{};}
     // ceux qui forment (caserne, fonderie, hôpital) gardent une réserve à leur dépôt : ce qu'il faut pour les prochains
     if(B.stock0)b.need=f==='beee'?Object.fromEntries(Object.entries(B.stock0).map(([key,n])=>[key.replace('m:mle1','m:bee_fusil').replace('a:mle1','a:bee_fusil'),n])):{...B.stock0};if(B.ward)b.wardList=[];
     // une usine neuve : sa première production (le joueur la change), son plafond, et l'outillage du fusil de base
     if(B.factory){const first=(f==='meumeu'?{arsenal:'m:mle1',manufacture:'a:mle1'}:{arsenal:'m:bee_fusil',manufacture:'a:bee_fusil'})[k];b.prod=first||Object.keys(PRODUCTS).find(p=>PRODUCTS[p].at===k)||null;b.limit=b.prod?LIMIT_OF(b.prod):0;if(B.manufacture)b.tooled={[f==='meumeu'?'mle1':'bee_fusil']:true};}
-    this.s.buildings.push(b);this.stamp(b,b.id);this.bIndex?.set(b.id,b);return b;}
+    this.s.buildings.push(b);this.bIndex?.set(b.id,b);this.stamp(b,b.id);return b;}
   addVehicle(f,k,home){const used=new Set(this.s.vehicles.map(v=>v.name));const V=VEHICLES[k];const [w,h]=BUILDINGS[home.k].size;
     const v={id:this.id(),f,k,name:VEHICLE_NAMES.find(n=>!used.has(n))||k+' '+this.s.nextId,x:home.i+w/2,y:home.j+h+.3,home:home.id,base:home.id,at:home.id,route:null,cargo:{},state:'idle',hp:V.hp||50,max:V.hp||50,pass:[],alt:0,
       mode:k==='bombardier'?null:'fret',only:[],job:null};if(k==='train')v.coal=this.tender();
@@ -325,7 +327,7 @@ export class World{
 
   // ---------- se déplacer ----------
   costFn(f){const ter=this.G.terrain,occ=this.occ,wall=this.wall,crater=this.crater;const mine=f==='meumeu'?1:-1;
-    return k=>{if(k<0||k>=ter.length||!TERRAIN[ter[k]]?.walk||occ[k]>=0)return Infinity;const w=wall[k];if(w===-2*mine)return 25;return 1+Math.min(2.2,crater[k]||0);};}
+    return k=>{if(k<0||k>=ter.length||!TERRAIN[ter[k]]?.walk||occ[k]>=0)return Infinity;const w=wall[k];if(w===-3*mine)return Infinity;if(w===-2*mine)return 25;return 1+Math.min(2.2,crater[k]||0);};}
   stampCrater(c){if(!this.crater)return;const N=this.N,r=Math.max(.25,c.r||.5);for(let j=Math.max(0,Math.floor(c.y-r));j<=Math.min(N-1,Math.ceil(c.y+r));j++)for(let i=Math.max(0,Math.floor(c.x-r));i<=Math.min(N-1,Math.ceil(c.x+r));i++){const d=d2(i+.5,j+.5,c.x,c.y);if(d<r)this.crater[j*N+i]=Math.max(this.crater[j*N+i],(1-d/r)*(c.force||1));}}
   addCrater(x,y,r,force=1){const C=this.s.craters??=[];const c={x,y,r:Math.max(.3,Math.min(3.8,r)),force:Math.max(.2,Math.min(2.2,force)),seed:this.rand()*10000,t:this.s.t};C.push(c);this.stampCrater(c);this.navDirty=true;if(C.length>500){C.splice(0,C.length-500);this.crater.fill(0);for(const q of C)this.stampCrater(q);}return c;}
   go(u,tx,ty,rect=null){const N=this.N;
@@ -449,7 +451,7 @@ export class World{
     const beast=this.s.fauna?.find(a=>a.alive&&d2(a.x,a.y,x,y)<.7);if(beast)return {type:'fauna',id:beast.id};
     const carcass=this.s.fauna?.find(a=>!a.alive&&a.food>0&&d2(a.x,a.y,x,y)<.7);if(carcass)return {type:'carcass',id:carcass.id};
     if(i<0||j<0||i>=N||j>=N)return null;const k=j*N+i;
-    if(this.occ[k]>=0){const b=this.building(this.occ[k]);if(b?.f!==f&&this.s.fog!==false&&!this.s.intel?.[b?.id]&&!this.visibleAt(f,x,y))return {type:'point',x,y};return {type:'building',id:this.occ[k]};}
+    const bid=this.occ[k]>=0?this.occ[k]:this.fortB[k];if(bid>=0){const b=this.building(bid);if(b?.f!==f&&this.s.fog!==false&&!this.s.intel?.[b?.id]&&!this.visibleAt(f,x,y))return {type:'point',x,y};return {type:'building',id:bid};}
     const w=this.wall[k];if(w)return {type:'wall',k};if(this.s.sacs[k])return {type:'sacs',k};
     if(this.nodeAt[k]>=0)return {type:'node',id:this.nodeAt[k]};
     if(this.rail[k]===1)return {type:'rail',k};
@@ -468,6 +470,7 @@ export class World{
         if(e.h?.state==='hors'){const carriers=us.slice(0,2);carriers.forEach(u=>set(u,{kind:'evac',id:e.id}));return {ok:true,text:`${carriers.length} vont chercher ${e.name||'le blessé'}`};}
         us.forEach((u,n)=>set(u,{kind:'move',tx:e.x+(n%3-1)*.5,ty:e.y+(((n/3)|0)%3-1)*.5}));return {ok:true,text:'on le suit'};}
       us.forEach(u=>set(u,{kind:'attack',unit:e.id}));return {ok:true,text:`${us.length} à l’attaque`};}
+    if(t.type==='building'){const bb=this.building(t.id);if(bb&&bb.f===us[0].f&&BUILDINGS[bb.k].bunker&&bb.done&&!bb.ruin)return this.garrison(bb,us);}
     if(t.type==='building'&&this.building(t.id)?.f==='beee'){const sab=us.filter(u=>(u.charges||0)>0);
       if(sab.length&&t.queue&&sab.every(u=>u.task?.kind==='sabotage')){for(const u of sab)(u.task.next??=[]).push(t.id);return {ok:true,text:`cible suivante ajoutée : ${BUILDINGS[this.building(t.id).k].name.toLowerCase()} (${sab[0].task.next.length+1} au programme)`};}
       if(sab.length){sab.forEach(u=>set(u,{kind:'sabotage',b:t.id,back:[u.x,u.y],next:[]}));const rest=us.filter(u=>!sab.includes(u));rest.forEach(u=>set(u,{kind:'attack',b:t.id}));
@@ -572,12 +575,13 @@ export class World{
   setPosture(ids,post){for(const id of ids){const u=this.unit(id);if(u&&u.h){u.orderPost=post==='auto'?null:post;u.postSet=post!=='auto';}}}
 
   // ---------- bâtir ----------
-  canPlace(f,k,i,j){const B=BUILDINGS[k];const [w,h]=k==='enclos'?(this.penSize||B.size):B.size;const N=this.N;const why=[];let ore=null,free=true;
+  canPlace(f,k,i,j,rot=0){const B=BUILDINGS[k];const [w,h]=B.bunker?this.bunkerSize(B.bunker,rot):k==='enclos'?(this.penSize||B.size):B.size;const N=this.N;const why=[];let ore=null,free=true;
     for(let a=0;a<w;a++)for(let c=0;c<h;c++){const ii=i+a,jj=j+c;if(ii<1||jj<1||ii>=N-1||jj>=N-1){free=false;continue;}const kk=jj*N+ii;
       if(!TERRAIN[this.G.terrain[kk]].build||this.occ[kk]>=0||this.wall[kk]||this.rail[kk])free=false;const nd=this.nodeAt[kk];if(nd>=0){const n=this.s.nodes[nd];if(n.type==='ore')ore=n;}}   // arbres, buissons, rochers : le chantier les dégage
     // GAP cases d'écart tout autour : des rues entre les bâtiments, une vue claire, un incendie qui ne saute pas d'un toit à l'autre
-    let crowd=false;for(let a=-GAP;a<w+GAP&&!crowd;a++)for(let c=-GAP;c<h+GAP;c++){if(a>=0&&a<w&&c>=0&&c<h)continue;const ii=i+a,jj=j+c;if(ii<0||jj<0||ii>=N||jj>=N)continue;if(this.occ[jj*N+ii]>=0){crowd=true;break;}}
+    const gap=B.bunker?0:GAP;let crowd=false;for(let a=-gap;a<w+gap&&!crowd;a++)for(let c=-gap;c<h+gap;c++){if(a>=0&&a<w&&c>=0&&c<h)continue;const ii=i+a,jj=j+c;if(ii<0||jj<0||ii>=N||jj>=N)continue;if(this.occ[jj*N+ii]>=0){crowd=true;break;}}
     if(!free)why.push('la place est prise');else if(crowd)why.push(`trop près d’un autre bâtiment : ${GAP} cases d’écart`);if(B.onOre&&!ore)why.push('sur un filon');if(!B.onOre&&ore)why.push('pas sur le filon');
+    if(B.bunker&&this.G.dcoast){const WET='pas sur le sable mouillé du bord : il faut pouvoir débarquer';for(let a=0;a<w&&!why.includes(WET);a++)for(let c=0;c<h;c++){const dd=this.G.dcoast[(j+c)*N+i+a];if(dd<7){why.push(WET);break;}}}
     if(B.unique&&this.s.buildings.some(b=>b.f===f&&b.k===k&&!b.ruin))why.push('un seul');
     if(k==='centre'&&this.s.buildings.some(b=>b.f===f&&b.k==='centre'&&d2(b.i,b.j,i,j)<24))why.push('trop près d’une autre ville');
     if(B.station&&!this.platformAt(i,j,w,h))why.push('au bord d’une voie ferrée');
@@ -588,10 +592,11 @@ export class World{
     return {ok:!why.length,why,ore,site,railhead};}
   railheadConnected(f,i,j,w,h){const nets=new Set(this.s.buildings.filter(b=>b.f===f&&b.k==='gare'&&b.done&&!b.ruin).map(b=>this.netOf(b)).filter(n=>n!=null));if(!nets.size)return false;
     const net=this.railNets();for(let a=-1;a<=w;a++)for(let c=-1;c<=h;c++){if(a>=0&&a<w&&c>=0&&c<h)continue;const x=i+a,y=j+c;if(x>=0&&y>=0&&x<this.N&&y<this.N&&this.rail[y*this.N+x]===2&&nets.has(net[y*this.N+x]))return true;}return false;}
-  place(f,k,i,j){const r=this.canPlace(f,k,i,j);if(!r.ok)return r;const B=BUILDINGS[k],size=k==='enclos'?(this.penSize||B.size):B.size;
+  bunkerSize(id,rot){const P=bunkerPlan(id,rot);return [P.w,P.h];}
+  place(f,k,i,j,rot=0){const r=this.canPlace(f,k,i,j,rot);if(!r.ok)return r;const B=BUILDINGS[k],size=B.bunker?this.bunkerSize(B.bunker,rot):k==='enclos'?(this.penSize||B.size):B.size;
     // le chantier dégage ce qui pousse ou traîne sous lui : arbres, buissons, rochers (le bois et la pierre sont perdus)
     for(let a=0;a<size[0];a++)for(let c=0;c<size[1];c++){const kk=(j+c)*this.N+i+a;const nd=this.nodeAt[kk];if(nd>=0&&this.s.nodes[nd].type!=='ore'){this.s.nodes[nd].left=0;this.nodeAt[kk]=-1;}}
-    const b=this.addBuilding(f,k,i,j,false,size);if(r.ore)b.ore=r.ore.id;b.paid={};b.site=r.railhead?b.id:r.site?.id??null;
+    const b=this.addBuilding(f,k,i,j,false,size,rot);if(r.ore)b.ore=r.ore.id;b.paid={};b.site=r.railhead?b.id:r.site?.id??null;
     if(k==='centre'){b.city=CITY_NAMES[this.s.cityN%CITY_NAMES.length];this.s.cityN++;}
     this.emit({type:'placed',x:i+size[0]/2,y:j+size[1]/2});return {ok:true,b};}
   cancel(id){const b=this.building(id);if(!b||b.done||b.ruin)return;const d=this.building(b.site)||this.depots(b.f,b.i,b.j)[0];if(d)for(const [k,n] of Object.entries(b.paid||{}))this.put(d,k,n);this.remove(b);}
@@ -769,7 +774,7 @@ export class World{
     s.units=s.units.filter(u=>{if(alive(u))return true;if(u.f==='beee'&&s.beee){const L=s.beee.lossAt??=[];L.push({x:u.x,y:u.y,t:s.t});if(L.length>400)L.splice(0,L.length-400);}this.uIndex.delete(u.id);if(u.sq)this.leave(u);return false;});
     for(const b of [...s.buildings]){if(b.f==='beee'&&!(b.fire>0)&&far(b.i,b.j))lod(b,d=>this.buildingTick(b,d));else this.buildingTick(b,dt);}
     for(const v of [...s.vehicles])this.vehicleTick(v,dt);
-    this.detectTick(dt);this.intelTick(dt);this.noiseTick(dt);this.stepsTick(dt);this.chargesTick();this.salvoTick();this.shotsTick(dt);this.fallsTick(dt);this.minesTick();this.flakTick(dt);this.defenseTick();this.squadTick();this.crewTick();this.operationTick();this.beeeTick(dt);this.bandsTick(dt);this.innovTick(dt);
+    this.detectTick(dt);this.intelTick(dt);this.noiseTick(dt);this.stepsTick(dt);this.chargesTick();this.salvoTick();this.shotsTick(dt);this.fallsTick(dt);this.minesTick();this.bunkerTick();this.flakTick(dt);this.defenseTick();this.squadTick();this.crewTick();this.operationTick();this.beeeTick(dt);this.bandsTick(dt);this.innovTick(dt);
     this.bushT=(this.bushT||0)+dt;if(this.bushT>=.5){const g=this.bushT;this.bushT=0;for(const nd of this.bushes??=s.nodes.filter(n=>n.type==='bush'))if(nd.left<nd.max)nd.left=Math.min(nd.max,nd.left+g*nd.max/NODES.bush.regrow);}
     if(s.corpses.length&&s.t-s.corpses[0].t>3*DAY)s.corpses.shift();
     if(s.smokes.length)s.smokes=s.smokes.filter(m=>m.end>s.t);if(s.groundFires.length)s.groundFires=s.groundFires.filter(m=>m.end>s.t);
@@ -1020,7 +1025,7 @@ export class World{
   engageRange(u){const D=UDEF(u);if(!u.w)return D.img?D.range:3;const W=this.W(u.w);if(D.img||ACTIONS[W.p.action]?.mortar)return Math.max(8,this.zoneRange(W)*.95);const reach=W.optic?.mag>1?1+(W.optic.day-1)*.8:1;return clamp(Math.max(14,W.eff*1.6/TILE_M),12,34*reach);}
   // voir : un bâtiment entre deux points cache (on ne voit pas à travers les maisons)
   los(ax,ay,bx,by){for(const s of this.s.smokes){const dx=bx-ax,dy=by-ay,L2=dx*dx+dy*dy||1;const t=Math.max(0,Math.min(1,((s.x-ax)*dx+(s.y-ay)*dy)/L2));if(Math.hypot(ax+dx*t-s.x,ay+dy*t-s.y)<s.r*Math.min(1,(s.end-this.s.t)/1+.3))return false;}
-  const d=d2(ax,ay,bx,by);const n=Math.ceil(d*2);for(let k=1;k<n;k++){const x=ax+(bx-ax)*k/n,y=ay+(by-ay)*k/n;const o=this.occ[Math.floor(y)*this.N+Math.floor(x)];if(o>=0){const b=this.bIndex.get(o);if(b&&!b.ruin&&this.distB(b,ax,ay)>.6&&this.distB(b,bx,by)>.6)return false;}}return true;}
+  const d=d2(ax,ay,bx,by);const n=Math.ceil(d*2);for(let k=1;k<n;k++){const x=ax+(bx-ax)*k/n,y=ay+(by-ay)*k/n;const ix=Math.floor(y)*this.N+Math.floor(x),o=this.occ[ix];if(o>=0){const b=this.bIndex.get(o);if(b&&!b.ruin){if(this.fort[ix]){if(!this.emb[ix])return false;}else if(this.distB(b,ax,ay)>.6&&this.distB(b,bx,by)>.6)return false;}}}return true;}
   // ---------- la détection ----------
   // On ne tire que sur ce qu'on a repéré. La signature d'une unité : debout, accroupie, couchée ; en marche ; l'éclair de son
   // dernier coup ; une tranchée, un arbre, un rocher, un mur tout près ; le camouflage des éclaireurs et des tireurs d'élite.
@@ -1072,6 +1077,7 @@ export class World{
       if(c.node!=null){const n=this.s.nodes[c.node];this.blast(c.x,c.y,'grenade',c.f,c.by,1,'shell');if(n&&n.left>0){n.sabUntil=this.t+24;this.log('Front',`L’accès au filon de ${n.res} est saboté ; le minerai reste disponible après remise en état.`,'info');}continue;}
       const b=this.building(c.b);
       this.blast(c.x,c.y,'grenade',c.f,c.by,1,'shell');if(!b||b.ruin)continue;const B=BUILDINGS[b.k];
+      if(BUILDINGS[b.k].bunker){this.breakDoorsNear(b,c.x,c.y);}
       if(b.k==='mine'){b.sabUntil=this.t+24;b.why='accès saboté : remise en état';}
       if(this.volatile?.(b)>2)this.depotBlow?.(b,c.by);else{this.damage(b,b.max*.5,c.f);if(B.factory||B.store){b.sabUntil=this.s.t+14;b.why='saboté : réparations en cours';}}
       const who=b.f==='meumeu';this.log(this.cityName(b),who?`Sabotage ! ${B.name} a sauté dans la nuit${b.sabUntil>this.s.t?' — arrêt le temps des réparations':''}.`:`Nos saboteurs ont fait sauter ${B.name.toLowerCase()} bèè.`,who?'bad':'good');}}
@@ -1222,8 +1228,8 @@ export class World{
     return {gun,S,D:{zones:{bouclier:{mat:S.mat,t:S.t,eq:S.eq,kg:S.kg}}}};}
   coverFor(e,sx,sy){const dx=sx-e.x,dy=sy-e.y;const L=Math.hypot(dx,dy)||1;let best=null;
     for(const s of [.35,.6,.9]){const x=e.x+dx/L*s,y=e.y+dy/L*s;const i=Math.floor(x),j=Math.floor(y);if(i<0||j<0||i>=this.N||j>=this.N)continue;const k=j*this.N+i;
-      let c=null;const trench=this.s.sacs[k];if(trench?.b&&Math.hypot(e.x-(i+.5),e.y-(j+.5))<.8)c={kind:'sacs',h:.5,eq:6,p:.92};const w=this.wall[k];if(!c&&Math.abs(w)===2)c={kind:'mur',h:.25,eq:3*(w>0?this.mod('couvert'):1),p:.95};
-      else if(!c&&this.occ[k]>=0){const b=this.bIndex.get(this.occ[k]);if(b)c=b.ruin?{kind:'ruine',h:.16,eq:2.5,p:.8}:{kind:'maison',h:.6,eq:1.2,p:1};}
+      let c=null;const trench=this.s.sacs[k];if(trench?.b&&Math.hypot(e.x-(i+.5),e.y-(j+.5))<.8)c={kind:'sacs',h:.5,eq:6,p:.92};const w=this.wall[k];if(!c&&Math.abs(w)===3)c={kind:'porte',h:1,eq:24,p:1};else if(!c&&Math.abs(w)===2)c={kind:'mur',h:.25,eq:3*(w>0?this.mod('couvert'):1),p:.95};
+      else if(!c&&this.occ[k]>=0){const b=this.bIndex.get(this.occ[k]);if(b){const BD=BUILDINGS[b.k];c=b.ruin?{kind:'ruine',h:.16,eq:2.5,p:.8}:BD.bunker?(this.emb[k]?{kind:'embrasure',h:.6,eq:BD.eq||40,p:.55}:{kind:'beton',h:1,eq:BD.eq||40,p:1}):{kind:'maison',h:.6,eq:1.2,p:1};}}
       else if(!c&&this.nodeAt[k]>=0){const nd=this.s.nodes[this.nodeAt[k]];if(nd.type==='tree'&&nd.left>0)c={kind:'arbre',h:1,eq:4,p:.35};else if(nd.type==='rock'&&nd.left>0)c={kind:'rocher',h:.12,eq:8,p:.7};}
       if(c&&(!best||c.h*c.p>best.h*best.p))best=c;}
     return best;}
@@ -1706,3 +1712,4 @@ Object.assign(World.prototype,STRATEGY);
 Object.assign(World.prototype,ESCALADE);
 Object.assign(World.prototype,VEHICULES);
 Object.assign(World.prototype,PERSISTENCE);
+Object.assign(World.prototype,BUNKERS);

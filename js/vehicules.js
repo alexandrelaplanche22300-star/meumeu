@@ -87,7 +87,7 @@ export const VEHICULES={
     const N=this.N,ter=this.G.terrain,occ=this.occ,wall=this.wall,crater=this.crater,nodes=this.s.nodes,nodeAt=this.nodeAt,tr=this.s.sacs,wheels=V.roues==='roues';
     // (le bord de la carte, deux cases, est interdit aux engins : mesuré, des chemins longeaient la colonne x = 0,5 et les engins s'y coinçaient)
     // (un gisement non épuisé aussi, comme un rocher : vu en jeu, une jeep posée au milieu du chevalement d'un filon de plomb)
-    const hard=k=>{if(k<0||k>=ter.length)return true;const bi=k%N,bj=(k/N)|0;if(bi<2||bj<2||bi>N-3||bj>N-3)return true;const T=TERRAIN[ter[k]];if(!T?.walk||occ[k]>=0||wall[k])return true;const n=nodeAt[k];if(n>=0){const nd=nodes[n];if(nd&&nd.left>0&&(nd.type==='rock'||nd.type==='ore'||wheels&&nd.type==='tree'))return true;}return wheels&&!!tr[k];};
+    const hard=k=>{if(k<0||k>=ter.length)return true;const bi=k%N,bj=(k/N)|0;if(bi<2||bj<2||bi>N-3||bj>N-3)return true;const T=TERRAIN[ter[k]];if(!T?.walk||occ[k]>=0||wall[k]||this.fort[k])return true;const n=nodeAt[k];if(n>=0){const nd=nodes[n];if(nd&&nd.left>0&&(nd.type==='rock'||nd.type==='ore'||wheels&&nd.type==='tree'))return true;}return wheels&&!!tr[k];};
     const fn=k=>{if(hard(k))return Infinity;const i=k%N;let c=1;const T=TERRAIN[ter[k]];c/=Math.max(.3,TERRAIN_V[V.roues][T.k]??1);c+=Math.min(3,(crater[k]||0)*(wheels?1.6:.8));
       const n=nodeAt[k];if(n>=0&&nodes[n]?.type==='tree'&&nodes[n].left>0)c+=5;if(!wheels&&tr[k])c+=4;
       // la lisière : une case voisine infranchissable coûte (deux de chaque côté pour les engins larges)

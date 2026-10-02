@@ -134,4 +134,4 @@ export function generate(seed,mode='classique'){const SEA=mode==='mer';const N=S
     for(const b of blobs){const d=Math.hypot(b.i-i,b.j-j);if(d<b.r)v+=48*Math.pow(1-d/b.r,.6);}
     const c=dC(i,j),e=dB(i,j);if(c<55)v=Math.max(v,78*(1-c/70))+14*(1-c/55);if(e<60)v=Math.min(v,30+30*e/60);
     let fv=v*tf;if(c<50)fv=Math.max(fv,82*(1-c/70));fert[k]=Math.max(0,Math.min(100,Math.round(fv)));}
-  return {N,terrain,nodes,nodeAt,comp,main,capital,beee,deposits,passes,fert,blobs,mode,version:SEA?GEN_VERSION_MER:0,bounds:[RECT.x0,RECT.y0,RECT.x1,RECT.y1]};}
+  return {N,terrain,nodes,nodeAt,comp,main,capital,beee,deposits,passes,fert,blobs,dcoast,mode,version:SEA?GEN_VERSION_MER:0,bounds:[RECT.x0,RECT.y0,RECT.x1,RECT.y1]};}

@@ -45,7 +45,7 @@ export const PERCEPTION={
       for(let a=0;a<6.2832;){const dx=Math.cos(a),dy=Math.sin(a);let R=Math.max(Math.min(r,Rd(dx,dy)),o&&!o.tower?Math.min(r,2,P.base):0);
         for(let t=.35;t<=R+.7;t+=.35){const X=x+dx*t,Y=y+dy*t;const i=Math.floor(X),j=Math.floor(Y);if(i<0||j<0||i>=N||j>=N)break;
           let blind=false;for(const m of near)if((X-m.x)**2+(Y-m.y)**2<m.r*m.r){blind=true;break;}if(blind)break;
-          const k=j*N+i;if((i+.5-x)**2+(j+.5-y)**2<=R*R){vis[k]=1;if(explored)explored[k]=1;}const ob=occ[k];if(ob>=0){const B=this.bIndex.get(ob);if(B&&!B.ruin&&this.distB(B,x,y)>.6)break;}}
+          const k=j*N+i;if((i+.5-x)**2+(j+.5-y)**2<=R*R){vis[k]=1;if(explored)explored[k]=1;}const ob=occ[k];if(ob>=0){const B=this.bIndex.get(ob);if(B&&!B.ruin&&(this.fort[k]?!this.emb[k]:this.distB(B,x,y)>.6))break;}}
         if(lamp)for(let t=.5;t<5;t+=.5){const i=Math.floor(x+dx*t),j=Math.floor(y+dy*t);if(i<0||j<0||i>=N||j>=N)break;vis[j*N+i]=1;if(explored)explored[j*N+i]=1;}
         a+=Math.min(.2,.45/Math.max(1,R));}};
     for(const u of this.s.units)if(u.f===f&&active(u))mark(u.x,u.y,this.eyeProfile(u).max,u);

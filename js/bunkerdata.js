@@ -20,12 +20,12 @@ export const BUNKER_TYPES={
     '#.....#',
     '#.....#',
     '###D###']},
-  blockhaus_m:{name:'Blockhaus moyen',blurb:'Trois embrasures de front, une sur chaque flanc, une soute dans une niche.',rows:[
+  blockhaus_m:{name:'Blockhaus moyen',blurb:'Trois embrasures de front, une sur chaque flanc, une soute à chaque coin du fond.',rows:[
     '#E#E#E#',
     '#.....#',
     'E.....E',
-    '#.##..#',
-    '#A##D##']},
+    '#A...A#',
+    '###D###']},
   blockhaus_l:{name:'Grand blockhaus',blurb:'Deux salles, quatre embrasures de front, deux flancs, deux portes, deux soutes.',rows:[
     '#E#E#E#E#',
     '#.......#',
