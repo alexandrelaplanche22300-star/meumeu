@@ -26,6 +26,7 @@ import {VEHICULES,VEHDEF} from './vehicules.js';
 import {PERSISTENCE} from './persistence.js';
 import {BUNKERS} from './bunkers.js';
 import {NAVAL} from './naval.js';
+import {AMPHI} from './amphi.js';
 import {AIRCRAFT} from './air.js';
 import {BEEE_FORT} from './fortif.js';
 const UNLOCK_H=3;
@@ -464,6 +465,9 @@ export class World{
     const set=(u,task)=>{u.task=task;u.path=null;u.goal=null;u.pathExact=null;u.pathWait=0;u.idleT=0;u.hold=false;u.why=null;};
     const hostile=(t.type==='unit'&&this.unit(t.id)?.f==='beee')||(t.type==='building'&&this.building(t.id)?.f==='beee')||(t.type==='wall'&&this.s.walls[t.k]?.f==='beee');
     if(hostile&&!this.atWar)this.declareWar('meumeu');
+    // un point sur l'autre rive de la mer : les soldats choisis s'embarquent sur les barges libres les plus proches et débarquent là-bas
+    if(this.G.mode==='mer'&&(t.type==='point'||t.type==='building')){const bb=t.type==='building'?this.building(t.id):null,tx=bb?bb.i+1:t.x,ty=bb?bb.j+1:t.y;const sol=us.filter(u=>u.k!=='villageois'&&!UNITS[u.k]?.medic);
+      if(sol.length&&tx!=null&&sol.every(u=>(u.x<this.N/2)!==(tx<this.N/2))){const bo=this.amphiFreeBoats('meumeu',sol[0].x,sol[0].y,90).slice(0,Math.ceil(sol.length/20));const R=this.amphiLaunch('meumeu',sol,bo,tx,ty);return R.ok?{ok:true,text:R.text}:R;}}
     if(t.type==='vehicle'){const v=this.s.vehicles.find(o=>o.id===t.id);if(!v||v.hp<=0)return {ok:false,why:['véhicule hors d’usage']};if(v.f!=='meumeu')return {ok:false,why:['pas un des nôtres']};
       const V=VEHDEF[v.k],s=this.vehSeats(v),room=(s.cond?0:1)+V.places.servants-s.serv+V.places.passagers-s.pass;if(room<=0)return {ok:false,why:['plus de place à bord']};
       const go=us.slice(0,room);go.forEach(u=>set(u,{kind:'board',v:v.id}));return {ok:true,text:`${go.length} montent à bord de ${v.name}${us.length>go.length?` (${us.length-go.length} restent : plus de place)`:''}`};}
@@ -785,7 +789,7 @@ export class World{
     s.units=s.units.filter(u=>{if(alive(u))return true;if(u.f==='beee'&&s.beee){const L=s.beee.lossAt??=[];L.push({x:u.x,y:u.y,t:s.t});if(L.length>400)L.splice(0,L.length-400);}this.uIndex.delete(u.id);if(u.sq)this.leave(u);return false;});
     for(const b of [...s.buildings]){if(b.f==='beee'&&!(b.fire>0)&&far(b.i,b.j))lod(b,d=>this.buildingTick(b,d));else this.buildingTick(b,dt);}
     for(const v of [...s.vehicles])this.vehicleTick(v,dt);
-    this.detectTick(dt);this.intelTick(dt);this.noiseTick(dt);this.stepsTick(dt);this.chargesTick();this.salvoTick();this.shotsTick(dt);this.fallsTick(dt);this.minesTick();this.bunkerTick();this.flakTick(dt);this.defenseTick();this.squadTick();this.crewTick();this.operationTick();this.beeeTick(dt);this.bandsTick(dt);this.innovTick(dt);
+    this.detectTick(dt);this.intelTick(dt);this.noiseTick(dt);this.stepsTick(dt);this.chargesTick();this.salvoTick();this.shotsTick(dt);this.fallsTick(dt);this.minesTick();this.bunkerTick();this.amphiTick();this.flakTick(dt);this.defenseTick();this.squadTick();this.crewTick();this.operationTick();this.beeeTick(dt);this.bandsTick(dt);this.innovTick(dt);
     this.bushT=(this.bushT||0)+dt;if(this.bushT>=.5){const g=this.bushT;this.bushT=0;for(const nd of this.bushes??=s.nodes.filter(n=>n.type==='bush'))if(nd.left<nd.max)nd.left=Math.min(nd.max,nd.left+g*nd.max/NODES.bush.regrow);}
     if(s.corpses.length&&s.t-s.corpses[0].t>3*DAY)s.corpses.shift();
     if(s.smokes.length)s.smokes=s.smokes.filter(m=>m.end>s.t);if(s.groundFires.length)s.groundFires=s.groundFires.filter(m=>m.end>s.t);
@@ -1733,5 +1737,6 @@ Object.assign(World.prototype,VEHICULES);
 Object.assign(World.prototype,PERSISTENCE);
 Object.assign(World.prototype,BUNKERS);
 Object.assign(World.prototype,NAVAL);
+Object.assign(World.prototype,AMPHI);
 Object.assign(World.prototype,AIRCRAFT);
 Object.assign(World.prototype,BEEE_FORT);
