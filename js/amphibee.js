@@ -100,8 +100,11 @@ export const AMPHI_BEE={
       if(t>=H.reconT&&free.length>=4){H.reconT=t+10;H.reconN=(H.reconN||0)+1;const L=B.lead,heard=L&&t-L.t<24&&(L.x<this.N/2)===(H.x<this.N/2)&&L.bearing!=null;
         const a=heard?L.bearing+(this.rand()-.5)*(L.half||.4):Math.atan2(-H.ny,-H.nx)+(this.rand()-.5)*1.8,D=Math.min(300,60+40*H.reconN+this.rand()*40),ox=heard?L.x:H.x,oy=heard?L.y:H.y;
         if(heard){const p=this.freeSpot(ox+Math.cos(a)*Math.min(D,140),oy+Math.sin(a)*Math.min(D,140),8);for(const u of free.slice(-2)){u.task={kind:'search',pts:[p,[H.x,H.y]],i:0,scout:1,until:t+40,home:[H.x,H.y],t0:t};u.path=null;}}else{
-        const p1=this.freeSpot(H.x+Math.cos(a)*D,H.y+Math.sin(a)*D,8),p2=this.freeSpot(H.x+Math.cos(a+.5)*D*.7,H.y+Math.sin(a+.5)*D*.7,8);
-        for(const u of free.slice(-2)){u.task={kind:'search',pts:[p1,p2,[H.x,H.y]],i:0,scout:1,until:t+20+D*.3,home:[H.x,H.y],t0:t};u.path=null;}}}
+        // (V12.5 : une tête de pont forte envoie plusieurs paires en éventail — une de plus par 25 soldats libres, trois au plus ; mesuré : une seule paire
+        //  au hasard, 64 hommes attendaient des jours sans rien connaître, nos bâtiments à 200 cases)
+        const pairs=Math.min(3,1+Math.floor(Math.max(0,free.length-4)/25));for(let q=0;q<pairs;q++){const aq=a+(q-(pairs-1)/2)*.9;
+          const p1=this.freeSpot(H.x+Math.cos(aq)*D,H.y+Math.sin(aq)*D,8),p2=this.freeSpot(H.x+Math.cos(aq+.5)*D*.7,H.y+Math.sin(aq+.5)*D*.7,8);
+          for(const u of free.slice(-2*(q+1),q?-2*q:undefined)){u.task={kind:'search',pts:[p1,p2,[H.x,H.y]],i:0,scout:1,until:t+20+D*.3,home:[H.x,H.y],t0:t};u.path=null;}}}}
       // les éclaireurs rentrés (garde sans place) et les renforts reprennent leur place dans l'arc
       if(sold.some(u=>!u.task||u.task.kind==='guard'&&!u.task.hold))this.amphiBeeHeadPlace(H);}},
   // ---------- la riposte : des Meumeu vus sur la rive bèè ----------

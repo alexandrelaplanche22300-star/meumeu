@@ -40,7 +40,9 @@ export const ALLIE={
   allyPorters(D,n){const [x,y]=this.bc(D);const us=this.s.units.filter(u=>u.ally&&u.k==='villageois'&&!u.task&&up(u)&&d2(u.x,u.y,x,y)<60).slice(0,n);
     for(const u of us){this.s.units.splice(this.s.units.indexOf(u),1);this.uIndex.delete(u.id);const v=this.addVehicle(D.f,'porteur',D);Object.assign(v,{x:u.x,y:u.y,at:null,name:u.name||v.name,u,range:VEHICLES.porteur.range,ally:true});}return us.length;},
   // un camp-dépôt près de (x, y) s'il n'y a aucun dépôt meumeu à 30 cases (un chantier en a besoin) ; vrai s'il faut attendre
-  allyNeedDepot(x,y){if(this.depots('meumeu',x,y,30).length)return false;if(!this.s.buildings.some(b=>b.ally&&b.k==='camp'&&!b.done&&d2(b.i,b.j,x,y)<30))this.allyPlace('camp',x,y,2,14);return true;},
+  allyNeedDepot(x,y){if(this.depots('meumeu',x,y,30).length)return false;const c=this.s.buildings.find(b=>b.ally&&b.k==='camp'&&!b.done&&!b.ruin&&d2(b.i,b.j,x,y)<30)||this.allyPlace('camp',x,y,2,14);
+    /* (V12.5) le chantier du dépôt reçoit trois bâtisseurs — sans eux il restait à 0 %, et la ville côtière (donc les barges) ne venait jamais */
+    if(c){const n=this.s.units.filter(u=>u.task?.kind==='build'&&u.task.b===c.id).length;if(n<3){const V=this.allyUnits().filter(u=>u.k==='villageois'&&!u.inBarracks&&(!u.task||u.task.kind==='gather')).sort((a,z)=>d2(a.x,a.y,x,y)-d2(z.x,z.y,x,y)).slice(0,3-n);for(const u of V)this.order([u.id],{type:'building',id:c.id},true);}}return true;},
   // ---------- le pas : toutes les demi-heures de jeu ----------
   allyTick(){const A=this.s.ally;if(!A)return;const t=this.s.t;if(t-(A.t??-9)<.5)return;A.t=t;const cities=this.allyCities();
     if(!cities.length){if(!A.fallen){A.fallen=true;this.log('Front','Les villes alliées sont toutes tombées.','bad');}return;}

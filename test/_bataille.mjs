@@ -29,8 +29,9 @@ const sample=()=>{const s=W.s,U=s.units;
     ops:(s.amphi||[]).map(o=>({camp:o.f==='beee'?'bèè':o.ally?'allié':'joueur',etat:o.state,vague:o.wave,debarques:o.landed})),pertes:{...tally.morts},detruits:{...tally.detruits},noyes:tally.noyes,minutes:+((Date.now()-T0)/60000).toFixed(1)};
   JL.write(JSON.stringify(st)+'\n');
   say(`J${st.jour.toFixed(1)} | MEUMEU ${st.meumeu.unites} (${st.meumeu.soldats} sold.) ${st.meumeu.villes} villes ${st.meumeu.batiments} bât. barges ${st.meumeu.barges}+${st.meumeu.grandes}G · en face ${allyFar}${R.phase?` [${R.phase}, garnison ${st.meumeu.garnison}]`:''} | BÈÈ ${st.beee.unites} (${st.beee.soldats} sold.) ${st.beee.villes} villes (${st.beee.tombees} tombées) ${st.beee.batiments} bât. ${st.beee.ouvrages} ouvrages ${st.beee.bateaux} bateaux · en face ${beeFar} · têtes ${H.map(h=>h.hommes+'h/'+h.avance+'c'+(h.camp?'+camp':'')).join(' ')||'—'} · ripostes ${rip.join('/')||'—'}${bands.length?' · bandes '+bands.join(' '):''} | ops ${st.ops.map(o=>o.camp+':'+o.etat+':v'+o.vague+':'+o.debarques).join(' ')||'—'} | morts M ${tally.morts.meumeu} B ${tally.morts.beee} · détruits M ${tally.detruits.meumeu} B ${tally.detruits.beee} · noyés ${tally.noyes} | ${st.minutes} min`);};
+/* les morts : comptés à la mort même (le monde retire les cadavres de s.units dans la foulée, un relevé périodique n'en voyait aucun) */
+{const d0=W.death.bind(W);W.death=u=>{if(u.hp>0&&!deadSeen.has(u.id)){deadSeen.add(u.id);tally.morts[u.f]=(tally.morts[u.f]||0)+1;}return d0(u);};}
 const track=()=>{const s=W.s,t=s.t;
-  for(const u of s.units)if(!alive(u)&&!deadSeen.has(u.id)){deadSeen.add(u.id);tally.morts[u.f]=(tally.morts[u.f]||0)+1;}
   for(const b of s.buildings){if(BOATS.has(b.k))continue;if(b.done&&!b.ruin)bldSeen.set(b.id,b.f);else if(b.ruin&&bldSeen.has(b.id)){tally.detruits[bldSeen.get(b.id)]++;bldSeen.delete(b.id);}}
   for(const [id,f] of [...bldSeen]){if(!W.building(id)){tally.detruits[f]++;bldSeen.delete(id);}}
   for(const v of s.vehicles)if(v.drowned&&!v._compte){v._compte=1;tally.noyes+=v.drowned;}
