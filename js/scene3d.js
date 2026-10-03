@@ -203,11 +203,11 @@ export class Scene3D{
     this.slotCache.set(v.id,{key,slots});return slots;}
   vehCrew3d(v,V,P){if(V.nav==='eau'){if(!v.crew?.length||v.hp<=0)return;const Hm=this.M.meumeu.ext[1],c=Math.cos(v.h),s=Math.sin(v.h),S=this.M[V.modele]?.seats||{};
       const pax=v.crew.filter(u=>u.hp>0&&u.vrole==='passager').length,floor=V.pont?(V.long>4?.17:.155):.1,slots=this.deckSlots(v,V,pax);
-      const guns=V.armes.filter(a=>a.piece.startsWith('affut'));let n=0,g=0;const W=(f,sd)=>[v.x+c*f-s*sd,v.y+s*f+c*sd];
+      const guns=[...new Map(V.armes.filter(a=>a.piece.startsWith('affut')).map(a=>[a.piece,a])).values()];let n=0,g=0;const W=(f,sd)=>[v.x+c*f-s*sd,v.y+s*f+c*sd];
       for(const u of v.crew){if(u.hp<=0)continue;let x,y,yy=floor,a=v.h;
         if(u.vrole==='conducteur'){const p=S.pilot||[-V.long*.3,.1,0];[x,y]=W(p[0],p[2]);yy=p[1];}
         // le mitrailleur : debout dans sa cuve, derrière sa pièce, tourné avec elle
-        else if(u.vrole==='servant'&&guns[g]){const A=guns[g],m=v.mounts?.find(q=>q.id===A.id),p=S.gunners?.[g]||[A.pos[0],A.pos[2]-.5,A.pos[1]];g++;a=v.h+(m?.yaw??A.repos??0);const [px,py]=W(p[0],p[2]);x=px-Math.cos(a)*.1;y=py-Math.sin(a)*.1;yy=p[1];}
+        else if(u.vrole==='servant'&&guns[g]){const A=guns[g],m=v.mounts?.find(q=>q.id===A.id),p=S.gunners?.[g]||[A.pos[0],A.pos[2]-.5,A.pos[1]];g++;a=v.h+(m?.yaw??A.repos??0);const [px,py]=W(p[0],p[2]);x=px-Math.cos(a)*.17;y=py-Math.sin(a)*.17;yy=p[1];}
         else{const q=slots[n%Math.max(1,slots.length)]||[0,0];n++;[x,y]=W(q[0],q[1]);}
         const sc=.5*(u.k==='villageois'?.92:1.02)/Hm,down=u.h?.state==='hors';
         P.meumeu.add(x,yy,y,Math.atan2(Math.cos(a),Math.sin(a)),sc,sc,sc,{tint:down?0x9a8a80:u.k==='villageois'?0xf4efe2:0xdcd8c4,ph:0,amp:0,arm:down?0:u.vrole==='conducteur'?.85:u.vrole==='servant'?.65:.5});}return;}

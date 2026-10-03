@@ -12,16 +12,19 @@ import {Build} from './bldg3d.js';
 
 const GRIS=0x66706a,GRIS2=0x4b534e,GRIS3=0x7d877f,ACIER=0x5a6164,ACIER2=0x434a4d,BOIS=0x5c5040,BOIS2=0x463d31,BLANC=0xe8e6dc,NOIR=0x1a1f1d,VITRE=0x9fb8c4,ROUILLE=0x6e4a34;
 
-// une mitrailleuse sur pivot, le canon vers +x (l'avant) : la boîte de culasse, le canon et son cache-flamme, la bande, les poignées
-function mg(B,[x,y,z],long=.5){B.box(x-.04,y,z,.2,.08,.08,NOIR);const t=new THREE.CylinderGeometry(.016,.02,long,8);t.rotateZ(Math.PI/2);t.translate(x+.06+long/2,y+.045,z);B.add(t,NOIR);
-  B.box(x+.07+long,y+.03,z,.04,.03,.04,NOIR);B.box(x-.02,y-.07,z+.06,.08,.07,.05,0x5a4a2a);B.box(x-.17,y+.01,z,.05,.05,.1,ACIER2);B.box(x,y-.08,z,.04,.08,.04,ACIER2);return B;}
+// des mitrailleuses jumelées sur pivot, les canons vers +x (l'avant) : le berceau posé sur le fût (y = son dessus), deux boîtes de culasse, deux canons et leurs
+// cache-flammes, les caisses de bandes de part et d'autre, les poignées à l'arrière, un petit bouclier devant
+function mg(B,[x,y,z],long=.42){B.box(x-.02,y,z,.18,.05,.16,ACIER2);
+  for(const s of [-1,1]){const zz=z+s*.045;B.box(x-.03,y+.05,zz,.22,.07,.05,NOIR);const t=new THREE.CylinderGeometry(.014,.018,long,8);t.rotateZ(Math.PI/2);t.translate(x+.08+long/2,y+.085,zz);B.add(t,NOIR);
+    B.box(x+.09+long,y+.07,zz,.035,.03,.035,NOIR);B.box(x-.04,y+.04,z+s*.11,.1,.08,.05,0x5a4a2a);}
+  B.box(x-.17,y+.05,z,.04,.06,.13,ACIER2);B.box(x+.11,y+.01,z,.02,.15,.27,ACIER);return B;}
 
 // une cuve de mitrailleur : un anneau de tôle ouvert (le mitrailleur se tient dedans, le buste au-dessus), son plancher, le pivot au centre
 function tub(B,x,y,z,r,h,hex){const n=12;for(let i=0;i<n;i++){const a=i/n*Math.PI*2,g=new THREE.BoxGeometry(.035,h,2*r*Math.sin(Math.PI/n)+.012);g.rotateY(-a);g.translate(x+Math.cos(a)*r,y+h/2,z+Math.sin(a)*r);B.add(g,hex);}
   B.cyl(x,y,z,r,r,.02,ACIER2,n);const t=new THREE.TorusGeometry(r,.018,4,n);t.rotateX(Math.PI/2);t.translate(x,y+h,z);B.add(t,ACIER2);return B;}
 
 // ---------- la barge (LCVP) : 3,8 × 1,7 ----------
-export const BARGE={L:3.8,W:1.7,hinge:[1.66,.13,0],guns:[[-1.5,.98,.56],[-1.5,.98,-.56]]};
+export const BARGE={L:3.8,W:1.7,hinge:[1.66,.13,0],guns:[[-1.5,.8,.56],[-1.5,.8,-.56]]};
 function lcvpHull(B){const {L,W}=BARGE,hw=W/2;
   B.box(-.05,0,0,L*.92,.13,W*.84,GRIS2);B.box(-.1,-.04,0,L*.8,.05,.14,NOIR);
   // les hauts flancs droits jusqu'au plat-bord, le liston, les raidisseurs, le numéro de coque
@@ -35,7 +38,7 @@ function lcvpHull(B){const {L,W}=BARGE,hw=W/2;
   // le barreur : une plaque blindée debout devant lui, sa fente, la barre
   B.box(-1.12,.47,0,.06,.4,.42,ACIER);B.box(-1.085,.72,0,.012,.045,.3,NOIR);B.cyl(-1.24,.47,0,.025,.025,.22,ACIER2,6);B.box(-1.24,.69,0,.02,.02,.18,NOIR);
   // les deux cuves de mitrailleur (le pivot et l'arme sont les pièces « affut »)
-  for(const [gx,,gz] of BARGE.guns){tub(B,gx,.47,gz,.22,.3,GRIS3);B.cyl(gx+.1,.47,gz,.025,.025,.43,ACIER2,6);}
+  for(const [gx,gy,gz] of BARGE.guns){tub(B,gx,.47,gz,.22,.3,GRIS3);B.cyl(gx,.47,gz,.05,.04,gy-.47,ACIER2,8);}
   for(const s of [-1,1])for(const x of [1.0,-.7])B.box(x,.8,s*(hw-.03),.08,.03,.05,ACIER2);
   B.cyl(-1.82,.47,.25,.03,.03,.36,NOIR,6);
   return B;}
@@ -51,7 +54,7 @@ export function bargeModel(){const {L,W,hinge,guns}=BARGE;const H=lcvpHull(new B
     byName:{caisse:{geo:H,pivot:[0,0,0]},rampe:{geo:R,pivot:hinge},affut:{geo:G1,pivot:guns[0]},affut2:{geo:G2,pivot:guns[1]}}};}
 
 // ---------- la grande barge (LCT) : 7 × 2,6 ----------
-export const GBARGE={L:7,W:2.6,hinge:[3.36,.14,0],guns:[[-2.5,1.55,.92],[-2.5,1.55,-.92]]};
+export const GBARGE={L:7,W:2.6,hinge:[3.36,.14,0],guns:[[-2.5,1.4,.92],[-2.5,1.4,-.92]]};
 function lctHull(B){const {L,W}=GBARGE,hw=W/2;
   B.box(-.05,0,0,L*.96,.14,W*.92,GRIS2);B.box(0,-.04,0,L*.9,.05,.24,NOIR);
   // les hauts pavois du pont des véhicules, leurs raidisseurs, leur liston ; les numéros
@@ -63,7 +66,7 @@ function lctHull(B){const {L,W}=GBARGE,hw=W/2;
   // l'arrière : le roof, la passerelle vitrée, sa plateforme, le mât, les cheminées, les radeaux ; aux coins avant du roof, les deux cuves des mitrailleuses
   B.box(-2.95,.14,0,1.0,.9,W*.88,GRIS);B.box(-2.95,1.04,0,1.04,.04,W*.9,GRIS3);for(const s of [-1,1])for(const x of [-2.7,-3.15])B.box(x,.5,s*W*.445,.13,.13,.01,VITRE);
   B.box(-3.05,1.08,0,.6,.38,1.0,GRIS);B.box(-2.74,1.24,0,.012,.13,.9,VITRE);for(const s of [-1,1])B.box(-3.05,1.24,s*.502,.5,.13,.012,VITRE);B.box(-3.05,1.46,0,.66,.04,1.1,GRIS3);
-  for(const [gx,,gz] of GBARGE.guns){tub(B,gx,1.08,gz,.24,.28,GRIS3);B.cyl(gx+.1,1.08,gz,.025,.025,.4,ACIER2,6);}
+  for(const [gx,gy,gz] of GBARGE.guns){tub(B,gx,1.08,gz,.24,.28,GRIS3);B.cyl(gx,1.08,gz,.05,.04,gy-1.08,ACIER2,8);}
   B.rod([-3.2,1.5,0],[-3.2,2.35,0],.022,GRIS2);B.rod([-3.2,2.12,-.34],[-3.2,2.12,.34],.012,GRIS2);
   for(const s of [-1,1]){B.cyl(-3.3,1.08,s*.75,.07,.07,.46,NOIR,8);B.box(-2.7,.45,s*(hw+.03),.46,.2,.07,0xb8743a);}
   B.box(-3.47,.14,0,.04,.92,W*.92,GRIS2);

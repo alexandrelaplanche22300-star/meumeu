@@ -41,27 +41,29 @@ export const VEHDEF={
     armes:[{id:'canon',piece:'tourelle',w:'canon_char_mle1',arc:360,tour:30,coups:60,hausse:[-6,18],pos:[-.04,0,.94],tube:.7},{id:'coax',piece:'tourelle',w:'mg_lourde_mle1',arc:360,tour:30,coups:2000,coax:'canon',pos:[-.04,.12,.94],tube:.55}],
     cout:{fer:120,pieces:85,cuivre:12,charbon:10,'a:canon_char_mle1':1,'a:mg_lourde_mle1':1},heures:70,
     why:'Une automitrailleuse lourde, sur quatre roues : un canon court (obus explosifs contre les nids et les groupes) et une mitrailleuse coaxiale, en tourelle. L’avant incliné tient le fusil antichar bèè au-delà de quelques dizaines de mètres ; les flancs non.'},
-  automoteur:{name:'Automoteur à casemate',modele:'guncarrier_casemate',avant:'-z',long:2.6,large:1.45,roues:'chenilles',pivot:30,vmax:12,t0:5,frein:2.5,
+  // (V12.5 : UN canon, à l'avant (+z) — les deux tubes jumelés étaient les pots d'échappement du modèle, le véhicule roulait à l'envers ; signalé par le joueur.
+  //  Le tube tourne dans sa rotule, à la plaque avant de la casemate : 0,77 case devant le centre, 0,13 à droite de l'axe, comme le pivot du modèle)
+  automoteur:{name:'Automoteur à casemate',modele:'guncarrier_casemate',avant:'+z',long:2.6,large:1.45,roues:'chenilles',pivot:30,vmax:12,t0:5,frein:2.5,
     blindage:{avant:[4.5,40],flanc:[1.6,0],arriere:[1.2,0],dessus:[.5,85]},hp:300,places:{servants:3,passagers:0},soute:2,
-    // (chaque tube tourne dans sa rotule, à la plaque avant — 1,12 case devant le centre, à 0,3 case de l'axe, comme les pivots du modèle ; la bouche au nez, 0,18 plus loin)
-    armes:[{id:'canon1',piece:'canons',w:'canon_auto_mle1',arc:24,tour:8,coups:40,hausse:[-4,20],jumelle:true,pos:[1.12,.3,.99],tube:.18},{id:'canon2',piece:'canons',w:'canon_auto_mle1',arc:24,tour:8,coups:40,hausse:[-4,20],jumelle:true,pos:[1.12,-.3,.99],tube:.18}],
-    cout:{fer:150,pieces:95,cuivre:10,charbon:12,'a:canon_auto_mle1':2},heures:84,
-    why:'Deux canons jumelés dans une casemate : ±12° de débattement — c’est la caisse qui pointe. Très épais devant, mince ailleurs. Pour casser les ouvrages bèè.'},
+    armes:[{id:'canon',piece:'canons',w:'canon_auto_mle1',arc:24,tour:8,coups:40,hausse:[-4,20],pos:[.77,.13,.97],tube:.27}],
+    cout:{fer:150,pieces:95,cuivre:10,charbon:12,'a:canon_auto_mle1':1},heures:84,
+    why:'Un canon dans une casemate, à l’avant : ±12° de débattement — c’est la caisse qui pointe. Très épais devant, mince ailleurs. Pour casser les ouvrages bèè.'},
 };
 // V12.5 : la barge de débarquement (nav:'eau' : elle ne roule pas, elle navigue — voir naval.js). Une coque blindée à l'avant (la rampe relevée) et sur les flancs :
 // le fusil et la mitrailleuse bèè ne la percent pas, l'antichar si. Un pilote, vingt-quatre passagers, un véhicule sur le pont, soixante caisses.
 // (V12.5 : 3,8 × 1,7 — les soldats tiennent entre les pavois sans les traverser ; deux mitrailleuses dans les cuves de poupe, vers l'avant au repos)
 VEHDEF.barge={name:'Barge de débarquement',nav:'eau',modele:':barge',avant:'+x',long:3.8,large:1.7,roues:'chenilles',pivot:24,vmax:16,t0:3,frein:2,pont:[1.3,-1.0],
   blindage:{avant:[3.2,30],flanc:[2.3,0],arriere:[1.3,0],dessus:[0,0]},hp:420,places:{servants:2,passagers:24},soute:60,
-  armes:[{id:'mg1',piece:'affut',w:'mg_lourde_mle1',arc:300,tour:120,coups:900,repos:0,garde:0,pos:[-1.5,.56,.98],tube:.5},{id:'mg2',piece:'affut2',w:'mg_lourde_mle1',arc:300,tour:120,coups:900,repos:0,garde:0,pos:[-1.5,-.56,.98],tube:.5}],
+  // (deux affûts de mitrailleuses jumelées, une par cuve de poupe : chaque affût tire ses deux armes ensemble)
+  armes:[{id:'mg1',piece:'affut',w:'mg_lourde_mle1',arc:300,tour:120,coups:900,repos:0,garde:0,jumelle:true,pos:[-1.5,0.6050000000000001,0.88],tube:.55},{id:'mg1b',piece:'affut',w:'mg_lourde_mle1',arc:300,tour:120,coups:900,repos:0,garde:0,jumelle:true,pos:[-1.5,0.515,0.88],tube:.55},{id:'mg2',piece:'affut2',w:'mg_lourde_mle1',arc:300,tour:120,coups:900,repos:0,garde:0,jumelle:true,pos:[-1.5,-0.515,0.88],tube:.55},{id:'mg2b',piece:'affut2',w:'mg_lourde_mle1',arc:300,tour:120,coups:900,repos:0,garde:0,jumelle:true,pos:[-1.5,-0.6050000000000001,0.88],tube:.55}],
   cout:{fer:60,pieces:25,bois:70},heures:26,
   why:'Une coque blindée qu’on échoue sur la plage : un pilote, deux mitrailleurs (deux mitrailleuses lourdes dans les cuves de poupe), vingt-quatre Meumeu, un véhicule léger (jeep, automitrailleuse), des munitions. La proue relevée arrête les balles de fusil et de mitrailleuse bèè ; baissée, elle laisse courir les soldats vers la plage. Elle repart chercher du monde tant que le pilote vit.'};
 // V12.5 : la grande barge (une barge de chars) : un long pont ouvert derrière une rampe de toute la largeur, la passerelle et une mitrailleuse lourde sur affût à l'arrière.
 // Sur le pont, des véhicules à la file tant que leurs longueurs y tiennent (deux automitrailleuses à canon, ou un automoteur et une jeep…), et quarante soldats.
 VEHDEF.grande_barge={name:'Grande barge de débarquement',nav:'eau',modele:':grande_barge',avant:'+x',long:7,large:2.6,roues:'chenilles',pivot:14,vmax:11,t0:4.5,frein:3,pont:[3.15,-2.35],
   blindage:{avant:[4.2,30],flanc:[2.8,0],arriere:[1.8,0],dessus:[0,0]},hp:950,places:{servants:2,passagers:40},soute:140,
-  armes:[{id:'mg1',piece:'affut',w:'mg_lourde_mle1',arc:300,tour:110,coups:1500,repos:0,garde:0,pos:[-2.5,.92,1.55],tube:.5},{id:'mg2',piece:'affut2',w:'mg_lourde_mle1',arc:300,tour:110,coups:1500,repos:0,garde:0,pos:[-2.5,-.92,1.55],tube:.5}],
-  cout:{fer:150,pieces:60,bois:120,cuivre:4,'a:mg_lourde_mle1':2},heures:52,
+  armes:[{id:'mg1',piece:'affut',w:'mg_lourde_mle1',arc:300,tour:110,coups:1500,repos:0,garde:0,jumelle:true,pos:[-2.5,0.9650000000000001,1.48],tube:.55},{id:'mg1b',piece:'affut',w:'mg_lourde_mle1',arc:300,tour:110,coups:1500,repos:0,garde:0,jumelle:true,pos:[-2.5,0.875,1.48],tube:.55},{id:'mg2',piece:'affut2',w:'mg_lourde_mle1',arc:300,tour:110,coups:1500,repos:0,garde:0,jumelle:true,pos:[-2.5,-0.875,1.48],tube:.55},{id:'mg2b',piece:'affut2',w:'mg_lourde_mle1',arc:300,tour:110,coups:1500,repos:0,garde:0,jumelle:true,pos:[-2.5,-0.9650000000000001,1.48],tube:.55}],
+  cout:{fer:150,pieces:60,bois:120,cuivre:4,'a:mg_lourde_mle1':4},heures:52,
   why:'La barge des blindés : un pilote, deux mitrailleurs, quarante Meumeu, et sur le pont des véhicules à la file (deux automitrailleuses à canon, une automitrailleuse à canon et un automoteur, ou trois jeeps). Rampe relevée, la proue et les hauts pavois arrêtent les balles bèè ; les deux mitrailleuses lourdes du roof couvrent la plage pendant qu’on débarque. Plus lente, plus large : il lui faut une vraie plage.'};
 // V12.5 : le ciel (voir air.js) — un avion de transport trimoteur, un planeur d'assaut (silencieux), un planeur lourd. Mesures réelles : vitesses en m/s (qui valent des cases/h),
 // altitudes en m. Réservés aux Meumeu.
