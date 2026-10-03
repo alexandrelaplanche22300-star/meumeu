@@ -117,7 +117,11 @@ export const ALLIE={
     // la menace : des Bèè VUS dans sa moitié ou à 40 cases de ses villes
     const foes=this.s.units.filter(e=>e.f==='beee'&&up(e)&&!e.inVeh&&this.spotted(e,'meumeu')&&(this.allyZone(e.x,e.y)||cities.some(c=>d2(e.x,e.y,c.b.i+2,c.b.j+2)<40)));
     const send=(units,e)=>{const ids=units.filter(u=>!(u.task?.kind==='attack'&&up(this.unit(u.task.unit)))).map(u=>u.id);if(ids.length)this.order(ids,{type:'unit',id:e.id},true);};
-    for(const c of cities){const [cx,cy]=[c.b.i+2,c.b.j+2];const close=foes.filter(e=>d2(e.x,e.y,cx,cy)<45);if(!close.length)continue;const e=close.sort((a,z)=>d2(a.x,a.y,cx,cy)-d2(z.x,z.y,cx,cy))[0];
+    for(const c of cities){const [cx,cy]=[c.b.i+2,c.b.j+2];const close=foes.filter(e=>d2(e.x,e.y,cx,cy)<45);if(!close.length)continue;
+      /* (V12.5) « aux abris » : les villageois à 35 cases d'un Bèè vu courent à l'abri le plus proche (centre, maison), sinon s'éloignent de 25 cases ;
+         l'abri les relâche quand la ville est calme — mesuré : 187 villageois alliés tués d'hémorragie autour d'une ville en 4 jours, sans s'abriter */
+      for(const u of us){if(u.k!=='villageois'||!up(u)||u.inBarracks||u.task?.kind==='shelter'||d2(u.x,u.y,cx,cy)>60)continue;let e=null,bd=35;for(const f of close){const d=d2(f.x,f.y,u.x,u.y);if(d<bd){bd=d;e=f;}}if(!e)continue;
+        if(!this.shelter(u)){const k=25/(bd||1),p=this.freeSpot(u.x+(u.x-e.x)*k,u.y+(u.y-e.y)*k,4);if(this.allyZone(p[0],p[1])){u.task={kind:'move',tx:p[0],ty:p[1]};u.path=null;u.carry=null;}}}const e=close.sort((a,z)=>d2(a.x,a.y,cx,cy)-d2(z.x,z.y,cx,cy))[0];
       send(free.filter(u=>u.allyHome===c.b.id),e);if(!(c.C.alertT>t-12)){c.C.alertT=t;this.log(c.b.city||'Allié',`${c.b.city||'Une ville alliée'} est attaquée : la garnison riposte.`,'warn');}}
     // (V12.5) la sortie : on charge si l'on est assez nombreux (1,3 contre 1 sur les Bèè vus à 30 cases de la cible) ou si une ville est menacée (45 cases) ;
     // sinon l'armée de campagne tient une ligne entre l'ennemi et la ville la plus proche, et attend renforts ou meilleure occasion
