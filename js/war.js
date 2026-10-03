@@ -210,12 +210,6 @@ export const WAR={
   shotNoise(u,W,x1,y1){let dB=W.dB;const S=W.sup;if(S){u.supUse=(u.supUse||0)+1;let R=S.R;if(S.life)R*=1-(1-S.floor)*Math.min(1,(u.supUse-1)/S.life);if(S.wet)R*=u.supUse<=S.wet?S.wetK:1;dB=Math.max(W.actDb||100,Math.round(W.dB0-Math.min(38,R)));}
     u.lastDb=dB;u.firedAt=this.s.t;u.firedK=1+.9*Math.max(0,Math.min(1,Math.max(W.flash||0,(dB-125)/25)));if(u.f!=='meumeu')return;this.beeeHear(u.x,u.y,dB);
     if(W.crackDb>dB+2&&x1!=null){const k=.4+this.rand()*.5;this.beeeHear(u.x+(x1-u.x)*k,u.y+(y1-u.y)*k,W.crackDb,'claquement');}},
-  // Une armée nombreuse couvre aussi les approches lointaines, par binômes coordonnés. Les axes suivent
-  // une dernière observation ou des bâtiments ennemis réellement connus ; sinon les secteurs tournent.
-  // les patrouilles de route : un binôme va jusqu'à la ville voisine (par le vrai chemin) et revient, toutes les dix heures environ
-  beeeRoadPatrols(cities){const t=this.s.t;for(const c of cities){if(t<(c.roadT||0))continue;c.roadT=t+9+this.rand()*6;const g=this.beeeGuards(c);if(g.length<6)continue;
-      const o=cities.filter(o=>o!==c&&d2(o.x,o.y,c.x,c.y)<140).sort((p,q)=>d2(p.x,p.y,c.x,c.y)-d2(q.x,q.y,c.x,c.y))[Math.floor(this.rand()*2)];if(!o)continue;
-      const route=this.scoutRoute(c,[o.x+2,o.y+3]);for(const u of g.slice(0,2)){u.task={kind:'patrol',pts:route,i:0,until:t+6+d2(o.x,o.y,c.x,c.y)*.35,home:[c.x,c.y],city:c.id,sector:1,road:1};u.path=null;}}},
   // La reconnaissance lointaine : les Bèè savent que l'ennemi a commencé dans le coin d'en face (la carte le veut ainsi) ; depuis la ville la plus avancée,
   // un binôme pousse une pointe dans cette direction — de plus en plus loin, de plus en plus souvent à mesure que la guerre s'aggrave — et rentre.
   // Ce qu'il voit nourrit le renseignement (beeeScout) : sans lui, les offensives attendaient que nous passions à portée de leurs villes.
@@ -231,14 +225,6 @@ export const WAR={
     const tx=Math.max(4,Math.min(N-5,c.x+Math.cos(ang)*reach)),ty=Math.max(4,Math.min(N-5,c.y+Math.sin(ang)*reach));const fs=this.freeSpot(tx,ty,8);const route=this.scoutRoute(c,[fs[0],fs[1]]);
     for(const u of g.slice(0,2)){u.task={kind:'patrol',pts:route,i:0,until:t+20+reach*.8,home:[c.x,c.y],city:c.id,sector:1,road:1,recon:1};u.path=null;}
     B.reconT=t+DAY*(L>=3?1.2:2.4);},
-  beeeSectorPatrols(cities){this.beeeRoadPatrols(cities);this.beeeRecon(cities);const t=this.s.t,B=this.s.beee;for(const c of cities){if(t<(c.sectorT||0))continue;const g=this.beeeGuards(c);if(g.length<8)continue;
-      const activePairs=this.s.units.filter(u=>u.f==='beee'&&u.city===c.id&&u.task?.kind==='patrol'&&u.task.sector).length/2;if(activePairs>=2)continue;
-      const known=this.s.buildings.filter(b=>b.f==='meumeu'&&b.done&&!b.ruin&&B.known?.[b.id]).map(b=>{const [x,y]=this.bc(b);return {x,y,d:d2(x,y,c.x,c.y)};}).filter(q=>q.d<180).sort((a,z)=>a.d-z.d)[0];
-      const lead=B.lead&&t-B.lead.t<24?B.lead:known;const base=lead?(lead.cone?lead.bearing:Math.atan2(lead.y-c.y,lead.x-c.x)):(c.sectorN||0)*Math.PI/2;c.sectorN=(c.sectorN||0)+1;
-      const pair=Math.min(2-activePairs,Math.floor((g.length-4)/2));for(let n=0;n<pair;n++){const ang=base+(n?-.65:.65),radius=lead&&!lead.cone?Math.max(30,Math.min(75,d2(lead.x,lead.y,c.x,c.y))):45+(c.sectorN%3)*10;
-        const at=(r,a)=>this.freeSpot(c.x+Math.cos(a)*r,c.y+Math.sin(a)*r,6);const pts=[at(18,ang),at(radius,ang),at(radius*.75,ang+.5),at(25,ang+.75),at(12,ang)];
-        for(const u of g.slice(n*2,n*2+2)){u.task={kind:'patrol',pts,i:0,until:t+18,home:[c.x,c.y],city:c.id,sector:1};u.path=null;}}
-      c.sectorT=t+6;}},
   // l'itinéraire d'une reconnaissance : un vrai chemin (calculé une fois), en étapes de 15 cases, aller et retour
   scoutRoute(c,p){const N=this.N,cl=v=>Math.max(0,Math.min(N-1,Math.floor(v)));const ti=cl(p[0]),tj=cl(p[1]);const cost=this.costFn('beee');
     const r=this.pather.find(cl(c.x),cl(c.y),ti,tj,cost,k=>Math.abs(k%N-ti)<=3&&Math.abs(((k/N)|0)-tj)<=3,Math.max(60000,N*300));const P=r.path||[];
