@@ -14,9 +14,11 @@ import {bunkerKey} from './bunkerdata.js';
 
 const d2=(a,b,c,d)=>Math.hypot(a-c,b-d);
 const up=u=>u&&u.hp>0&&u.h?.state!=='hors'&&u.h?.state!=='mort';
-const ORDER_MAIN=['camp','atelier','moulin','grenier','four','mine:pierre','moulin','mine:fer','mine:charbon','caserne','entrepot','moulin','arsenal','manufacture','hopital','tour','tour','moulin','caserne'];
+/* (V12.5) les cartouches demandent plomb, cuivre et poudre (salpêtre + charbon) : sans ces mines ni la poudrerie, l'allié vivait sur son stock de départ —
+   mesuré : 0 à 4 caisses de cartouches par ville à J30-J40, ses escouades « décrochent : trop de pertes » */
+const ORDER_MAIN=['camp','atelier','moulin','grenier','four','mine:pierre','moulin','mine:fer','mine:charbon','caserne','entrepot','moulin','arsenal','manufacture','mine:plomb','mine:cuivre','mine:salpetre','poudrerie','hopital','tour','tour','moulin','caserne'];
 const ORDER_TOWN=['camp','moulin','atelier','mine:fer','mine:charbon','tour','moulin','caserne'];
-const PRODUCT={four:'charbon',atelier:'pieces',arsenal:'m:mle1',manufacture:'a:mle1'};
+const PRODUCT={four:'charbon',atelier:'pieces',arsenal:'m:mle1',manufacture:'a:mle1',poudrerie:'poudre'};
 const MAKER={pieces:'atelier',charbon:'four',fer:'mine:fer',pierre:'mine:pierre'};
 const MAXC=6;
 
@@ -103,6 +105,8 @@ export const ALLIE={
     /* (V12.5 : l'allié qui mène toute l'île — le banc de bataille — lève plus vite, jusqu'à 320 ; mesuré : 130 soldats au plus contre 3 000 Bèè) */
     const target=A.all?Math.min(320,10+6*Math.max(0,this.day-4)):Math.min(160,10+4*Math.max(0,this.day-4));
     for(const cas of this.s.buildings.filter(b=>b.ally&&b.k==='caserne'&&b.done&&!b.ruin)){const inside=(cas.inside||[]).length,S=(cas.allyS??={});
+      /* (V12.5) le dépôt de chaque caserne réclame fusils et cartouches (le fret les apporte) : les recrues des villes sans manufacture attendaient leur fusil des jours */
+      {const D=this.depots('meumeu',cas.i+1,cas.j+1,30)[0];if(D&&!(D.want?.['a:mle1']>=8)){this.setWant(D,'a:mle1',8);this.setWant(D,'m:mle1',40);}}
       const V=us.filter(u=>u.k==='villageois'&&!u.inBarracks&&d2(u.x,u.y,cas.i,cas.j)<60);
       if(!inside&&sold.length<target&&V.length>15&&t>=(S.draftT||0)){const g=V.filter(u=>u.task?.kind==='gather'||!u.task).slice(0,6);if(g.length>=4){this.order(g.map(u=>u.id),{type:'building',id:cas.id},true);S.draftT=t+6;S.from=t;}}
       if(inside&&t-(S.from??t)>=48&&t>=(S.outT||0)){const r=this.releaseRecruits(cas,inside,'soldat','mle1',null);S.outT=t+4;if(r.ok){const fresh=this.s.units.filter(u=>u.ally&&u.k==='soldat'&&!u.sq);if(fresh.length>=2)this.formSquad(fresh.map(u=>u.id));}}}

@@ -119,9 +119,10 @@ export const AMPHI_BEE={
       let tgt=null,bd=350;for(const b of this.s.buildings){if(b.f!=='meumeu'||b.ruin||!B.known?.[b.id])continue;const d=d2(b.i,b.j,H.x,H.y);if(d<bd){bd=d;tgt=b;}}
       const free=sold.filter(u=>u.task?.kind!=='search');
       if(!tgt&&free.length>=30&&t>=(H.advT||0)&&d2(H.x,H.y,H.bx,H.by)<60){H.advT=t+12;const p=this.freeSpot(H.x-H.nx*15,H.y-H.ny*15,6);if(p&&this.walkTarget?.({x:H.x,y:H.y},p[0],p[1])!==null){H.x=p[0];H.y=p[1];this.amphiBeeHeadPlace(H);continue;}}
-      /* (V12.5) l'assaut part en masse : deux hommes par défenseur vu à la cible, plus six, quatorze au moins ; sinon la tête attend ses vagues
-         (mesuré : des groupes de 8 à 30 partaient toutes les deux heures contre une caserne, et décrochaient « trop de pertes ») */
-      const need=tgt?Math.max(14,Math.ceil((B.known[tgt.id]?.troops||0)*2+6)+6):14;
+      /* (V12.5) l'assaut part en masse, avec la doctrine de leur armée de terre (raidK : 24 à 30 hommes au moins, 2,5 contre 1 sur les défenseurs connus
+         autour de la cible, plus quatre), et six restent tenir la tête ; sinon elle attend ses vagues
+         (mesuré : des groupes de 8 à 12 partaient toutes les deux heures contre une ville, et décrochaient « trop de pertes ») */
+      const K=this.raidK(),need=tgt?Math.max(K.armyMin,Math.ceil(this.defendersAt(tgt.i,tgt.j)*K.odds+4))+6:K.armyMin+6;
       if(tgt&&free.length>=need){const go=free.slice(6);for(const u of go){u.head=null;H.m.splice(H.m.indexOf(u.id),1);}const band=this.makeBand(go,tgt,{x:H.x,y:H.y});band.kind='debarquement';
         this.log?.('Front',`Depuis leur tête de pont, ${go.length} Bèè passent à l’attaque.`,'bad');this.amphiBeeHeadPlace(H);continue;}
       // les éclaireurs : deux soldats, en éventail vers l'intérieur, toutes les dix heures
