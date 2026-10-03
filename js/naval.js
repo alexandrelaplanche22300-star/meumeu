@@ -14,6 +14,15 @@ const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
 const d2=(a,b,c,d)=>Math.hypot(a-c,b-d);
 const isWater=t=>t===T.deep||t===T.shallow;
 const V0=v=>VEHDEF[v.k];
+// La place des soldats sur le pont (V12.5) : une grille entre les pavois, moins ce que prennent les véhicules ; l'écart le plus large qui laisse place à tous
+// (pax), ou, pax = Infinity, la grille la plus serrée — c'est la capacité. La même pour la règle (combien montent) et pour l'affichage (où ils se tiennent) :
+// une barge chargée d'une automitrailleuse ne prend plus vingt-quatre soldats qu'on ne pouvait mettre nulle part. rects : [avant, arrière, demi-largeur].
+export const MEU_R=.14;
+export function deckSlots(V,rects,pax){const R=MEU_R,P=V.pont||[V.long*.3,-V.long*.3],inner=V.large/2-.11-R;let slots=[];
+  for(const k of [3.4,3,2.7,2.4,2.1,1.9,1.7,1.5]){const sp=R*k;slots=[];const nz=Math.max(1,Math.floor(2*inner/sp)+1),z0=-(nz-1)*sp/2;
+    for(let f=P[0]-R;f>=P[1]+R-1e-6;f-=sp)for(let i=0;i<nz;i++){const z=z0+i*sp;if(Math.abs(z)>inner+1e-6)continue;if(rects.some(([a,b,w])=>f>a&&f<b&&Math.abs(z)<w))continue;slots.push([f,z]);}
+    if(slots.length>=pax)break;}
+  return slots;}
 
 export const NAVAL={
   // ---------- la carte de l'eau ----------
@@ -111,12 +120,18 @@ export const NAVAL={
   nearestLand(x,y,r=3){const N=this.N;let best=[x,y],bd=1e9;for(let dj=-r;dj<=r;dj++)for(let di=-r;di<=r;di++){const i=Math.floor(x)+di,j=Math.floor(y)+dj;if(i<1||j<1||i>=N-1||j>=N-1)continue;const k=j*N+i;
       if(!TERRAIN[this.G.terrain[k]]?.walk||this.occ[k]>=0||this.wall[k])continue;const d=Math.hypot(i+.5-x,j+.5-y);if(d<bd){bd=d;best=[i+.5,j+.5];}}
     return best;},
+  // la place des véhicules à bord (à la file depuis l'avant du pont), et en plus, s'il le faut, celle d'un véhicule qui monterait
+  boatRects(v,extra=null){const V=VEHDEF[v.k],m=MEU_R*.85,out=[];let at=V.pont?.[0]??0;
+    for(const c of [...(v.cargoVehs||[]).map(id=>this.s.vehicles.find(o=>o.id===id)).filter(c=>c&&c.hp>0),...(extra?[extra]:[])]){const D=VEHDEF[c.k];out.push([at-D.long-m,at+m,D.large/2+m]);at-=D.long+.05;}return out;},
+  // combien de soldats tiennent sur le pont (au plus les places du bateau)
+  boatCap(v,extra=null){const V=VEHDEF[v.k];if(!V?.pont)return V?.places?.passagers||0;return Math.min(V.places.passagers,deckSlots(V,this.boatRects(v,extra),Infinity).length);},
   // la longueur de pont encore libre (les véhicules à bord, à la file)
   boatDeckFree(v){const V=VEHDEF[v.k];if(!V?.pont)return 0;let used=0;for(const id of v.cargoVehs||[]){const c=this.s.vehicles.find(o=>o.id===id);if(c&&c.hp>0)used+=VEHDEF[c.k].long+.05;}return V.pont[0]-V.pont[1]-used;},
   // un véhicule monte à bord (il doit être tout près, la barge échouée ou à quai, la rampe baissée) : il prend la place libre au bout de la file et suit la barge
   boatEmbark(v,c){const V=VEHDEF[v.k],CV=VEHDEF[c.k];if(!V||V.nav!=='eau'||!CV||CV.nav==='eau')return {ok:false,why:['impossible']};if(!V.pont)return {ok:false,why:['ce bateau ne prend pas de véhicule']};if((v.cargoVehs||[]).includes(c.id))return {ok:true,text:`${c.name} est déjà à bord`};
     if((v.ramp||0)<.9)return {ok:false,why:['la rampe n’est pas baissée']};if(d2(c.x,c.y,v.x,v.y)>V.long/2+CV.long/2+2.5)return {ok:false,why:['le véhicule est trop loin de la rampe']};
     if(CV.large>V.large*.9)return {ok:false,why:[`trop large pour ${V.name.toLowerCase()} (une grande barge le prend)`]};if(CV.long>this.boatDeckFree(v)+1e-6)return {ok:false,why:[(v.cargoVehs||[]).length?'plus de place sur le pont':`trop long pour ${V.name.toLowerCase()} (une grande barge le prend)`]};
+    const pax=(v.crew||[]).filter(u=>u.hp>0&&u.vrole==='passager').length,cap=this.boatCap(v,c);if(pax>cap)return {ok:false,why:[`pont trop encombré : ${pax} soldats à bord, place pour ${cap} avec ${c.name}`]};
     c.aboard=v.id;(v.cargoVehs??=[]).push(c.id);c.path=null;c.itin=null;c.state='idle';return {ok:true,text:`${c.name} monte à bord de ${v.name}`};},
   // l'ordre d'un véhicule d'aller se charger sur une barge : il roule jusqu'à elle (la plage la plus proche), puis monte quand la rampe est baissée
   vehEmbarkOrder(c,b){const V=VEHDEF[b.k],CV=VEHDEF[c.k];if(!V||V.nav!=='eau'||b.hp<=0)return {ok:false,why:['pas une barge']};if(!V.pont)return {ok:false,why:['ce bateau ne prend pas de véhicule']};

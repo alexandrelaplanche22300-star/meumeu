@@ -12,6 +12,7 @@ import {VEHDEF} from './vehicules.js';
 import {buildingModels} from './bldg3d.js';
 import {bunkerModels,bunkerDoorGeo,bunkerRoofGeo} from './bunker3d.js';
 import {bargeModel,bateauModel,grandeBargeModel} from './barge3d.js';
+import {deckSlots,MEU_R} from './naval.js';
 
 export const HK=Math.sqrt(2/3);
 const PI=Math.PI;
@@ -197,11 +198,8 @@ export class Scene3D{
   // (V12.5) sur un bateau : les véhicules du pont à l'avant, les soldats en rangs serrés derrière eux (autant de files que la largeur en prend) ; le barreur à son
   // poste, le mitrailleur debout derrière sa pièce (il tourne avec elle) — les places viennent du modèle (seats)
   deckSlots(v,V,pax){const ids=(v.cargoVehs||[]).join(','),key=ids+'|'+pax+'|'+V.long;const C=(this.slotCache??=new Map()).get(v.id);if(C?.key===key)return C.slots;
-    const Hm=this.M.meumeu.ext[1],sc=.5*1.02/Hm,r=Math.max(this.M.meumeu.ext[0],this.M.meumeu.ext[2])*sc/2,P=V.pont||[V.long*.3,-V.long*.3],inner=V.large/2-.11-r;
-    const c=Math.cos(v.h),s=Math.sin(v.h),m=r*.85;const rects=[];for(const id of v.cargoVehs||[]){const o=(this.vlist||[]).find(q=>q.id===id),D=o&&VEHDEF[o.k];if(!D)continue;const f=(o.x-v.x)*c+(o.y-v.y)*s;rects.push([f-D.long/2-m,f+D.long/2+m,D.large/2+m]);}
-    let slots=[];for(const k of [3.4,3,2.7,2.4,2.1,1.9,1.7,1.5]){const sp=r*k;slots=[];const nz=Math.max(1,Math.floor(2*inner/sp)+1),z0=-(nz-1)*sp/2;
-      for(let f=P[0]-r;f>=P[1]+r-1e-6;f-=sp)for(let i=0;i<nz;i++){const z=z0+i*sp;if(Math.abs(z)>inner+1e-6)continue;if(rects.some(([a,b,w])=>f>a&&f<b&&Math.abs(z)<w))continue;slots.push([f,z]);}
-      if(slots.length>=pax)break;}
+    const c=Math.cos(v.h),s=Math.sin(v.h),m=MEU_R*.85;const rects=[];for(const id of v.cargoVehs||[]){const o=(this.vlist||[]).find(q=>q.id===id),D=o&&VEHDEF[o.k];if(!D)continue;const f=(o.x-v.x)*c+(o.y-v.y)*s;rects.push([f-D.long/2-m,f+D.long/2+m,D.large/2+m]);}
+    const slots=deckSlots(V,rects,pax);
     this.slotCache.set(v.id,{key,slots});return slots;}
   vehCrew3d(v,V,P){if(V.nav==='eau'){if(!v.crew?.length||v.hp<=0)return;const Hm=this.M.meumeu.ext[1],c=Math.cos(v.h),s=Math.sin(v.h),S=this.M[V.modele]?.seats||{};
       const pax=v.crew.filter(u=>u.hp>0&&u.vrole==='passager').length,floor=V.pont?(V.long>4?.17:.155):.1,slots=this.deckSlots(v,V,pax);

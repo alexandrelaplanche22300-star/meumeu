@@ -437,7 +437,7 @@ export const VEHICULES={
   // Monter : le premier à bord conduit, puis les servants des armes (un par poste : tourelle, affût, casemate ; un servant de plus recharge),
   // puis les passagers ; plein, on reste à terre. À bord, un Meumeu quitte la carte (comme à l'abri d'un bâtiment) : il est dans v.crew.
   vehSeats(v){const c=(v.crew||[]).filter(u=>u.hp>0);return {cond:c.filter(u=>u.vrole==='conducteur').length,serv:c.filter(u=>u.vrole==='servant').length,pass:c.filter(u=>u.vrole==='passager').length};},
-  vehBoard(v,u){const V=VEDF(v),s=this.vehSeats(v);if(v.hp<=0)return null;const role=!s.cond?'conducteur':s.serv<V.places.servants?'servant':s.pass<V.places.passagers?'passager':null;if(!role)return null;
+  vehBoard(v,u){const V=VEDF(v),s=this.vehSeats(v);if(v.hp<=0)return null;const role=!s.cond?'conducteur':s.serv<V.places.servants?'servant':s.pass<(V.nav==='eau'?this.boatCap(v):V.places.passagers)?'passager':null;   /* (sur un bateau : la place que laissent les véhicules du pont) */if(!role)return null;
     const i=this.s.units.indexOf(u);if(i>=0)this.s.units.splice(i,1);this.uIndex.delete(u.id);if(u.sq&&this.leave)this.leave(u);
     Object.assign(u,{vrole:role,inVeh:v.id,task:null,path:null,goal:null,anim:'idle'});(v.crew??=[]).push(u);return role;},
   // Descendre : autour de l'engin, côté arrière d'abord (à l'abri de la caisse) ; « passagers » ne fait descendre qu'eux

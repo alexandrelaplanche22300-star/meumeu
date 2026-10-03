@@ -111,4 +111,10 @@ const dHome=Math.hypot(barge.x-home[0],barge.y-home[1]);check('6. elle revient �
     const tx=g.x-Math.cos(g.h)*12,ty=g.y-Math.sin(g.h)*12;const B=[];for(let n=0;n<6;n++){const [x,y]=W.freeSpot(g.x+Math.cos(g.h)*14+(n-2.5)*1.2,g.y+Math.sin(g.h)*14,4);const b=W.addUnit('beee','soldat',x,y,{w:'bee_fusil'});b.task={kind:'move',tx:g.x,ty:g.y};B.push(b);}
     const m=g.mounts[0];let fired=0;const sh0=W.s.shots.length;hours(W,3,()=>{if(m.mag>0||W.s.shots.some(q=>q.by===g.id))fired=1;return W.s.shots.filter(q=>q.by===g.id).length>4;});const shots=W.s.shots.filter(q=>q.by===g.id).length;const hurt=B.filter(b=>b.hp<=0||b.h?.state&&b.h.state!=='ok').length;
     check('16. les mitrailleuses lourdes de la grande barge tirent sur les Bèè',(g.firedAt??-1)>0&&hurt>=1,`premier tir ${g.firedAt?.toFixed?.(2)} h, ${hurt}/6 Bèè touchés, coups en vol ${shots}, munitions ${m.mag}+${m.pouch}`);}}
+// 17 : la place du pont — une automitrailleuse à bord, la barge ne prend plus que les soldats qui tiennent à côté ; pleine de soldats, elle refuse un véhicule
+{const b=newBarge();if(b){b.ramp=1;const [x,y]=W.nearestLand(b.x-Math.cos(b.h)*3.2,b.y-Math.sin(b.h)*3.2,8);const am=W.addCombatVehicle('meumeu','automitrailleuse',x,y,b.h);const e=W.boatEmbark(b,am);
+  const men=[];for(let n=0;n<27;n++)men.push(W.addUnit('meumeu','soldat',x,y,{rounds:10}));men.forEach(u=>W.vehBoard(b,u));const pax=b.crew.filter(u=>u.vrole==='passager').length,cap=W.boatCap(b);
+  check('17. avec une automitrailleuse à bord, seuls les soldats qui tiennent montent',e.ok&&pax===cap&&cap<24&&cap>0,`${pax} passagers, place pour ${cap}`);
+  const b2=newBarge();if(b2){b2.ramp=1;const [x2,y2]=W.nearestLand(b2.x-Math.cos(b2.h)*3,b2.y-Math.sin(b2.h)*3,8);for(let n=0;n<23;n++)W.vehBoard(b2,W.addUnit('meumeu','soldat',x2,y2,{rounds:10}));const j=W.addCombatVehicle('meumeu','jeep',x2,y2,b2.h);const e2=W.boatEmbark(b2,j);
+    check('17. pleine de soldats, la barge refuse une jeep',!e2.ok&&/encombré/.test(e2.why[0]),JSON.stringify(e2.why||e2.text));}}}
 console.log(ok?'\nTOUT PASSE':'\nIL Y A DES ÉCHECS');

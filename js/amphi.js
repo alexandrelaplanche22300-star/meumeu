@@ -29,7 +29,7 @@ export const AMPHI={
     (this.s.amphi??=[]).push(op);for(const b of boats){b.op=op.id;b.state='idle';b.bpath=null;b.rampTo=0;}this.amphiAssign(op);
     return {ok:true,op,text:`${units.length} soldats, ${boats.length} barge${boats.length>1?'s':''} : cap sur la plage d’en face`};},
   // répartir les troupes entre les barges (la capacité de chacune), les plus proches d'abord ; chacun reçoit l'ordre de monter
-  amphiAssign(op){const boats=op.boats.map(id=>this.s.vehicles.find(v=>v.id===id)).filter(v=>v&&v.hp>0);const units=op.units.map(id=>this.unit(id)).filter(u=>u&&u.hp>0);op.asg={};const room=new Map(boats.map(b=>[b.id,VEHDEF[b.k].places.passagers-this.vehSeats(b).pass-(this.vehSeats(b).cond?0:1)]));
+  amphiAssign(op){const boats=op.boats.map(id=>this.s.vehicles.find(v=>v.id===id)).filter(v=>v&&v.hp>0);const units=op.units.map(id=>this.unit(id)).filter(u=>u&&u.hp>0);op.asg={};const room=new Map(boats.map(b=>{const S=this.vehSeats(b);return [b.id,(S.cond?0:1)+Math.max(0,(VEHDEF[b.k].places.servants||0)-S.serv)+this.boatCap(b)-S.pass];}));   /* (le pilote, les mitrailleurs, puis la place du pont) */
     for(const u of units.sort((a,z)=>a.x-z.x)){let best=null,bd=1e9;for(const b of boats){if(room.get(b.id)<=0)continue;const d=d2(u.x,u.y,b.x,b.y);if(d<bd){bd=d;best=b;}}if(!best)break;room.set(best.id,room.get(best.id)-1);op.asg[u.id]=best.id;u.task={kind:'board',v:best.id};u.path=null;u.goal=null;u.amphi=op.id;}},
   amphiBoatsOf(op){return op.boats.map(id=>this.s.vehicles.find(v=>v.id===id)).filter(v=>v&&v.hp>0&&!v.dead);},
   // le pas : une fois par heure de jeu (suffisant, et bon marché)
