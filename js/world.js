@@ -79,7 +79,9 @@ export class World{
     // l'allié : une ville meumeu menée par l'IA (voir allie.js), avec ses villageois
     if(G.ally){const [ai,aj]=G.ally;const c=this.addBuilding('meumeu','centre',ai-2,aj-2,true);c.ally=true;c.city=CITY_NAMES[1]+' (allié)';s.cityN=2;Object.assign(c.stock,START.stock);
       for(let n=0;n<START.villagers;n++){const a=n/START.villagers*Math.PI*2;this.addUnit('meumeu','villageois',ai+Math.cos(a)*3.2,aj+Math.sin(a)*3.2).ally=true;}
-      s.ally={cities:[{c:c.id,main:true}],land:this.landComp()[aj*this.N+ai],split:Math.round((aj+cj)/2),up:aj<cj};}
+      s.ally={cities:[{c:c.id,main:true}],land:this.landComp()[aj*this.N+ai],split:Math.round((aj+cj)/2),up:aj<cj};
+      // (les bancs d'essai IA contre IA : l'allié mène TOUTE l'île — la capitale du joueur et ses villageois compris ; personne ne joue le joueur)
+      if(options.allyAll){s.ally.all=true;cap.ally=true;cap.city+=' (allié)';s.ally.cities.push({c:cap.id,main:false});for(const u of s.units)if(u.f==='meumeu')u.ally=true;}}
     if(options.assisted||options.dev)this.assistedStart(cap,ci,cj);
     if(options.dev)this.devStart(cap,ci,cj);   // partie de test : le départ établi, plus de gros stocks ; le brouillard reste (bouton « Brouillard » pour le lever)
     for(const [n,p] of G.beee.slice(0,BEEE.cities).entries())this.makeBeeeCity(...p,BEEE_CITIES[n]);

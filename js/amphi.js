@@ -43,11 +43,16 @@ export const AMPHI={
         const done=boats.every(b=>b.state!=='go');if(done||t-op.tl>SAIL_MAX){op.state='land';op.tl=t;for(const b of boats){b.state='idle';this.boatRamp(b,true);}}}
       else if(op.state==='land'){let left=0;for(const b of boats){if((b.ramp||0)<.9){this.boatRamp(b,true);left++;continue;}const pax=(b.crew||[]).filter(u=>u.vrole==='passager'&&u.hp>0);if(!pax.length&&!b.cargoVehs?.length)continue;const r=this.boatUnload(b,'passagers');if(r.ok){op.landed+=r.out.length;this.amphiOnLanded(op,r.out,b);}}
         const aboard=boats.reduce((n,b)=>n+(b.crew||[]).filter(u=>u.vrole==='passager').length,0);if(aboard===0||t-op.tl>LAND_MAX){
-          if(op.ferry&&op.wave<op.maxWave){op.state='ferry';op.tl=t;for(const b of boats){b.rampTo=0;const o=op.origin[b.id];if(o)this.boatMove(b,o[0],o[1]);}}else this.amphiEnd(op,'débarqué');}}
-      else if(op.state==='ferry'){const back=boats.every(b=>b.state!=='go'||b.spd<.1);if(back||t-op.tl>SAIL_MAX){op.wave++;op.state='load';op.tl=t;const more=op.next?this.amphiNext(op):null;if(!more)this.amphiEnd(op,'plus de troupes');}}}},
+          if(op.ferry&&op.wave<op.maxWave&&this.amphiHolds(op)){op.state='ferry';op.tl=t;for(const b of boats){b.rampTo=0;const o=op.origin[b.id];if(o)this.boatMove(b,o[0],o[1]);}}else this.amphiEnd(op,'débarqué');}}
+      else if(op.state==='ferry'){const back=boats.every(b=>b.state!=='go'||b.spd<.1);if(back||t-op.tl>SAIL_MAX){op.wave++;op.state='load';op.tl=t;const more=this.amphiHolds(op)?this.amphiNext(op):null;
+        if(!more?.length)this.amphiEnd(op,'plus de troupes');else{op.units=more.map(u=>u.id);for(const b of boats)b.sentOp=null;this.amphiAssign(op);}}}}},
   amphiSail(op,boats,i0=null,n0=null){if(op.state!=='sail'){op.state='sail';op.tl=this.s.t;}const b0=op.beach,n=n0??boats.length;
     boats.forEach((b,i)=>{if(!(b.crew||[]).some(u=>u.vrole==='passager'))return;b.sentOp=op.id;i=i0??i;const off=(i-(n-1)/2)*SPREAD;let sx=b0.x+b0.tx*off,sy=b0.y+b0.ty*off;const sp=this.amphiBeach(sx,sy,10)||b0;b.rampTo=0;this.boatMove(b,sp.x,sp.y);});},
   amphiOnLanded(op,out,boat){if(op.f==='meumeu'){const b=op.beach;for(const u of out){u.amphi=null;u.task={kind:'move',tx:b.x-b.nx*10+(this.rand()-.5)*5,ty:b.y-b.ny*10+(this.rand()-.5)*5};}}else this.amphiBeeLanded?.(op,out);},
-  amphiEnd(op,why){const A=this.s.amphi;A.splice(A.indexOf(op),1);for(const id of op.boats){const b=this.s.vehicles.find(v=>v.id===id);if(b){b.op=null;b.sentOp=null;}}for(const id of op.units){const u=this.unit(id);if(u)u.amphi=null;}if(op.f==='meumeu')this.log?.('Front',`Opération amphibie terminée (${why}) : ${op.landed} débarqués.`,'info');this.amphiDone?.(op,why);},
-  amphiNext(op){return op.next(op);},
+  amphiEnd(op,why){const A=this.s.amphi;A.splice(A.indexOf(op),1);for(const id of op.boats){const b=this.s.vehicles.find(v=>v.id===id);if(b){b.op=null;b.sentOp=null;const o=op.origin?.[id];if((op.f==='beee'||op.ally)&&o&&b.hp>0){b.rampTo=0;this.boatMove(b,o[0],o[1]);}}}for(const id of op.units){const u=this.unit(id);if(u)u.amphi=null;}if(op.f==='meumeu')this.log?.('Front',`Opération amphibie terminée (${why}) : ${op.landed} débarqués.`,'info');this.amphiDone?.(op,why);},
+  // la vague suivante : des soldats à embarquer (ou rien) — selon le camp de l'opération
+  amphiNext(op){return op.f==='beee'?this.amphiBeeNextWave?.(op):op.ally?this.allyNextWave?.(op):null;},
+  // la tête de pont tient-elle ? (des hommes à nous, valides, près de la plage) — le joueur, lui, décide seul
+  amphiHolds(op){if(op.f==='beee')return (this.s.beee.heads||[]).some(H=>d2(H.bx,H.by,op.beach.x,op.beach.y)<40&&this.amphiBeeHeadMen(H).length>0);
+    if(op.ally)return this.s.units.some(u=>u.ally&&u.allyRaid&&u.hp>0&&u.h?.state!=='hors'&&!u.inVeh&&d2(u.x,u.y,op.beach.x,op.beach.y)<90);return true;},
 };
