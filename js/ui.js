@@ -910,4 +910,5 @@ await loadManifest();
 try{setSpeed(ui.speed);renderPanel(true);}catch(e){bootError({error:e});}
 requestAnimationFrame(frame);
 window.world=()=>world;window.view=view;window.ui=ui;window.audio=audio;window.xray=xray;window.designer=designer;window.toggleCine=toggleCine;window.toggle3d=toggle3d;window.room=room;window.openModal=openModal;window.renderPanel=renderPanel;window.openFiche=id=>openFiche(id);
+window.__load=data=>{setWorld(new World(1).restore(data));return world.day;};   // les bancs de captures : charger une sauvegarde
 window.__step=(n=1,dt=1/30)=>{for(let i=0;i<n;i++){if(ui.speed>0)world.update(dt*ui.speed/HOUR_REAL);events();view.draw(dt*ui.speed);xray.step(dt);if(ui.modal?.kind==='fiche'){const f=findUnit(ui.modal.id);if(f)body3d.draw(f.u.h,dt,f.u.f);}}view.drawMini(mini);renderPanel(true);topbar();};

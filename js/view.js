@@ -930,7 +930,8 @@ export class View{
     for(let k=0;k<6;k++){const age=((this.clock*(moving?1.4:.5))+k/6)%1;const cO=this.o3?.9:.35,cH=this.o3?2.3:1.45;const q=this.toScreen(L0.x+ux*cO-ux*age*(moving?1.2:.2),L0.y+uy*cO-uy*age*(moving?1.2:.2),cH+age*(moving?1.1:1.5));
       ctx.fillStyle=`rgba(${moving?'62,62,64':'120,120,122'},${(1-age)*(moving?.38:.22)})`;ctx.beginPath();ctx.arc(q.x,q.y,(2.5+age*7)*z,0,7);ctx.fill();}
     if(W.isNight()){const q=this.o3?this.toScreen(L0.x+ux*1.5,L0.y+uy*1.5,1.0):this.toScreen(L0.x+ux*.55,L0.y+uy*.55,.5);const g=ctx.createRadialGradient(q.x,q.y,0,q.x,q.y,26*z);g.addColorStop(0,'rgba(255,226,140,.8)');g.addColorStop(1,'rgba(255,226,140,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(q.x,q.y,26*z,0,7);ctx.fill();}
-    if(sel||this.zoom>.8||v.why){const q=this.toScreen(v.x,v.y,1.5);this.tag(`${v.name}${v.why?' · '+v.why:''}`,q.x,q.y-10*z,v.why?'warn':'ink');}}
+    // (un train en panne dit pourquoi — mais pas de loin : vue d'ensemble, une douzaine d'étiquettes se recouvraient en travers de la carte)
+    if(sel||this.zoom>.8||v.why&&this.zoom>.4){const q=this.toScreen(v.x,v.y,1.5);this.tag(`${v.name}${v.why?' · '+v.why:''}`,q.x,q.y-10*z,v.why?'warn':'ink');}}
   drawCar(c,v,moving){const {x,y,dx,dy}=c;const L=Math.hypot(dx,dy)||1;const ux=dx/L,uy=dy/L,px=-uy,py=ux;const WS=1.6,HS=1.5;const P=(a,b,[len,wid,h0,h1,col])=>this.prism(x+ux*a+px*b*WS,y+uy*a+py*b*WS,ux,uy,len,wid*WS,h0*HS,h1*HS,col);const ctx=this.ctx,z=this.z();
     // le châssis et les roues
     const wheel=(a,s)=>{const q=this.toScreen(x+ux*a+px*s*.2,y+uy*a+py*s*.2,.08);ctx.fillStyle='#161a1c';ctx.beginPath();ctx.ellipse(q.x,q.y,4.6*z,3.4*z,0,0,7);ctx.fill();ctx.fillStyle='#6d6f71';ctx.beginPath();ctx.ellipse(q.x,q.y,1.6*z,1.2*z,0,0,7);ctx.fill();};
