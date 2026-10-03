@@ -156,7 +156,7 @@ function topbar(){const cap=world.capital();const p=world.pop('meumeu');const st
   const sq=world.s.squads.map((q,i)=>{const ms=world.members(q);const up=ms.filter(u=>u.h?.state!=='hors').length;const on=ms.length&&ms.every(u=>view.sel.has(u.id));
     return `<button class="sqchip ${on?'on':''} ${q.broken?'broken':''}" data-squad="${q.id}" title="Clic : choisir · double-clic : y aller"><b>${i+1}</b> ${esc(q.name)} <span>${up}/${ms.length}</span><i style="--m:${Math.round(q.morale*100)}%"></i></button>`;}).join('');
   if(sq!==ui.sqHtml){$('#squads').innerHTML=sq;ui.sqHtml=sq;}
-  const xm={sel:'Radios : la sélection',ecran:'Radios : tout l’écran',off:'Radios : coupées'}[xray.mode];if($('#xmode').textContent!==xm)$('#xmode').textContent=xm;
+  const xm={sel:'Radios : la sélection',off:'Radios : coupées'}[xray.mode];if($('#xmode').textContent!==xm)$('#xmode').textContent=xm;
   buildBar();}
 // ---------- la barre de construction ----------
 // Toujours là, en bas : les familles, les bâtiments en image, ce qu'ils coûtent (en rouge ce qui manque près de la vue).
@@ -820,9 +820,9 @@ function moans(){const [i0,i1,j0,j1]=view.vis||[0,0,0,0];const down=world.s.unit
 function where(x,y){const q=view.toScreen(x,y);const w=view.canvas.width,h=view.canvas.height;const off=Math.hypot((q.x-w/2)/w,(q.y-h/2)/h);const on=q.x>-w*.2&&q.x<w*1.2&&q.y>-h*.2&&q.y<h*1.2;
   return {vol:on?Math.max(.08,1-off*.9)*Math.min(1,.5+view.zoom*.5):Math.max(0,.25-off*.08),pan:(q.x-w/2)/(w/2),far:!on};}
 function alertBox(text,x,y,tone='bad'){const box=$('#alert');box.innerHTML=`${text}${x!=null?` <button class="small" data-gotoxy="${x},${y}">Voir</button>`:''}`;box.className='alert '+tone;box.hidden=false;clearTimeout(ui.alertT);ui.alertT=setTimeout(()=>box.hidden=true,9000);}
-function woundCard(e){return;   // (retiré à la demande du joueur : les fenêtres de radiographie des tirs « Envoyé / Reçu » ralentissaient les combats)
-  if(xray.mode==='off')return;const shooterUnit=e.shooter!=null?world.unit(e.shooter):null,ours=e.vf==='meumeu'||shooterUnit?.f==='meumeu';if(!ours)return;
-  const selected=view.sel.has(e.victim)||(e.shooter!=null&&view.sel.has(e.shooter)),mine=xray.mode==='sel'?selected||!!e.frag&&e.vf==='meumeu':selected||e.vf==='meumeu'||!!e.frag&&shooterUnit?.f==='meumeu'||!where(e.x,e.y).far;if(!mine)return;
+// Les radiographies « Envoyé / Reçu » : seulement les tirs des soldats choisis et ceux qu'ils reçoivent (V12.5 : rétablies, légères — deux fenêtres par côté,
+// une nouvelle au plus toutes les 0,7 s, une seule visible par côté, peinte à 15 images/s puis figée ; elles avaient été coupées parce qu'elles ralentissaient les combats)
+function woundCard(e){if(xray.mode==='off'||!view.sel.size)return;if(!(view.sel.has(e.victim)||(e.shooter!=null&&view.sel.has(e.shooter))))return;
   const hiddenIntel=e.vf==='beee'&&!world.visibleAt('meumeu',e.x,e.y);
   const vD=e.vf==='beee'?BEEE.units[e.vk]:UNITS[e.vk];const victim=e.name||(e.vf==='beee'?(vD?.name||'Bèè'):(vD?.name||'Meumeu'));const shooter=e.frag?`${{grenade:'Charge',obus:'Obus',bombe:'Bombe'}[e.frag]}${e.sname?' de '+e.sname:''}`:(e.sname||(e.vf==='meumeu'?'Un Bèè':'Un Meumeu'));
   const received=e.vf==='meumeu';const d=e.w?world.design(e.w):null;if(d)e.cons=d.p.cons;
@@ -902,7 +902,7 @@ function frame(now){const elapsed=Math.max(0,(now-last)/1000),dt=Math.min(.1,ela
     // La boucle continue et affiche le diagnostic sans mettre la partie en pause.
   }
   requestAnimationFrame(frame);}
-$('#xmode').addEventListener('click',()=>{xray.setMode({sel:'ecran',ecran:'off',off:'sel'}[xray.mode]);topbar();});
+$('#xmode').addEventListener('click',()=>{xray.setMode(xray.mode==='off'?'sel':'off');topbar();});
 $('#squads').addEventListener('click',e=>{const b=e.target.closest('[data-squad]');if(b)selectSquad(+b.dataset.squad,e.detail>=2);});
 await loadManifest();
 {const P=new URLSearchParams(location.search);

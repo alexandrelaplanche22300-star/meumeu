@@ -16,7 +16,7 @@ import {MATS} from './armor.js';
 const MATN=Object.fromEntries(Object.entries(MATS).map(([k,M])=>[k,M.name]));
 
 // des vignettes discrètes : 4 au plus par côté, 200 px de large, fermées seules après lecture ; une vignette qui attend trop est oubliée
-const MAX=4,ZOOM=.8,PLAY=2.6,GAP=.5,READ=2.2,MERGE=2500,FOV=.55,CARD_H=176,STALE=6000;
+const MAX=2,ZOOM=.8,NEWGAP=700,FPS=15,PLAY=2.6,GAP=.5,READ=2.2,MERGE=2500,FOV=.55,CARD_H=176,STALE=6000;
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const SEVC=['#9aa','#8fb996','#e8bf62','#ee9a3a','#e0663f','#d23a2e','#b0122a'];
 const MARK=['#ffd36a','#7fd3f0','#ff8a6a','#b6f07f'];
@@ -174,7 +174,7 @@ function drawScene(ctx,W,H,sc,t,cam,o){setSpecies(sc.events[0]?.vf);const anat=o
 // ---------- la pile de fenêtres ----------
 export class XRay{
   // deux piles, qui jouent en même temps : à gauche ce que nos Meumeu reçoivent, à droite ce qu'ils envoient
-  constructor(host,{onGo,room,onFiche,hostL=null}={}){this.host=host;this.hostL=hostL;this.cards=[];this.onGo=onGo;this.room=room;this.onFiche=onFiche;this.mode=localStorage.getItem('okm-xray')||'ecran';
+  constructor(host,{onGo,room,onFiche,hostL=null}={}){this.host=host;this.hostL=hostL;this.cards=[];this.onGo=onGo;this.room=room;this.onFiche=onFiche;this.mode=localStorage.getItem('okm-xray')==='off'?'off':'sel';
     for(const h of [host,hostL].filter(Boolean))this.listen(h);}
   side(s){return this.cards.filter(c=>c.side===s);}
   listen(host){
@@ -186,16 +186,19 @@ export class XRay{
   setMode(m){this.mode=m;try{localStorage.setItem('okm-xray',m);}catch(e){}if(m==='off')for(const c of [...this.cards])this.remove(c);}
   // une blessure arrive : sur le même Meumeu, dans les deux secondes, elle rejoint la même fenêtre (une rafale) ; sinon, une nouvelle fenêtre
   add(e,{title,sub,side='R'}){if(this.mode==='off'||!e.rec?.path?.length)return;const now=performance.now();e._xt=now;if(!this.hostL)side='R';
-    const same=this.cards.find(c=>c.victim===e.victim&&(c.shooter??null)===(e.shooter??null)&&now-c.last<MERGE&&(c.sc.events.length<8||now-c.last<60&&c.sc.events.length<24)&&!e.rec.stopped&&!c.sc.events[0].rec.stopped);if(same)same.last=now;
+    const same=this.cards.find(c=>c.victim===e.victim&&(c.shooter??null)===(e.shooter??null)&&now-c.last<MERGE&&(c.sc.events.length<6||now-c.last<60&&c.sc.events.length<12)&&!e.rec.stopped&&!c.sc.events[0].rec.stopped);if(same)same.last=now;
     if(same){disposeSceneFx(same.sc);same.sc=buildScene([...same.sc.events,e]);same.el.querySelector('footer').innerHTML=this.footer(same.sc.events);same.el.querySelector('header b').textContent=`${same.title} · ${same.sc.volleys>1?'rafale de '+same.sc.volleys+(same.sc.volleys<same.sc.events.length?` (${same.sc.events.length} projectiles)`:''):'gerbe de '+same.sc.events.length}`;return;}
-    const c={victim:e.victim,shooter:e.shooter??null,born:now,last:now,t:0,title,side,sc:buildScene([e])};const el=document.createElement('div');el.className='xcard';
+    // (une autre blessure arrive moins de 0,7 s après la dernière fenêtre de ce côté, sans pouvoir s'y joindre : elle n'ouvre pas de fenêtre — en plein combat,
+    // chaque coup reconstruisait une scène et la mettait en file ; c'est ce qui ralentissait les combats)
+    const newest=this.side(side).reduce((a,c)=>Math.max(a,c.born),-1e9);if(now-newest<NEWGAP)return;
+    const c={victim:e.victim,shooter:e.shooter??null,born:now,last:now,t:0,acc:1,done:false,title,side,sc:buildScene([e])};const el=document.createElement('div');el.className='xcard';
     el.innerHTML=`<header><b>${esc(title)}</b><span class="xn"></span>${e.hiddenIntel?'':`<button data-x="fiche" title="La fiche médicale de la victime, en 3D">✚</button>`}<button data-x="room" title="La salle de radiologie : tourner, zoomer, image par image">⤢</button><button data-x="replay" title="Rejouer">↻</button>${e.hiddenIntel?'':`<button data-x="go" title="Voir sur la carte">◎</button>`}<button data-x="close" title="Fermer (la suivante joue)">✕</button></header>
       <canvas width="400" height="224" title="Cliquez pour ouvrir la salle de radiologie"></canvas><footer>${this.footer([e])}</footer><small class="xsub">${esc(sub)}</small>`;
-    c.el=el;c.cv=el.querySelector('canvas');c.ctx=c.cv.getContext('2d');
+    c.el=el;c.cv=el.querySelector('canvas');{const k=Math.max(1,Math.min(2,devicePixelRatio||1));c.cv.width=Math.round(204*k);c.cv.height=Math.round(114*k);}c.ctx=c.cv.getContext('2d');
     const mine=this.side(side);if(mine.length>=MAX){const last=mine[mine.length-1];if(last!==mine[0])this.remove(last);}
     this.cards.push(c);(side==='L'?this.hostL:this.host).appendChild(el);this.layout();}
-  fits(s){const h=(s==='L'?this.hostL:this.host)?.parentElement?.clientHeight||900;return Math.max(1,Math.min(3,Math.floor((h*.6-60)/(CARD_H+6))));}
-  front(c){c.t=0;}
+  fits(s){const h=(s==='L'?this.hostL:this.host)?.parentElement?.clientHeight||900;return 1;}   // une seule fenêtre visible par côté (reçu à gauche, envoyé à droite) : chaque image d'une radiographie est un rendu 3D complet
+  front(c){c.t=0;c.done=false;c.acc=1;}
   remove(c){const i=this.cards.indexOf(c);if(i<0)return;this.cards.splice(i,1);c.el.remove();if(this.room?.sc!==c.sc)disposeSceneFx(c.sc);this.layout();}
   layout(){for(const s of ['L','R']){const K=this.fits(s);this.side(s).forEach((c,i,S)=>{const on=i<K;c.el.style.zIndex=String(100-i);c.el.style.transform=`translateY(${Math.min(i,K-1)*(CARD_H+6)}px)`;c.el.style.opacity=on?'1':'0';c.el.style.pointerEvents=on?'':'none';c.el.classList.toggle('front',on);
     c.el.querySelector('.xn').textContent=i===K-1&&S.length>K?`+${S.length-K} en attente`:'';});}}
@@ -204,12 +207,14 @@ export class XRay{
     const all=new Map();for(const x of evs)for(const p of x.out?.parts||[])if(!all.has(p.name)||all.get(p.name).sev<p.sev)all.set(p.name,p);
     const parts=[...all.values()].sort((a,b)=>b.sev-a.sev).slice(0,4).map(p=>`<span style="color:${SEVC[p.sev]}">${esc(p.name)}${p.note?' ('+esc(p.note)+')':''}</span>`).join(' · ');
     const bleed=evs.reduce((a,x)=>a+(x.out?.bleed||0),0);return `${now}${bleed>.005?` · saigne ${fmt(bleed,2)} mL/s`:''}<br>${parts||'rien de vital'}`;}
-  step(dt){const now=performance.now();for(const s of ['L','R']){const K=this.fits(s);const S=this.side(s);for(const c of S.slice(0,K)){const hold=c.hover||this.room?.isOpen;if(!hold)c.t+=dt;this.draw(c);if(c.t>c.sc.end+READ&&!hold)this.remove(c);}
+  step(dt){const now=performance.now();for(const s of ['L','R']){const K=this.fits(s);const S=this.side(s);for(const c of S.slice(0,K)){const hold=c.hover||this.room?.isOpen;if(!hold)c.t+=dt;c.acc+=dt;
+        // 15 images par seconde suffisent à une vignette ; l'animation finie, la dernière image reste à l'écran sans être repeinte
+        if(!c.done&&c.acc>=1/FPS){c.acc=0;this.draw(c);if(c.t>c.sc.end)c.done=true;}if(c.t>c.sc.end+READ&&!hold)this.remove(c);}
       // celles qui attendent leur tour depuis trop longtemps : dépassées, on les oublie
       for(const c of S.slice(K))if(now-c.last>STALE&&!this.room?.isOpen)this.remove(c);}}
   draw(c){const sc=c.sc,t=c.t;const z=ease(t/ZOOM);const W=c.cv.width,H=c.cv.height;
     const F=[lerp(0,sc.F[0],z),lerp(BODY_H*.5,sc.F[1],z),lerp(0,sc.F[2],z)];const ext=lerp(.36,sc.ext,z);const dist=ext/2/Math.tan(FOV/2)*1.05;
-    const cam=camera(F,sc.th0-.6*(1-z)+.28*Math.sin(t*.4),.2,dist,W,H);drawScene(c.ctx,W,H,sc,t,cam,{mode:'xray',hud:true});}
+    const cam=camera(F,sc.th0-.6*(1-z)+.28*Math.sin(t*.4),.2,dist,W,H);drawScene(c.ctx,W,H,sc,t,cam,{mode:'xray',hud:true,prefer3d:false});   /* la vignette : le dessin 2D (0,3 ms l'image, contre 3,8 ms en WebGL et presque une seconde au premier rendu) ; la salle de radiologie, au clic, est en 3D */}
 }
 
 // ---------- le tir d'essai du bureau d'études : un Bèè, la munition dessinée, au ralenti, en boucle ----------
