@@ -1,16 +1,16 @@
 // Les barges de débarquement, sur la carte « mer ». Critères (écrits avant) :
 //  1. la barge se construit sur la plage, au bord de l'eau (comme un bâtiment), et pas à l'intérieur des terres ; les Bèè ne peuvent pas en poser ;
 //  2. quatre villageois la construisent : finie, le chantier disparaît et la barge est à l'eau, devant la plage (case d'eau voisine de la terre), avec ses 420 points de vie, en moins de 30 h ;
-//  3. un pilote et douze soldats montent à bord (à pied, depuis la plage) en moins de 4 h : 1 conducteur + 12 passagers ;
+//  3. un pilote et quatorze soldats montent à bord (à pied, depuis la plage) en moins de 4 h : 1 conducteur, 2 mitrailleurs, 12 passagers ;
 //  4. la traversée (le clic droit sur la plage d'en face) : la barge arrive échouée à moins de 4 cases du point visé, en moins de 60 h de jeu, et à CHAQUE pas elle est sur l'eau ;
-//  5. rampe baissée : les douze passagers sortent par l'avant sur la terre (case marchable, à moins de 5 cases de la proue), le pilote reste à bord ;
+//  5. rampe baissée : les douze passagers sortent par l'avant sur la terre (case marchable, à moins de 5 cases de la proue), le pilote et les mitrailleurs restent à bord ;
 //  6. le retour : rampe relevée, la barge repart vers la plage d'origine et y arrive en moins de 60 h ; elle peut y reprendre des soldats ;
 //  7. le feu : six fusiliers bèè contre la barge échouée, rampe relevée, 24 h : elle garde au moins 90 % de ses points de vie, aucun passager blessé ;
 //  8. coulée au large : les passagers se noient ; coulée contre la rive : ils gagnent la rive ;
 //  9. un véhicule (une jeep) monte à bord, traverse et descend sur la plage d'en face ;
 // 10. une sauvegarde reprend une barge en mer, son équipage et sa route.
 // 12. la grande barge se construit sur la plage et part à l'eau, avec ses 950 points de vie ;
-// 13. elle prend un pilote, un mitrailleur et quarante soldats — pas un de plus ;
+// 13. elle prend un pilote, deux mitrailleurs et quarante soldats — pas un de plus ;
 // 14. l'automitrailleuse à canon est refusée par la barge (trop large) et acceptée par la grande ; deux sur le pont, une jeep de plus refusée (plus de place) ;
 // 15. la traversée : les deux véhicules et les quarante soldats débarquent sur la plage d'en face, les véhicules l'un devant l'autre, sur la terre ;
 // 16. la mitrailleuse lourde de la passerelle (son mitrailleur, des caisses dans la soute) tire sur des Bèè qui approchent de la barge échouée.
@@ -37,12 +37,12 @@ check('2. 420 points de vie',barge?.hp===420);
 // une barge neuve à l'eau à côté de la première (pour les essais suivants) : un chantier fini d'un coup
 const newBarge=()=>{for(let dj=-14;dj<=14;dj+=2)for(let di=-8;di<=2;di++){const r=W.canPlace('meumeu','barge',west[0]+di-2,west[1]+dj-1);if(r.ok){const b=W.place('meumeu','barge',west[0]+di-2,west[1]+dj-1).b;return W.launchBoat(b);}}return null;};
 // 3
-const vil=W.addUnit('meumeu','villageois',barge.x-2.5,barge.y,{});const sold=[];for(let n=0;n<12;n++)sold.push(W.addUnit('meumeu','soldat',barge.x-2.4-(n%4)*.6,barge.y+(Math.floor(n/4)-1)*.8,{rounds:60}));
+const vil=W.addUnit('meumeu','villageois',barge.x-2.5,barge.y,{});const sold=[];for(let n=0;n<14;n++)sold.push(W.addUnit('meumeu','soldat',barge.x-2.4-(n%4)*.6,barge.y+(Math.floor(n/4)-1)*.8,{rounds:60}));
 // (on place chacun sur la terre la plus proche de la rive, comme s'ils attendaient sur la plage)
 for(const u of [vil,...sold]){const [x,y]=W.nearestLand(u.x,u.y,6);u.x=x;u.y=y;}
 const r3=W.order([vil.id],{type:'vehicle',id:barge.id});W.order(sold.map(u=>u.id),{type:'vehicle',id:barge.id});
-hours(W,4,()=>barge.crew.length>=13);const roles=r=>barge.crew.filter(u=>u.vrole===r).length;
-check('3. pilote + douze passagers à bord',roles('conducteur')===1&&roles('passager')===12,`${roles('conducteur')} conducteur, ${roles('passager')} passagers`);
+hours(W,4,()=>barge.crew.length>=15);const roles=r=>barge.crew.filter(u=>u.vrole===r).length;
+check('3. pilote, deux mitrailleurs et douze passagers à bord',roles('conducteur')===1&&roles('servant')===2&&roles('passager')===12,`${roles('conducteur')} conducteur, ${roles('servant')} mitrailleurs, ${roles('passager')} passagers`);
 // 4
 const aim=east;let allWater=true;const t0=W.s.t;const r4=W.vehMove(barge,aim[0]+.5,aim[1]+.5);check('4. la route sur l\'eau existe',r4,barge.why||'');
 hours(W,60,()=>{if(!W.isWaterAt(barge.x,barge.y))allWater=false;return barge.state==='idle'&&barge.spd<.1;});
@@ -51,7 +51,7 @@ const dAim=Math.hypot(barge.x-aim[0],barge.y-aim[1]);check('4. elle arrive écho
 const rr=W.boatRamp(barge,true);hours(W,3,()=>barge.ramp>=.95);const un=W.boatUnload(barge,'passagers');
 check('5. la rampe s\'abaisse',rr.ok&&barge.ramp>=.9);
 const landed=un.out||[];const onLand=landed.filter(u=>TERRAIN[ter[Math.floor(u.y)*N+Math.floor(u.x)]]?.walk&&W.occ[Math.floor(u.y)*N+Math.floor(u.x)]<0).length;const near=landed.filter(u=>Math.hypot(u.x-barge.x,u.y-barge.y)<(VEHDEF.barge.long/2+5)).length;
-check('5. douze débarquent sur la terre, près de la proue',un.ok&&landed.length===12&&onLand===12&&near===12,`${landed.length} sortis, ${onLand} sur la terre, ${near} près`);check('5. le pilote reste à bord',barge.crew.length===1&&barge.crew[0].vrole==='conducteur');
+check('5. douze débarquent sur la terre, près de la proue',un.ok&&landed.length===12&&onLand===12&&near===12,`${landed.length} sortis, ${onLand} sur la terre, ${near} près`);check('5. le pilote et les deux mitrailleurs restent à bord',barge.crew.length===3&&barge.crew.filter(u=>u.vrole==='conducteur').length===1);
 // 7 (avant le retour : la barge est ici, échouée) : le feu contre la coque, rampe relevée
 {for(const [label,weapon,n] of [['fusils','bee_fusil',6],['antichars','bee_at',3]]){const Wf=new World(72,{map:'mer'});Wf.s.beee.warDay=1;Wf.s.beee.nextWave=1e9;Wf.s.beee.nextAir=1e9;Wf.declareWar?.('beee');Wf.s.fauna=[];
     const Nf=Wf.N,tf=Wf.G.terrain,dcf=Wf.G.dcoast;let sp=null;for(let j=750;j<900&&!sp;j++)for(let i=900;i<1000&&!sp;i++){const k=j*Nf+i;if(tf[k]===T.sand&&dcf[k]>=1&&dcf[k]<=2&&Wf.occ[k]<0)sp=[i,j];}
@@ -90,9 +90,9 @@ const dHome=Math.hypot(barge.x-home[0],barge.y-home[1]);check('6. elle revient �
 {const site=(()=>{for(let dj=-24;dj<=24;dj+=2)for(let di=-10;di<=4;di++){const r=W.canPlace('meumeu','grande_barge',west[0]+di-3,west[1]+dj-1);if(r.ok)return W.place('meumeu','grande_barge',west[0]+di-3,west[1]+dj-1).b;}return null;})();
   check('12. le chantier de la grande barge se pose sur la plage',!!site);const g=site&&W.launchBoat(site);
   check('12. la grande barge est à l\'eau, 950 points de vie',!!g&&g.k==='grande_barge'&&W.isWaterAt(g.x,g.y)&&g.hp===950,g?`(${g.x.toFixed(1)}, ${g.y.toFixed(1)}) hp ${g.hp}`:'pas lancée');
-  if(g){g.ramp=1;g.rampTo=1;const [lx,ly]=W.nearestLand(g.x-4,g.y,6);const men=[];for(let n=0;n<43;n++)men.push(W.addUnit('meumeu',n?'soldat':'villageois',lx,ly,{rounds:30}));
+  if(g){g.ramp=1;g.rampTo=1;const [lx,ly]=W.nearestLand(g.x-4,g.y,6);const men=[];for(let n=0;n<44;n++)men.push(W.addUnit('meumeu',n?'soldat':'villageois',lx,ly,{rounds:30}));
     const roles=men.map(u=>W.vehBoard(g,u));const R=r=>g.crew.filter(u=>u.vrole===r).length;
-    check('13. un pilote, un mitrailleur, quarante soldats ; le 43e refusé',R('conducteur')===1&&R('servant')===1&&R('passager')===40&&roles[42]===null,`${R('conducteur')} pilote, ${R('servant')} mitrailleur, ${R('passager')} passagers, 43e : ${roles[42]}`);
+    check('13. un pilote, deux mitrailleurs, quarante soldats ; le 44e refusé',R('conducteur')===1&&R('servant')===2&&R('passager')===40&&roles[43]===null,`${R('conducteur')} pilote, ${R('servant')} mitrailleurs, ${R('passager')} passagers, 44e : ${roles[43]}`);
     // les véhicules : une automitrailleuse à canon refusée par la petite barge, acceptée deux fois par la grande ; une jeep de trop
     const at=(dx)=>{const [x,y]=W.nearestLand(g.x-Math.cos(g.h)*(4+dx),g.y-Math.sin(g.h)*(4+dx),6);return [x,y];};
     const small=W.s.vehicles.find(v=>v.k==='barge'&&v.hp>0&&!v.sunk);const c0=W.addCombatVehicle('meumeu','char',...at(0),g.h);let rs={ok:false,why:['pas de petite barge']};if(small){small.ramp=1;[c0.x,c0.y]=W.nearestLand(small.x-Math.cos(small.h)*3,small.y-Math.sin(small.h)*3,6);rs=W.boatEmbark(small,c0);}
@@ -110,5 +110,5 @@ const dHome=Math.hypot(barge.x-home[0],barge.y-home[1]);check('6. elle revient �
     if(!W.atWar)W.declareWar('meumeu');W.s.fog=false;g.cargo['m:mg_lourde_mle1']=6;for(const v of u.out){v.task=null;}
     const tx=g.x-Math.cos(g.h)*12,ty=g.y-Math.sin(g.h)*12;const B=[];for(let n=0;n<6;n++){const [x,y]=W.freeSpot(g.x+Math.cos(g.h)*14+(n-2.5)*1.2,g.y+Math.sin(g.h)*14,4);const b=W.addUnit('beee','soldat',x,y,{w:'bee_fusil'});b.task={kind:'move',tx:g.x,ty:g.y};B.push(b);}
     const m=g.mounts[0];let fired=0;const sh0=W.s.shots.length;hours(W,3,()=>{if(m.mag>0||W.s.shots.some(q=>q.by===g.id))fired=1;return W.s.shots.filter(q=>q.by===g.id).length>4;});const shots=W.s.shots.filter(q=>q.by===g.id).length;const hurt=B.filter(b=>b.hp<=0||b.h?.state&&b.h.state!=='ok').length;
-    check('16. la mitrailleuse lourde de la grande barge tire sur les Bèè',(g.firedAt??-1)>0&&hurt>=1,`premier tir ${g.firedAt?.toFixed?.(2)} h, ${hurt}/6 Bèè touchés, coups en vol ${shots}, munitions ${m.mag}+${m.pouch}`);}}
+    check('16. les mitrailleuses lourdes de la grande barge tirent sur les Bèè',(g.firedAt??-1)>0&&hurt>=1,`premier tir ${g.firedAt?.toFixed?.(2)} h, ${hurt}/6 Bèè touchés, coups en vol ${shots}, munitions ${m.mag}+${m.pouch}`);}}
 console.log(ok?'\nTOUT PASSE':'\nIL Y A DES ÉCHECS');

@@ -147,7 +147,7 @@ export const BUILDINGS={
   barge:{name:'Barge de débarquement',sprite:'foundry',size:[4,2],cost:{},hours:1,hp:1,coastal:true,launch:'barge',faction:'meumeu',
     why:'À poser sur la plage, au bord de l’eau : les villageois construisent la barge sur place ; finie, elle glisse à l’eau devant le chantier. Chargez-la (soldats, véhicule, caisses), puis clic droit sur la plage d’en face.'},
   grande_barge:{name:'Grande barge de débarquement',sprite:'foundry',size:[7,3],cost:{},hours:1,hp:1,coastal:true,launch:'grande_barge',faction:'meumeu',
-    why:'La barge des blindés, à poser sur une grande plage : quarante soldats et des véhicules à la file sur le pont (deux automitrailleuses à canon, ou un automoteur et une jeep), une mitrailleuse lourde à l’arrière (un mitrailleur à bord, des caisses dans la soute). Plus chère et plus lente que la barge.'},
+    why:'La barge des blindés, à poser sur une grande plage : quarante soldats et des véhicules à la file sur le pont (deux automitrailleuses à canon, une automitrailleuse à canon et un automoteur, ou trois jeeps), deux mitrailleuses lourdes sur le roof (deux mitrailleurs à bord, des caisses dans la soute). Plus chère et plus lente que la barge.'},
   bateau_bee:{name:'Bateau bèè',sprite:'foundry',size:[4,2],cost:{},hours:1,hp:1,coastal:true,launch:'bateau_bee',faction:'beee',
     why:'Les Bèè construisent leurs bateaux sur leur plage ; finis, ils glissent à l’eau.'},
   tour:{name:'Tour',sprite:'turret',size:[2,2],cost:{pierre:50,bois:20},hours:10,hp:1000,defense:{range:11,shooters:3},

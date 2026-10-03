@@ -24,6 +24,10 @@ export const AMPHI_BEE={
     const cities=B.cities.filter(c=>!c.fallen&&this.building(c.centre)?.done);if(cities.length<4)return;
     // 1. les bateaux se construisent sur la plage, comme des bâtiments : trois chantiers à la fois au plus, sur la côte de la ville la plus proche de la mer
     //    (ses dépôts fournissent le bois et le fer) ; fini, le bateau glisse à l'eau devant son chantier
+    // 0. les bateaux restés sur l'autre rive (après un débarquement, ou une opération manquée) rentrent à leur côte : là-bas, aucun soldat bèè ne peut les rejoindre
+    //    (mesuré : six bateaux vides attendaient sur la plage meumeu, comptés « libres » pour l'assaut suivant, qui ne pouvait jamais embarquer)
+    const mid=this.N/2,right=cities.reduce((n,c)=>n+c.x,0)/cities.length>mid,home=v=>(v.x>mid)===right;
+    for(const v of this.amphiBeeBoats())if(!v.op&&v.state!=='go'&&!home(v)){const p=this.amphiBeach(right?mid+160:mid-160,v.y,140);if(p){v.rampTo=0;this.boatMove(v,p.x,p.y);}}
     const want=this.amphiBeeWant(),have=this.amphiBeeBoats().length,sites=this.amphiBeeSites();
     if(have+sites.length<want&&sites.length<SITES&&t>=(B.siteT??0)){B.siteT=t+4;let at=null,bd=1e9;const cost=BUILDINGS.bateau_bee.cost;const stocked=this.depotList('beee').filter(D=>D.done&&!D.ruin&&!BUILDINGS[D.k].foodOnly&&Object.entries(cost).every(([k,n])=>k==='pieces'||(this.have('beee',D.i+1,D.j+1)[k]||0)>=n*2));
       for(const o of [...stocked.map(D=>({x:D.i+1,y:D.j+1,R:70})),...cities.map(c=>({x:c.x,y:c.y,R:170,far:1}))]){const p=this.amphiBeeBoatSite(o,o.R);if(!p)continue;const d=d2(p[0],p[1],o.x,o.y)+(o.far?400:0);if(d<bd){bd=d;at=p;}if(at&&!o.far&&bd<25)break;}
@@ -32,7 +36,7 @@ export const AMPHI_BEE={
     if(this.day<BEE_AMPHI_DAY||(B.fort?.count||0)<BEE_AMPHI_BUNKERS)return;
     // 3. l'assaut : assez de bateaux libres, assez de monde dans les villes de la côte, et l'intervalle écoulé
     if(t<(B.amphiNext??0)||this.s.amphi?.some(o=>o.f==='beee'))return;
-    const free=this.amphiBeeBoats().filter(v=>!v.op);const need0=Math.min(want,6+2*(B.amphiCount||0));if(free.length<need0){B.amphiWhy=`flotte ${free.length}/${need0}`;return;}   /* (premier assaut à 6 bateaux, puis deux de plus à chaque fois) */
+    const free=this.amphiBeeBoats().filter(v=>!v.op&&v.state!=='go'&&home(v));const need0=Math.min(want,6+2*(B.amphiCount||0));if(free.length<need0){B.amphiWhy=`flotte ${free.length}/${need0}`;return;}   /* (premier assaut à 6 bateaux, puis deux de plus à chaque fois) */
     const cx=free.reduce((n,v)=>n+v.x,0)/free.length,cy=free.reduce((n,v)=>n+v.y,0)/free.length;
     const base=cities.slice().sort((a,z)=>d2(a.x,a.y,cx,cy)-d2(z.x,z.y,cx,cy))[0];if(!base)return;
     const cap=Math.floor(VEHDEF.bateau_bee.places.passagers-1),need=Math.min(free.length*cap,Math.floor(free.length*cap*.9));

@@ -1,91 +1,86 @@
 // Oberkommando der Meumeu — les modèles de la mer, faits par le code.
-//  · la barge de débarquement (V12.5 : d'après la LCVP « Higgins » du 6 juin 1944) : une caisse à flancs droits en contreplaqué peint gris marine, une rampe d'acier
-//    de toute la largeur à l'avant (relevée elle fait mur, baissée elle devient la passerelle), le puits des soldats au plancher de bois, à l'arrière le poste
-//    surélevé du barreur derrière sa plaque, les deux cuves de mitrailleur de poupe et le capot du moteur ;
-//  · la grande barge (V12.5 : d'après les barges de chars LCT) : une longue coque plate, le pont des véhicules à rails entre deux hauts pavois, une rampe de
-//    toute la largeur, et à l'arrière le roof, la passerelle vitrée, le mât, les cheminées, les radeaux — et sur la passerelle la mitrailleuse lourde sur son
-//    affût tournant (la pièce « affut » : elle pivote avec le tir, le canon vers l'arrière au repos) ;
+//  · la barge de débarquement (d'après la LCVP « Higgins » du 6 juin 1944) : une caisse à flancs droits peinte gris marine, de hauts pavois, une rampe d'acier
+//    de toute la largeur à l'avant (relevée elle fait mur, baissée elle devient la passerelle), le puits des soldats au plancher de bois ; à l'arrière le
+//    barreur derrière sa plaque, entre les deux cuves de mitrailleur — chacune sa mitrailleuse sur pivot, le canon vers l'avant au repos ;
+//  · la grande barge (d'après les barges de chars LCT) : une longue coque plate, le pont des véhicules à rails entre deux hauts pavois, une rampe de toute la
+//    largeur ; à l'arrière le roof, la passerelle vitrée, le mât, les cheminées, les radeaux, et aux deux coins avant du roof les deux mitrailleuses lourdes ;
 //  · le bateau bèè : une coque de planches, une planche en guise de rampe.
-// Repère : la proue vers +x, la largeur sur z, y vers le haut, centré ; une case = une unité. Chaque modèle donne aussi les places de l'équipage (seats).
+// Repère : la proue vers +x, la largeur sur z, y vers le haut, centré ; une case = une unité. Chaque modèle donne les places de l'équipage (seats : les pieds) ;
+// les pièces mobiles : « rampe » (sur sa charnière) et « affut », « affut2 » (chaque mitrailleuse tourne sur son pivot).
 import * as THREE from './lib/three.module.js';
 import {Build} from './bldg3d.js';
 
 const GRIS=0x66706a,GRIS2=0x4b534e,GRIS3=0x7d877f,ACIER=0x5a6164,ACIER2=0x434a4d,BOIS=0x5c5040,BOIS2=0x463d31,BLANC=0xe8e6dc,NOIR=0x1a1f1d,VITRE=0x9fb8c4,ROUILLE=0x6e4a34;
 
-// ---------- la barge (LCVP) : 3,4 × 1,3 ----------
-export const BARGE={L:3.4,W:1.3,hinge:[1.47,.12,0]};
+// une mitrailleuse sur pivot, le canon vers +x (l'avant) : la boîte de culasse, le canon et son cache-flamme, la bande, les poignées
+function mg(B,[x,y,z],long=.5){B.box(x-.04,y,z,.2,.08,.08,NOIR);const t=new THREE.CylinderGeometry(.016,.02,long,8);t.rotateZ(Math.PI/2);t.translate(x+.06+long/2,y+.045,z);B.add(t,NOIR);
+  B.box(x+.07+long,y+.03,z,.04,.03,.04,NOIR);B.box(x-.02,y-.07,z+.06,.08,.07,.05,0x5a4a2a);B.box(x-.17,y+.01,z,.05,.05,.1,ACIER2);B.box(x,y-.08,z,.04,.08,.04,ACIER2);return B;}
+
+// une cuve de mitrailleur : un anneau de tôle ouvert (le mitrailleur se tient dedans, le buste au-dessus), son plancher, le pivot au centre
+function tub(B,x,y,z,r,h,hex){const n=12;for(let i=0;i<n;i++){const a=i/n*Math.PI*2,g=new THREE.BoxGeometry(.035,h,2*r*Math.sin(Math.PI/n)+.012);g.rotateY(-a);g.translate(x+Math.cos(a)*r,y+h/2,z+Math.sin(a)*r);B.add(g,hex);}
+  B.cyl(x,y,z,r,r,.02,ACIER2,n);const t=new THREE.TorusGeometry(r,.018,4,n);t.rotateX(Math.PI/2);t.translate(x,y+h,z);B.add(t,ACIER2);return B;}
+
+// ---------- la barge (LCVP) : 3,8 × 1,7 ----------
+export const BARGE={L:3.8,W:1.7,hinge:[1.66,.13,0],guns:[[-1.5,.98,.56],[-1.5,.98,-.56]]};
 function lcvpHull(B){const {L,W}=BARGE,hw=W/2;
-  // le fond (un peu plus étroit : la caisse s'évase vers le haut) et la quille
-  B.box(-.05,0,0,L*.9,.12,W*.8,GRIS2);B.box(-.1,-.04,0,L*.8,.05,.12,NOIR);
-  // les flancs droits, jusqu'au plat-bord ; le liston (une bande plus claire), les raidisseurs verticaux à l'extérieur
-  for(const s of [-1,1]){B.box(-.12,.12,s*(hw-.04),L*.86,.42,.07,GRIS);B.box(-.12,.54,s*(hw-.03),L*.87,.05,.1,GRIS3);B.box(-.12,.22,s*(hw+.005),L*.86,.035,.025,GRIS2);
-    for(let k=0;k<6;k++)B.box(1.05-k*.42,.13,s*(hw+.004),.03,.4,.02,GRIS2);
-    // le numéro de coque, peint en blanc près de l'avant
-    for(let k=0;k<3;k++)B.box(.95-k*.09,.32,s*(hw+.02),.055,.11,.005,BLANC);B.box(.62,.32,s*(hw+.02),.12,.035,.005,BLANC);}
-  // le plancher du puits (lattes de bois) et ses traverses
-  B.box(.1,.12,0,2.5,.025,W*.8,BOIS);for(let k=0;k<7;k++)B.box(1.2-k*.33,.145,0,.035,.012,W*.78,BOIS2);
-  // les montants de la charnière de la rampe, de chaque côté de la proue
-  for(const s of [-1,1])B.box(1.45,.12,s*(hw-.06),.12,.46,.08,ACIER2);
+  B.box(-.05,0,0,L*.92,.13,W*.84,GRIS2);B.box(-.1,-.04,0,L*.8,.05,.14,NOIR);
+  // les hauts flancs droits jusqu'au plat-bord, le liston, les raidisseurs, le numéro de coque
+  for(const s of [-1,1]){B.box(-.12,.13,s*(hw-.04),L*.88,.62,.08,GRIS);B.box(-.12,.75,s*(hw-.03),L*.89,.05,.11,GRIS3);B.box(-.12,.26,s*(hw+.005),L*.88,.035,.025,GRIS2);
+    for(let k=0;k<7;k++)B.box(1.25-k*.42,.14,s*(hw+.004),.03,.6,.02,GRIS2);
+    for(let k=0;k<3;k++)B.box(1.1-k*.1,.44,s*(hw+.02),.06,.13,.005,BLANC);B.box(.74,.44,s*(hw+.02),.14,.04,.005,BLANC);}
+  B.box(.12,.13,0,2.7,.025,W*.86,BOIS);for(let k=0;k<8;k++)B.box(1.35-k*.33,.155,0,.035,.012,W*.84,BOIS2);
+  for(const s of [-1,1])B.box(1.64,.13,s*(hw-.07),.13,.66,.09,ACIER2);
   // l'arrière : le pont surélevé, le capot du moteur, le tableau
-  B.box(-1.38,.12,0,.62,.3,W*.86,GRIS2);B.box(-1.38,.42,0,.64,.04,W*.88,GRIS3);B.box(-1.58,.46,0,.24,.13,.42,ACIER);B.box(-1.58,.59,0,.26,.03,.44,ACIER2);
-  B.box(-1.69,.12,0,.05,.46,W*.88,GRIS);
-  // le poste du barreur : une plaque blindée debout à gauche, sa fente, la barre
-  B.box(-1.12,.46,-.2,.06,.34,.38,ACIER);B.box(-1.085,.66,-.2,.012,.04,.26,NOIR);B.cyl(-1.22,.46,-.2,.025,.025,.2,ACIER2,6);B.box(-1.22,.66,-.2,.02,.02,.16,NOIR);
-  // les deux cuves de mitrailleur, rondes, à la poupe (vides : la barge de base ne tire pas)
-  for(const s of [-1,1]){B.cyl(-1.3,.46,s*.42,.13,.14,.18,GRIS3,12);B.cyl(-1.3,.64,s*.42,.145,.145,.025,ACIER2,12);}
-  // les taquets d'amarrage, l'échappement
-  for(const s of [-1,1])for(const x of [.9,-.6])B.box(x,.59,s*(hw-.03),.08,.03,.04,ACIER2);
-  B.cyl(-1.62,.46,.42,.03,.03,.32,NOIR,6);
+  B.box(-1.5,.13,0,.8,.3,W*.88,GRIS2);B.box(-1.5,.43,0,.82,.04,W*.9,GRIS3);B.box(-1.8,.47,0,.2,.13,.44,ACIER);B.box(-1.8,.6,0,.22,.03,.46,ACIER2);B.box(-1.88,.13,0,.05,.66,W*.9,GRIS);
+  // le barreur : une plaque blindée debout devant lui, sa fente, la barre
+  B.box(-1.12,.47,0,.06,.4,.42,ACIER);B.box(-1.085,.72,0,.012,.045,.3,NOIR);B.cyl(-1.24,.47,0,.025,.025,.22,ACIER2,6);B.box(-1.24,.69,0,.02,.02,.18,NOIR);
+  // les deux cuves de mitrailleur (le pivot et l'arme sont les pièces « affut »)
+  for(const [gx,,gz] of BARGE.guns){tub(B,gx,.47,gz,.22,.3,GRIS3);B.cyl(gx+.1,.47,gz,.025,.025,.43,ACIER2,6);}
+  for(const s of [-1,1])for(const x of [1.0,-.7])B.box(x,.8,s*(hw-.03),.08,.03,.05,ACIER2);
+  B.cyl(-1.82,.47,.25,.03,.03,.36,NOIR,6);
   return B;}
 function lcvpRamp(B){const {W,hinge}=BARGE,[hx,hy]=hinge,rw=W*.84;
-  // la rampe relevée : une plaque d'acier debout sur la charnière, ses nervures horizontales devant, son rebord en haut, ses câbles de levage
-  B.box(hx,hy,0,.08,.5,rw,ACIER);for(let k=0;k<4;k++)B.box(hx+.05,hy+.06+k*.12,0,.025,.035,rw*.96,ACIER2);B.box(hx,hy+.49,0,.12,.04,rw*1.02,GRIS3);
-  for(const s of [-1,1])B.rod([hx,hy+.5,s*rw*.45],[hx-.55,hy+.46,s*rw*.48],.008,NOIR);
+  B.box(hx,hy,0,.08,.74,rw,ACIER);for(let k=0;k<5;k++)B.box(hx+.05,hy+.07+k*.14,0,.025,.035,rw*.96,ACIER2);B.box(hx,hy+.72,0,.12,.04,rw*1.02,GRIS3);
+  for(const s of [-1,1])B.rod([hx,hy+.74,s*rw*.45],[hx-.6,hy+.68,s*rw*.48],.008,NOIR);
   return B;}
-export function bargeModel(){const {L,W,hinge}=BARGE;const H=lcvpHull(new Build()).geo(),R=lcvpRamp(new Build()).geo(),full=lcvpRamp(lcvpHull(new Build())).geo();H.computeBoundingBox();const bh=H.boundingBox;
-  return {ext:[L,Math.max(.7,bh.max.y),W],name:'barge',geo:H,full,mat:null,seats:{pilot:[-1.22,.46,-.2]},
-    parts:[{name:'caisse',geo:H,pivot:[0,0,0]},{name:'rampe',geo:R,pivot:[hinge[0],hinge[1],hinge[2]]}],byName:{caisse:{geo:H,pivot:[0,0,0]},rampe:{geo:R,pivot:hinge}}};}
+const gunPart=(p)=>{const B=new Build();mg(B,p,.42);return B.geo();};
+export function bargeModel(){const {L,W,hinge,guns}=BARGE;const H=lcvpHull(new Build()).geo(),R=lcvpRamp(new Build()).geo(),G1=gunPart(guns[0]),G2=gunPart(guns[1]);
+  const full=lcvpRamp(lcvpHull(new Build()));for(const p of guns)mg(full,p,.42);const F=full.geo();H.computeBoundingBox();const bh=H.boundingBox;
+  return {ext:[L,Math.max(.8,bh.max.y),W],name:'barge',geo:H,full:F,mat:null,seats:{pilot:[-1.3,.47,0],gunners:guns.map(([x,,z])=>[x,.5,z])},
+    parts:[{name:'caisse',geo:H,pivot:[0,0,0]},{name:'rampe',geo:R,pivot:[...hinge]},{name:'affut',geo:G1,pivot:[...guns[0]]},{name:'affut2',geo:G2,pivot:[...guns[1]]}],
+    byName:{caisse:{geo:H,pivot:[0,0,0]},rampe:{geo:R,pivot:hinge},affut:{geo:G1,pivot:guns[0]},affut2:{geo:G2,pivot:guns[1]}}};}
 
-// ---------- la grande barge (LCT) : 6 × 2 ----------
-export const GBARGE={L:6,W:2,hinge:[2.86,.13,0],gun:[-2.45,1.3,0]};
+// ---------- la grande barge (LCT) : 7 × 2,6 ----------
+export const GBARGE={L:7,W:2.6,hinge:[3.36,.14,0],guns:[[-2.5,1.55,.92],[-2.5,1.55,-.92]]};
 function lctHull(B){const {L,W}=GBARGE,hw=W/2;
-  B.box(-.05,0,0,L*.96,.13,W*.9,GRIS2);B.box(0,-.04,0,L*.9,.05,.2,NOIR);
+  B.box(-.05,0,0,L*.96,.14,W*.92,GRIS2);B.box(0,-.04,0,L*.9,.05,.24,NOIR);
   // les hauts pavois du pont des véhicules, leurs raidisseurs, leur liston ; les numéros
-  for(const s of [-1,1]){B.box(.25,.13,s*(hw-.05),5.1,.56,.1,GRIS);B.box(.25,.69,s*(hw-.04),5.12,.05,.13,GRIS3);B.box(.25,.25,s*(hw+.005),5.1,.04,.025,GRIS2);
-    for(let k=0;k<12;k++)B.box(2.6-k*.44,.14,s*(hw+.004),.035,.54,.02,GRIS2);
-    for(let k=0;k<3;k++)B.box(2.3-k*.13,.38,s*(hw+.02),.08,.16,.005,BLANC);B.box(1.8,.38,s*(hw+.02),.18,.05,.005,BLANC);}
-  // le pont de chargement : des tôles striées, deux rails pour les roues et les chenilles
-  B.box(.3,.13,0,5.05,.03,W*.86,ACIER2);for(let k=0;k<14;k++)B.box(2.6-k*.36,.16,0,.02,.01,W*.84,ACIER);for(const z of [-.42,.42])B.box(.3,.16,z,5,.02,.12,ROUILLE);
-  // la proue : les deux montants de la charnière, les treuils de la rampe
-  for(const s of [-1,1]){B.box(2.85,.13,s*(hw-.08),.16,.62,.12,ACIER2);B.cyl(2.62,.7,s*(hw-.12),.07,.07,.08,ACIER,8);}
-  // l'arrière : le roof (logement, machines), la passerelle vitrée, sa plateforme et la rambarde, le mât, les cheminées, les radeaux
-  B.box(-2.6,.13,0,.8,.68,W*.86,GRIS);B.box(-2.6,.81,0,.84,.04,W*.88,GRIS3);for(const s of [-1,1])for(const x of [-2.35,-2.75])B.box(x,.42,s*W*.435,.12,.12,.01,VITRE);
-  B.box(-2.68,.85,0,.5,.34,.9,GRIS);B.box(-2.42,1.0,0,.012,.12,.8,VITRE);for(const s of [-1,1])B.box(-2.68,1.0,s*.452,.4,.12,.012,VITRE);
-  B.box(-2.55,1.19,0,.8,.04,1.1,GRIS3);for(const s of [-1,1])B.rod([-2.95,1.23,s*.55],[-2.15,1.23,s*.55],.012,GRIS2);B.rod([-2.15,1.23,-.55],[-2.15,1.23,.55],.012,GRIS2);
-  // le fût de l'affût, fixe sur la plateforme (la mitrailleuse, elle, tourne : la pièce « affut »)
-  B.cyl(-2.45,1.19,0,.1,.12,.11,ACIER2,10);
-  B.rod([-2.85,1.23,0],[-2.85,2.05,0],.022,GRIS2);B.rod([-2.85,1.85,-.32],[-2.85,1.85,.32],.012,GRIS2);
-  for(const s of [-1,1]){B.cyl(-2.9,.85,s*.62,.07,.07,.42,NOIR,8);B.box(-2.35,.4,s*(hw+.03),.42,.18,.06,0xb8743a);}
-  B.box(-2.99,.13,0,.04,.7,W*.9,GRIS2);
+  for(const s of [-1,1]){B.box(.4,.14,s*(hw-.06),5.9,.82,.12,GRIS);B.box(.4,.96,s*(hw-.05),5.92,.05,.15,GRIS3);B.box(.4,.3,s*(hw+.005),5.9,.04,.025,GRIS2);
+    for(let k=0;k<14;k++)B.box(3.1-k*.44,.15,s*(hw+.004),.035,.8,.02,GRIS2);
+    for(let k=0;k<3;k++)B.box(2.7-k*.15,.5,s*(hw+.02),.09,.18,.005,BLANC);B.box(2.15,.5,s*(hw+.02),.2,.05,.005,BLANC);}
+  B.box(.4,.14,0,5.85,.03,W*.86,ACIER2);for(let k=0;k<16;k++)B.box(3.1-k*.36,.17,0,.02,.01,W*.84,ACIER);for(const z of [-.5,.5])B.box(.4,.17,z,5.8,.02,.14,ROUILLE);
+  for(const s of [-1,1]){B.box(3.34,.14,s*(hw-.1),.18,.9,.14,ACIER2);B.cyl(3.08,.98,s*(hw-.15),.08,.08,.09,ACIER,8);}
+  // l'arrière : le roof, la passerelle vitrée, sa plateforme, le mât, les cheminées, les radeaux ; aux coins avant du roof, les deux cuves des mitrailleuses
+  B.box(-2.95,.14,0,1.0,.9,W*.88,GRIS);B.box(-2.95,1.04,0,1.04,.04,W*.9,GRIS3);for(const s of [-1,1])for(const x of [-2.7,-3.15])B.box(x,.5,s*W*.445,.13,.13,.01,VITRE);
+  B.box(-3.05,1.08,0,.6,.38,1.0,GRIS);B.box(-2.74,1.24,0,.012,.13,.9,VITRE);for(const s of [-1,1])B.box(-3.05,1.24,s*.502,.5,.13,.012,VITRE);B.box(-3.05,1.46,0,.66,.04,1.1,GRIS3);
+  for(const [gx,,gz] of GBARGE.guns){tub(B,gx,1.08,gz,.24,.28,GRIS3);B.cyl(gx+.1,1.08,gz,.025,.025,.4,ACIER2,6);}
+  B.rod([-3.2,1.5,0],[-3.2,2.35,0],.022,GRIS2);B.rod([-3.2,2.12,-.34],[-3.2,2.12,.34],.012,GRIS2);
+  for(const s of [-1,1]){B.cyl(-3.3,1.08,s*.75,.07,.07,.46,NOIR,8);B.box(-2.7,.45,s*(hw+.03),.46,.2,.07,0xb8743a);}
+  B.box(-3.47,.14,0,.04,.92,W*.92,GRIS2);
   return B;}
 function lctRamp(B){const {W,hinge}=GBARGE,[hx,hy]=hinge,rw=W*.86;
-  B.box(hx,hy,0,.1,.62,rw,ACIER);for(let k=0;k<5;k++)B.box(hx+.06,hy+.06+k*.12,0,.03,.04,rw*.96,ACIER2);B.box(hx,hy+.61,0,.14,.05,rw*1.02,GRIS3);
-  for(const s of [-1,1])B.rod([hx,hy+.6,s*rw*.45],[hx-.25,hy+.62,s*rw*.48],.012,NOIR);
+  B.box(hx,hy,0,.1,.9,rw,ACIER);for(let k=0;k<6;k++)B.box(hx+.06,hy+.07+k*.14,0,.03,.04,rw*.96,ACIER2);B.box(hx,hy+.88,0,.14,.05,rw*1.02,GRIS3);
+  for(const s of [-1,1])B.rod([hx,hy+.88,s*rw*.45],[hx-.28,hy+.92,s*rw*.48],.012,NOIR);
   return B;}
-// la mitrailleuse lourde et son bouclier, sur l'affût tournant : le canon vers l'arrière (−x) au repos (repos : π)
-function lctGun(B){const [gx,gy,gz]=GBARGE.gun;
-  B.box(gx,gy,gz,.16,.08,.16,ACIER2);B.box(gx-.04,gy+.08,gz,.3,.09,.09,NOIR);B.cyl(gx-.2,gy+.11,gz+.075,.03,.03,.06,0x5a4a2a,6);
-  const t=new THREE.CylinderGeometry(.018,.022,.5,8);t.rotateZ(Math.PI/2);t.translate(gx-.43,gy+.125,gz);B.add(t,NOIR);B.box(gx-.69,gy+.11,gz,.04,.03,.04,NOIR);
-  B.box(gx-.2,gy+.04,gz,.03,.24,.32,ACIER);B.box(gx+.14,gy+.06,gz,.06,.05,.12,ACIER2);
-  return B;}
-export function grandeBargeModel(){const {L,W,hinge,gun}=GBARGE;const H=lctHull(new Build()).geo(),R=lctRamp(new Build()).geo(),G=lctGun(new Build()).geo(),full=lctGun(lctRamp(lctHull(new Build()))).geo();
-  H.computeBoundingBox();const bh=H.boundingBox;
-  return {ext:[L,Math.max(1.3,bh.max.y),W],name:'grande_barge',geo:H,full,mat:null,seats:{pilot:[-2.6,.85,0],gunner:[gun[0],gun[1],gun[2]]},
-    parts:[{name:'caisse',geo:H,pivot:[0,0,0]},{name:'rampe',geo:R,pivot:[hinge[0],hinge[1],hinge[2]]},{name:'affut',geo:G,pivot:[gun[0],gun[1],gun[2]]}],
-    byName:{caisse:{geo:H,pivot:[0,0,0]},rampe:{geo:R,pivot:hinge},affut:{geo:G,pivot:gun}}};}
+export function grandeBargeModel(){const {L,W,hinge,guns}=GBARGE;const H=lctHull(new Build()).geo(),R=lctRamp(new Build()).geo(),G1=gunPart(guns[0]),G2=gunPart(guns[1]);
+  const full=lctRamp(lctHull(new Build()));for(const p of guns)mg(full,p,.42);const F=full.geo();H.computeBoundingBox();const bh=H.boundingBox;
+  return {ext:[L,Math.max(1.4,bh.max.y),W],name:'grande_barge',geo:H,full:F,mat:null,seats:{pilot:[-3.05,.86,0],gunners:guns.map(([x,,z])=>[x,1.08,z])},
+    parts:[{name:'caisse',geo:H,pivot:[0,0,0]},{name:'rampe',geo:R,pivot:[...hinge]},{name:'affut',geo:G1,pivot:[...guns[0]]},{name:'affut2',geo:G2,pivot:[...guns[1]]}],
+    byName:{caisse:{geo:H,pivot:[0,0,0]},rampe:{geo:R,pivot:hinge},affut:{geo:G1,pivot:guns[0]},affut2:{geo:G2,pivot:guns[1]}}};}
 
 // ---------- le bateau bèè : une coque de planches (bois clair, bords renforcés), une barre à l'arrière, une planche à l'avant qui sert de rampe ----------
-function boatHull(){const {L,W}=BARGE,B=new Build(),BOIS=0x9a6a3a,BOIS2=0x6a4426,CLAIR=0xc89a5a;
+const BEE={L:3.4,W:1.3};
+function boatHull(){const {L,W}=BEE,B=new Build(),BOIS=0x9a6a3a,BOIS2=0x6a4426,CLAIR=0xc89a5a;
   B.box(0,0,0,L*.86,.12,W*.7,BOIS2);
   for(const s of [-1,1]){B.box(-.1,.12,s*W*.4,L*.74,.3,.08,BOIS);B.box(-.1,.42,s*W*.4,L*.74,.04,.1,CLAIR);}
   for(const s of [-1,1]){const g=new THREE.BoxGeometry(.8,.3,.08);g.rotateY(-s*.55);g.translate(L*.34,.12+.15,s*W*.28);B.add(g,BOIS);}
@@ -93,6 +88,6 @@ function boatHull(){const {L,W}=BARGE,B=new Build(),BOIS=0x9a6a3a,BOIS2=0x6a4426
   for(let k=0;k<4;k++)B.box(.5-k*.5,.15,0,.06,.04,W*.64,BOIS2);   // les bancs
   B.cyl(-L*.4,.12,0,.03,.03,.7,BOIS2,6);B.box(-L*.4,.8,0,.08,.03,.5,BOIS2);   // la barre
   return B.geo();}
-function boatRamp(){const {W}=BARGE,hinge=[1.52,.14,0],B=new Build();B.box(hinge[0]-.06,hinge[1],0,.08,.36,W*.62,0x7a5a36);B.box(hinge[0]-.06,hinge[1]+.34,0,.1,.04,W*.64,0xc89a5a);return B.geo();}
-export function bateauModel(){const {L,W}=BARGE,hinge=[1.52,.14,0],H=boatHull(),R=boatRamp();H.computeBoundingBox();const bh=H.boundingBox;
+function boatRamp(){const {W}=BEE,hinge=[1.52,.14,0],B=new Build();B.box(hinge[0]-.06,hinge[1],0,.08,.36,W*.62,0x7a5a36);B.box(hinge[0]-.06,hinge[1]+.34,0,.1,.04,W*.64,0xc89a5a);return B.geo();}
+export function bateauModel(){const {L,W}=BEE,hinge=[1.52,.14,0],H=boatHull(),R=boatRamp();H.computeBoundingBox();const bh=H.boundingBox;
   return {ext:[L,Math.max(.6,bh.max.y),W],name:'bateau_bee',geo:H,mat:null,seats:{pilot:[-L*.4,.12,0]},parts:[{name:'caisse',geo:H,pivot:[0,0,0]},{name:'rampe',geo:R,pivot:[hinge[0]-.06,hinge[1],hinge[2]]}],byName:{caisse:{geo:H,pivot:[0,0,0]},rampe:{geo:R,pivot:[hinge[0]-.06,hinge[1],hinge[2]]}}};}

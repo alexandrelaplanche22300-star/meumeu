@@ -196,16 +196,21 @@ export class Scene3D{
   // le servant se tient derrière son arme et tourne avec elle autour du pivot. Dans un engin fermé, l'équipage ne se voit pas.
   // (V12.5) sur un bateau : les véhicules du pont à l'avant, les soldats en rangs serrés derrière eux (autant de files que la largeur en prend) ; le barreur à son
   // poste, le mitrailleur debout derrière sa pièce (il tourne avec elle) — les places viennent du modèle (seats)
+  deckSlots(v,V,pax){const ids=(v.cargoVehs||[]).join(','),key=ids+'|'+pax+'|'+V.long;const C=(this.slotCache??=new Map()).get(v.id);if(C?.key===key)return C.slots;
+    const Hm=this.M.meumeu.ext[1],sc=.5*1.02/Hm,r=Math.max(this.M.meumeu.ext[0],this.M.meumeu.ext[2])*sc/2,P=V.pont||[V.long*.3,-V.long*.3],inner=V.large/2-.11-r;
+    const c=Math.cos(v.h),s=Math.sin(v.h),m=r*.85;const rects=[];for(const id of v.cargoVehs||[]){const o=(this.vlist||[]).find(q=>q.id===id),D=o&&VEHDEF[o.k];if(!D)continue;const f=(o.x-v.x)*c+(o.y-v.y)*s;rects.push([f-D.long/2-m,f+D.long/2+m,D.large/2+m]);}
+    let slots=[];for(const k of [3.4,3,2.7,2.4,2.1,1.9,1.7,1.5]){const sp=r*k;slots=[];const nz=Math.max(1,Math.floor(2*inner/sp)+1),z0=-(nz-1)*sp/2;
+      for(let f=P[0]-r;f>=P[1]+r-1e-6;f-=sp)for(let i=0;i<nz;i++){const z=z0+i*sp;if(Math.abs(z)>inner+1e-6)continue;if(rects.some(([a,b,w])=>f>a&&f<b&&Math.abs(z)<w))continue;slots.push([f,z]);}
+      if(slots.length>=pax)break;}
+    this.slotCache.set(v.id,{key,slots});return slots;}
   vehCrew3d(v,V,P){if(V.nav==='eau'){if(!v.crew?.length||v.hp<=0)return;const Hm=this.M.meumeu.ext[1],c=Math.cos(v.h),s=Math.sin(v.h),S=this.M[V.modele]?.seats||{};
-      const front=(V.pont?.[0]??V.long*.28)-(v.deckUsed||0)-.15,back=V.pont?.[1]??-V.long*.3,cols=V.large>1.6?4:3,pax=v.crew.filter(u=>u.hp>0&&u.vrole==='passager').length;
-      const rows=Math.max(1,Math.ceil(pax/cols)),step=Math.min(.36,Math.max(.18,(front-back)/rows)),gap=Math.min(.34,V.large*.8/cols),floor=V.pont?(V.long>4?.17:.15):.1;
-      const A=V.armes.find(a=>a.piece==='affut'),m=A&&v.mounts?.find(q=>q.id===A.id);let n=0;const W=(f,sd)=>[v.x+c*f-s*sd,v.y+s*f+c*sd];
+      const pax=v.crew.filter(u=>u.hp>0&&u.vrole==='passager').length,floor=V.pont?(V.long>4?.17:.155):.1,slots=this.deckSlots(v,V,pax);
+      const guns=V.armes.filter(a=>a.piece.startsWith('affut'));let n=0,g=0;const W=(f,sd)=>[v.x+c*f-s*sd,v.y+s*f+c*sd];
       for(const u of v.crew){if(u.hp<=0)continue;let x,y,yy=floor,a=v.h;
         if(u.vrole==='conducteur'){const p=S.pilot||[-V.long*.3,.1,0];[x,y]=W(p[0],p[2]);yy=p[1];}
-        else if(u.vrole==='servant'&&A){const p=S.gunner||[A.pos[0],A.pos[2]-.2,A.pos[1]];a=v.h+(m?.yaw??A.repos??0);const [px,py]=W(p[0],p[2]);x=px-Math.cos(a)*.26;y=py-Math.sin(a)*.26;yy=p[1]-.07;}
-        // (pas assez de pont derrière les véhicules : les soldats se tiennent en deux files le long des pavois, de part et d'autre des véhicules)
-        else if(front-back<rows*.2&&V.pont){const per=Math.ceil(pax/2),st=Math.min(.3,(V.pont[0]-V.pont[1]-.3)/Math.max(1,per)),side=n%2?1:-1,k=Math.floor(n/2);n++;[x,y]=W(V.pont[0]-.15-k*st,side*(V.large*.5-.17));}
-        else{const row=Math.floor(n/cols),col=n%cols-(cols-1)/2;n++;[x,y]=W(front-row*step,col*gap);}
+        // le mitrailleur : debout dans sa cuve, derrière sa pièce, tourné avec elle
+        else if(u.vrole==='servant'&&guns[g]){const A=guns[g],m=v.mounts?.find(q=>q.id===A.id),p=S.gunners?.[g]||[A.pos[0],A.pos[2]-.5,A.pos[1]];g++;a=v.h+(m?.yaw??A.repos??0);const [px,py]=W(p[0],p[2]);x=px-Math.cos(a)*.1;y=py-Math.sin(a)*.1;yy=p[1];}
+        else{const q=slots[n%Math.max(1,slots.length)]||[0,0];n++;[x,y]=W(q[0],q[1]);}
         const sc=.5*(u.k==='villageois'?.92:1.02)/Hm,down=u.h?.state==='hors';
         P.meumeu.add(x,yy,y,Math.atan2(Math.cos(a),Math.sin(a)),sc,sc,sc,{tint:down?0x9a8a80:u.k==='villageois'?0xf4efe2:0xdcd8c4,ph:0,amp:0,arm:down?0:u.vrole==='conducteur'?.85:u.vrole==='servant'?.65:.5});}return;}
     if((V.blindage.dessus?.[0]||0)>=.05||!v.crew?.length||v.hp<=0)return;const Hm=this.M.meumeu.ext[1],c=Math.cos(v.h),s=Math.sin(v.h);
@@ -215,7 +220,7 @@ export class Scene3D{
       if(u.vrole==='servant'&&A){a=v.h+(m?.yaw??0);const [px,py]=W(A.pos[0],A.pos[1]);x=px-Math.cos(a)*.24;y=py-Math.sin(a)*.24;}else{[x,y]=W(...seats[Math.min(n++,3)]);}
       // (assis, à 0,8 de leur taille de marche, échelle uniforme : debout à pleine taille, quatre peluches cachaient la jeep ; le servant debout derrière
       // son arme)
-      const sc=.62*(u.k==='villageois'?.92:1.02)/Hm,down=u.h?.state==='hors',y0=u.vrole==='servant'&&A?.04:-.08;
+      const sc=.62*(u.k==='villageois'?.92:1.02)/Hm,down=u.h?.state==='hors',y0=(u.vrole==='servant'&&A?.04:-.08)+(v.onDeck?.16:0);
       P.meumeu.add(x,y0,y,Math.atan2(Math.cos(a),Math.sin(a)),sc,sc,sc,{tint:down?0x9a8a80:u.k==='villageois'?0xf4efe2:0xdcd8c4,ph:0,amp:0,arm:down?0:u.vrole==='servant'?.65:u.vrole==='conducteur'?.85:0});}}
   // la pose d'un véhicule : place, cap (selon l'axe avant de son modèle), tourelle, hausse des armes, roues, un léger roulis de suspension
   syncVehicle(v,V,dtc){let e=this.vehs.get(v.id);if(!e){const g=this.vehicleGroup(V);if(!g)return;e={g};this.vehs.set(v.id,e);this.scene.add(g);}
@@ -227,7 +232,7 @@ export class Scene3D{
     if(V.nav==='eau'){const tt=performance.now()/1000+v.id*1.7;g.position.y=.02+.018*Math.sin(tt*1.6);g.rotation.z=.028*Math.sin(tt*1.25);g.rotation.x=.018*Math.sin(tt*1.05+1);if(U.parts.rampe)U.parts.rampe.rotation.z=-(v.ramp||0)*1.5;}
     const mt=(piece)=>v.mounts?.find(m=>V.armes.find(a=>a.id===m.id)?.piece===piece);
     if(U.parts.tourelle){const m=mt('tourelle');U.parts.tourelle.rotation.y=-(m?.yaw||0);const el=m?.el||0;for(const k of ['armes','canon'])if(U.parts[k]){if(U.ax===2)U.parts[k].rotation.x=-el*U.sg;else U.parts[k].rotation.z=el*U.sg;}}
-    if(U.parts.affut){const m=mt('affut'),A=V.armes.find(a=>a.piece==='affut');U.parts.affut.rotation.y=-((m?.yaw??A.repos)-(A.repos||0));}
+    for(const k in U.parts)if(k.startsWith('affut')){const m=mt(k),A=V.armes.find(a=>a.piece===k);if(A)U.parts[k].rotation.y=-((m?.yaw??A.repos??0)-(A.repos||0));}
     // (les tubes d'une casemate : chacun dans sa rotule, tous au même pointage)
     // (la hausse autour de l'axe du tube lui-même, puis la direction : l'ordre des rotations « direction en dernier »)
     for(const k in U.parts)if(k.startsWith('canons')){const P=U.parts[k],m=mt('canons');P.rotation.order=U.ax===2?'YXZ':'YZX';P.rotation.y=-(m?.yaw||0);const el=m?.el||0;if(U.ax===2)P.rotation.x=-el*U.sg;else P.rotation.z=el*U.sg;}
@@ -406,7 +411,7 @@ export class Scene3D{
     for(const c of s.corpses||[]){if(c.x<i0-3||c.x>i1+3||c.y<j0-3||c.y>j1+3)continue;const age=W.t-c.t;if(age>3*DAY)continue;const bee=c.f==='beee'||/bee/.test(c.sheet||'');const H=(c.k==='villageois'?.92:1.02);const sc=H/(bee?Hb:Hm);const y=c.dir==='se'?PI/2:c.dir==='sw'?0:c.dir==='ne'?PI:-PI/2;
       (bee?P.bee:P.meumeu).add(c.x,(bee?Hb:Hm)*sc*.2,c.y,y,sc,sc,sc,{tint:0x8a7a72,pitch:-PI/2});}
     // les véhicules : le train suit la trace de sa locomotive (mêmes distances que le dessin 2D) ; le reste est une jeep
-    const vseen=new Set();
+    const vseen=new Set();this.vlist=s.vehicles||[];
     for(const v of s.vehicles||[]){if(v.x<i0-8||v.x>i1+8||v.y<j0-8||v.y>j1+8)continue;if(v.alt>0)continue;
       if(fog&&v.f!=='meumeu'&&!view.fogVis?.[Math.floor(v.y)*N+Math.floor(v.x)])continue;
       if(VEHDEF[v.k]){vseen.add(v.id);this.syncVehicle(v,VEHDEF[v.k],dtc);this.vehCrew3d(v,VEHDEF[v.k],P);continue;}

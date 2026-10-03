@@ -16,8 +16,8 @@ check('0. trois barges à l\'eau',boats.every(b=>b&&W.isWaterAt(b.x,b.y)));
 const sold=[];for(let n=0;n<40;n++){const [x,y]=W.nearestLand(west[0]-1-(n%8)*.7,west[1]-5+Math.floor(n/8)*2.2,8);sold.push(W.addUnit('meumeu','soldat',x,y,{rounds:60}));}
 const r=W.order(sold.map(u=>u.id),{type:'point',x:east[0]+.5,y:east[1]+.5});
 check('1. ordre accepté',r.ok,JSON.stringify(r.text||r.why));const op=W.s.amphi?.[0];
-let aboard=0;hours(W,24,()=>{aboard=Math.max(aboard,boats.reduce((n,b)=>n+(b.crew||[]).filter(u=>u.vrole==='passager').length,0));return op.state!=='load';});
-check('2. à bord',aboard>=36,aboard+' passagers, état '+op?.state);
+let aboard=0;hours(W,24,()=>{aboard=Math.max(aboard,boats.reduce((n,b)=>n+(b.crew||[]).filter(u=>u.vrole==='passager'||u.vrole==='servant').length,0));return op.state!=='load';});   // (les mitrailleurs de la barge comptent : ils sont à bord)
+check('2. à bord (passagers et mitrailleurs)',aboard>=36,aboard+' à bord, état '+op?.state);
 let allWater=true;hours(W,140,()=>{for(const b of boats)if(!W.isWaterAt(b.x,b.y))allWater=false;return op&&!W.s.amphi.includes(op);});
 check('3. traversée sur l\'eau',allWater);
 const near=sold.filter(u=>u.hp>0&&u.x>N/2&&Math.hypot(u.x-east[0],u.y-east[1])<40).length;

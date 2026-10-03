@@ -50,17 +50,19 @@ export const VEHDEF={
 };
 // V12.5 : la barge de débarquement (nav:'eau' : elle ne roule pas, elle navigue — voir naval.js). Une coque blindée à l'avant (la rampe relevée) et sur les flancs :
 // le fusil et la mitrailleuse bèè ne la percent pas, l'antichar si. Un pilote, vingt-quatre passagers, un véhicule sur le pont, soixante caisses.
-VEHDEF.barge={name:'Barge de débarquement',nav:'eau',modele:':barge',avant:'+x',long:3.4,large:1.3,roues:'chenilles',pivot:24,vmax:16,t0:3,frein:2,pont:[1.15,-1.1],
-  blindage:{avant:[3.2,30],flanc:[2.3,0],arriere:[1.3,0],dessus:[0,0]},hp:420,places:{servants:0,passagers:24},soute:60,armes:[],
+// (V12.5 : 3,8 × 1,7 — les soldats tiennent entre les pavois sans les traverser ; deux mitrailleuses dans les cuves de poupe, vers l'avant au repos)
+VEHDEF.barge={name:'Barge de débarquement',nav:'eau',modele:':barge',avant:'+x',long:3.8,large:1.7,roues:'chenilles',pivot:24,vmax:16,t0:3,frein:2,pont:[1.3,-1.0],
+  blindage:{avant:[3.2,30],flanc:[2.3,0],arriere:[1.3,0],dessus:[0,0]},hp:420,places:{servants:2,passagers:24},soute:60,
+  armes:[{id:'mg1',piece:'affut',w:'mg_lourde_mle1',arc:300,tour:120,coups:900,repos:0,garde:0,pos:[-1.5,.56,.98],tube:.5},{id:'mg2',piece:'affut2',w:'mg_lourde_mle1',arc:300,tour:120,coups:900,repos:0,garde:0,pos:[-1.5,-.56,.98],tube:.5}],
   cout:{fer:60,pieces:25,bois:70},heures:26,
-  why:'Une coque blindée qu’on échoue sur la plage : un pilote, vingt-quatre Meumeu, un véhicule léger (jeep, automitrailleuse), des munitions. La proue relevée arrête les balles de fusil et de mitrailleuse bèè ; baissée, elle laisse courir les soldats vers la plage. Elle repart chercher du monde tant que le pilote vit.'};
+  why:'Une coque blindée qu’on échoue sur la plage : un pilote, deux mitrailleurs (deux mitrailleuses lourdes dans les cuves de poupe), vingt-quatre Meumeu, un véhicule léger (jeep, automitrailleuse), des munitions. La proue relevée arrête les balles de fusil et de mitrailleuse bèè ; baissée, elle laisse courir les soldats vers la plage. Elle repart chercher du monde tant que le pilote vit.'};
 // V12.5 : la grande barge (une barge de chars) : un long pont ouvert derrière une rampe de toute la largeur, la passerelle et une mitrailleuse lourde sur affût à l'arrière.
 // Sur le pont, des véhicules à la file tant que leurs longueurs y tiennent (deux automitrailleuses à canon, ou un automoteur et une jeep…), et quarante soldats.
-VEHDEF.grande_barge={name:'Grande barge de débarquement',nav:'eau',modele:':grande_barge',avant:'+x',long:6,large:2,roues:'chenilles',pivot:14,vmax:11,t0:4.5,frein:3,pont:[2.7,-2.15],
-  blindage:{avant:[4.2,30],flanc:[2.8,0],arriere:[1.8,0],dessus:[0,0]},hp:950,places:{servants:1,passagers:40},soute:140,
-  armes:[{id:'mg',piece:'affut',w:'mg_lourde_mle1',arc:360,tour:110,coups:1500,repos:Math.PI,garde:Math.PI,pos:[-2.45,0,1.42],tube:.5}],
-  cout:{fer:150,pieces:60,bois:120,cuivre:4,'a:mg_lourde_mle1':1},heures:52,
-  why:'La barge des blindés : un pilote, un mitrailleur, quarante Meumeu, et sur le pont des véhicules à la file (deux automitrailleuses à canon, ou un automoteur et une jeep). Rampe relevée, la proue et les flancs arrêtent les balles bèè ; la mitrailleuse lourde de la passerelle couvre la plage pendant qu’on débarque. Plus lente, plus large : il lui faut une vraie plage.'};
+VEHDEF.grande_barge={name:'Grande barge de débarquement',nav:'eau',modele:':grande_barge',avant:'+x',long:7,large:2.6,roues:'chenilles',pivot:14,vmax:11,t0:4.5,frein:3,pont:[3.15,-2.35],
+  blindage:{avant:[4.2,30],flanc:[2.8,0],arriere:[1.8,0],dessus:[0,0]},hp:950,places:{servants:2,passagers:40},soute:140,
+  armes:[{id:'mg1',piece:'affut',w:'mg_lourde_mle1',arc:300,tour:110,coups:1500,repos:0,garde:0,pos:[-2.5,.92,1.55],tube:.5},{id:'mg2',piece:'affut2',w:'mg_lourde_mle1',arc:300,tour:110,coups:1500,repos:0,garde:0,pos:[-2.5,-.92,1.55],tube:.5}],
+  cout:{fer:150,pieces:60,bois:120,cuivre:4,'a:mg_lourde_mle1':2},heures:52,
+  why:'La barge des blindés : un pilote, deux mitrailleurs, quarante Meumeu, et sur le pont des véhicules à la file (deux automitrailleuses à canon, une automitrailleuse à canon et un automoteur, ou trois jeeps). Rampe relevée, la proue et les hauts pavois arrêtent les balles bèè ; les deux mitrailleuses lourdes du roof couvrent la plage pendant qu’on débarque. Plus lente, plus large : il lui faut une vraie plage.'};
 // V12.5 : le ciel (voir air.js) — un avion de transport trimoteur, un planeur d'assaut (silencieux), un planeur lourd. Mesures réelles : vitesses en m/s (qui valent des cases/h),
 // altitudes en m. Réservés aux Meumeu.
 VEHDEF.avion={name:'Avion de transport',air:{power:true,stall:27,vr:36,cruise:52,climb:3.6,descend:4.5,accel:4.2,brake:5,bank:25,cruiseAlt:150,loiter:.09},modele:':avion',avant:'+x',long:4.7,large:7.4,roues:'roues',r:1,vmax:62,t0:1,frein:1,
@@ -78,7 +80,7 @@ VEHDEF.planeur_lourd={name:'Planeur lourd',air:{power:false,silent:true,heavy:tr
 // Le bateau de débarquement bèè (voir naval.js : mêmes règles que la barge) : une coque de planches, une planche en guise de rampe, seize Bèè, pas de véhicule. Les Bèè en construisent des dizaines.
 VEHDEF.bateau_bee={name:'Bateau bèè',faction:'beee',nav:'eau',modele:':bateau_bee',avant:'+x',long:3,large:1.2,roues:'chenilles',pivot:30,vmax:13,t0:3,frein:2,
   blindage:{avant:[.35,0],flanc:[.22,0],arriere:[.2,0],dessus:[0,0]},hp:150,places:{servants:0,passagers:16},soute:16,armes:[],
-  cout:{bois:90,pieces:10,fer:6},heures:14,
+  cout:{bois:120},heures:14,   // (V12.5 : du bois seulement — les chantiers attendaient des pièces puis du fer venus de gares lointaines, à 0 % des jours entiers : aucune flotte avant J30)
   why:'Une coque de planches, une rampe de bois, seize soldats : la coque arrête à peine le fusil. Les Bèè en construisent des dizaines pour leurs grands assauts.'};
 export const VEH_KINDS=Object.keys(VEHDEF);
 const VEDF=v=>VEHDEF[v.k];
@@ -298,7 +300,7 @@ export const VEHICULES={
       // (une arme vide se recharge d'elle-même, sans attendre une cible qui lui convienne)
       if(m.mag<=0&&m.pouch>0&&m.reload<=0&&(gunner[V.armes[i].piece])){const W=this.W(m.w);if(W){const n=Math.min(W.p.mag||1,m.pouch);m.mag=n;m.pouch-=n;m.reload=this.vehClass(W)==='canon'?(loader?3:6):W.p.mag>12?4:2.5;m.burst=0;}}}
     for(const piece of this.vehPieces(V)){const g=gunner[piece];const idx=V.armes.map((a,i)=>a.piece===piece?i:-1).filter(i=>i>=0);const main=v.mounts[idx[0]],A0=V.armes[idx[0]];
-      const W0=this.W(main.w);if(!W0)continue;const cls=this.vehClass(W0);const hasMg=V.armes.some(a=>this.vehClass(this.W(a.w))==='mg');
+      if(!main||!A0)continue;const W0=this.W(main.w);if(!W0)continue;const cls=this.vehClass(W0);   /* (une arme sans poste, sur un engin d'avant elle : elle ne tire pas) */const hasMg=V.armes.some(a=>this.vehClass(this.W(a.w))==='mg');
       const from=this.vehMuzzle(v,A0,main.yaw);const range=cls==='canon'?clamp(Math.max(20,W0.eff*1.8/4),20,40):clamp(Math.max(14,W0.eff*1.6/4),12,34);
       // la cible de la pièce, revue chaque dixième d'heure (ou perdue)
       const keep=main.target&&(main.target.isB?this.building(main.target.id):this.unit(main.target.id));const lost=!keep||(!main.target.isB&&!active(keep))||keep.ruin;
@@ -318,7 +320,7 @@ export const VEHICULES={
       const [tx,ty]=main.target.isB?(()=>{const [w,h]=this.sizeOf(tg);return [tg.i+w/2,tg.j+h/2];})():[tg.x,tg.y];
       // pointer : la pièce tourne à sa vitesse ; une casemate (débattement court) : la caisse pivote vers la cible si l'engin est arrêté
       let want=wrap(Math.atan2(ty-from.by,tx-from.bx)-v.h);const half=A0.arc>=360?Math.PI:A0.arc/2*D2R;
-      if(Math.abs(want)>half){if(v.state!=='go'&&V.roues==='chenilles'){const pr=V.pivot*D2R*this.dts;v.h=wrap(v.h+clamp(want,-pr,pr));want=wrap(Math.atan2(ty-from.by,tx-from.bx)-v.h);}want=clamp(want,-half,half);}
+      if(Math.abs(want)>half){if(v.state!=='go'&&V.roues==='chenilles'&&!V.nav){const pr=V.pivot*D2R*this.dts;v.h=wrap(v.h+clamp(want,-pr,pr));want=wrap(Math.atan2(ty-from.by,tx-from.bx)-v.h);}want=clamp(want,-half,half);}
       const rate=(v.comp?.[piece]?0:A0.tour*D2R)*this.dts;const err=wrap(want-main.yaw);const ny=wrap(main.yaw+clamp(err,-rate,rate));for(const i of idx)v.mounts[i].yaw=ny;
       const R=d2(tx,ty,from.bx,from.by);const el=Math.atan2((W0.at(R*TILE).drop||0),R*TILE)+(main.target.isB?.02:0);for(const i of idx)v.mounts[i].el+=(el-v.mounts[i].el)*Math.min(1,this.dts*2);
       if(Math.abs(wrap(want-ny))>.035||Math.abs(wrap(Math.atan2(ty-from.by,tx-from.bx)-v.h-ny))>.05)continue;
