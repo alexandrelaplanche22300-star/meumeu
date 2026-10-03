@@ -50,10 +50,17 @@ export const VEHDEF={
 };
 // V12.5 : la barge de débarquement (nav:'eau' : elle ne roule pas, elle navigue — voir naval.js). Une coque blindée à l'avant (la rampe relevée) et sur les flancs :
 // le fusil et la mitrailleuse bèè ne la percent pas, l'antichar si. Un pilote, vingt-quatre passagers, un véhicule sur le pont, soixante caisses.
-VEHDEF.barge={name:'Barge de débarquement',nav:'eau',modele:':barge',avant:'+x',long:3.4,large:1.3,roues:'chenilles',pivot:24,vmax:16,t0:3,frein:2,deck:[-.25],
+VEHDEF.barge={name:'Barge de débarquement',nav:'eau',modele:':barge',avant:'+x',long:3.4,large:1.3,roues:'chenilles',pivot:24,vmax:16,t0:3,frein:2,pont:[1.15,-1.1],
   blindage:{avant:[3.2,30],flanc:[2.3,0],arriere:[1.3,0],dessus:[0,0]},hp:420,places:{servants:0,passagers:24},soute:60,armes:[],
   cout:{fer:60,pieces:25,bois:70},heures:26,
-  why:'Une coque blindée qu’on échoue sur la plage : un pilote, vingt-quatre Meumeu, un véhicule, des munitions. La proue relevée arrête les balles de fusil et de mitrailleuse bèè ; baissée, elle laisse courir les soldats vers la plage. Elle repart chercher du monde tant que le pilote vit.'};
+  why:'Une coque blindée qu’on échoue sur la plage : un pilote, vingt-quatre Meumeu, un véhicule léger (jeep, automitrailleuse), des munitions. La proue relevée arrête les balles de fusil et de mitrailleuse bèè ; baissée, elle laisse courir les soldats vers la plage. Elle repart chercher du monde tant que le pilote vit.'};
+// V12.5 : la grande barge (une barge de chars) : un long pont ouvert derrière une rampe de toute la largeur, la passerelle et une mitrailleuse lourde sur affût à l'arrière.
+// Sur le pont, des véhicules à la file tant que leurs longueurs y tiennent (deux automitrailleuses à canon, ou un automoteur et une jeep…), et quarante soldats.
+VEHDEF.grande_barge={name:'Grande barge de débarquement',nav:'eau',modele:':grande_barge',avant:'+x',long:6,large:2,roues:'chenilles',pivot:14,vmax:11,t0:4.5,frein:3,pont:[2.7,-2.15],
+  blindage:{avant:[4.2,30],flanc:[2.8,0],arriere:[1.8,0],dessus:[0,0]},hp:950,places:{servants:1,passagers:40},soute:140,
+  armes:[{id:'mg',piece:'affut',w:'mg_lourde_mle1',arc:360,tour:110,coups:1500,repos:Math.PI,garde:Math.PI,pos:[-2.45,0,1.42],tube:.5}],
+  cout:{fer:150,pieces:60,bois:120,cuivre:4,'a:mg_lourde_mle1':1},heures:52,
+  why:'La barge des blindés : un pilote, un mitrailleur, quarante Meumeu, et sur le pont des véhicules à la file (deux automitrailleuses à canon, ou un automoteur et une jeep). Rampe relevée, la proue et les flancs arrêtent les balles bèè ; la mitrailleuse lourde de la passerelle couvre la plage pendant qu’on débarque. Plus lente, plus large : il lui faut une vraie plage.'};
 // V12.5 : le ciel (voir air.js) — un avion de transport trimoteur, un planeur d'assaut (silencieux), un planeur lourd. Mesures réelles : vitesses en m/s (qui valent des cases/h),
 // altitudes en m. Réservés aux Meumeu.
 VEHDEF.avion={name:'Avion de transport',air:{power:true,stall:27,vr:36,cruise:52,climb:3.6,descend:4.5,accel:4.2,brake:5,bank:25,cruiseAlt:150,loiter:.09},modele:':avion',avant:'+x',long:4.7,large:7.4,roues:'roues',r:1,vmax:62,t0:1,frein:1,
@@ -69,7 +76,7 @@ VEHDEF.planeur_lourd={name:'Planeur lourd',air:{power:false,silent:true,heavy:tr
   cout:{bois:200,fer:60,pieces:60,cuivre:6},heures:60,
   why:'Le mammouth : un pilote, trente-cinq soldats, quarante caisses. Plus lourd à remorquer, plus lent à planer (finesse 10) : il demande une longue piste d’arrivée et un grand champ.'};
 // Le bateau de débarquement bèè (voir naval.js : mêmes règles que la barge) : une coque de planches, une planche en guise de rampe, seize Bèè, pas de véhicule. Les Bèè en construisent des dizaines.
-VEHDEF.bateau_bee={name:'Bateau bèè',faction:'beee',nav:'eau',modele:':bateau_bee',avant:'+x',long:3,large:1.2,roues:'chenilles',pivot:30,vmax:13,t0:3,frein:2,deck:[-.2],
+VEHDEF.bateau_bee={name:'Bateau bèè',faction:'beee',nav:'eau',modele:':bateau_bee',avant:'+x',long:3,large:1.2,roues:'chenilles',pivot:30,vmax:13,t0:3,frein:2,
   blindage:{avant:[.35,0],flanc:[.22,0],arriere:[.2,0],dessus:[0,0]},hp:150,places:{servants:0,passagers:16},soute:16,armes:[],
   cout:{bois:90,pieces:10,fer:6},heures:14,
   why:'Une coque de planches, une rampe de bois, seize soldats : la coque arrête à peine le fusil. Les Bèè en construisent des dizaines pour leurs grands assauts.'};
@@ -254,7 +261,7 @@ export const VEHICULES={
     for(const m of v.mounts||[])crate(m.w,0,Wd=>{if((m.pouch||0)>=Wd.p.mag*2)return false;m.pouch=(m.pouch||0)+(Wd.perCrate||Wd.p.mag);return true;});
     const near=[...(v.crew||[]),...this.s.units.filter(u=>u.f===v.f&&!u.inVeh&&u.hp>0&&Math.hypot(u.x-v.x,u.y-v.y)<2.5)];
     for(const u of near){if(!u.w)continue;crate(u.w,0,Wd=>{const carry=Wd.carry||Wd.p.mag*4;if((u.pouch||0)+(u.mag||0)>=carry*.5)return false;u.pouch=Math.min(carry,(u.pouch||0)+(Wd.perCrate||Wd.p.mag));return true;});}},
-  combatVehicleTick(v,dt){const V=VEHDEF[v.k];if(V.air){this.airTick(v,V,dt);return;}if(V.nav==='eau'){this.vehSouteSupply(v);this.boatTick(v,V,dt);return;}if(v.k==='char'&&v.name?.startsWith('Char léger'))v.name=v.name.replace('Char léger','Automitrailleuse à canon');if(v.hp<=0){v.spd=0;return;}this.vehSouteSupply(v);
+  combatVehicleTick(v,dt){const V=VEHDEF[v.k];if(V.air){this.airTick(v,V,dt);return;}if(V.nav==='eau'){this.vehSouteSupply(v);this.boatTick(v,V,dt);if(V.armes.length&&v.hp>0){this.vehResupply(v,V);if(this.atWar)this.vehFire(v,V,dt);}return;}if(v.k==='char'&&v.name?.startsWith('Char léger'))v.name=v.name.replace('Char léger','Automitrailleuse à canon');if(v.hp<=0){v.spd=0;return;}this.vehSouteSupply(v);
     if(v.fire>0){v.fire-=dt;v.hp-=dt*35;if(v.hp<=0){this.vehDestroyed(v,'brûlé');return;}}
     if(v.comp?.moteur||v.comp?.train){if(v.state==='go'){v.state='idle';v.path=null;v.itin=null;}v.why=v.comp.moteur?'moteur détruit : immobilisé':'train de roulement brisé : immobilisé';}
     const drv=this.vehDriver(v);

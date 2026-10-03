@@ -14,7 +14,7 @@ const d2=(a,b,c,d)=>Math.hypot(a-c,b-d);
 const SPREAD=4.5,LOAD_MAX=24,SAIL_MAX=110,LAND_MAX=14;
 
 export const AMPHI={
-  amphiBoatKinds(f){return f==='meumeu'?['barge']:['bateau_bee'];},
+  amphiBoatKinds(f){return f==='meumeu'?['barge','grande_barge']:['bateau_bee'];},
   // une case de plage près de (x, y) : sable à 3-6 cases de l'eau, praticable ; avec le sens de la mer (n, vers l'eau) et la tangente (t)
   amphiBeach(x,y,r=60){const N=this.N,dc=this.G.dcoast,ter=this.G.terrain;if(!dc)return null;let best=null,bd=1e9;
     for(let dj=-r;dj<=r;dj+=1)for(let di=-r;di<=r;di+=1){const i=Math.floor(x)+di,j=Math.floor(y)+dj;if(i<4||j<4||i>=N-4||j>=N-4)continue;const k=j*N+i,d=dc[k];if(d<3||d>6||!TERRAIN[ter[k]]?.walk||this.occ[k]>=0)continue;const q=Math.hypot(i+.5-x,j+.5-y);if(q<bd){bd=q;best=[i+.5,j+.5];}}
@@ -41,7 +41,7 @@ export const AMPHI={
       else if(op.state==='sail'){for(const b of boats)if(b.state!=='go'&&!b.sentOp&&(b.crew||[]).some(u=>u.vrole==='passager'))this.amphiSail(op,[b],boats.indexOf(b),boats.length);
         if(t-op.tl>12)for(const id of op.units){const u=this.unit(id);if(u&&u.task?.kind==='board'){u.task=null;u.amphi=null;}}
         const done=boats.every(b=>b.state!=='go');if(done||t-op.tl>SAIL_MAX){op.state='land';op.tl=t;for(const b of boats){b.state='idle';this.boatRamp(b,true);}}}
-      else if(op.state==='land'){let left=0;for(const b of boats){if((b.ramp||0)<.9){this.boatRamp(b,true);left++;continue;}const pax=(b.crew||[]).filter(u=>u.vrole==='passager'&&u.hp>0);if(!pax.length&&b.cargoVeh==null)continue;const r=this.boatUnload(b,'passagers');if(r.ok){op.landed+=r.out.length;this.amphiOnLanded(op,r.out,b);}}
+      else if(op.state==='land'){let left=0;for(const b of boats){if((b.ramp||0)<.9){this.boatRamp(b,true);left++;continue;}const pax=(b.crew||[]).filter(u=>u.vrole==='passager'&&u.hp>0);if(!pax.length&&!b.cargoVehs?.length)continue;const r=this.boatUnload(b,'passagers');if(r.ok){op.landed+=r.out.length;this.amphiOnLanded(op,r.out,b);}}
         const aboard=boats.reduce((n,b)=>n+(b.crew||[]).filter(u=>u.vrole==='passager').length,0);if(aboard===0||t-op.tl>LAND_MAX){
           if(op.ferry&&op.wave<op.maxWave){op.state='ferry';op.tl=t;for(const b of boats){b.rampTo=0;const o=op.origin[b.id];if(o)this.boatMove(b,o[0],o[1]);}}else this.amphiEnd(op,'débarqué');}}
       else if(op.state==='ferry'){const back=boats.every(b=>b.state!=='go'||b.spd<.1);if(back||t-op.tl>SAIL_MAX){op.wave++;op.state='load';op.tl=t;const more=op.next?this.amphiNext(op):null;if(!more)this.amphiEnd(op,'plus de troupes');}}}},

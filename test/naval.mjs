@@ -9,6 +9,11 @@
 //  8. coulée au large : les passagers se noient ; coulée contre la rive : ils gagnent la rive ;
 //  9. un véhicule (une jeep) monte à bord, traverse et descend sur la plage d'en face ;
 // 10. une sauvegarde reprend une barge en mer, son équipage et sa route.
+// 12. la grande barge se construit sur la plage et part à l'eau, avec ses 950 points de vie ;
+// 13. elle prend un pilote, un mitrailleur et quarante soldats — pas un de plus ;
+// 14. l'automitrailleuse à canon est refusée par la barge (trop large) et acceptée par la grande ; deux sur le pont, une jeep de plus refusée (plus de place) ;
+// 15. la traversée : les deux véhicules et les quarante soldats débarquent sur la plage d'en face, les véhicules l'un devant l'autre, sur la terre ;
+// 16. la mitrailleuse lourde de la passerelle (son mitrailleur, des caisses dans la soute) tire sur des Bèè qui approchent de la barge échouée.
 const out={textContent:''};globalThis.document??={getElementById:()=>out};
 const {World}=await import('../js/world.js');const {T,TERRAIN}=await import('../js/data.js');const {VEHDEF}=await import('../js/vehicules.js');
 let ok=true;const check=(n,c,d='')=>{console.log((c?'OK  ':'ÉCHEC ')+n+(d?' — '+d:''));if(!c)ok=false;};
@@ -68,11 +73,11 @@ const dHome=Math.hypot(barge.x-home[0],barge.y-home[1]);check('6. elle revient �
   barge.hp=1;W.vehDestroyed(barge,'test');check('8. coulée au large : tout le monde se noie',barge.drowned===n0&&n0>=2,`${barge.drowned}/${n0} noyés`);}
 // 9 : le véhicule sur le pont
 {const b2=newBarge();check('9. une seconde barge à l\'eau',!!b2);if(b2){b2.ramp=1;b2.rampTo=1;const jeep=W.addCombatVehicle('meumeu','jeep',b2.x-2.4,b2.y,0);const [jx,jy]=W.nearestLand(jeep.x,jeep.y,5);jeep.x=jx;jeep.y=jy;
-    const pilot=W.addUnit('meumeu','villageois',jx,jy,{});W.vehBoard(b2,pilot);const e=W.boatEmbark(b2,jeep);check('9. la jeep monte à bord',e.ok&&b2.cargoVeh===jeep.id,JSON.stringify(e.why||e.text));
+    const pilot=W.addUnit('meumeu','villageois',jx,jy,{});W.vehBoard(b2,pilot);const e=W.boatEmbark(b2,jeep);check('9. la jeep monte à bord',e.ok&&b2.cargoVehs?.includes(jeep.id),JSON.stringify(e.why||e.text));
     b2.rampTo=0;hours(W,2);W.vehMove(b2,east[0]+.5,east[1]+.5);hours(W,60,()=>b2.state==='idle'&&b2.spd<.1);
     const dj=Math.hypot(jeep.x-b2.x,jeep.y-b2.y);check('9. la jeep voyage sur le pont',dj<1.5&&jeep.onDeck,`à ${dj.toFixed(2)} case de la barge`);
     b2.rampTo=1;hours(W,3,()=>b2.ramp>=.95);const u2=W.boatUnload(b2,'passagers');const onL=TERRAIN[ter[Math.floor(jeep.y)*N+Math.floor(jeep.x)]]?.walk;
-    check('9. la jeep descend sur la terre',u2.ok&&!jeep.aboard&&onL&&b2.cargoVeh==null,`${u2.text||JSON.stringify(u2.why)} · jeep en (${jeep.x.toFixed(1)}, ${jeep.y.toFixed(1)})`);
+    check('9. la jeep descend sur la terre',u2.ok&&!jeep.aboard&&onL&&!b2.cargoVehs?.length,`${u2.text||JSON.stringify(u2.why)} · jeep en (${jeep.x.toFixed(1)}, ${jeep.y.toFixed(1)})`);
     // 10 : la sauvegarde d'une barge en mer
     W.boatRamp(b2,false);hours(W,2);const m2=[750,east[1]];W.vehMove(b2,m2[0],m2[1]);hours(W,6);const data=W.serialize();const W2=new World(1).restore(data);const c2=W2.s.vehicles.find(v=>v.id===b2.id);
     check('10. sauvegarde : la barge en mer, son pilote et sa route sont repris',!!c2&&c2.crew.length===b2.crew.length&&c2.state==='go'&&c2.bpath?.length>0&&W2.isWaterAt(c2.x,c2.y),c2?`${c2.crew.length} à bord, état ${c2.state}`:'absente');}}
@@ -80,5 +85,30 @@ const dHome=Math.hypot(barge.x-home[0],barge.y-home[1]);check('6. elle revient �
 {const b3=newBarge();const [jx,jy]=W.nearestLand(b3.x-12,b3.y+3,6);const jeep=W.addCombatVehicle('meumeu','jeep',jx,jy,0);const pil=W.addUnit('meumeu','villageois',b3.x-2,b3.y,{});[pil.x,pil.y]=W.nearestLand(pil.x,pil.y,6);W.vehBoard(b3,pil);
   const dr=W.addUnit('meumeu','villageois',jx,jy,{});W.vehBoard(jeep,dr);   // la jeep a un conducteur
   const r=W.vehEmbarkOrder(jeep,b3);check('11. l\'ordre de se charger est accepté',r.ok,JSON.stringify(r.why||r.text));hours(W,12,()=>jeep.aboard===b3.id);
-  check('11. la jeep roule jusqu\'à la barge et monte à bord',jeep.aboard===b3.id&&b3.cargoVeh===jeep.id&&b3.ramp>=.9,`à bord : ${jeep.aboard===b3.id}, rampe ${b3.ramp?.toFixed(2)}`);}
+  check('11. la jeep roule jusqu\'à la barge et monte à bord',jeep.aboard===b3.id&&b3.cargoVehs?.includes(jeep.id)&&b3.ramp>=.9,`à bord : ${jeep.aboard===b3.id}, rampe ${b3.ramp?.toFixed(2)}`);}
+// 12 à 16 : la grande barge
+{const site=(()=>{for(let dj=-24;dj<=24;dj+=2)for(let di=-10;di<=4;di++){const r=W.canPlace('meumeu','grande_barge',west[0]+di-3,west[1]+dj-1);if(r.ok)return W.place('meumeu','grande_barge',west[0]+di-3,west[1]+dj-1).b;}return null;})();
+  check('12. le chantier de la grande barge se pose sur la plage',!!site);const g=site&&W.launchBoat(site);
+  check('12. la grande barge est à l\'eau, 950 points de vie',!!g&&g.k==='grande_barge'&&W.isWaterAt(g.x,g.y)&&g.hp===950,g?`(${g.x.toFixed(1)}, ${g.y.toFixed(1)}) hp ${g.hp}`:'pas lancée');
+  if(g){g.ramp=1;g.rampTo=1;const [lx,ly]=W.nearestLand(g.x-4,g.y,6);const men=[];for(let n=0;n<43;n++)men.push(W.addUnit('meumeu',n?'soldat':'villageois',lx,ly,{rounds:30}));
+    const roles=men.map(u=>W.vehBoard(g,u));const R=r=>g.crew.filter(u=>u.vrole===r).length;
+    check('13. un pilote, un mitrailleur, quarante soldats ; le 43e refusé',R('conducteur')===1&&R('servant')===1&&R('passager')===40&&roles[42]===null,`${R('conducteur')} pilote, ${R('servant')} mitrailleur, ${R('passager')} passagers, 43e : ${roles[42]}`);
+    // les véhicules : une automitrailleuse à canon refusée par la petite barge, acceptée deux fois par la grande ; une jeep de trop
+    const at=(dx)=>{const [x,y]=W.nearestLand(g.x-Math.cos(g.h)*(4+dx),g.y-Math.sin(g.h)*(4+dx),6);return [x,y];};
+    const small=W.s.vehicles.find(v=>v.k==='barge'&&v.hp>0&&!v.sunk);const c0=W.addCombatVehicle('meumeu','char',...at(0),g.h);let rs={ok:false,why:['pas de petite barge']};if(small){small.ramp=1;[c0.x,c0.y]=W.nearestLand(small.x-Math.cos(small.h)*3,small.y-Math.sin(small.h)*3,6);rs=W.boatEmbark(small,c0);}
+    check('14. la barge refuse l\'automitrailleuse à canon',!rs.ok&&/large|long/.test(rs.why[0]),JSON.stringify(rs.why||rs.text));
+    [c0.x,c0.y]=at(0);const e1=W.boatEmbark(g,c0);const c1=W.addCombatVehicle('meumeu','char',...at(1),g.h);const e2=W.boatEmbark(g,c1);const j=W.addCombatVehicle('meumeu','jeep',...at(2),g.h);const e3=W.boatEmbark(g,j);
+    check('14. deux automitrailleuses à canon sur le pont de la grande barge',e1.ok&&e2.ok&&g.cargoVehs.length===2,`${e1.text||e1.why} · ${e2.text||e2.why}`);
+    check('14. une jeep de plus : plus de place',!e3.ok&&/place/.test(e3.why[0]),JSON.stringify(e3.why||e3.text));
+    // 15 : la traversée et le débarquement
+    g.rampTo=0;hours(W,3,()=>g.ramp<=.05);let wet=true;W.vehMove(g,east[0]+.5,east[1]+.5);hours(W,90,()=>{if(!W.isWaterAt(g.x,g.y))wet=false;return g.state==='idle'&&g.spd<.1;});
+    const dE=Math.hypot(g.x-east[0],g.y-east[1]);const onDeck=[c0,c1].every(c=>c.onDeck&&Math.hypot(c.x-g.x,c.y-g.y)<3);
+    check('15. la grande barge traverse (toujours sur l\'eau) et s\'échoue en face, les véhicules sur le pont',dE<6&&wet&&onDeck,`à ${dE.toFixed(1)} cases, véhicules sur le pont : ${onDeck}`);
+    g.rampTo=1;hours(W,3,()=>g.ramp>=.95);const u=W.boatUnload(g,'passagers');const land=c=>TERRAIN[ter[Math.floor(c.y)*N+Math.floor(c.x)]]?.walk;const apart=Math.hypot(c0.x-c1.x,c0.y-c1.y);
+    check('15. quarante soldats et deux véhicules débarquent, les véhicules sur la terre, l\'un devant l\'autre',u.ok&&u.out.length===40&&u.vehs.length===2&&land(c0)&&land(c1)&&apart>=1.5&&!g.cargoVehs.length,`${u.text||JSON.stringify(u.why)} · écart ${apart.toFixed(1)} cases`);
+    // 16 : la mitrailleuse de la passerelle, sur des Bèè qui viennent vers la barge
+    if(!W.atWar)W.declareWar('meumeu');W.s.fog=false;g.cargo['m:mg_lourde_mle1']=6;for(const v of u.out){v.task=null;}
+    const tx=g.x-Math.cos(g.h)*12,ty=g.y-Math.sin(g.h)*12;const B=[];for(let n=0;n<6;n++){const [x,y]=W.freeSpot(g.x+Math.cos(g.h)*14+(n-2.5)*1.2,g.y+Math.sin(g.h)*14,4);const b=W.addUnit('beee','soldat',x,y,{w:'bee_fusil'});b.task={kind:'move',tx:g.x,ty:g.y};B.push(b);}
+    const m=g.mounts[0];let fired=0;const sh0=W.s.shots.length;hours(W,3,()=>{if(m.mag>0||W.s.shots.some(q=>q.by===g.id))fired=1;return W.s.shots.filter(q=>q.by===g.id).length>4;});const shots=W.s.shots.filter(q=>q.by===g.id).length;const hurt=B.filter(b=>b.hp<=0||b.h?.state&&b.h.state!=='ok').length;
+    check('16. la mitrailleuse lourde de la grande barge tire sur les Bèè',(g.firedAt??-1)>0&&hurt>=1,`premier tir ${g.firedAt?.toFixed?.(2)} h, ${hurt}/6 Bèè touchés, coups en vol ${shots}, munitions ${m.mag}+${m.pouch}`);}}
 console.log(ok?'\nTOUT PASSE':'\nIL Y A DES ÉCHECS');

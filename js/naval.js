@@ -3,7 +3,8 @@
 // donne SA conduite : un chemin sur l'eau (jamais sur la terre), un pilote qui braque et accélère, l'échouage sur une plage, la rampe, le débarquement par l'avant,
 // le désengagement et le retour, le chargement d'un véhicule à bord. Les méthodes sont posées sur World.
 //  · v.state : 'go' (en route), 'idle' ; v.beached : échouée (elle touche la terre), v.ramp : 0 relevée → 1 abaissée (v.rampTo la consigne) ;
-//  · v.cargoVeh : l'id du véhicule à bord (il suit la barge, posé sur le pont) ; v.aboard : sur un véhicule de ce type, l'id de sa barge.
+//  · v.cargoVehs : les véhicules à bord, de la proue vers l'arrière (ils suivent la barge, posés sur le pont à la file) ; v.aboard : sur un véhicule, l'id de sa barge.
+//    Le pont (VEHDEF pont : [avant, arrière] en cases depuis le centre) les prend tant que leurs longueurs y tiennent, et que leur largeur passe la rampe.
 import {TERRAIN,T,HOUR_REAL,BUILDINGS} from './data.js';
 import {VEHDEF} from './vehicules.js';
 
@@ -54,7 +55,10 @@ export const NAVAL={
     // un véhicule qui s'est mis en route pour se charger : arrivé, et la rampe baissée, il monte
     for(const c of this.s.vehicles){if(c.embarkTo!==v.id)continue;if(c.hp<=0||c.aboard){c.embarkTo=null;continue;}if((v.ramp||0)>=.9&&d2(c.x,c.y,v.x,v.y)<V.long/2+VEHDEF[c.k].long/2+2.5&&c.spd<.5){const r=this.boatEmbark(v,c);c.embarkTo=null;if(!r.ok&&c.f==='meumeu')this.log('Front',`${c.name} ne peut pas monter : ${r.why[0]}.`,'bad');}}
     // le véhicule à bord suit la barge, posé sur le pont
-    if(v.cargoVeh!=null){const c=this.s.vehicles.find(o=>o.id===v.cargoVeh);if(!c||c.hp<=0||c.aboard!==v.id)v.cargoVeh=null;else{const off=V.deck?.[0]??-.2;c.x=v.x+Math.cos(v.h)*off;c.y=v.y+Math.sin(v.h)*off;c.h=v.h;c.spd=0;c.state='idle';c.path=null;c.itin=null;c.alt=0;c.onDeck=true;}}
+    // (v.deckUsed : la longueur de pont prise par les véhicules — les soldats se serrent derrière eux)
+    if(v.cargoVehs?.length){v.cargoVehs=v.cargoVehs.filter(id=>{const c=this.s.vehicles.find(o=>o.id===id);return c&&c.hp>0&&c.aboard===v.id;});let at=V.pont?.[0]??0;
+      for(const id of v.cargoVehs){const c=this.s.vehicles.find(o=>o.id===id),L=VEHDEF[c.k].long;const off=at-L/2;at-=L+.05;c.x=v.x+Math.cos(v.h)*off;c.y=v.y+Math.sin(v.h)*off;c.h=v.h;c.spd=0;c.state='idle';c.path=null;c.itin=null;c.alt=0;c.onDeck=true;}
+      v.deckUsed=(V.pont?.[0]??0)-at;}else v.deckUsed=0;
     // une barge abandonnée (plus de pilote vivant) dérive de moins en moins : elle s'arrête ; coulée en mer : tout le monde à l'eau (voir vehDestroyed)
   },
   // avance d'un pas dans le cap h si la case suivante est de l'eau (sinon : échouage, on s'arrête)
@@ -99,25 +103,30 @@ export const NAVAL={
       const [x,y]=this.nearestLand(bx,by,3);v.crew.splice(v.crew.indexOf(u),1);Object.assign(u,{x,y,inVeh:null,vrole:null,task:null,path:null,goal:null,fx:dir[0],fy:dir[1]});this.s.units.push(u);this.uIndex.set(u.id,u);out.push(u);
       // ils courent : trois cases plus loin, droit devant (hors de la rampe, sous le feu)
       const [rx,ry]=this.nearestLand(x+dir[0]*(3+row*.5),y+dir[1]*(3+row*.5),4);u.task={kind:'move',tx:rx,ty:ry};}
-    let veh=null;if(v.cargoVeh!=null){const c=this.s.vehicles.find(o=>o.id===v.cargoVeh);if(c&&c.hp>0){const [x,y]=this.nearestLand(...this.boatBow(v,V,1.6),4);c.x=x;c.y=y;c.h=v.h;c.aboard=null;c.onDeck=false;c.spd=0;c.state='idle';v.cargoVeh=null;veh=c;}}
-    if(!out.length&&!veh)return {ok:false,why:['personne à débarquer']};
-    return {ok:true,text:`${out.length} débarquent${veh?` avec ${veh.name}`:''}`,out,veh};},
+    const vehs=[];let ahead=1.6;for(const id of v.cargoVehs||[]){const c=this.s.vehicles.find(o=>o.id===id);if(!c||c.hp<=0)continue;const L=VEHDEF[c.k].long;const [x,y]=this.nearestLand(...this.boatBow(v,V,ahead+L/2),5);ahead+=L+.8;
+      c.x=x;c.y=y;c.h=v.h;c.aboard=null;c.onDeck=false;c.spd=0;c.state='idle';vehs.push(c);}v.cargoVehs=[];
+    if(!out.length&&!vehs.length)return {ok:false,why:['personne à débarquer']};
+    return {ok:true,text:`${out.length} débarquent${vehs.length?` avec ${vehs.map(c=>c.name).join(', ')}`:''}`,out,veh:vehs[0]||null,vehs};},
   // la case marchable la plus proche (le débarquement ne tombe pas à l'eau)
   nearestLand(x,y,r=3){const N=this.N;let best=[x,y],bd=1e9;for(let dj=-r;dj<=r;dj++)for(let di=-r;di<=r;di++){const i=Math.floor(x)+di,j=Math.floor(y)+dj;if(i<1||j<1||i>=N-1||j>=N-1)continue;const k=j*N+i;
       if(!TERRAIN[this.G.terrain[k]]?.walk||this.occ[k]>=0||this.wall[k])continue;const d=Math.hypot(i+.5-x,j+.5-y);if(d<bd){bd=d;best=[i+.5,j+.5];}}
     return best;},
-  // un véhicule monte à bord (il doit être tout près, la barge échouée ou à quai, la rampe baissée) : un seul, il suit la barge
-  boatEmbark(v,c){const V=VEHDEF[v.k],CV=VEHDEF[c.k];if(!V||V.nav!=='eau'||!CV||CV.nav==='eau')return {ok:false,why:['impossible']};if(v.cargoVeh!=null)return {ok:false,why:['un véhicule est déjà à bord']};
-    if((v.ramp||0)<.9)return {ok:false,why:['la rampe n’est pas baissée']};if(d2(c.x,c.y,v.x,v.y)>V.long/2+CV.long/2+2.5)return {ok:false,why:['le véhicule est trop loin de la rampe']};if(CV.long>V.long*.85||CV.large>V.large*.9)return {ok:false,why:['trop grand pour la barge']};
-    c.aboard=v.id;v.cargoVeh=c.id;c.path=null;c.itin=null;c.state='idle';return {ok:true,text:`${c.name} monte à bord de ${v.name}`};},
+  // la longueur de pont encore libre (les véhicules à bord, à la file)
+  boatDeckFree(v){const V=VEHDEF[v.k];if(!V?.pont)return 0;let used=0;for(const id of v.cargoVehs||[]){const c=this.s.vehicles.find(o=>o.id===id);if(c&&c.hp>0)used+=VEHDEF[c.k].long+.05;}return V.pont[0]-V.pont[1]-used;},
+  // un véhicule monte à bord (il doit être tout près, la barge échouée ou à quai, la rampe baissée) : il prend la place libre au bout de la file et suit la barge
+  boatEmbark(v,c){const V=VEHDEF[v.k],CV=VEHDEF[c.k];if(!V||V.nav!=='eau'||!CV||CV.nav==='eau')return {ok:false,why:['impossible']};if(!V.pont)return {ok:false,why:['ce bateau ne prend pas de véhicule']};if((v.cargoVehs||[]).includes(c.id))return {ok:true,text:`${c.name} est déjà à bord`};
+    if((v.ramp||0)<.9)return {ok:false,why:['la rampe n’est pas baissée']};if(d2(c.x,c.y,v.x,v.y)>V.long/2+CV.long/2+2.5)return {ok:false,why:['le véhicule est trop loin de la rampe']};
+    if(CV.large>V.large*.9)return {ok:false,why:[`trop large pour ${V.name.toLowerCase()} (une grande barge le prend)`]};if(CV.long>this.boatDeckFree(v)+1e-6)return {ok:false,why:[(v.cargoVehs||[]).length?'plus de place sur le pont':`trop long pour ${V.name.toLowerCase()} (une grande barge le prend)`]};
+    c.aboard=v.id;(v.cargoVehs??=[]).push(c.id);c.path=null;c.itin=null;c.state='idle';return {ok:true,text:`${c.name} monte à bord de ${v.name}`};},
   // l'ordre d'un véhicule d'aller se charger sur une barge : il roule jusqu'à elle (la plage la plus proche), puis monte quand la rampe est baissée
-  vehEmbarkOrder(c,b){const V=VEHDEF[b.k];if(!V||V.nav!=='eau'||b.hp<=0)return {ok:false,why:['pas une barge']};if(b.cargoVeh!=null&&b.cargoVeh!==c.id)return {ok:false,why:['un véhicule est déjà à bord']};
+  vehEmbarkOrder(c,b){const V=VEHDEF[b.k],CV=VEHDEF[c.k];if(!V||V.nav!=='eau'||b.hp<=0)return {ok:false,why:['pas une barge']};if(!V.pont)return {ok:false,why:['ce bateau ne prend pas de véhicule']};
+    if(CV&&CV.large>V.large*.9)return {ok:false,why:[`trop large pour ${V.name.toLowerCase()} (une grande barge le prend)`]};if(CV&&!(b.cargoVehs||[]).includes(c.id)&&CV.long>this.boatDeckFree(b)+1e-6)return {ok:false,why:[(b.cargoVehs||[]).length?'plus de place sur le pont':`trop long pour ${V.name.toLowerCase()} (une grande barge le prend)`]};
     c.embarkTo=b.id;b.rampTo=1;const [x,y]=this.nearestLand(...this.boatBow(b,V,.2),6);const ok=this.vehMove(c,x,y);return ok?{ok:true,text:`${c.name} va se charger sur ${b.name} (rampe baissée)`}:{ok:false,why:[c.why||'pas de chemin jusqu’à la barge']};},
   // une barge coulée ou détruite : à l'eau, tout le monde se noie, sauf près de la terre (à deux cases d'une case marchable) où l'on gagne la rive
   boatSunk(v,cause){const V=VEHDEF[v.k];const near=this.nearestLand(v.x,v.y,2);const ashore=d2(near[0],near[1],v.x,v.y)<2.2&&TERRAIN[this.G.terrain[Math.floor(near[1])*this.N+Math.floor(near[0])]]?.walk;let lost=0,saved=0;
     for(const u of [...(v.crew||[])]){if(ashore){const [x,y]=this.nearestLand(v.x+(this.rand()-.5)*2,v.y+(this.rand()-.5)*2,3);v.crew.splice(v.crew.indexOf(u),1);Object.assign(u,{x,y,inVeh:null,vrole:null,task:null,path:null,goal:null});this.s.units.push(u);this.uIndex.set(u.id,u);saved++;}
       else{u.hp=0;u.h&&(u.h.state='mort');lost++;}}
-    v.crew=ashore?[]:[];if(v.cargoVeh!=null){const c=this.s.vehicles.find(o=>o.id===v.cargoVeh);if(c){c.aboard=null;c.onDeck=false;if(!ashore){c.hp=0;c.dead=true;}else{const [x,y]=this.nearestLand(v.x,v.y,3);c.x=x;c.y=y;}}v.cargoVeh=null;}
+    v.crew=[];for(const id of v.cargoVehs||[]){const c=this.s.vehicles.find(o=>o.id===id);if(c){c.aboard=null;c.onDeck=false;if(!ashore){c.hp=0;c.dead=true;}else{const [x,y]=this.nearestLand(v.x,v.y,3);c.x=x;c.y=y;}}}v.cargoVehs=[];
     v.drowned=lost;v.sunk=true;if(lost||saved)this.log('Front',`${v.name} est ${cause?'détruite ('+cause+')':'perdue'} : ${lost} noyé${lost>1?'s':''}${saved?`, ${saved} regagnent la rive`:''}.`,v.f==='meumeu'?'bad':'good');},
   // le chantier de plage fini : le bâtiment disparaît, le bateau est à l'eau devant lui, la proue vers le large
   launchBoat(b){const k=BUILDINGS[b.k].launch;const v=this.vehLaunch(b,k);this.remove(b);if(v){if(b.ally)v.ally=true;v.name=v.name||VEHDEF[k].name;this.log(this.nearCity?.(v)||'Front',`${VEHDEF[k].name} « ${v.name} » à l’eau.`,b.f==='meumeu'?'good':'info');this.emit({type:'trained',x:v.x,y:v.y,k,f:b.f});}return v;},
