@@ -38,9 +38,12 @@ export const AMPHI={
       if(!boats.length){this.amphiEnd(op,'plus de barge');continue;}
       if(op.state==='load'){const aboard=boats.reduce((n,b)=>n+(b.crew||[]).length,0),waiting=op.units.map(id=>this.unit(id)).filter(u=>u&&u.hp>0&&u.task?.kind==='board').length;
         if((waiting===0&&aboard>0)||t-op.tl>LOAD_MAX){this.amphiSail(op,boats);}}
-      else if(op.state==='sail'){for(const b of boats)if(b.state!=='go'&&!b.sentOp&&(b.crew||[]).some(u=>u.vrole==='passager'))this.amphiSail(op,[b],boats.indexOf(b),boats.length);
+      /* (V12.5) les retardataires ne partent que dans les trois heures (sinon une barge seule traversait trente heures plus tard, et la vague l'attendait) ;
+         la traversée est finie quand les barges parties sont arrivées — une barge vide, ou sans pilote, ne fait pas attendre les autres
+         (mesuré : une barge sans pilote restée au port tenait l'opération en « traversée » 110 h) */
+      else if(op.state==='sail'){if(t-op.tl<3)for(const b of boats)if(b.state!=='go'&&!b.sentOp&&(b.crew||[]).some(u=>u.vrole==='passager'))this.amphiSail(op,[b],boats.indexOf(b),boats.length);
         if(t-op.tl>12)for(const id of op.units){const u=this.unit(id);if(u&&u.task?.kind==='board'){u.task=null;u.amphi=null;}}
-        const done=boats.every(b=>b.state!=='go');if(done||t-op.tl>SAIL_MAX){op.state='land';op.tl=t;for(const b of boats){b.state='idle';this.boatRamp(b,true);}}}
+        const done=boats.every(b=>b.state!=='go'||b.sentOp!==op.id||!this.vehDriver(b));if(done||t-op.tl>SAIL_MAX){op.state='land';op.tl=t;for(const b of boats){b.state='idle';this.boatRamp(b,true);}}}
       else if(op.state==='land'){let left=0;for(const b of boats){if((b.ramp||0)<.9){this.boatRamp(b,true);left++;continue;}const pax=(b.crew||[]).filter(u=>u.vrole==='passager'&&u.hp>0);if(!pax.length&&!b.cargoVehs?.length)continue;const r=this.boatUnload(b,'passagers');if(r.ok){op.landed+=r.out.length;this.amphiOnLanded(op,r.out,b);}}
         const aboard=boats.reduce((n,b)=>n+(b.crew||[]).filter(u=>u.vrole==='passager').length,0);if(aboard===0||t-op.tl>LAND_MAX){
           if(op.ferry&&op.wave<op.maxWave&&this.amphiHolds(op)){op.state='ferry';op.tl=t;for(const b of boats){b.rampTo=0;const o=op.origin[b.id];if(o)this.boatMove(b,o[0],o[1]);}}else this.amphiEnd(op,'débarqué');}}

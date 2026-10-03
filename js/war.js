@@ -244,8 +244,11 @@ export const WAR={
   // plus proche qui en a de trop ; au calme, chaque garde tient un point clé ; à l'alerte (des Meumeu vus tout près, une menace
   // forte, un bombardement), les gardes descendent dans les tranchées de la ville et s'y couchent.
   beeeGarrison(cities){const t=this.s.t;
-    for(const u of this.s.units){if(u.f!=='beee'||u.k!=='soldat'||!active(u)||u.band||u.task&&u.task.kind!=='guard')continue;if(u.city!=null&&cities.some(c=>c.id===u.city))continue;
-      const c=cities.slice().sort((a,z)=>d2(a.x,a.y,u.x,u.y)-d2(z.x,z.y,u.x,u.y))[0];if(!c)return;u.city=c.id;u.home=c.centre;u.keyB=null;u.task={kind:'guard',tx:c.x+2,ty:c.y+3};u.path=null;}
+    /* (V12.5) ni ceux d'une tête de pont, d'un assaut ou du port, et seulement une ville de la même terre — mesuré : chaque heure, les hommes des têtes de pont
+       étaient rendus à une ville de l'autre côté de la mer, et les soldats appelés au port renvoyés chez eux (8 à 28 sur 100 y arrivaient) */
+    const L=this.landComp(),N=this.N,lk=(x,y)=>L[Math.floor(y)*N+Math.floor(x)];
+    for(const u of this.s.units){if(u.f!=='beee'||u.k!=='soldat'||!active(u)||u.band||u.head||u.stage||u.amphi!=null||u.task&&u.task.kind!=='guard')continue;if(u.city!=null&&cities.some(c=>c.id===u.city))continue;
+      const k=lk(u.x,u.y),c=cities.filter(c=>lk(c.x,c.y)===k).sort((a,z)=>d2(a.x,a.y,u.x,u.y)-d2(z.x,z.y,u.x,u.y))[0];if(!c)continue;u.city=c.id;u.home=c.centre;u.keyB=null;u.task={kind:'guard',tx:c.x+2,ty:c.y+3};u.path=null;}
     // pas assez de soldats pour toutes les garnisons : chacune au prorata (deux au moins), pour qu'aucune ville ne reste vide
     const need=new Map(cities.map(c=>[c,this.beeeGarrisonMin(c)])),have=new Map(cities.map(c=>[c,this.beeeTroops(c).length]));
     {const sN=[...need.values()].reduce((a,n)=>a+n,0),sH=[...have.values()].reduce((a,n)=>a+n,0);if(sH<sN)for(const c of cities)need.set(c,Math.max(2,Math.floor(need.get(c)*sH/sN)));}

@@ -488,7 +488,8 @@ export const BEEE_AI={
     for(const u of ready.slice(0,8)){const H=this.have('beee',barracks.i+1,barracks.j+1);const w=this.beeeNextArm(H,mix);if(!w)break;
       const armor=ASSAULT.has(w)&&(H['p:bee_plaque']||0)>=1?'bee_plaque':(H['p:bee_casque']||0)>=1?'bee_casque':null;const r=this.releaseRecruits(barracks,1,'soldat',w,armor,[u.id]);if(!r.ok)break;outN++;mix[w]=(mix[w]||0)+1;}
     {const out={ok:outN>0};
-      if(out.ok)for(const u of this.s.units.filter(u=>u.f==='beee'&&u.k==='soldat'&&u.city==null&&!u.band)){u.city=c.id;u.home=c.centre;u.task={kind:'guard',tx:c.x+3+(this.rand()-.5)*7,ty:c.y+3+(this.rand()-.5)*7};}}},
+      if(out.ok)for(const u of this.s.units.filter(u=>u.f==='beee'&&u.k==='soldat'&&u.city==null&&!u.band&&!u.head&&!u.stage&&u.amphi==null)){   /* (V12.5 : pas ceux d'une tête de pont, d'un assaut ou du port) */
+        u.city=c.id;u.home=c.centre;u.task={kind:'guard',tx:c.x+3+(this.rand()-.5)*7,ty:c.y+3+(this.rand()-.5)*7};}}},
   beeeExpand(c){const base=this.building(c.centre);if(!base)return;
     // la ressource qui manque d'abord (le fer sans lequel ni pièces ni fusils), puis la plus proche ; un filon raté est mis de côté deux jours
     const st=this.have('beee',base.i+1,base.j+1);const need={fer:(st.fer||0)<40?3:1,charbon:(st.charbon||0)<30?2:1,salpetre:(st.poudre||0)<20&&(st.salpetre||0)<20?5:(st.salpetre||0)<20?2:1,plomb:(st.plomb||0)<20?2:1,cuivre:(st.cuivre||0)<20?1.5:1};

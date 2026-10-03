@@ -6,7 +6,7 @@ for(const dir of process.argv.slice(2)){let bil=null;try{bil=JSON.parse(fs.readF
   const st=fs.existsSync(path.join(dir,'etats.jsonl'))?fs.readFileSync(path.join(dir,'etats.jsonl'),'utf8').trim().split('\n').filter(Boolean).map(l=>JSON.parse(l)):[];
   if(!st.length){console.log(`\n## ${dir} : pas encore de données`);continue;}
   const last=st[st.length-1],seed=bil?.graine??path.basename(dir);
-  console.log(`\n## Graine ${seed} — ${f1(last.jour)} jours ${bil?'(terminée)':'(en cours)'}`);
+  console.log(`\n## Graine ${seed} — ${f1(last.jour)} jours ${bil&&bil.termine!==false?'(terminée)':'(en cours)'}`);
   // les courbes : tous les 5 jours
   console.log('jour | Meumeu (soldats) villes bât. barges | Bèè (soldats) villes bât. ouvrages bateaux | Bèè sur notre rive | alliés en face | morts M/B | détruits M/B');
   for(const s of st.filter((s,i)=>Math.abs(s.jour/5-Math.round(s.jour/5))<.06||i===st.length-1))
@@ -17,6 +17,15 @@ for(const dir of process.argv.slice(2)){let bil=null;try{bil=JSON.parse(fs.readF
   console.log(`\nOpérations bèè (${ob.length}) :`);for(const o of ob)console.log('  - '+desc(o));
   console.log(`Opérations alliées (${oa.length}) :`);for(const o of oa)console.log('  - '+desc(o));
   const hs=bil?.tetesBee||[];console.log(`Têtes de pont bèè (${hs.length}) :`);for(const h of hs)console.log(`  - (${h.lieu}) J${f1(h.debut)}→${h.fin?'J'+f1(h.fin):'tient encore'} · ${h.max} hommes au plus · ${h.avance} cases gagnées${h.camp?' · camp bâti':''}`);
+  // les bandes bèè : par genre, combien, quelle taille, quelle issue
+  const bands=bil?.bandes||[];if(bands.length){console.log(`Bandes bèè (${bands.length}) :`);const G={};for(const b of bands)(G[b.genre+' · rive '+b.rive]??=[]).push(b);
+    for(const [g,L] of Object.entries(G)){const fins={};for(const b of L){const e=b.fin==null?'en cours ('+(b.etats.at(-1)?.[1]||'approche')+')':(b.etats.at(-1)?.[1]||'?')+(b.etats.at(-1)?.[2]?' — '+b.etats.at(-1)[2]:'');fins[e]=(fins[e]||0)+1;}
+      const dur=L.filter(b=>b.fin!=null).map(b=>b.fin-b.t0);console.log(`  - ${g} : ${L.length}, ${f1(L.reduce((n,b)=>n+b.n,0)/L.length)} hommes en moyenne (max ${Math.max(...L.map(b=>b.max))}), durée moy. ${dur.length?f1(dur.reduce((a,v)=>a+v,0)/dur.length)+' j':'—'}, cibles ${[...new Set(L.map(b=>b.cible))].slice(0,6).join(', ')}, distance moy. ${f1(L.reduce((n,b)=>n+(b.dist||0),0)/L.length)} cases`);
+      for(const [e,n] of Object.entries(fins).sort((a,z)=>z[1]-a[1]).slice(0,5))console.log(`      ${n} × ${e}`);}}
+  // les morts : par camp, lieu, cause
+  const C=bil?.causes||{};if(Object.keys(C).length){console.log('Morts par camp, lieu et cause :');const agg={};for(const [k,n] of Object.entries(C)){const [f,w,uk,c]=k.split('|');const a=`${f==='beee'?'Bèè':'Meumeu'} · ${w}`;(agg[a]??={n:0,c:{}}).n+=n;agg[a].c[uk+' '+c]=(agg[a].c[uk+' '+c]||0)+n;}
+    for(const [a,v] of Object.entries(agg).sort((p,q)=>q[1].n-p[1].n))console.log(`  - ${a} : ${v.n} (${Object.entries(v.c).sort((p,q)=>q[1]-p[1]).slice(0,4).map(([c,n])=>n+' '+c).join(', ')})`);}
+  const D=bil?.detruitsListe||[];if(D.length){console.log(`Bâtiments détruits (${D.length}) : `+D.slice(0,25).map(d=>`J${f1(d.jour)} ${d.k} ${d.camp==='beee'?'bèè':'meumeu'}`).join(' · '));}
   // les indicateurs
   const firstB=ob[0]?.debut,firstA=oa[0]?.debut,landB=ob.reduce((n,o)=>n+o.debarques,0),landA=oa.reduce((n,o)=>n+o.debarques,0);
   const peakBeeFar=Math.max(...st.map(s=>s.beee.surNotreRive)),peakAllyFar=Math.max(...st.map(s=>s.meumeu.surRiveBee));

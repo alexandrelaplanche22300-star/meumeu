@@ -34,7 +34,7 @@ export const ALLIE={
     for(const n of ns)for(const [di,dj] of [[0,0],[-1,0],[0,-1],[-1,-1]]){if(!this.canPlace('meumeu','mine',n.i+di,n.j+dj).ok)continue;const out=this.place('meumeu','mine',n.i+di,n.j+dj);if(out.ok){out.b.ally=true;return out.b;}}
     return null;},
   allyBuild(k,cx,cy){if(k.startsWith('mine:'))return this.allyMine(k.slice(5),cx,cy);
-    if(k==='camp'){const tr=this.s.nodes.filter(n=>n.type==='tree'&&n.left>0&&this.allyZone(n.i,n.j)).sort((a,z)=>d2(a.i,a.j,cx,cy)-d2(z.i,z.j,cx,cy))[0];return tr?this.allyPlace('camp',tr.i,tr.j,2,10):null;}
+    if(k==='camp'){const tr=this.s.nodes.filter(n=>n.type==='tree'&&n.left>=1&&this.allyZone(n.i,n.j)).sort((a,z)=>d2(a.i,a.j,cx,cy)-d2(z.i,z.j,cx,cy))[0];return tr?this.allyPlace('camp',tr.i,tr.j,2,10):null;}
     return this.allyPlace(k,cx,cy,k==='tour'?9:6);},
   // des porteurs pour ses dépôts : ses villageois oisifs (jamais ceux du joueur) deviennent porteurs de ce dépôt
   allyPorters(D,n){const [x,y]=this.bc(D);const us=this.s.units.filter(u=>u.ally&&u.k==='villageois'&&!u.task&&up(u)&&d2(u.x,u.y,x,y)<60).slice(0,n);
@@ -72,7 +72,10 @@ export const ALLIE={
     // un dépôt plein à 90 % : un entrepôt de plus (une fois par jour)
     if(t>=(S.storeT||0)&&this.s.buildings.some(D=>D.ally&&D.done&&near(D)&&BUILDINGS[D.k].store&&!BUILDINGS[D.k].foodOnly&&this.stored(D)>BUILDINGS[D.k].store*.9)){S.storeT=t+24;this.allyPlace('entrepot',cx,cy);}
     for(const b of this.s.buildings){if(!b.ally||!b.done||b.ruin||!BUILDINGS[b.k].workers||b.k==='caserne'||!near(b)||enough(b))continue;const cap=b.k==='camp'?4:BUILDINGS[b.k].workers;for(let n=this.workers(b).length;n<cap&&idle.length;n++)go(idle.shift(),{type:'building',id:b.id});}
-    for(const u of idle){const need=(st.pierre||0)<150?'rock':(st.bois||0)<500?'tree':null;if(!need)continue;const n=this.s.nodes.filter(n=>n.type===need&&n.left>0&&d2(n.i,n.j,cx,cy)<60&&this.allyZone(n.i,n.j)).sort((a,z)=>d2(a.i,a.j,u.x,u.y)-d2(z.i,z.j,u.x,u.y))[0];if(n)go(u,{type:'node',id:n.id});}
+    /* (V12.5) un arbre ou un rocher d'au moins une unité : la récolte refuse une souche (moins d'une unité) — mesuré : 144 villageois renvoyés toutes les
+       demi-heures vers la souche la plus proche, 0 bois, aucune ville nouvelle ; et la liste est faite une fois par ville, pas une fois par villageois */
+    {const need=(st.pierre||0)<150?'rock':(st.bois||0)<500?'tree':null;if(need&&idle.length){const ns=this.s.nodes.filter(n=>n.type===need&&n.left>=1&&d2(n.i,n.j,cx,cy)<60&&this.allyZone(n.i,n.j));
+      if(ns.length)for(const u of idle){let best=null,bd=1e9;for(const n of ns){const d=d2(n.i,n.j,u.x,u.y);if(d<bd){bd=d;best=n;}}go(u,{type:'node',id:best.id});}}}
     if((C.stock.vivres||0)>80&&!C.queue.length&&pop<food+6)this.train(C,'villageois');
     // les porteurs : trois au centre, deux au grenier et à l'entrepôt, un par camp
     for(const D of this.s.buildings){if(!D.ally||!D.done||D.ruin||!near(D))continue;const want={centre:3,grenier:2,entrepot:2,camp:1}[D.k];if(want&&this.porters(D).length<want&&this.s.vehicles.filter(v=>v.ally&&v.k==='porteur').length<us.filter(u=>u.k==='villageois').length/4)this.allyPorters(D,1);}},
@@ -97,7 +100,8 @@ export const ALLIE={
   allyArmy(cities,us){const A=this.s.ally,t=this.s.t;
     const sold=us.filter(u=>u.k!=='villageois'&&!u.inBarracks&&!u.inVeh&&u.amphi==null);
     // les casernes : six recrues à la fois, tant que l'armée est sous son objectif (10 + 4 par jour, 160 au plus) et que la ville garde quinze bras
-    const target=Math.min(160,10+4*Math.max(0,this.day-4));
+    /* (V12.5 : l'allié qui mène toute l'île — le banc de bataille — lève plus vite, jusqu'à 320 ; mesuré : 130 soldats au plus contre 3 000 Bèè) */
+    const target=A.all?Math.min(320,10+6*Math.max(0,this.day-4)):Math.min(160,10+4*Math.max(0,this.day-4));
     for(const cas of this.s.buildings.filter(b=>b.ally&&b.k==='caserne'&&b.done&&!b.ruin)){const inside=(cas.inside||[]).length,S=(cas.allyS??={});
       const V=us.filter(u=>u.k==='villageois'&&!u.inBarracks&&d2(u.x,u.y,cas.i,cas.j)<60);
       if(!inside&&sold.length<target&&V.length>15&&t>=(S.draftT||0)){const g=V.filter(u=>u.task?.kind==='gather'||!u.task).slice(0,6);if(g.length>=4){this.order(g.map(u=>u.id),{type:'building',id:cas.id},true);S.draftT=t+6;S.from=t;}}
@@ -111,12 +115,22 @@ export const ALLIE={
     const send=(units,e)=>{const ids=units.filter(u=>!(u.task?.kind==='attack'&&up(this.unit(u.task.unit)))).map(u=>u.id);if(ids.length)this.order(ids,{type:'unit',id:e.id},true);};
     for(const c of cities){const [cx,cy]=[c.b.i+2,c.b.j+2];const close=foes.filter(e=>d2(e.x,e.y,cx,cy)<45);if(!close.length)continue;const e=close.sort((a,z)=>d2(a.x,a.y,cx,cy)-d2(z.x,z.y,cx,cy))[0];
       send(free.filter(u=>u.allyHome===c.b.id),e);if(!(c.C.alertT>t-12)){c.C.alertT=t;this.log(c.b.city||'Allié',`${c.b.city||'Une ville alliée'} est attaquée : la garnison riposte.`,'warn');}}
-    if(foes.length&&field.length>=4){const cx=field.reduce((n,u)=>n+u.x,0)/field.length,cy=field.reduce((n,u)=>n+u.y,0)/field.length;const e=foes.sort((a,z)=>d2(a.x,a.y,cx,cy)-d2(z.x,z.y,cx,cy))[0];send(field,e);
-      if(!A.sortieT||t-A.sortieT>12){A.sortieT=t;this.log('Front',`L’allié lance ${field.length} soldats contre des Bèè repérés.`,'info');}}
+    // (V12.5) la sortie : on charge si l'on est assez nombreux (1,3 contre 1 sur les Bèè vus à 30 cases de la cible) ou si une ville est menacée (45 cases) ;
+    // sinon l'armée de campagne tient une ligne entre l'ennemi et la ville la plus proche, et attend renforts ou meilleure occasion
+    // (mesuré : 99, puis 86, 70, 50, 27 soldats relancés toutes les 12 h contre une tête de pont retranchée de 130 Bèè)
+    if(foes.length&&field.length>=4){const cx=field.reduce((n,u)=>n+u.x,0)/field.length,cy=field.reduce((n,u)=>n+u.y,0)/field.length;const e=foes.sort((a,z)=>d2(a.x,a.y,cx,cy)-d2(z.x,z.y,cx,cy))[0];
+      const near=foes.filter(f=>d2(f.x,f.y,e.x,e.y)<30).length,threat=cities.some(c=>d2(e.x,e.y,c.b.i+2,c.b.j+2)<45);
+      if(threat||field.length>=near*1.3){send(field,e);if(!A.sortieT||t-A.sortieT>12){A.sortieT=t;this.log('Front',`L’allié lance ${field.length} soldats contre des Bèè repérés.`,'info');}}
+      else{const c=cities.slice().sort((a,z)=>d2(a.b.i,a.b.j,e.x,e.y)-d2(z.b.i,z.b.j,e.x,e.y))[0],hx=c.b.i+2,hy=c.b.j+2,D=Math.hypot(e.x-hx,e.y-hy)||1,ux=(e.x-hx)/D,uy=(e.y-hy)/D,R=Math.min(25,D*.4);
+        field.forEach((u,q)=>{const T=u.task?.kind==='attack'&&this.unit(u.task.unit);if(up(T)&&d2(u.x,u.y,T.x,T.y)<12)return;const off=(q-(field.length-1)/2)*1.8,tx=hx+ux*R-uy*off,ty=hy+uy*R+ux*off;
+          if(u.task?.allyLine&&d2(u.task.tx,u.task.ty,tx,ty)<2)return;const p=this.freeSpot(tx,ty,3);u.task={kind:'guard',tx:p[0],ty:p[1],hold:true,fx:ux,fy:uy,allyLine:1};u.path=null;});
+        A.lineT=t;if(!A.lineLogT||t-A.lineLogT>12){A.lineLogT=t;this.log('Front',`L’allié tient une ligne devant ${c.b.city||'sa ville'} : ${near} Bèè en face, ${field.length} soldats — il attend des renforts.`,'info');}}}
     // au calme : la garnison en couronne autour de sa ville ; l'armée de campagne en réserve près de la première ville
     const main=cities.find(c=>c.C.main)||cities[0];
-    for(const u of free){if(u.task&&u.task.kind!=='guard'&&u.task.kind!=='attack')continue;if(u.task?.kind==='attack'&&up(this.unit(u.task.unit)))continue;
-      const home=(u.allyHome!=null&&this.building(u.allyHome))||main.b;const [cx,cy]=[home.i+2,home.j+2],a=(u.id%12)/12*6.283,R=u.allyHome!=null?12:7;const tx=cx+Math.cos(a)*R,ty=cy+Math.sin(a)*R;
+    /* (V12.5) avec deux barges au moins, la réserve attend près de la ville côtière, celle des barges : l'embarquement ne commence pas par une marche de deux cents cases */
+    const coast=this.allyCoastCity(),rally=coast&&this.s.vehicles.filter(v=>v.ally&&v.k==='barge'&&v.hp>0).length>=2?coast.b:main.b;
+    for(const u of free){if(u.task&&u.task.kind!=='guard'&&u.task.kind!=='attack')continue;if(u.task?.allyLine&&t-(A.lineT??-9)<2)continue;if(u.task?.kind==='attack'&&up(this.unit(u.task.unit)))continue;
+      const home=(u.allyHome!=null&&this.building(u.allyHome))||rally;const [cx,cy]=[home.i+2,home.j+2],a=(u.id%12)/12*6.283,R=u.allyHome!=null?12:7;const tx=cx+Math.cos(a)*R,ty=cy+Math.sin(a)*R;
       if(u.task?.kind==='guard'&&u.task.allyPost&&d2(u.task.tx,u.task.ty,tx,ty)<1)continue;u.task={kind:'guard',tx,ty,allyPost:1};u.path=null;}
     // les troupes débarquées : la cible reconnue la plus proche, sinon fouiller l'intérieur
     this.allyRaidTick(sold.filter(u=>u.allyRaid));},

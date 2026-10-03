@@ -130,7 +130,11 @@ export const STRATEGY={
     // (et les pertes que leur a coûtées ce secteur : ce qui les a tués était là, même s'ils ne l'ont pas vu)
     const lost=(this.s.beee.lossAt||[]).filter(p=>this.t-p.t<DAY*3&&Math.hypot(p.x-x,p.y-y)<45).length;return Math.max(seen,Math.ceil(lost*.35))+works;},
   beeePlanRaid(from,guard,aimed=[],small=false){const avail=guard.length;if(avail<4)return null;const weights={centre:5,gare:7,mine:5,arsenal:6,poudrerie:6,entrepot:5,camp:3,moulin:4,atelier:4,manufacture:5,caserne:4,tour:1};
+    /* (V12.5) seulement une cible sur la même terre : sur la carte mer, les colonnes visaient l'autre rive et restaient « en rassemblement » des semaines
+       (mesuré : 230 à 510 soldats immobiles, jusqu'à 22 jours) — la mer, c'est l'affaire de la flotte (amphibee.js) */
+    const L=this.landComp(),N=this.N,home=L[Math.floor(from.y)*N+Math.floor(from.x)];
     const candidates=[];for(const I of Object.values(this.s.beee.known||{})){if(typeof I!=='object'||I.ruin||!I.done||this.t-I.t>DAY*4||aimed.some(p=>Math.hypot(p[0]-I.x,p[1]-I.y)<25))continue;
+      if(home>=0&&L[Math.floor(I.y)*N+Math.floor(I.x)]!==home)continue;
       // un relevé plus vieux dit moins bien ce qui garde la base : la marge grandit avec son âge (un demi-soldat par jour)
       const def=this.defendersAt(I.x,I.y),need=small?Math.max(4,Math.ceil(def*1.6+2+(this.t-I.t)/DAY*.5)):Math.max(this.raidK().armyMin,Math.ceil(def*this.raidK().odds+4+(this.t-I.t)/DAY*.5));if(need>avail)continue;   // small : les commandos de sabotage gardent l'ancien calcul
       const target=this.building(I.id);if(!target)continue;const distance=Math.hypot(I.x-from.x,I.y-from.y),age=(this.t-I.t)/DAY;

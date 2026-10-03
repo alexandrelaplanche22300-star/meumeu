@@ -17,7 +17,7 @@ export const AMPHI_BEE={
   // les bateaux en chantier sur la plage
   amphiBeeSites(){return this.s.buildings.filter(b=>b.f==='beee'&&b.k==='bateau_bee'&&!b.done&&!b.ruin);},
   // l'état-major : toutes les deux heures de jeu
-  amphiBeeTick(){if(this.G?.mode!=='mer'||!this.G.dcoast)return;this.amphiBeeRiposteTick();const B=this.s.beee,t=this.s.t;if(t-(B.amphiT??-99)<2)return;B.amphiT=t;this.amphiBeeHeadTick();
+  amphiBeeTick(){if(this.G?.mode!=='mer'||!this.G.dcoast)return;this.amphiBeeRiposteTick();const B=this.s.beee,t=this.s.t;if(t-(B.amphiT??-99)<2)return;B.amphiT=t;this.amphiBeeStranded();this.amphiBeeHeadTick();
     // (les bateaux se construisent dès J16, quand la côte a dix ouvrages ; les assauts attendent J22 et quinze ouvrages — mesuré : chantiers ouverts à J22,
     //  premiers bateaux à J29, premier assaut à J34)
     if(this.day<BEE_AMPHI_DAY-6||(B.fort?.count||0)<10)return;
@@ -34,15 +34,16 @@ export const AMPHI_BEE={
       if(at){const out=this.place('beee','bateau_bee',at[0]-2,at[1]-1);if(out.ok){out.b.prio=3;B.amphiWhy=null;}else B.amphiWhy='bateau refusé : '+(out.why||[]).join(', ');}   /* (posé directement : le site est déjà vérifié, et le frein « deux chantiers en attente » de beeeBuild bloquait les bateaux voisins) */else B.amphiWhy='pas de plage près des villes';}
     for(const b of sites){const n=this.s.units.filter(u=>u.task?.kind==='build'&&u.task.b===b.id).length;for(const u of this.beeeAvailable(b.i,b.j,600).slice(0,Math.max(0,4-n)))this.beeeAssign(u,{kind:'build',b:b.id});}
     if(this.day<BEE_AMPHI_DAY||(B.fort?.count||0)<BEE_AMPHI_BUNKERS)return;
+    const ready=this.amphiBeeStage(cities,this.amphiBeeBoats().filter(home),right);
     // 3. l'assaut : assez de bateaux libres, assez de monde dans les villes de la côte, et l'intervalle écoulé
     if(t<(B.amphiNext??0)||this.s.amphi?.some(o=>o.f==='beee'))return;
     const free=this.amphiBeeBoats().filter(v=>!v.op&&v.state!=='go'&&home(v));const need0=Math.min(want,6+2*(B.amphiCount||0));if(free.length<need0){B.amphiWhy=`flotte ${free.length}/${need0}`;return;}   /* (premier assaut à 6 bateaux, puis deux de plus à chaque fois) */
     const cx=free.reduce((n,v)=>n+v.x,0)/free.length,cy=free.reduce((n,v)=>n+v.y,0)/free.length;
     const base=cities.slice().sort((a,z)=>d2(a.x,a.y,cx,cy)-d2(z.x,z.y,cx,cy))[0];if(!base)return;
     const cap=Math.floor(VEHDEF.bateau_bee.places.passagers-1),need=Math.min(free.length*cap,Math.floor(free.length*cap*.9));
-    const pool=this.beeeMuster(base,cities,need,2,260);if(pool.length<Math.max(24,free.length*7)){B.amphiWhy='troupes insuffisantes ('+pool.length+')';return;}
+    const pool=ready.slice(0,need);if(pool.length<Math.max(24,free.length*7)){B.amphiWhy='troupes au port insuffisantes ('+pool.length+')';return;}
     const aim=this.amphiBeeAim(base);if(!aim)return;
-    const vil=(B.heads||[]).some(h=>h.camp)?[]:this.beeeAvailable(base.x,base.y,260).slice(0,6);pool.push(...vil);
+    const vil=(B.heads||[]).some(h=>h.camp)?[]:this.beeeAvailable(B.stage.x,B.stage.y,120).slice(0,6);pool.push(...vil);
     const boats=free.slice(0,Math.ceil(pool.length/cap));const R=this.amphiLaunch('beee',pool.slice(0,boats.length*cap),boats,aim[0],aim[1],{ferry:true,maxWave:3});
     if(R.ok){(B.amphiUsed??=[]).push({x:aim[0],y:aim[1],t});B.amphiUsed=B.amphiUsed.filter(u=>t-u.t<24*30);B.amphiNext=t+24*(8+this.rand()*6);B.amphiCount=(B.amphiCount||0)+1;B.amphiWhy=null;this.log?.('Bèè',`Une flotte bèè appareille : ${R.op.units.length} soldats, ${boats.length} bateaux.`,'warn');}else B.amphiWhy=R.why?.[0];},
   // un chantier de bateau près d'une ville : du sable à 1-3 cases de l'eau, le plus proche du centre (le coin haut-gauche du chantier de 4 × 2)
@@ -72,13 +73,38 @@ export const AMPHI_BEE={
     let H=(B.heads??=[]).find(h=>d2(h.bx,h.by,op.beach.x,op.beach.y)<40);
     if(!H){const b0=op.beach;H={id:this.id(),bx:b0.x,by:b0.y,x:b0.x-b0.nx*12,y:b0.y-b0.ny*12,nx:b0.nx,ny:b0.ny,tx:b0.tx,ty:b0.ty,m:[],t0:this.s.t,reconT:0,camp:null};B.heads.push(H);
       this.log?.('Front',`Les Bèè ont débarqué : une tête de pont près de (${b0.x|0}, ${b0.y|0}).`,'bad');}
-    for(const u of out){if(band&&u.k==='soldat')continue;u.amphi=null;u.city=null;u.head=H.id;H.m.push(u.id);}
+    for(const u of out){u.stage=null;if(band&&u.k==='soldat')continue;u.amphi=null;u.city=null;u.head=H.id;H.m.push(u.id);}
     this.amphiBeeHeadPlace(H);},
   // la vague suivante d'un assaut : des soldats de la ville la plus proche du port des bateaux, s'il en reste assez
-  amphiBeeNextWave(op){const B=this.s.beee,cities=B.cities.filter(c=>!c.fallen&&this.building(c.centre)?.done);if(!cities.length)return null;const boats=this.amphiBoatsOf(op);if(!boats.length)return null;
-    const ox=boats.reduce((n,b)=>n+b.x,0)/boats.length,oy=boats.reduce((n,b)=>n+b.y,0)/boats.length,base=cities.slice().sort((a,z)=>d2(a.x,a.y,ox,oy)-d2(z.x,z.y,ox,oy))[0];
-    const cap=VEHDEF.bateau_bee.places.passagers-1,pool=this.beeeMuster(base,cities,boats.length*cap,2,260).filter(u=>!u.task?.bunker&&!u.head&&!u.band);
+  amphiBeeNextWave(op){const B=this.s.beee,S=B.stage;const boats=this.amphiBoatsOf(op);if(!boats.length||!S)return null;
+    const cap=VEHDEF.bateau_bee.places.passagers-1,pool=this.amphiBeeStaged().filter(u=>u.h?.state!=='hors'&&d2(u.x,u.y,S.x,S.y)<40);
     if(pool.length<10)return null;this.log?.('Front',`Une nouvelle vague bèè embarque pour leur tête de pont (${pool.length} soldats).`,'bad');return pool.slice(0,boats.length*cap);},
+  // (V12.5) un Bèè resté sur la rive meumeu sans rôle (sa bande dissoute le rendait à une ville de l'autre côté de l'eau) rejoint la tête de pont la plus proche,
+  // ou en fonde une là où il est si aucune n'est à 120 cases : à terre, on tient ou on avance, on ne rentre pas (mesuré : 30 à 76 Bèè par partie erraient sur notre rive)
+  amphiBeeStranded(){const B=this.s.beee,cities=B.cities.filter(c=>!c.fallen);if(!cities.length)return;const L=this.landComp(),N=this.N,lk=(x,y)=>L[Math.floor(y)*N+Math.floor(x)];
+    const homes=new Set(cities.map(c=>lk(c.x,c.y)));
+    for(const u of this.s.units){if(u.f!=='beee'||!(u.hp>0)||u.head||u.band||u.amphi!=null||u.inVeh||u.h?.state==='hors'||u.h?.state==='mort')continue;const k=lk(u.x,u.y);if(k<0||homes.has(k))continue;
+      let H=null,bd=120;for(const h of B.heads||[]){const d=d2(h.x,h.y,u.x,u.y);if(d<bd){bd=d;H=h;}}
+      /* (loin dans les terres, sans plage à 40 cases : une poche, tournée vers l'intérieur — la mer est du côté de leurs villes) */
+      if(!H){const b0=this.amphiBeach(u.x,u.y,40),sx=cities.reduce((n,c)=>n+c.x,0)/cities.length>u.x?1:-1;
+        H={id:this.id(),bx:b0?b0.x:u.x,by:b0?b0.y:u.y,x:u.x,y:u.y,nx:b0?b0.nx:sx,ny:b0?b0.ny:0,tx:b0?b0.tx:0,ty:b0?b0.ty:sx,m:[],t0:this.s.t,reconT:0,camp:null};(B.heads??=[]).push(H);}
+      u.city=null;u.head=H.id;u.task=null;u.path=null;u.goal=null;H.m.push(u.id);}},
+  // (V12.5) le rassemblement au port : les villes sont à 100-150 cases de la côte, et une marche de 200 cases prend des jours quand des milliers de Bèè
+  // cherchent leur chemin (mesuré : 2,5 cases à l'heure ; après 24 h d'embarquement, la deuxième vague partait vide — 0 débarqué sur 180 appelés).
+  // Les soldats du prochain assaut viennent donc d'avance attendre à quatorze cases derrière les bateaux : quarante au plus toutes les deux heures,
+  // jusqu'à une fois et demie ce que la flotte emporte ; l'assaut et ses vagues embarquent ceux qui sont arrivés (à moins de 40 cases).
+  amphiBeeStaged(){return this.s.units.filter(u=>u.stage&&u.f==='beee'&&u.hp>0&&u.amphi==null&&!u.head&&!u.band);},
+  amphiBeeStage(cities,boats,right){const B=this.s.beee;if(!boats.length)return [];
+    const px=boats.reduce((n,b)=>n+b.x,0)/boats.length,py=boats.reduce((n,b)=>n+b.y,0)/boats.length,b0=this.amphiBeach(px,py,30);
+    /* (le point ne bouge pas pendant un assaut : la flotte partie, le « port » calculé sur les bateaux restés filait ailleurs) */
+    {const nx=b0?b0.x-b0.nx*14:px+(right?14:-14),ny=b0?b0.y-b0.ny*14:py;if(!B.stage||!this.s.amphi?.some(o=>o.f==='beee')&&d2(B.stage.x,B.stage.y,nx,ny)>30)B.stage={x:nx,y:ny};}
+    const sx=B.stage.x,sy=B.stage.y;
+    const spot=u=>{const a=this.rand()*6.283,r=3+this.rand()*10,p=this.freeSpot(sx+Math.cos(a)*r,sy+Math.sin(a)*r,4);u.task={kind:'guard',tx:p[0],ty:p[1],stage:1};u.path=null;u.goal=null;};
+    const staged=this.amphiBeeStaged();for(const u of staged)if(!u.task||u.task.kind==='guard'&&!u.task.stage)spot(u);
+    const want=Math.ceil(boats.length*(VEHDEF.bateau_bee.places.passagers-1)*1.5);
+    if(staged.length<want){const base=cities.slice().sort((a,z)=>d2(a.x,a.y,sx,sy)-d2(z.x,z.y,sx,sy))[0];
+      for(const u of this.beeeMuster(base,cities,Math.min(40,want-staged.length),2,260))if(u.k==='soldat'&&!u.task?.bunker&&!u.head&&!u.band){u.from=u.city??u.from;u.city=null;u.stage=1;spot(u);}}
+    return staged.filter(u=>u.h?.state!=='hors'&&d2(u.x,u.y,sx,sy)<40);},
   amphiBeeHeadMen(H){return H.m.map(id=>this.unit(id)).filter(u=>u&&u.hp>0&&u.f==='beee'&&!u.band&&u.head===H.id&&u.h?.state!=='hors');},
   // le retranchement : un arc à une douzaine de cases à l'intérieur, face aux terres ; les villageois au camp
   amphiBeeHeadPlace(H){const men=this.amphiBeeHeadMen(H),sold=men.filter(u=>u.k==='soldat'&&u.task?.kind!=='search');const n=sold.length;
@@ -93,7 +119,10 @@ export const AMPHI_BEE={
       let tgt=null,bd=350;for(const b of this.s.buildings){if(b.f!=='meumeu'||b.ruin||!B.known?.[b.id])continue;const d=d2(b.i,b.j,H.x,H.y);if(d<bd){bd=d;tgt=b;}}
       const free=sold.filter(u=>u.task?.kind!=='search');
       if(!tgt&&free.length>=30&&t>=(H.advT||0)&&d2(H.x,H.y,H.bx,H.by)<60){H.advT=t+12;const p=this.freeSpot(H.x-H.nx*15,H.y-H.ny*15,6);if(p&&this.walkTarget?.({x:H.x,y:H.y},p[0],p[1])!==null){H.x=p[0];H.y=p[1];this.amphiBeeHeadPlace(H);continue;}}
-      if(tgt&&free.length>=14){const go=free.slice(6);for(const u of go){u.head=null;H.m.splice(H.m.indexOf(u.id),1);}const band=this.makeBand(go,tgt,{x:H.x,y:H.y});band.kind='debarquement';
+      /* (V12.5) l'assaut part en masse : deux hommes par défenseur vu à la cible, plus six, quatorze au moins ; sinon la tête attend ses vagues
+         (mesuré : des groupes de 8 à 30 partaient toutes les deux heures contre une caserne, et décrochaient « trop de pertes ») */
+      const need=tgt?Math.max(14,Math.ceil((B.known[tgt.id]?.troops||0)*2+6)+6):14;
+      if(tgt&&free.length>=need){const go=free.slice(6);for(const u of go){u.head=null;H.m.splice(H.m.indexOf(u.id),1);}const band=this.makeBand(go,tgt,{x:H.x,y:H.y});band.kind='debarquement';
         this.log?.('Front',`Depuis leur tête de pont, ${go.length} Bèè passent à l’attaque.`,'bad');this.amphiBeeHeadPlace(H);continue;}
       // les éclaireurs : deux soldats, en éventail vers l'intérieur, toutes les dix heures
       // (chaque reconnaissance va plus loin, jusqu'à 300 cases ; un bruit entendu sur cette rive depuis moins d'un jour donne la direction)
