@@ -25,12 +25,12 @@
 **Moulin**
 - Les ailes du moulin sont centrées et reliées, et ne traversent pas le toit.
 
-**Soldats meumeu (pas encore fait)**
+**Soldats meumeu (fait le 4 octobre)**
 - Enlever les casques des soldats meumeu.
 - Leur donner une posture qui tient l'arme, sans déformer les bras.
 - L'arme est droite, dans l'axe logique de la Meumeu.
 
-**Centres-villes meumeu (pas encore fait)**
+**Centres-villes meumeu (fait le 4 octobre)**
 - Les centres-villes meumeu doivent être des pyramides aztèques.
 
 ## Fait (commits locaux)
@@ -71,15 +71,9 @@
 
 ## Reste à faire
 
-1. **Soldats meumeu** : sans casque, posture « arme tenue » sans bras déformés, arme droite dans l'axe.
-   - Voir `gun3d.js` et `scene3d.js` (le modèle `meumeu`).
-2. **Centres-villes meumeu en pyramides aztèques.**
-   - Bâtiments faits par le code : `bldg3d.js`, entrée `centre`.
-3. **Moulin** : une petite bosse sombre reste au dos du toit.
-   - Repère du modèle : x ≈ −0,09 à −0,14, y ≈ 0,42-0,45.
-   - Régler avec la page `_moulin.html#r=<règle>` (`?cut=1` pour voir sans).
-   - Puis appliquer avec `test/_outils_captures/moulin_couper.cjs assets3d/windmill.json <fichier règle>`.
-   - Le modèle avant nettoyage est dans `test/_outils_captures/windmill.avant-nettoyage.json`.
+1. ~~Soldats meumeu~~ : faits (casque retiré, arme tenue droite, bras rigides détachés du modèle — scene3d.js meumeuRig/holdGun).
+2. ~~Centres-villes en pyramides~~ : faits (bldg3d.js pyramide ; le centre bèè garde son hôtel de ville).
+3. ~~Moulin~~ : fait (moyeu et racines d'ailes d'origine retirés au dos du toit ; ce qui reste de dos est la galerie d'origine).
 4. **Batailles**
    - Les séries :
      - série 1 : `test/_saves/bataille_<graine>`, sans les têtes en masse, l'économie de guerre alliée ni les abris ;
