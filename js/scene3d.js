@@ -16,8 +16,22 @@ import {bargeModel,bateauModel,grandeBargeModel} from './barge3d.js';
 import {deckSlots,MEU_R} from './naval.js';
 
 export const HK=Math.sqrt(2/3);
-// (V12.5) la main droite des tenues du joueur, dans le repère de leur modèle (+Z devant, −X à droite) : là où la poignée de l'arme d'épaule se loge
-const SKIN_HAND={meumeu_soldat:[-.235,.255,.01],plush_cow_knight:[-.13,.19,.14]};
+// (V12.5) le bras droit des tenues du joueur (soldat camouflé, élite à cape), détaché au rendu seulement — le modèle n'est pas modifié : les triangles
+// que choisit `sel` (centre du triangle x, y, z ; couleur moyenne r, g, b de 0 à 1) forment le bras, le reste le corps. Le bras pivote d'un bloc à l'épaule
+// (le haut de la sélection, vers le corps) ; la main est son point le plus éloigné de l'épaule. Rend {body, arm:{geo,pivot,rest,len}} ou null.
+const SKIN_ARM={
+  meumeu_soldat:(x,y,z,r,g,b,W,H)=>x<-W*.27&&y>H*.28&&y<H*.68,
+  plush_cow_knight:(x,y,z,r,g,b)=>x<-.05&&x>-.16&&y>.15&&y<.3&&z>.08&&r>.6&&Math.abs(r-b)>.05};
+function skinRig(M,sel){const g=M?.geo;if(!g?.index||!sel)return null;const P=g.attributes.position,C=g.attributes.color,I=g.index.array,[W,H]=M.ext;
+  const body=[],arm=[];for(let t=0;t<I.length;t+=3){let x=0,y=0,z=0,r=0,gg=0,b=0;for(let q=0;q<3;q++){const v=I[t+q];x+=P.getX(v)/3;y+=P.getY(v)/3;z+=P.getZ(v)/3;if(C){r+=C.getX(v)/3;gg+=C.getY(v)/3;b+=C.getZ(v)/3;}}
+    // (les couleurs de sommets sont linéaires — LIN dans mesh3d.js ; la règle se lit en couleurs d'écran)
+    const sr=Math.pow(r,1/2.2),sg=Math.pow(gg,1/2.2),sb=Math.pow(b,1/2.2);(sel(x,y,z,sr,sg,sb,W,H)?arm:body).push(I[t],I[t+1],I[t+2]);}
+  if(arm.length<30)return null;
+  const vs=[...new Set(arm)];let top=-9;for(const v of vs)top=Math.max(top,P.getY(v));
+  let px=0,py=0,pz=0,n=0;for(const v of vs)if(P.getY(v)>top-.04*H){px+=P.getX(v);py+=P.getY(v);pz+=P.getZ(v);n++;}const pivot=[px/n*.8,py/n-.02*H,pz/n];
+  let far=0,hand=null;for(const v of vs){const d=Math.hypot(P.getX(v)-pivot[0],P.getY(v)-pivot[1],P.getZ(v)-pivot[2]);if(d>far){far=d;hand=[P.getX(v),P.getY(v),P.getZ(v)];}}
+  const bg=g.clone();bg.setIndex(body);const ag=g.clone();ag.translate(-pivot[0],-pivot[1],-pivot[2]);ag.setIndex(arm);
+  return {body:bg,arm:{geo:ag,pivot,rest:new THREE.Vector3(hand[0]-pivot[0],hand[1]-pivot[1],hand[2]-pivot[2]),len:far}};}
 const PI=Math.PI;
 // un modèle par bâtiment : [modèle, part de l'empreinte occupée, rotation (quarts de tour), hauteur maximale en unités]
 // (V12.5, demande du joueur) tous les bâtiments en modèles faits par le code — low poly, la palette du jeu (bldg3d.js) — sauf le moulin, qui garde le modèle du joueur
@@ -155,6 +169,8 @@ export class Scene3D{
     this.pools.avion=mk('silbervogel_bomber_3d_model',{cap:60});
     this.pools.meumeu=mk('meumeu',{cap:1200,anim:ch('meumeu')});
     // (V12.5) le soldat meumeu qui tient son arme : le corps sans les bras, et ses deux bras, des pièces à part qui pivotent d'un bloc à l'épaule
+    this.skinRigs={};for(const mod of Object.keys(SKIN_ARM)){const R=this.M[mod]&&skinRig(this.M[mod],SKIN_ARM[mod]);if(!R)continue;this.skinRigs[mod]=R;
+      for(const [k,geo,anim] of [['skC_'+mod,R.body,ch(mod)],['skA_'+mod,R.arm.geo,null]]){const p=new Pool(geo,{cap:1200,anim,base:this.M[mod].mat||null});this.pools[k]=p;this.scene.add(p.mesh);}}
     this.rig=meumeuRig(this.M.meumeu);if(this.rig){const mat=this.M.meumeu.mat||null;for(const [k,geo,anim] of [['corps',this.rig.body,ch('meumeu')],['brasD',this.rig.bras['-1'].geo,null],['brasG',this.rig.bras['1'].geo,null]]){const p=new Pool(geo,{cap:1200,anim,base:mat});this.pools[k]=p;this.scene.add(p.mesh);}}
     // V12.4 : les modèles donnés par le joueur — le soldat meumeu (casque compris) et la troupe de choc (chevalier à cape) ; à défaut, la peluche
     this.pools.soldat=this.M.meumeu_soldat?mk('meumeu_soldat',{cap:1200,anim:ch('meumeu_soldat')}):this.pools.meumeu;
@@ -203,12 +219,17 @@ export class Scene3D{
       const w=toW(pv[0],pv[1],pv[2]);pool.add(w[0],w[1],w[2],0,sc,sc,sc,{tint:st.tint,q});}
     // le fusil : sa crosse à « grip » derrière la poignée, l'axe juste au-dessus des mains, le canon vers l'avant
     const b=toW(gp[0],gp[1]+.02*Hmod,gp[2]-grip);{const e=this.gunEntry(u,D);if(e.pool)e.pool.add(b[0],b[1],b[2],yaw-PI2,sMm,sMm,sMm,{roll:-.35*k});}}
-  // (V12.5) l'arme d'épaule dans la main droite d'une tenue du joueur, sans toucher au modèle : la poignée à la main (repère du modèle, +Z devant), l'arme
-  // droite vers l'avant, le canon un peu baissé au rechargement ; elle suit le rebond de la marche du corps
-  gunInHand(u,D,H,Hmod,sc,yaw,ux,uy,pose,hand,st){const cr=pose==='crouch'?.72:1,hx=Math.sin(yaw),hz=Math.cos(yaw);
+  // (V12.5, demande du joueur : « le bras en avant, tendu ») une tenue du joueur tient son arme d'épaule bras droit tendu devant elle : le corps (sans le bras
+  // droit), puis le bras qui pivote d'un bloc à l'épaule pour pointer droit devant (un peu plus haut en visée), la poignée dans la main au bout du bras,
+  // l'arme droite dans l'axe ; le canon pique du nez au rechargement. Le modèle de la tenue n'est pas modifié.
+  holdSkin(u,D,H,Hmod,sc,yaw,ux,uy,pose,mod,st){const R=this.skinRigs[mod],A=R.arm,cr=pose==='crouch'?.72:1,hx=Math.sin(yaw),hz=Math.cos(yaw);
     const bob=Math.abs(Math.sin(st.ph))*st.amp*Hmod*.028,sway=Math.sin(st.ph)*st.amp*Hmod*.012;
+    this.pools['skC_'+mod].add(ux,0,uy,yaw,sc,sc*cr,sc,{tint:st.tint,ph:st.ph,amp:st.amp,kick:st.kick});
     const toW=(x,y,z)=>[ux+((x+sway)*hz+z*hx)*sc,(y*cr+bob)*sc,uy+(-(x+sway)*hx+z*hz)*sc];
-    const k=st.reloading?Math.sin(st.rp*PI):0,G=layout(D),sMm=H/300*1.12,grip=(G.rs||60)*sMm/sc,back=(st.kick||0)*.03*Hmod;
+    const k=st.reloading?Math.sin(st.rp*PI):0,dir=new THREE.Vector3(0,st.aiming?.12:-.06,1).normalize();
+    const q=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),yaw).multiply(new THREE.Quaternion().setFromUnitVectors(A.rest.clone().normalize(),dir));
+    const pv=A.pivot,w=toW(pv[0],pv[1],pv[2]);this.pools['skA_'+mod].add(w[0],w[1],w[2],0,sc,sc,sc,{tint:st.tint,q});
+    const hand=[pv[0]+dir.x*A.len,pv[1]+dir.y*A.len,pv[2]+dir.z*A.len],G=layout(D),sMm=H/300*1.12,grip=(G.rs||60)*sMm/sc,back=(st.kick||0)*.03*Hmod;
     const b=toW(hand[0],hand[1],hand[2]-grip-back);const e=this.gunEntry(u,D);if(e.pool)e.pool.add(b[0],b[1],b[2],yaw-PI/2,sMm,sMm,sMm,{roll:-.35*k});}
   // le modèle 3D d'une arme et son groupe d'instances (gardés par conception)
   gunEntry(u,D){const crew=D.crew>1;const key=u.w+'|'+JSON.stringify(D.p)+'|'+(D.mods||[]).join(',')+'|'+(crew?'m':'h');
@@ -411,10 +432,11 @@ export class Scene3D{
       if(!down){if(Wg&&!crewGun)arm=aiming?.3:0;else if(carry||u.crates>0||carrier&&u.serve)arm=.3;}
       // (V12.5) un soldat meumeu avec une arme d'épaule la tient, bras levés (holdGun) ; les autres comme avant
       // (V12.5) une arme d'épaule (ni pièce servie, ni pistolet) est tenue du bras droit : la Meumeu normale lève son bras droit (holdGun) ; les tenues
-      // du joueur (soldat camouflé, élite à cape — leurs modèles restent tels quels) la tiennent dans leur main droite, là où elle est (gunInHand)
+      // du joueur (soldat camouflé, élite à cape — leurs modèles restent tels quels) la tiennent bras droit tendu devant elles (holdSkin)
       const shoulder=!!Wg&&!crewGun&&!Wg.pistol&&!bee&&u.k!=='villageois'&&(pose==='up'||pose==='crouch');
-      const rig=shoulder&&this.rig&&mod==='meumeu',hand=shoulder&&!rig&&SKIN_HAND[mod];
+      const rig=shoulder&&this.rig&&mod==='meumeu',skr=shoulder&&!rig&&!!this.skinRigs?.[mod];
       if(rig)this.holdGun(u,Wg,H,Hmod,sc,y,ux,uy,pose,{ph,amp,tint,kick,aiming,reloading,rp});
+      else if(skr)this.holdSkin(u,Wg,H,Hmod,sc,y,ux,uy,pose,mod,{ph,amp,tint,kick,aiming,reloading,rp});
       else if(pose==='up'){pool.add(ux,0,uy,y,sc,sc,sc,{tint,ph,amp,arm,kick});}
       else if(pose==='crouch'){pool.add(ux,0,uy,y,sc,sc*.72,sc,{tint,ph:0,amp:0,arm,kick});}
       else{const r=Hmod*sc*.22;pool.add(u.x,r,u.y,y,sc,sc,sc,{tint:down?0x9a8a80:tint,pitch:down?-PI/2:PI/2});}
@@ -433,7 +455,7 @@ export class Scene3D{
         const sp=front(0,H*.5,0);const px=sp[0]+(br[0]-sp[0])*e,pz=sp[2]+(br[2]-sp[2])*e,py=sp[1]+(br[1]-sp[1])*e+Math.sin(PI*e)*.08;
         const sc2=Math.max(.9,Math.min(2.2,.8+(Wd.rm||300)/900));P.obus.add(px,py,pz,tt<.999?Math.atan2(br[0]-sp[0],br[2]-sp[2])-PI/2:gy-PI/2,sc2,sc2,sc2);}
       // l'arme telle qu'elle a été conçue (à défaut, un fusil générique) ; plus de casque (V12.5, demande du joueur)
-      if(Wg){if(hand)this.gunInHand(u,Wg,H,Hmod,sc,y,ux,uy,pose,hand,{ph,amp,kick,reloading,rp});else if(!rig)this.putGun(u,Wg,H,y,pose,walking,{aiming,reloading,rp,kick});}   /* (holdGun a déjà posé l'arme) */
+      if(Wg){if(!rig&&!skr)this.putGun(u,Wg,H,y,pose,walking,{aiming,reloading,rp,kick});}   /* (holdGun a déjà posé l'arme) */
       else if(u.k!=='villageois'&&pose==='up'&&(bee||u.w)){const k=H*.62/this.M.gewehr_43_rifle.ext[0];P.fusil.add(u.x+hx*.23-hz*.07,H*.48,u.y+hz*.23+hx*.07,y-PI/2,k,k,k);}
     };
     for(const u of s.units)addUnit(u);
