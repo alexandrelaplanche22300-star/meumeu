@@ -845,6 +845,8 @@ export class World{
     this.checkEnd();}
 
   // ---------- les Meumeu, les soldats ----------
+  // un facteur 1 ± a, tiré au générateur de la partie (V12.5 : le décalage des tirs)
+  fireJitter(a){return 1+(this.rand()*2-1)*a;}
   unitTick(u,dt){const D=UDEF(u);const dts=this.dts;u.cool=Math.max(0,(u.cool||0)-dts);u.reload=Math.max(0,(u.reload||0)-dts);u.supp=(u.supp||0)*Math.exp(-dts/(D.choc?2:5));if(u.stun>0){u.stun=Math.max(0,u.stun-dts*(D.choc?2:1));if(!u.stun&&u.why==='sonné')u.why=null;}
     // le corps : le sang coule, on tombe, on meurt
     if(u.h){const ch=tickHealth(u.h,dts);if(ch)this.stateChange(u,ch);if(u.h.log?.length&&u.h.log[u.h.log.length-1].t==null)u.h.log[u.h.log.length-1].t=this.s.t;if(!alive(u))return;
@@ -1200,13 +1202,15 @@ export class World{
     let miss=0;if(W.crew>1){const mv=this.s.t-(u.moved||-9)<.03,rest=this.trenchRest(u,W);u.deployT=mv?0:(u.deployT||0)+this.dts*(rest<1?1.45:1);if(u.deployT<W.setup){u.why=rest<1?'mise en batterie dans la tranchée':'mise en batterie';return true;}if(u.why?.startsWith('mise en batterie'))u.why=null;miss=Math.max(0,W.crew-1-this.servants(u).length);if(miss)u.why=`${miss} servant${miss>1?'s':''} manquant${miss>1?'s':''} · pointage et rechargement très lents`;}
     if(u.mag<=0){if(u.pouch>0){const n=Math.min(W.p.mag,u.pouch);u.mag=n;u.pouch-=n;u.reload=u.reloadTotal=(W.p.mag>12?4:W.p.action==='verrou'?3:2.5)*(1+miss*2.5);u.burst=0;this.emit({type:'reload',x:u.x,y:u.y});return true;}u.dry=true;return false;}
     u.dry=false;if(u.cool>0)return true;if(u.f==='meumeu')this.practice('tir',.03);
-    if(u.aimAt!==(e.id??e.wall??'b')){u.aimAt=e.id??e.wall??'b';u.cool=(W.crew>1?Math.min(W.aim,12):W.aim)*(u.post==='couche'?1.2:1)*(UDEF(u).choc?.7:1);return true;}
+    if(u.aimAt!==(e.id??e.wall??'b')){u.aimAt=e.id??e.wall??'b';u.cool=(W.crew>1?Math.min(W.aim,12):W.aim)*(u.post==='couche'?1.2:1)*(UDEF(u).choc?.7:1)*this.fireJitter(.25);return true;}   /* (V12.5 : chacun met son temps à viser — les premiers coups ne partent plus ensemble) */
     // le coup part
     // l'entretien d'une mitrailleuse servie : le tube s'use à chaque coup ; tous les huitièmes de sa vie de tube, l'entretien prend une pièce au dépôt le plus
     // proche (40 cases) ; sans pièce, l'arme usée s'enraye de plus en plus souvent — une mitrailleuse coûte cher à tenir, pas seulement à fabriquer
     if(W.mg){u.wear=(u.wear||0)+1;const step=Math.max(60,(W.life||2000)/8);if(u.wear>=step){u.wear-=step;const got=this.take(u.f,u.x,u.y,'pieces',1,40);u.worn=got<.99?(u.worn||0)+1:Math.max(0,(u.worn||0)-1);}
       if(u.worn>0&&this.rand()<.015*u.worn){u.cool=(u.cool||0)+(W.clear||3);u.why='mitrailleuse usée : il faut des pièces';}}
-    u.mag--;if(ACTIONS[W.p.action]?.auto){u.burst=(u.burst||0)+1;if(u.burst>=4){u.burst=0;u.cool=(W.crew>1?Math.min(W.aim,12):W.aim)*.7;}else u.cool=W.cyc;}else{u.burst=0;u.cool=W.cyc+(W.crew>1?Math.min(W.aim,12):W.aim)*.4;}if(miss)u.cool*=1+miss*1.8;
+    /* (V12.5, demande du joueur) un léger décalage : des rafales de 3 à 5 coups, une pause et un coup par coup à ±15 %, la cadence de l'arme à ±4 % —
+     les rafales d'une escouade ne tombent plus toutes ensemble (tiré au générateur de la partie : la sauvegarde le reprend) */
+    u.mag--;if(ACTIONS[W.p.action]?.auto){u.burst=(u.burst||0)+1;if(u.burst>=(u.burstN||=3+Math.floor(this.rand()*3))){u.burst=0;u.burstN=0;u.cool=(W.crew>1?Math.min(W.aim,12):W.aim)*.7*this.fireJitter(.15);}else u.cool=W.cyc*this.fireJitter(.04);}else{u.burst=0;u.cool=(W.cyc+(W.crew>1?Math.min(W.aim,12):W.aim)*.4)*this.fireJitter(.15);}if(miss)u.cool*=1+miss*1.8;
     if(!(W.mountOk||u.k==='choc'&&W.need==='bipied')){u.cool*=1+Math.min(5,W.rk0*(u.k==='choc'?.5:1));u.why='affût insuffisant : tir lent et dispersé';}
     const R=distT*TILE_M;const fl=W.at(R);
     const isV=!!VEHDEF[e.k]&&!!e.mounts;const share={};let ix=x,iy=y;for(let k=0;k<(isB||e.wall!=null?1:(W.pel||1));k++){const res=isB||e.wall!=null?{hit:true,struct:true,v:fl.v}:isV?this.vehAim(u,e,W,R,u.burst||0):this.resolve(u,e,W,R,u.burst||0,share);
@@ -1699,7 +1703,7 @@ export class World{
     const dl=Math.hypot(T.x-u.x,T.y-u.y)||1;const ux=(T.x-u.x)/dl,uy=(T.y-u.y)/dl;const eR=(T.bias[0]+this.gauss()*sR)/TILE_M,eD=(T.bias[1]+this.gauss()*sD)/TILE_M;
     const x1=T.x+ux*eR-uy*eD,y1=T.y+uy*eR+ux*eD;if(obs){T.bias[0]*=.5;T.bias[1]*=.5;T.obs=obs.id;}else T.obs=null;
     u.mag--;T.fired++;if(u.f==='meumeu')this.practice('tir',.05);u.xp=(u.xp||0)+.1;
-    u.cool=mortar?W.cyc:(ACTIONS[W.p.action]?.auto?Math.max(W.cyc,.6):W.cyc)+aimZ*.4+(W.p.mag<=1?1.2:0);if(miss)u.cool*=1+miss*.5;
+    u.cool=(mortar?W.cyc:(ACTIONS[W.p.action]?.auto?Math.max(W.cyc,.6):W.cyc)+aimZ*.4+(W.p.mag<=1?1.2:0))*this.fireJitter(.12);if(miss)u.cool*=1+miss*.5;
     this.shotNoise(u,W,x1,y1);if(UDEF(u).sniper){u.cool*=2.2;u.snip=(u.snip||0)+1;if(u.snip%2===0&&u.task?.kind!=='move'){const a=this.rand()*Math.PI*2,ox=u.x,oy=u.y;const [nx,ny]=this.freeSpot?.(u.x+Math.cos(a)*3.5,u.y+Math.sin(a)*3.5,3)||[u.x+Math.cos(a)*3.5,u.y+Math.sin(a)*3.5];u.task={kind:'move',tx:nx,ty:ny,back:{kind:'guard',tx:nx,ty:ny}};u.path=null;u.orderPost='couche';}}
     if(W.jam&&this.rand()<W.jam){u.cool+=W.clear*(.7+this.rand()*.6);u.why='enrayé : il dégage la culasse';u.jams=(u.jams||0)+1;}else if(u.why?.startsWith('enrayé'))u.why=null;
     const SALVO=W.rocket&&W.salvo>1?W.salvo:0;

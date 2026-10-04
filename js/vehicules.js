@@ -345,8 +345,8 @@ export const VEHICULES={
     // jeep, pivot compris, tirait après 0,8 h)
     // (passer à la cible voisine ne demande qu'un petit pointage : le temps suit l'angle à rattraper — mesuré, la pièce refaisait une visée complète
     // pour le Bèè d'à côté, et le servant tombait avant le coup suivant)
-    if(m.aimAt!==(e.id??'b')){const aA=Math.atan2(ty-mz.y,tx-mz.x),da=m.aimA==null?9:Math.abs(wrap(aA-m.aimA));m.aimAt=e.id??'b';m.aimA=aA;m.cool=W.aim*.3*clamp(.25+da/.35,.25,1);return;}
-    m.mag--;const auto=ACT[W.p.action]?.auto;if(auto){m.burst=(m.burst||0)+1;if(m.burst>=10){m.burst=0;m.cool=W.aim*.35;}else m.cool=W.cyc;}else{m.burst=0;m.cool=W.cyc+W.aim*.3;}
+    if(m.aimAt!==(e.id??'b')){const aA=Math.atan2(ty-mz.y,tx-mz.x),da=m.aimA==null?9:Math.abs(wrap(aA-m.aimA));m.aimAt=e.id??'b';m.aimA=aA;m.cool=W.aim*.3*clamp(.25+da/.35,.25,1)*this.fireJitter(.25);return;}
+    m.mag--;const auto=ACT[W.p.action]?.auto;if(auto){m.burst=(m.burst||0)+1;if(m.burst>=(m.burstN||=8+Math.floor(this.rand()*5))){m.burst=0;m.burstN=0;m.cool=W.aim*.35*this.fireJitter(.15);}else m.cool=W.cyc*this.fireJitter(.04);}else{m.burst=0;m.cool=(W.cyc+W.aim*.3)*this.fireJitter(.15);}   /* (V12.5 : rafales de 8 à 12, le décalage des tirs) */
     const Rm=d2(tx,ty,mz.x,mz.y)*TILE;const fl=W.at(Rm);const share={};let ix=tx,iy=ty;
     for(let k=0;k<(isB?1:(W.pel||1));k++){const res=isB?{hit:true,struct:true,v:fl.v}:this.resolve(S,e,W,Rm,m.burst||0,share);[ix,iy]=res.hit?[tx,ty]:[res.px??tx,res.py??ty];
       this.s.shots.push({kind:'round',f:v.f,by:v.id,w:m.w,x0:mz.x,y0:mz.y,x1:ix,y1:iy,t:0,dur:Math.max(.01,fl.t)/HOUR_REAL,res,target:isB?{b:e.id}:{u:e.id},R:Rm,tracer:auto?((m.tr=(m.tr||0)+1)%4===0):false});}
