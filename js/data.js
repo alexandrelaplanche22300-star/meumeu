@@ -15,6 +15,7 @@ export const NIGHT=[17,8];   // quinze heures de noir : temps de gagner l'object
 export const MAP_N_MER=1500;   // V12.5 : la carte « mer » — un rectangle de 1 500 × 600 (2,5 fois la carte de 600) : 600 de terre, 300 de mer, 600 de terre.
 // La grille reste carrée (1 500 × 1 500, tout le code suppose N × N) ; ce qui est hors du rectangle (lignes 450 à 1 050 jouables) est de la mer profonde.
 export const SEA_RECT={y0:450,y1:1050};
+export const MAP_N_V2=1200;   // V12.5 : la carte normale V2 — deux fois plus grande, des grappes de gisements espacées (gen.js), des villes plus espacées (world.mapK)
 export const MAP_N=600;        // cases de côté (V12.4 : 440 → 600, demande du joueur : un front grand et dur à tenir ; capitale ↔ Bèè : ~450 cases)
 // un chantier, un soldat, un canon puisent dans les dépôts à moins de RADIUS cases (un dépôt sert tout un quartier)
 export const RADIUS=32;

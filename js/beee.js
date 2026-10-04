@@ -55,7 +55,7 @@ export const BEEE_AI={
   raidK(){const L=this.beeeLevel();return {maxcol:1+(L>=3?1:0)+(L>=5?1:0),armyMin:Math.max(24,30-2*L),odds:2.5,keep:Math.max(.3,.5-.04*L),gap:Math.max(.25,.6-.07*L)};},
   beeeReady(){return [FOOD,'atelier','poudrerie','caserne','arsenal'].every(k=>this.s.buildings.some(b=>b.f==='beee'&&b.k===k&&b.done&&!b.ruin));},
   meumeuReady(){return [FOOD,'atelier'].every(k=>this.s.buildings.some(b=>b.f==='meumeu'&&b.k===k&&b.done&&!b.ruin));},
-  beeeCrowded(b){return this.s.buildings.some(o=>o!==b&&o.f==='beee'&&o.k==='centre'&&!o.ruin&&distance(o.i,o.j,b.i,b.j)<SPACE);},
+  beeeCrowded(b){return this.s.buildings.some(o=>o!==b&&o.f==='beee'&&o.k==='centre'&&!o.ruin&&distance(o.i,o.j,b.i,b.j)<SPACE*(this.mapK||1));},
   beeeBuildings(k){return this.s.buildings.filter(b=>b.f==='beee'&&!b.ruin&&(!k||b.k===k));},
   beeeCivilians(){return this.s.units.filter(u=>u.f==='beee'&&u.k==='villageois'&&live(u));},
   beeeAssign(u,task){if(u.carry&&task.kind!=='gather'){const d=this.dropAt(u);if(d){this.put(d,u.carry.k,u.carry.n);u.carry=null;}}u.task=task;u.path=null;},
@@ -265,8 +265,12 @@ export const BEEE_AI={
     if(['bois','pierre','pieces'].some(k=>(plan.site?.[k]||0)>(plan.nat[k]||0)*1.2+20)){B.colonyWhy='chantiers en retard';B.colonyT=t+6;return;}
     const lack=k=>plan.D[k]||0,hungry=(B.foodCan||0)<(B.foodEat||0)*1.15;const ours=this.s.buildings.filter(b=>b.f==='meumeu'&&!b.ruin&&B.known?.[b.id]);/* seulement ce qu'ils ont repéré : ils ne savent pas où nous sommes */const all=ctrs.map(b=>[b.i,b.j]);
     const cx=all.reduce((a,p)=>a+p[0],0)/all.length,cy=all.reduce((a,p)=>a+p[1],0)/all.length;let best=null,bs=-1e9;
-    for(const c of this.beeeCadastre()){if(c.fail>t)continue;const dc=Math.min(...all.map(([x,y])=>distance(x,y,c.i,c.j)));if(dc<SPACE||dc>SUPPLY_HOP+38*LV)continue;   // avec le rail, une colonie n'a plus à coller à sa mère : de 58 cases (niveau 0) à 250 (niveau 5)
-      if(dc>SUPPLY_HOP&&(LV<1||B.conq))continue;   // au-delà de la portée des porteurs : seulement par une conquête ferroviaire (une à la fois)
+    /* (V12.5, carte V2) les villes à SPACE × 2 l'une de l'autre ; la portée des porteurs se compte depuis les villes ET les camps-dépôts : un site trop loin
+       reçoit d'abord un camp-relais à mi-chemin (relay), la colonie vient ensuite */
+    const KM=this.mapK||1,anchors=all.concat(KM>1?this.beeeBuildings('camp').filter(b=>b.done&&!b.ruin).map(b=>[b.i,b.j]):[]);
+    for(const c of this.beeeCadastre()){if(c.fail>t)continue;const dcc=Math.min(...all.map(([x,y])=>distance(x,y,c.i,c.j)));if(dcc<SPACE*KM)continue;const dc=Math.min(...anchors.map(([x,y])=>distance(x,y,c.i,c.j)));
+      c.relay=KM>1&&dc>SUPPLY_HOP&&dc<=SUPPLY_HOP*2&&(LV<1||B.conq);if(!c.relay&&dc>SUPPLY_HOP+38*LV)continue;   // avec le rail, une colonie n'a plus à coller à sa mère : de 58 cases (niveau 0) à 250 (niveau 5)
+      if(!c.relay&&dc>SUPPLY_HOP&&(LV<1||B.conq))continue;   // au-delà de la portée des porteurs : seulement par une conquête ferroviaire (une à la fois)
       c.dcity=dc;   // pas plus loin que la portée des porteurs (60 cases) : une colonie hors de portée n'était jamais approvisionnée (mesuré : chantiers abandonnés après 5 à 7 jours avec 34 à 49 bois livrés)
       const dm=ours.reduce((a,b)=>Math.min(a,distance(b.i,b.j,c.i,c.j)),999);if(dm<55)continue;
       let v=0;for(const [r,n] of Object.entries(c.ore))v+=Math.min(3,n)*(1.2+3*lack(r))*(1+.25*LV);   // les gisements riches valent le voyage
@@ -278,6 +282,9 @@ export const BEEE_AI={
       if(dm<90)v-=(90-dm)*.1;                                    // trop près de nous : risqué
       if(v>bs){bs=v;best=c;}}
     if(!best){B.colonyWhy='aucun emplacement';B.colonyT=t+12;return;}
+    if(best.relay){const [ax,ay]=anchors.slice().sort((p,q)=>distance(p[0],p[1],best.i,best.j)-distance(q[0],q[1],best.i,best.j))[0],d=distance(ax,ay,best.i,best.j),k=Math.min(1,50/d);
+      if(this.beeeBuildings('camp').some(cp=>!cp.done&&distance(cp.i,cp.j,ax+(best.i-ax)*k,ay+(best.j-ay)*k)<14)){B.colonyWhy='le camp-relais se monte';B.colonyT=t+3;return;}
+      const camp=this.beeeBuild('camp',Math.round(ax+(best.i-ax)*k),Math.round(ay+(best.j-ay)*k),10);if(camp){camp.prio=4;B.colonyWhy='camp-relais vers un site lointain';B.colonyT=t+3;for(const u of this.beeeAvailable(camp.i,camp.j,500).slice(0,2))this.beeeAssign(u,{kind:'build',b:camp.id});}else{best.fail=t+96;B.colonyT=t+1;B.colonyWhy='pas de place pour le relais';}return;}
     if(best.dcity>SUPPLY_HOP){if(this.beeeConquerStart(best,plan,base,cities0)){B.colonyWhy='voie vers un site lointain';B.colonyT=t+6;}else{best.fail=t+48;B.colonyWhy='pas de quoi tracer la voie';B.colonyT=t+3;}return;}
     // un centre se bâtit près d'un dépôt (qui recevra ses matériaux) : d'abord un camp-dépôt, gratuit, sur place ; la ville ensuite
     if(!this.depots('beee',best.i+2,best.j+2,14).some(d=>!BUILDINGS[d.k].foodOnly)){if(this.beeeBuildings('camp').some(cp=>!cp.done&&distance(cp.i,cp.j,best.i,best.j)<12)){B.colonyWhy='le camp des colons se monte';B.colonyT=t+2;return;}

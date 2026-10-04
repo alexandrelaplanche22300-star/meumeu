@@ -66,7 +66,7 @@ export class World{
   constructor(seed=Date.now()%100000,options={}){this.events=[];this.init(seed,options);}
   // (une graine dont la carte ne se laisse pas générer — la capitale bèè introuvable — passait à « Erreur de démarrage du rendu » : on prend la suivante ;
   //  la graine retenue est celle qui est sauvée, donc un rechargement retrouve la même carte)
-  init(seed,options={}){let G;for(let k=0;;k++){try{G=generate(seed,options.map);break;}catch(e){if(k>=24)throw e;seed++;}}this.G=G;this.N=G.N;this.bounds=G.bounds||[0,0,G.N,G.N];   /* (V12.5) le rectangle jouable : toute la carte, ou 1 500 × 600 sur la carte « mer » */this.rand=rng(seed*2654435761+7);for(let k=0;k<16;k++)this.rand();this.pather=new Pather(this.N);
+  init(seed,options={}){let G;for(let k=0;;k++){try{G=generate(seed,options.map);break;}catch(e){if(k>=24)throw e;seed++;}}this.G=G;this.N=G.N;this.mapK=G.mode==='v2'?2:1;   /* (V12.5) l'échelle de la carte V2 : les villes deux fois plus espacées */this.bounds=G.bounds||[0,0,G.N,G.N];   /* (V12.5) le rectangle jouable : toute la carte, ou 1 500 × 600 sur la carte « mer » */this.rand=rng(seed*2654435761+7);for(let k=0;k<16;k++)this.rand();this.pather=new Pather(this.N);
     const s=this.s={v:SAVE_VERSION,seed,map:G.mode,genV:G.version,t:7,solar:7,solarSettings:{...SOLAR_DEFAULT},nextId:1,units:[],buildings:[],vehicles:[],shots:[],falls:[],tracks:[],log:[],rails:{},walls:{},sacs:{},mines:{},pistes:{},craters:[],corpses:[],squads:[],
       designs:Object.fromEntries(DEFAULT_DESIGNS.map(d=>[d.id,JSON.parse(JSON.stringify(d))])),armors:Object.fromEntries(DEFAULT_ARMORS.map(d=>[d.id,JSON.parse(JSON.stringify(d))])),smokes:[],groundFires:[],
       nodes:G.nodes,fauna:[],beee:{cities:[],waves:0,anger:0,tension:0,phase:'war'},won:null,lost:null,cityN:0,squadN:0,
@@ -640,7 +640,7 @@ export class World{
     if(!free)why.push('la place est prise');else if(crowd)why.push(`trop près d’un autre bâtiment : ${GAP} cases d’écart`);if(B.onOre&&!ore)why.push('sur un filon');if(!B.onOre&&ore)why.push('pas sur le filon');
     if(B.bunker&&this.G.dcoast){const WET='pas sur le sable mouillé du bord : il faut pouvoir débarquer';for(let a=0;a<w&&!why.includes(WET);a++)for(let c=0;c<h;c++){const dd=this.G.dcoast[(j+c)*N+i+a];if(dd<7){why.push(WET);break;}}}
     if(B.unique&&this.s.buildings.some(b=>b.f===f&&b.k===k&&!b.ruin))why.push('un seul');
-    if(k==='centre'&&this.s.buildings.some(b=>b.f===f&&b.k==='centre'&&d2(b.i,b.j,i,j)<24))why.push('trop près d’une autre ville');
+    if(k==='centre'&&this.s.buildings.some(b=>b.f===f&&b.k==='centre'&&d2(b.i,b.j,i,j)<24*this.mapK))why.push('trop près d’une autre ville');
     if(B.station&&!this.platformAt(i,j,w,h))why.push('au bord d’une voie ferrée');
     if(B.needsRunway){const rw=this.airRunwayNear(i+w/2,j+h/2);if(!rw||d2(i+w/2,j+h/2,rw.cx,rw.cy)>rw.len/2+14)why.push('à côté d’une piste (44 cases de long, 3 de large) : posez-la d’abord');}
     if(B.faction&&B.faction!==f)why.push('pas pour ce camp');

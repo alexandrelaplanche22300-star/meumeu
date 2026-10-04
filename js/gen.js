@@ -2,7 +2,7 @@
 // des collines rocheuses. Au milieu, une chaîne de montagnes le traverse en diagonale, percée de trois cols : les passages
 // où la guerre passera. La capitale meumeu est dans un coin, les villes bèè dans le coin opposé : on ne se voit pas au début.
 // Les gisements sont répartis également entre les deux camps (voir plus bas) : l'armement et le rare demandent le rail.
-import {MAP_N,MAP_N_MER,SEA_RECT,T,NODES,RARE,ORE_LEFT,COMMON_ORES} from './data.js';
+import {MAP_N,MAP_N_MER,MAP_N_V2,SEA_RECT,T,NODES,RARE,ORE_LEFT,COMMON_ORES} from './data.js';
 
 export function rng(seed){let s=(seed>>>0)||1;const next=()=>{s^=s<<13;s>>>=0;s^=s>>17;s^=s<<5;s>>>=0;return s/4294967296;};next.state=v=>{if(v!==undefined)s=(v>>>0)||1;return s;};return next;}
 function noise2(r){const P=256,g=new Float32Array(P*P);for(let i=0;i<g.length;i++)g[i]=r();
@@ -12,8 +12,10 @@ function noise2(r){const P=256,g=new Float32Array(P*P);for(let i=0;i<g.length;i+
 function fbm(n,x,y,oct){let a=0,w=.5,f=1,s=0;for(let o=0;o<oct;o++){a+=w*n(x*f,y*f);s+=w;w*=.5;f*=2.03;}return a/s;}
 
 // V12.5 : version de la génération de la carte « mer » — une sauvegarde faite avec une autre version a des arbres, des rochers et des filons qui ne correspondent plus au terrain
-export const GEN_VERSION_MER=4;
-export function generate(seed,mode='classique'){const SEA=mode==='mer';const N=SEA?MAP_N_MER:MAP_N;
+export const GEN_VERSION_MER=4,GEN_VERSION_V2=1;
+export function generate(seed,mode='classique'){const SEA=mode==='mer',V2=mode==='v2';const N=SEA?MAP_N_MER:V2?MAP_N_V2:MAP_N;
+  // (V12.5) la carte V2 : le même monde à l'échelle double (le relief s'étire avec elle) ; K double les distances des gisements et des terres fertiles
+  const K=V2?2:1;
   // V12.5 : la carte « mer » — un rectangle de 1 500 × 600 : une rive de 600 de large à l'ouest (les Meumeu), 300 cases de mer au milieu, une rive de 600
   // à l'est (les Bèè), de longues plages de sable le long de toutes les côtes. Hors du rectangle : mer profonde (terrain 0, la valeur par défaut).
   const RECT=SEA?{x0:0,x1:N,y0:SEA_RECT.y0,y1:SEA_RECT.y1}:{x0:0,x1:N,y0:0,y1:N};const S=SEA?600:N;   // S : l'échelle du relief (le même que la carte classique)
@@ -102,6 +104,7 @@ export function generate(seed,mode='classique'){const SEA=mode==='mer';const N=S
     near(T0,'fer',16,26,null,1,6)||near(T0,'fer',14,32,null,1,4);
     // Les Meumeu ont l'essentiel à portée (ni collé, ni loin) : de quoi s'armer vite face au nombre qui monte
     if(MEU)for(const res of ['cuivre','plomb','salpetre','charbon'])near(T0,res,18,32,null,1,6)||near(T0,res,16,40,null,1,4);
+    if(V2)continue;   /* (V2 : au-delà du démarrage, les grappes plus bas) */
     near(T0,'fer',25*X,42*X,null,1,8);
     near(T0,'fer',36*X,58*X,toMid,1.2,9);
     shuffle(arm).forEach((res,n)=>near(T0,res,35*X,65*X,toMid+(n-1.5)*.55,.35)||near(T0,res,35*X,70*X,toMid,1.2));
@@ -109,9 +112,14 @@ export function generate(seed,mode='classique'){const SEA=mode==='mer';const N=S
     for(const res of order)near(T0,res,70*X,110*X,toMid,.9);}
   for(const T0 of beee.slice(1))for(const res of ['pierre','charbon','fer'])near(T0,res,10,20,null);
   const dC=(i,j)=>Math.min(Math.hypot(i-capital[0],j-capital[1]),ally?Math.hypot(i-ally[0],j-ally[1]):1e9),dB=(i,j)=>Math.min(...beee.map(([a,b])=>Math.hypot(a-i,b-j)));
-  for(const res of [...COMMON_ORES,...COMMON_ORES,...order])place(res,(i,j)=>Math.abs(dC(i,j)-dB(i,j))<40&&dC(i,j)>70);
+  // (V12.5) la carte V2 : des grappes de 3 à 5 gisements serrés (16 cases), les grappes à 110 cases au moins l'une de l'autre et à 70 de chaque capitale ;
+  // une sur deux environ a un minerai rare. On fonde une ville par grappe : les villes s'espacent, les mines aussi.
+  if(V2){const C=[];for(let t=0;t<30000&&C.length<160;t++){const i=60+Math.floor(r()*(N-120)),j=60+Math.floor(r()*(N-120));if(comp[j*N+i]!==main||dC(i,j)<70||dB(i,j)<70||C.some(([a,b])=>Math.hypot(a-i,b-j)<110))continue;C.push([i,j]);}
+    for(const [ci,cj] of C){const n=3+Math.floor(r()*3),mix=shuffle([...COMMON_ORES,...COMMON_ORES]).slice(0,n);if(r()<.5)mix[n-1]=order[Math.floor(r()*order.length)];
+      for(const res of mix)place(res,(i,j)=>Math.hypot(i-ci,j-cj)<16,6);}}
+  else for(const res of [...COMMON_ORES,...COMMON_ORES,...order])place(res,(i,j)=>Math.abs(dC(i,j)-dB(i,j))<40&&dC(i,j)>70);
   // un peu partout, éparpillés : deux passes sur une grille de 7 × 7
-  for(let pass=0;pass<2;pass++){const GX=SEA?18:7,GY=SEA?7:7,cw=(RECT.x1-RECT.x0)/GX,ch=(RECT.y1-RECT.y0)/GY;let cyc=shuffle(COMMON_ORES),ci=0;
+  for(let pass=0;pass<(V2?0:2);pass++){const GX=SEA?18:7,GY=SEA?7:7,cw=(RECT.x1-RECT.x0)/GX,ch=(RECT.y1-RECT.y0)/GY;let cyc=shuffle(COMMON_ORES),ci=0;
   for(let gy=0;gy<GY;gy++)for(let gx=0;gx<GX;gx++){const res=cyc[ci++%cyc.length];if(ci%cyc.length===0)cyc=shuffle(COMMON_ORES);
     place(res,(i,j)=>i>=RECT.x0+gx*cw&&i<RECT.x0+(gx+1)*cw&&j>=RECT.y0+gy*ch&&j<RECT.y0+(gy+1)*ch&&dC(i,j)>25&&dB(i,j)>25,14);}}
   // près des villes, les filons sont petits (de quoi démarrer) ; les gros sont loin : il faut s'étendre
@@ -120,20 +128,20 @@ export function generate(seed,mode='classique'){const SEA=mode==='mer';const N=S
   const START_LEFT={fer:1400,charbon:1400,pierre:1800,cuivre:1000,plomb:1000,salpetre:1000};
   for(const d of deposits){const near=Math.min(dC(d.i,d.j),dB(d.i,d.j));
     if(near<32)d.left=d.max=Math.min(d.max,START_LEFT[d.res]||800);
-    else if(near<60)d.left=d.max=Math.round(d.max*.5);
-    else if(near>80)d.left=d.max=Math.round(d.max*Math.min(2.2,1+(near-80)/100));}
+    else if(near<60*K)d.left=d.max=Math.round(d.max*.5);
+    else if(near>80*K)d.left=d.max=Math.round(d.max*Math.min(2.2,1+(near-80*K)/(100*K)));}
   // La fertilité du sol (0–100) : les limons des plaines, des poches de terre noire ; les landes et la roche, presque rien.
   // Les Meumeu démarrent dans une vallée grasse ; les Bèè sur un plateau maigre et caillouteux — les meilleures terres sont
   // ailleurs, au milieu et vers nous : c'est pour elles aussi qu'ils s'étendront. (Un tirage à part : le reste de la carte ne bouge pas.)
   const rf=rng(seed*7919+3);const nf=noise2(rf);const fert=new Uint8Array(N*N);const blobs=[];
   const blobAt=(ok,rad)=>{for(let t=0;t<600;t++){const i=RECT.x0+10+Math.floor(rf()*(RECT.x1-RECT.x0-20)),j=RECT.y0+10+Math.floor(rf()*(RECT.y1-RECT.y0-20));if(comp[j*N+i]!==main||!ok(i,j)||blobs.some(b=>Math.hypot(b.i-i,b.j-j)<b.r+rad+6))continue;blobs.push({i,j,r:rad});return;}};
   for(let n=0;n<2;n++)blobAt((i,j)=>dC(i,j)>14&&dC(i,j)<38,9+rf()*4);
-  for(let n=0;n<4;n++)blobAt((i,j)=>Math.abs(dC(i,j)-dB(i,j))<70&&dC(i,j)>60&&dB(i,j)>60,10+rf()*7);
-  for(let n=0;n<5;n++)blobAt((i,j)=>dB(i,j)>75&&dC(i,j)>55,9+rf()*7);
-  for(let n=0;n<3;n++)blobAt((i,j)=>dB(i,j)>55&&dB(i,j)<100&&dC(i,j)>90,8+rf()*5);
+  for(let n=0;n<4*K;n++)blobAt((i,j)=>Math.abs(dC(i,j)-dB(i,j))<70*K&&dC(i,j)>60*K&&dB(i,j)>60*K,(10+rf()*7)*(V2?1.4:1));
+  for(let n=0;n<5*K;n++)blobAt((i,j)=>dB(i,j)>75*K&&dC(i,j)>55*K,(9+rf()*7)*(V2?1.4:1));
+  for(let n=0;n<3*K;n++)blobAt((i,j)=>dB(i,j)>55*K&&dB(i,j)<100*K&&dC(i,j)>90*K,(8+rf()*5)*(V2?1.4:1));
   const TF={[T.grass]:1,[T.meadow]:1.1,[T.dirt]:.6,[T.scrub]:.3};
   for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i;const tf=TF[terrain[k]]||0;if(!tf)continue;let v=(fbm(nf,i/S*7,j/S*7,4)-.28)*170;
     for(const b of blobs){const d=Math.hypot(b.i-i,b.j-j);if(d<b.r)v+=48*Math.pow(1-d/b.r,.6);}
     const c=dC(i,j),e=dB(i,j);if(c<55)v=Math.max(v,78*(1-c/70))+14*(1-c/55);if(e<60)v=Math.min(v,30+30*e/60);
     let fv=v*tf;if(c<50)fv=Math.max(fv,82*(1-c/70));fert[k]=Math.max(0,Math.min(100,Math.round(fv)));}
-  return {N,terrain,nodes,nodeAt,comp,main,capital,ally,beee,deposits,passes,fert,blobs,dcoast,mode,version:SEA?GEN_VERSION_MER:0,bounds:[RECT.x0,RECT.y0,RECT.x1,RECT.y1]};}
+  return {N,terrain,nodes,nodeAt,comp,main,capital,ally,beee,deposits,passes,fert,blobs,dcoast,mode,version:SEA?GEN_VERSION_MER:V2?GEN_VERSION_V2:0,bounds:[RECT.x0,RECT.y0,RECT.x1,RECT.y1]};}
