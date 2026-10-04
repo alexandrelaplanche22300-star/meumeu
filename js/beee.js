@@ -35,7 +35,7 @@ export const BEEE_AI={
   beeeNextArm(H,mix){const tot=Object.values(mix).reduce((a,b)=>a+b,0)+1;return this.beeeArms().filter(id=>(H['a:'+id]||0)>=1&&(H['m:'+id]||0)>=.3).sort((a,z)=>(mix[a]||0)/tot/DOCTRINE[a]-(mix[z]||0)/tot/DOCTRINE[z])[0]||null;},
   beeeTick(dt){const B=this.s.beee;B.econT=(B.econT||0)+dt;
     if(B.econT>=1){B.econT%=1;this.beeeEconomy();}
-    this.beeeLevelTick();this.fortTick?.();this.amphiBeeTick?.();
+    this.beeeLevelTick();this.fortTick?.();this.cityFortTick?.();this.amphiBeeTick?.();
     const cities=B.cities.filter(c=>!c.fallen&&this.building(c.centre)?.done);if(this.atWar)this.beeeSearch(cities);
     // l'état-major veille toujours (défense, contre-batterie, reprise) ; l'offensive attend que les deux peuples soient installés
     this.beeeStaff(cities,this.day>=BEEE.firstRaid&&this.beeeReady());},

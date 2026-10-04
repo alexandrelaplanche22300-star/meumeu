@@ -124,13 +124,40 @@ for(let s=sec.smin;s<=sec.smax;s+=2)for(const d of band?[4,6]:[3,5]){const p=thi
   fortSupply(sec){const campEl=sec.el?.find(e=>e.kind==='camp');const camp=campEl?.placed&&this.building(campEl.pid);if(!camp?.done)return;const want={pierre:30,bois:20};
     for(const el of sec.el){if(!el.placed||this.fortDone(el)||(el.kind!=='line'&&el.kind!=='mines'))continue;const st=this.lineStore(el.kind==='mines'?'mines':el.line);const left=el.keys.filter(k=>st[k]&&!st[k].b).length;const c=LINES[el.kind==='mines'?'mines':el.line].cost;for(const [k,v] of Object.entries(c))want[k]=(want[k]||0)+Math.min(80,v*left);}
     camp.want=want;camp.prio=6;},
+  // ---------- (V12.5, demande du joueur) les bunkers des villes ----------
+  // Toutes les cartes : chaque ville bèè reçoit une ceinture d'ouvrages, à 16 cases de son centre (× l'échelle de la carte) — quatre bunkers légers aux quatre
+  // points cardinaux, puis deux de plus et une casemate à canon (24 cases) tournés vers la menace (le bâtiment meumeu connu le plus proche, sinon le milieu de
+  // la carte) ; la capitale et les villes de plus de 8 bâtiments en ont deux de plus. Mêmes coûts, mêmes bâtisseurs, mêmes armes et même garnison que les
+  // ouvrages de côte. Ils viennent après la base (caserne, arsenal), 4 chantiers à la fois plus un par trois villes, et la côte garde sa réserve.
+  cityFortPlan(c){const B=this.s.beee,P=(B.cityForts??={});if(P[c.id])return P[c.id];const K=this.mapK||1,R=16*K;
+    const known=this.s.buildings.filter(b=>b.f==='meumeu'&&!b.ruin&&B.known?.[b.id]).sort((a,z)=>dist(a.i,a.j,c.x,c.y)-dist(z.i,z.j,c.x,c.y))[0];
+    const tx=known?known.i:this.N/2,ty=known?known.j:this.N/2,ta=Math.atan2(ty-c.y,tx-c.x);
+    const big=c.centre===B.cities[0]?.centre||this.s.buildings.filter(b=>b.f==='beee'&&!b.ruin&&dist(b.i,b.j,c.x,c.y)<30).length>8;
+    const els=[];let n=0;const add=(tier,a,r,type)=>{const ox=Math.cos(a),oy=Math.sin(a);els.push({key:'c'+c.id+':'+(n++),tier,kind:'bunker',type,x:c.x+ox*r,y:c.y+oy*r,rot:this.fortRot({nx:-ox,ny:-oy})});};
+    [0,1,2,3].forEach(q=>add(1,q*Math.PI/2+Math.PI/4,R,FORT_KIT.line1[q%FORT_KIT.line1.length]));
+    add(2,ta-.45,R,'double_mg');add(2,ta+.45,R,'blockhaus_m');add(2,ta,R*1.5,'casemate_canon');
+    if(big){add(3,ta-1.2,R*1.2,'blockhaus_l');add(3,ta+1.2,R*1.2,'tobrouk');}
+    return P[c.id]={els};},
+  cityFortTick(){const B=this.s.beee,t=this.s.t;if(!this.atWar&&this.day<8)return;if(t-(B.cityFortT??-99)<3)return;B.cityFortT=t;B.fort??={on:false,t:-99,count:0};
+    const plan=B.plan;if(!plan?.nat)return;const cities=B.cities.filter(c=>!c.fallen&&this.building(c.centre)?.done);
+    if(this.day<6||!['caserne','arsenal'].every(k=>this.beeeBuildings(k).some(b=>b.done)))return;
+    const reserve={pierre:130,fer:60,bois:110,pieces:40};for(const [k,n] of Object.entries(this.amphiBeeReserve?.()||{}))reserve[k]=(reserve[k]||0)+n;
+    let open=0;const all=[];for(const c of cities){const P=this.cityFortPlan(c);for(const el of P.els){if(el.placed&&this.fortLost(el)){el.placed=false;el.pid=null;}if(el.placed&&!this.fortDone(el)){open++;
+        const b=this.building(el.pid);const have=this.s.units.filter(u=>u.task?.b===b.id&&u.task.kind==='build').length;for(const u of this.beeeAvailable(b.i,b.j,300).slice(0,Math.max(0,3-have)))this.beeeAssign(u,{kind:'build',b:b.id});}}all.push([c,P]);}
+    /* (en largeur : la première couronne de toutes les villes avant la suivante — mesuré : ville par ville, 3 villes sur 8 en avaient à J26) */
+    const tierMax=1+(this.day>=12?1:0)+(this.day>=20?1:0),maxOpen=4+Math.floor(cities.length/3);
+    for(let tier=1;tier<=tierMax&&open<maxOpen;tier++)for(const [c,P] of all){if(open>=maxOpen)break;{const prev=P.els.filter(e=>e.tier===tier-1&&!e.failed);if(tier>1&&prev.some(e=>!this.fortDone(e)))continue;
+        for(const el of P.els){if(el.tier!==tier||el.placed||el.failed||(el.retryT||0)>t||open>=maxOpen)continue;
+          const cost=this.fortCost(el);if(Object.entries(cost).some(([k,n])=>(plan.nat[k]||0)<n*.45+(reserve[k]||0))){el.retryT=t+6;continue;}
+          if(this.fortPlace(el,null)){open++;B.fort.count++;}else{el.fails=(el.fails||0)+1;el.retryT=t+10+el.fails*6;if(el.fails>=4)el.failed=true;}}}}
+    if(!this.fortActive()){this.fortGarrison();this.fortArm();}},
   // ---------- l'armement des ouvrages ----------
   // l'emplacement de pièce d'un Tobrouk reçoit une mitrailleuse lourde ; celui d'une casemate, d'une fosse ou d'une batterie un canon ; dans les blockhaus, les premiers postes de
   // tir (selon le type) reçoivent un fusil-mitrailleur ; une arme servie a ses servants (les camarades de l'ouvrage, à la case voisine de la pièce)
   fortHeavyOf(type){return {tobrouk:'bee_mg_lourde',tobrouk_double:'bee_mg_lourde',fosse_mortier:'bee_canon',casemate_canon:'bee_canon',casemate_lourde:'bee_canon',batterie:'bee_canon'}[type]||null;},
   fortMgPosts(type){return {poste_mg:2,double_mg:2,blockhaus_s:1,blockhaus_m:2,blockhaus_l:3,fortin:4,blockhaus_rond:2,blockhaus_l_coin:2,poste_commandement:1}[type]||0;},
   // ce que les ouvrages (finis ou en chantier) réclament en armes : {id: nombre}
-  fortArmsWant(){const out={};if(!this.fortActive?.())return out;for(const b of this.s.buildings){if(b.f!=='beee'||b.ruin)continue;const id=BUILDINGS[b.k]?.bunker;if(!id)continue;
+  fortArmsWant(){const out={};if(!this.fortActive?.()&&!this.s.beee.cityForts)return out;for(const b of this.s.buildings){if(b.f!=='beee'||b.ruin)continue;const id=BUILDINGS[b.k]?.bunker;if(!id)continue;
       const H=this.fortHeavyOf(id);const P=this.bunkerPlanOf(b);if(H){const n=P.posts.filter(p=>p.kind==='gun').length;const armed=this.fortArmedCount(b,H);out[H]=(out[H]||0)+Math.max(0,n-armed);}
       const m=this.fortMgPosts(id);if(m){out.bee_mg=(out.bee_mg||0)+Math.max(0,m-this.fortArmedCount(b,'bee_mg'));}}
     return out;},
