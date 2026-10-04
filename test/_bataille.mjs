@@ -2,12 +2,21 @@
 // Relève le plus possible : toutes les 12 h l'état des deux camps (une ligne lisible + une ligne JSON), chaque opération de débarquement (camp, effectif,
 // plage, vagues, débarqués, durée), chaque tête de pont bèè (vie, effectif max, terrain gagné, camp), la tête de pont alliée (phases), les ripostes,
 // les bâtiments détruits et les pertes de chaque côté, le journal des deux états-majors, le coût de calcul ; des sauvegardes régulières et aux moments clés.
-//   node test/_bataille.mjs <graine> <jours> <dossier>
+//   node test/_bataille.mjs <graine> <jours> <dossier>               une bataille neuve
+//   node test/_bataille.mjs <graine> <jours> <dossier> --reprendre  reprend une bataille interrompue à sa dernière sauvegarde (reprise.json, réécrite tous
+//     les deux jours, ou jNN.json) : la partie, les compteurs et l'historique (bilan.json, toujours écrit avec la sauvegarde la plus récente) repartent de là
 const out={textContent:''};globalThis.document??={getElementById:()=>out};
 const fs=await import('fs');const path=await import('path');const {World}=await import('../js/world.js');const {BUILDINGS}=await import('../js/data.js');
 const seed=+(process.argv[2]||301),DAYS=+(process.argv[3]||60),DIR=process.argv[4]||`test/_saves/bataille_${seed}`;fs.mkdirSync(DIR,{recursive:true});
-const W=new World(seed,{map:'mer',allyAll:true});const B=W.s.beee,mid=W.N/2,T0=Date.now();
-for(const n of ['journal.txt','etats.jsonl'])fs.writeFileSync(path.join(DIR,n),'');const LOG={write:x=>fs.appendFileSync(path.join(DIR,'journal.txt'),x),end(){}},JL={write:x=>fs.appendFileSync(path.join(DIR,'etats.jsonl'),x),end(){}};
+const RESUME=process.argv.includes('--reprendre');let bil0=null,resumeFile=null;
+if(RESUME){try{bil0=JSON.parse(fs.readFileSync(path.join(DIR,'bilan.json'),'utf8'));}catch(e){}
+  // (les bilans d'avant cette option ne nomment pas leur sauvegarde : la jNN la plus avancée, écrite en même temps que le bilan)
+  resumeFile=bil0?.sauvegarde||fs.readdirSync(DIR).filter(f=>/^j\d+\.json$/.test(f)).sort((a,z)=>parseInt(z.slice(1))-parseInt(a.slice(1)))[0];
+  if(!resumeFile){console.log('rien à reprendre dans '+DIR);process.exit(1);}}
+const W=RESUME?new World(1).restore(fs.readFileSync(path.join(DIR,resumeFile),'utf8')):new World(seed,{map:'mer',allyAll:true});const B=W.s.beee,mid=W.N/2,T0=Date.now()-(bil0?.minutes||0)*60000;
+if(!RESUME)for(const n of ['journal.txt','etats.jsonl'])fs.writeFileSync(path.join(DIR,n),'');
+else{const f=path.join(DIR,'etats.jsonl');if(fs.existsSync(f))fs.writeFileSync(f,fs.readFileSync(f,'utf8').split('\n').filter(l=>l&&JSON.parse(l).jour<=W.s.t/24+.01).join('\n')+'\n');}   /* (les relevés faits après la sauvegarde seront refaits) */
+const LOG={write:x=>fs.appendFileSync(path.join(DIR,'journal.txt'),x),end(){}},JL={write:x=>fs.appendFileSync(path.join(DIR,'etats.jsonl'),x),end(){}};
 const say=s=>{LOG.write(s+'\n');console.log(s);};
 const alive=u=>u.hp>0&&u.h?.state!=='mort';const valid=u=>alive(u)&&u.h?.state!=='hors';
 const beeRight=B.cities.reduce((n,c)=>n+c.x,0)/B.cities.length>mid,onBeeSide=u=>(u.x>mid)===beeRight;
@@ -37,6 +46,15 @@ const causes={},deathsByDay={};const where=u=>W.isWaterAt?.(u.x,u.y)?'mer':onBee
 /* les bandes bèè : naissance (genre, effectif, cible, distance), chaque changement d'état (et pourquoi), fin (survivants) */
 const bandsT=new Map();{const s0=W.bandSet.bind(W);W.bandSet=(b,state,why='')=>{const r=bandsT.get(b.id);if(r&&b.state!==state)r.etats.push([+(W.s.t/24).toFixed(2),state,why]);return s0(b,state,why);};}
 const destroyed=[];
+/* (la reprise : l'historique du bilan — les opérations, têtes et bandes finies y restent ; celles en cours sont rattachées aux vivantes de la sauvegarde) */
+const hist={ops:[],heads:[],bands:[]};
+if(RESUME&&bil0){tally.morts={...tally.morts,...bil0.pertes};tally.detruits={...tally.detruits,...bil0.detruits};tally.noyes=bil0.noyes||0;Object.assign(causes,bil0.causes||{});Object.assign(deathsByDay,bil0.mortsParJour||{});destroyed.push(...(bil0.detruitsListe||[]));
+  const t=W.s.t,camp=o=>o.f==='beee'?'bèè':'allié';
+  for(const h of bil0.operations||[]){const o=h.fin==null&&(W.s.amphi||[]).find(o=>camp(o)===h.camp&&(o.beach.x|0)===h.plage[0]&&(o.beach.y|0)===h.plage[1]&&!ops.has(o.id));
+    if(o)ops.set(o.id,{o,t0:h.debut*24,n:h.embarques,boats:h.bateaux});else hist.ops.push(h.fin==null?{...h,fin:+(t/24).toFixed(1),interrompue:true}:h);}
+  for(const h of bil0.tetesBee||[]){const H=h.fin==null&&(B.heads||[]).find(H=>(H.bx|0)===h.lieu[0]&&(H.by|0)===h.lieu[1]&&!heads.has(H.id));
+    if(H)heads.set(H.id,{t0:h.debut*24,max:h.max,adv:h.avance,camp:h.camp,x:h.lieu[0],y:h.lieu[1]});else hist.heads.push(h.fin==null?{...h,fin:+(t/24).toFixed(1)}:h);}
+  hist.bands=(bil0.bandes||[]).filter(b=>b.fin!=null);evSaves=fs.readdirSync(DIR).filter(f=>/^moment\d/.test(f)).length;if(evSaves)W._sb=W._sa=W._sl=1;}
 const track=()=>{const s=W.s,t=s.t;
   const gone=(id,f)=>{tally.detruits[f]++;const b=W.building(id);destroyed.push({jour:+(t/24).toFixed(1),camp:f,k:b?.k||bldK.get(id)||'?',lieu:b?[b.i,b.j]:bldAt.get(id)||null});bldSeen.delete(id);};
   for(const b of s.buildings){if(BOATS.has(b.k))continue;if(b.done&&!b.ruin){bldSeen.set(b.id,b.f);bldK.set(b.id,b.k);bldAt.set(b.id,[b.i,b.j]);}else if(b.ruin&&bldSeen.has(b.id))gone(b.id,bldSeen.get(b.id));}
@@ -54,19 +72,20 @@ const track=()=>{const s=W.s,t=s.t;
   for(const e of [...s.log].reverse()){const k=e.t+'|'+e.text;if(seenLog.has(k))continue;seenLog.add(k);if(/débarqu|tête de pont|flotte|vague|riposte|attaque|tombe|tombée|appareille|embarque|assaut|lance|marchent|ligne|décroch|fonde|barge|renfort/i.test(e.text))say(`     · J${(e.t/24).toFixed(1)} [${e.where}] ${e.text}`);}
   if(seenLog.size>4000)seenLog.clear();};
 const save=tag=>{try{fs.writeFileSync(path.join(DIR,`${tag}.json`),W.serialize());say(`  [sauvegarde ${tag}]`);}catch(e){say('  [sauvegarde impossible '+e.message+']');}};
-say(`### bataille IA contre IA · graine ${seed} · ${DAYS} jours · carte mer (${W.N} cases) · l'allié mène toute l'île`);
-for(let h=1;h<=DAYS*24;h++){for(let k=0;k<60;k++)W.update(1/60);
+say(RESUME?`### reprise de la bataille · graine ${seed} · à J${(W.s.t/24).toFixed(1)}, depuis ${resumeFile} · jusqu'à J${DAYS}`:`### bataille IA contre IA · graine ${seed} · ${DAYS} jours · carte mer (${W.N} cases) · l'allié mène toute l'île`);
+for(let h=Math.round(W.s.t)+1;h<=DAYS*24;h++){for(let k=0;k<60;k++)W.update(1/60);
   if(h%2===0)track();
   if(h%12===0)sample();
-  if(h%(24*10)===0){save('j'+h/24);writeBilan(false);}
+  // une sauvegarde tous les dix jours (gardée), et une de reprise tous les deux jours (réécrite) ; le bilan est écrit avec, et nomme sa sauvegarde
+  if(h%(24*10)===0){save('j'+h/24);writeBilan(false,'j'+h/24+'.json');}else if(h%48===0&&h<DAYS*24){save('reprise');writeBilan(false,'reprise.json');}
   // les moments clés (au plus quatre) : une tête de pont bèè forte, l'allié qui passe à l'attaque, un débarquement en cours de vague
   if(evSaves<4&&h%6===0){const big=(B.heads||[]).some(H=>W.amphiBeeHeadMen(H).length>=25),adv=W.s.ally?.raid?.phase==='avancer',land=(W.s.amphi||[]).some(o=>o.state==='land');
     if((big&&!W._sb)||(adv&&!W._sa)||(land&&evSaves<2&&!W._sl)){if(big)W._sb=1;if(adv)W._sa=1;if(land)W._sl=1;evSaves++;save(`moment${evSaves}_j${(W.s.t/24).toFixed(1)}`);}}}
 // le bilan (aussi tous les dix jours, « en cours »)
-function writeBilan(fini){const opL=[...ops.values()].map(r=>({camp:r.o.f==='beee'?'bèè':'allié',debut:+(r.t0/24).toFixed(1),fin:r.end?+(r.end/24).toFixed(1):null,embarques:r.n,bateaux:r.boats,debarques:r.o.landed,vagues:r.o.wave,plage:[r.o.beach.x|0,r.o.beach.y|0]}));
-const hL=[...heads.values()].map(H=>({lieu:[H.x,H.y],debut:+(H.t0/24).toFixed(1),fin:H.end?+(H.end/24).toFixed(1):null,max:H.max,avance:Math.round(H.adv),camp:H.camp}));
-const bL=[...bandsT.values()].map(r=>({...r,fin:r.fin??null,survivants:r.last??null}));
-const bilan={graine:seed,jours:DAYS,minutes:+((Date.now()-T0)/60000).toFixed(1),operations:opL,tetesBee:hL,bandes:bL,causes,mortsParJour:deathsByDay,detruitsListe:destroyed,pertes:tally.morts,detruits:tally.detruits,noyes:tally.noyes,final:{meumeuVilles:W.allyCities().length,beeVilles:B.cities.filter(c=>!c.fallen).length,beeTombees:B.cities.filter(c=>c.fallen).length}};
+function writeBilan(fini,sauvegarde=null){const opL=hist.ops.concat([...ops.values()].map(r=>({camp:r.o.f==='beee'?'bèè':'allié',debut:+(r.t0/24).toFixed(1),fin:r.end?+(r.end/24).toFixed(1):null,embarques:r.n,bateaux:r.boats,debarques:r.o.landed,vagues:r.o.wave,plage:[r.o.beach.x|0,r.o.beach.y|0]})));
+const hL=hist.heads.concat([...heads.values()].map(H=>({lieu:[H.x,H.y],debut:+(H.t0/24).toFixed(1),fin:H.end?+(H.end/24).toFixed(1):null,max:H.max,avance:Math.round(H.adv),camp:H.camp})));
+const bL=hist.bands.concat([...bandsT.values()].map(r=>({...r,fin:r.fin??null,survivants:r.last??null})));
+const bilan={graine:seed,jours:DAYS,jour:+(W.s.t/24).toFixed(2),sauvegarde,minutes:+((Date.now()-T0)/60000).toFixed(1),operations:opL,tetesBee:hL,bandes:bL,causes,mortsParJour:deathsByDay,detruitsListe:destroyed,pertes:tally.morts,detruits:tally.detruits,noyes:tally.noyes,final:{meumeuVilles:W.allyCities().length,beeVilles:B.cities.filter(c=>!c.fallen).length,beeTombees:B.cities.filter(c=>c.fallen).length}};
 bilan.termine=fini;fs.writeFileSync(path.join(DIR,'bilan.json'),JSON.stringify(bilan,null,1));return {opL,hL,bilan};}
 {const {opL,hL,bilan}=writeBilan(true);
 say(`### BILAN graine ${seed} : opérations bèè ${opL.filter(o=>o.camp==='bèè').length} (${opL.filter(o=>o.camp==='bèè').reduce((n,o)=>n+o.debarques,0)} débarqués), alliées ${opL.filter(o=>o.camp==='allié').length} (${opL.filter(o=>o.camp==='allié').reduce((n,o)=>n+o.debarques,0)} débarqués) · têtes de pont bèè ${hL.length} · morts M ${tally.morts.meumeu} B ${tally.morts.beee} · détruits M ${tally.detruits.meumeu} B ${tally.detruits.beee} · ${bilan.minutes} min`);

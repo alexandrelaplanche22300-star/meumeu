@@ -1,0 +1,2 @@
+const {main}=require('./harness.cjs');const path=require('path');const fs=require('fs');fs.mkdirSync(path.join(__dirname,'moulin'),{recursive:true});
+main(async({run,wait,shot})=>{for(let i=0;i<40&&!(await run('!!window.__done'));i++)await wait(250);console.log(await run(`document.getElementById('info').textContent`));await shot(process.env.NAME||'page.png');},{w:1600,h:860,out:path.join(__dirname,'moulin')});
