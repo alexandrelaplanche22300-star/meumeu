@@ -220,6 +220,10 @@ const AZTEC={
   garage:(W,D)=>{const B=new Build(),t=azBase(B,W,D,1,.16);azBlock(B,0,t.y,t.z-.1,W*.8,.7,D*.6,false);for(const x of [-.22,.22])B.box(x*W,t.y,t.z-.1+D*.3+.005,W*.3,.5,.03,AZ.dark);azFret(B,0,t.y+.62,t.z-.1+D*.3+.01,W*.76);return B.geo();},
   hopital:(W,D)=>{const B=new Build(),t=azBase(B,W,D,2,.16,.75);azBlock(B,0,t.y,t.z-.05,t.w*.85,.5,t.d*.72);const zf=t.z-.05+t.d*.36+.02;B.box(0,t.y+.18,zf,.26,.07,.03,AZ.Lt).box(0,t.y+.1,zf,.07,.24,.03,AZ.Lt);return B.geo();},
   archives:(W,D)=>{const B=new Build(),t=azBase(B,W,D,2,.16,.75);azBlock(B,0,t.y,t.z-.08,t.w*.75,.5,t.d*.6);for(let i=0;i<4;i++)B.box(-t.w*.3+i*t.w*.2,t.y,t.z-.08+t.d*.36,.07,.5,.07,AZ.Lt);return B.geo();},
+  centre_recherche:(W,D)=>{const B=new Build(),t=azBase(B,W,D,2,.15,.84);const bz=t.z-.05;azBlock(B,-t.w*.16,t.y,bz,t.w*.6,.5,t.d*.72,false);
+    azFret(B,-t.w*.16,t.y+.42,bz+t.d*.36+.01,t.w*.56);for(let i=0;i<5;i++)B.box(-t.w*.42+i*t.w*.13,t.y,bz+t.d*.36+.1,.08,.42,.08,AZ.Lt);B.box(-t.w*.16,t.y+.42,bz+t.d*.36+.1,t.w*.62,.05,.14,AZ.Ls);
+    B.box(-t.w*.16,t.y,bz+t.d*.36+.006,.26,.3,.03,AZ.dark);const ox=t.w*.3;B.cyl(ox,t.y,bz,.6,.56,.12,AZ.Ls,16);B.cyl(ox,t.y+.12,bz,.44,.42,.48,AZ.L,16);B.cyl(ox,t.y+.38,bz,.45,.45,.04,AZ.Lt,16);
+    B.dome(ox,t.y+.6,bz,.4,AZ.Ls);B.rod([ox+.1,t.y+.82,bz+.1],[ox+.42,t.y+1.02,bz+.36],.035,0x6a6a62);B.box(ox,t.y+.6,bz+.38,.12,.2,.05,AZ.dark);return B.geo();},
   labo:(W,D)=>{const B=new Build(),t=azBase(B,W,D,2,.16,.75);azBlock(B,0,t.y,t.z-.05,t.w*.8,.45,t.d*.7);B.cyl(t.w*.25,t.y+.5,t.z-.1,.2,.22,.12,AZ.L,12);B.dome(t.w*.25,t.y+.62,t.z-.1,.2,AZ.Ls);return B.geo();},
 };
 // les modèles aztèques, prêts pour la scène : { ':az_nom': {ext, geo} } ; le centre-ville, c'est la pyramide
@@ -228,4 +232,4 @@ export function aztecModels(){const out={};for(const [k,mk] of Object.entries(AZ
 // les géométries et leurs mesures, prêtes pour la scène : { nom: {ext:[largeur,hauteur,profondeur], geo} }
 export function buildingModels(){const out={};for(const [k,mk] of Object.entries(MAKERS)){const [W,D]=BUILDINGS[k==='pyramide'?'centre':k]?.size||[2,2];   /* (la pyramide : l'empreinte du centre-ville) */const geo=mk(W,D);const b=geo.boundingBox;out[':'+k]={ext:[b.max.x-b.min.x,b.max.y,b.max.z-b.min.z],geo};}return out;}
 export const BUILDING_KEYS=Object.keys(MAKERS);
-export {Build,PAL};
+export {Build,PAL,AZ,azBase,azBlock,azFret,azChimney};

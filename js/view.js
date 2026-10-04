@@ -13,6 +13,7 @@ import {building,vehicle,resource,terrain,prop,sheet,drawFrame,fx,img} from './s
 import {bunkerPlan} from './bunkerdata.js';
 import {BLOOD,BODY_H} from './body.js';
 import {bleedRate,triage} from './health.js';
+import {LABVIEW} from './labview.js';
 
 export const TW=64,TH=32;
 const ELEV0=Math.asin(.5);   // l'élévation de l'isométrie d'origine (30°)
@@ -105,6 +106,7 @@ export class View{
   sfx(name,x,y,{z=0,size=30,life=.3,ang=0,add=false,rise=0,grow=1,alpha=1,vx=0,vy=0,ground=false,f=null}={}){if(this.near(x,y)<=0||!this.fxVisible(x,y,f))return;this.fx.push({name,x,y,z,size,life,max:life,ang,add,rise,grow,alpha,vx,vy,ground,f});if(this.fx.length>600)this.fx.splice(0,this.fx.length-600);}
   screenAng(x0,y0,x1,y1){const a=this.toScreen(x0,y0),b=this.toScreen(x1,y1);return Math.atan2(b.y-a.y,b.x-a.x);}
   onEvent(e){if(this.g3&&e.type==='shot'&&e.by!=null)this.g3.kick(e.by,e);if(e.x!=null&&!this.fxVisible(e.x,e.y,e.f||e.vf))return;if(this.g3&&e.type==='boom')this.g3.boom?.(e);
+    if(e.type==='labboom'||e.type==='eureka'||e.type==='graduate')this.labOnEvent(e);
     if(this.dir.on)this.dir.note(e,this.clock,true);   // le réalisateur ne voit que ce que le joueur voit (la garde de brouillard est la ligne du dessus)
     if(e.type==='shot'&&e.by!=null){const u=this.world.unit(e.by);if(u?.w){const D=this.world.W(u.w),z=this.z(),q=this.toScreen(u.x,u.y),collective=D.crew>1||UDEF(u).img==='canon';let mx,my;
       if(collective){const bm=this.artilleryBitmap(D),a=Math.atan2(((u.fx||0)+(u.fy||0))*.5,(u.fx||0)-(u.fy||0)),L=(bm?.Lw||D.p.L)*38*z/300;mx=q.x+Math.cos(a)*L;my=q.y-5*z+Math.sin(a)*L;}
@@ -218,7 +220,7 @@ export class View{
   // ---------- dessiner ----------
   // une image : les Bèè au pas lent sont montrés en chemin (World.lodShow), puis remis à leur vraie place, quoi qu'il arrive pendant le dessin
   draw(dt){const back=this.world.lodShow?.()||[];try{return this.paintFrame(dt);}finally{for(const [u,x,y,ph] of back){u.x=x;u.y=y;u.walkPh=ph;}}}
-  paintFrame(dt){const ctx=this.ctx,W=this.world,s=W.s;this.frame+=dt*8;this.clock+=dt;if(this.dir.on)this.dir.tick(this,dt,this.clock,this.selCenter());this.shake=Math.max(0,this.shake-dt*1.8);this.sx=(Math.random()-.5)*this.shake*12;this.sy=(Math.random()-.5)*this.shake*9;
+  paintFrame(dt){const ctx=this.ctx,W=this.world,s=W.s;this.frame+=dt*8;this.clock+=dt;this.labTick(dt);if(this.dir.on)this.dir.tick(this,dt,this.clock,this.selCenter());this.shake=Math.max(0,this.shake-dt*1.8);this.sx=(Math.random()-.5)*this.shake*12;this.sy=(Math.random()-.5)*this.shake*9;
     if(!this.tiles)this.tiles=this.makeTiles();if(!this.overview)this.makeOverview();
     const cw=this.canvas.width,ch=this.canvas.height,z=this.z();ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#4f6b2c';ctx.fillRect(0,0,cw,ch);
     // ce qui est à l'écran, en cases
@@ -305,7 +307,7 @@ export class View{
     this.drawPostMarkers();if(this.placing&&this.hover)this.drawGhost();if(this.lining?.cells)this.drawLinePlan();
     if(this.drag?.box){const {x0,y0,x1,y1}=this.drag.box;ctx.fillStyle='rgba(255,211,106,.12)';ctx.strokeStyle='#ffd36a';ctx.lineWidth=1.5*this.dpr;ctx.fillRect(Math.min(x0,x1),Math.min(y0,y1),Math.abs(x1-x0),Math.abs(y1-y0));ctx.strokeRect(Math.min(x0,x1),Math.min(y0,y1),Math.abs(x1-x0),Math.abs(y1-y0));}
     this.marks=this.marks.filter(m=>(m.age+=dt)<.6);for(const m of this.marks){const q=this.toScreen(m.x,m.y);ctx.strokeStyle=m.bad?`rgba(235,90,70,${1-m.age/.6})`:`rgba(255,211,106,${1-m.age/.6})`;ctx.lineWidth=2.5*this.dpr;ctx.beginPath();ctx.ellipse(q.x,q.y,(6+m.age*30)*z,(3+m.age*15)*z,0,0,7);ctx.stroke();}
-    this.drawZones(dt);this.drawCombatHud(dt);
+    this.labOverlay();this.drawZones(dt);this.drawCombatHud(dt);
     if(this.hover?.label&&!this.drag?.box)this.tag(this.hover.label,this.hover.sx+14*this.dpr,this.hover.sy+22*this.dpr,this.hover.tone||'ink',true);}
 
   drawCombatHud(dt){const ctx=this.ctx,z=this.z(),dpr=this.dpr,cw=this.canvas.width,ch=this.canvas.height,now=performance.now(),W=this.world;
@@ -449,7 +451,7 @@ export class View{
     ctx.save();if(!a.alive)ctx.filter='grayscale(.7) brightness(.65)';ctx.translate(q.x,q.y-bob);ctx.scale(a.fx<0?-1:1,1);
     if(a.kind==='lapin'){const frame=!a.alive?7:moving?[2,3,4,5][Math.floor(this.frame*1.4+a.id)%4]:Math.floor(this.frame*.12+a.id)%9===0?1:0;ctx.drawImage(im,(frame%4)*384,Math.floor(frame/4)*512,384,512,-w/2,-h*.86,w,h);}
     else ctx.drawImage(im,-w/2,-h*.86,w,h);ctx.restore();if(!a.alive){this.bar(q.x,q.y-h*.9,22*z,a.food/({belier:75,biche:38,lapin:14}[a.kind]||38),'#b88555');}}
-  drawUnit(u){const ctx=this.ctx,z=this.z(),W=this.world;const q=this.toScreen(u.x,u.y);const D=u.f==='beee'?BEEE.units[u.k]:UNITS[u.k];const size=(u.k==='villageois'?34:38)*z;const down=u.h?.state==='hors';
+  drawUnit(u){if(this.g3?.labHidden?.has(u.id))return;const ctx=this.ctx,z=this.z(),W=this.world;const q=this.toScreen(u.x,u.y);const D=u.f==='beee'?BEEE.units[u.k]:UNITS[u.k];const size=(u.k==='villageois'?34:38)*z;const down=u.h?.state==='hors';
     if(this.zoom<.35&&!this.o3){ctx.fillStyle=down?'#8a1c1c':u.f==='beee'?'#e0503a':u.k==='villageois'?'#fff1c9':'#7fd3f0';ctx.fillRect(q.x-2*z*3,q.y-4*z*3,4*z*3,4*z*3);return;}
     if(u.f==='beee'&&!down&&!this.o3){ctx.strokeStyle='rgba(224,80,58,.75)';ctx.lineWidth=1.6*this.dpr;ctx.beginPath();ctx.ellipse(q.x,q.y,9*z,4.5*z,0,0,7);ctx.stroke();}
     if(u.h&&!this.o3){const lost=1-u.h.blood/BLOOD;if(down||lost>.06)this.pool(q.x,q.y,lost,z,u.id);}
@@ -1013,7 +1015,7 @@ export class View{
   drawNight(){const L=this.world.light();if(L>=.999)return;const ctx=this.ctx,z=this.z();if(!this.nightCv)this.nightCv=document.createElement('canvas');const n=this.nightCv;if(n.width!==this.canvas.width||n.height!==this.canvas.height){n.width=this.canvas.width;n.height=this.canvas.height;}
     const x=n.getContext('2d');x.globalCompositeOperation='source-over';x.clearRect(0,0,n.width,n.height);x.fillStyle=`rgba(8,14,40,${(1-L)*.6})`;x.fillRect(0,0,n.width,n.height);x.globalCompositeOperation='destination-out';
     const light=(wx,wy,r,a=.85)=>{const q=this.toScreen(wx,wy);const R=r*TW*z*.7;if(q.x<-R||q.y<-R||q.x>n.width+R||q.y>n.height+R)return;const g=x.createRadialGradient(q.x,q.y,R*.1,q.x,q.y,R);g.addColorStop(0,`rgba(0,0,0,${a})`);g.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=g;x.beginPath();x.ellipse(q.x,q.y,R,R*.6,0,0,7);x.fill();};
-    for(const b of this.world.s.buildings){if(!b.done&&!(b.fire>0))continue;const [w,h]=this.world.sizeOf(b);if(this.fxVisible(b.i+w/2,b.j+h/2,b.f))light(b.i+w/2,b.j+h/2,b.fire>0?5:b.k==='centre'?6:2.5);}
+    for(const b of this.world.s.buildings){if(!b.done&&!(b.fire>0))continue;const [w,h]=this.world.sizeOf(b);if(this.fxVisible(b.i+w/2,b.j+h/2,b.f))light(b.i+w/2,b.j+h/2,b.fire>0?5:b.k==='centre'?6:this.labOpen?.has(b.id)?Math.max(w,h)*1.25:2.5,this.labOpen?.has(b.id)?.95:.85);}
     // les lanternes des rondes bèè : celles qu'on voit (dans notre champ, ou repérées de loin grâce à leur lumière)
     const Wl=this.world,lamps=Wl.s.units.filter(u=>u.lamp&&u.hp>0&&(this.fxVisible(u.x,u.y,'beee')||Wl.spotted(u,'meumeu')));for(const u of lamps)light(u.x,u.y,3.4,.8);
     const now=performance.now();this.flashes=(this.flashes||[]).filter(f=>now-f.t0<f.life*1000);for(const f of this.flashes){const k=1-(now-f.t0)/(f.life*1000);if(this.fxVisible(f.x,f.y))light(f.x,f.y,f.r*(.7+.3*k),.98*k);}
@@ -1096,7 +1098,7 @@ export class View{
         else if(this.lining?.a&&D.btn===0)this.lining.cells=this.lining.kind==='rail'?this.world.railRoute(this.lining.a[0],this.lining.a[1],cell[0],cell[1]):this.world.lineCells(this.lining.a[0],this.lining.a[1],cell[0],cell[1]);
         else if(D.moved&&D.btn===0&&!this.placing&&!this.lining)D.box={x0:D.x0,y0:D.y0,x1:sx,y1:sy};
         D.px=e.clientX;D.py=e.clientY;}
-      this.hover={cell,sx,sy,w};const u=this.unitAt(sx,sy);let label=null,tone='ink';
+      this.hover={cell,sx,sy,w};if(this.lab)this.labHover=this.labFigAt(sx,sy)?.u.id??null;const u=this.unitAt(sx,sy);let label=null,tone='ink';
       if(this.placing||this.lining||this.zoning)label=null;
       else if(u&&this.ui.unitLabel){label=this.ui.unitLabel(u);tone=u.f==='beee'?'bad':u.h?.state==='hors'?'warn':'ink';}
       else if(this.sel.size&&!u){const t=this.world.targetAt(w.x,w.y);label=this.ui.describe(t);tone=t?.type==='unit'||(t?.type==='building'&&this.world.building(t.id)?.f==='beee')?'bad':'ink';}
@@ -1116,6 +1118,7 @@ export class View{
       if(D.moved&&D.btn!==2)return;
       if(this.zoning){this.ui.zoneAt?.(w,e.shiftKey);if(!e.shiftKey)this.zoning=false;this.ui.changed();return;}
       if(this.placing){if(e.button===2){this.placing=null;this.ui.changed();return;}const r=this.ui.place(this.placing,this.ghost[0],this.ghost[1],BUILDINGS[this.placing]?.bunker?(this.placeRot||0):0);if(r.ok&&!e.shiftKey)this.placing=null;return;}
+      if(e.button===0&&this.lab&&this.labClick(sx,sy,w))return;
       if(e.button===0){const u=this.unitAt(sx,sy);const v=u?null:this.vehicleAt(sx,sy);
         if(this.ui.pickStop&&!u){const t=this.world.targetAt(w.x,w.y);if(t?.type==='building'){this.ui.pickStop(t.id);return;}}
         if(u&&u.f==='meumeu'&&!u.ally){const grp=u.sq&&!e.altKey?this.world.members(this.world.squad(u.sq)||{m:[]}).map(m=>m.id):[u.id];if(D.shift){for(const id of grp)this.sel.has(u.id)?this.sel.delete(id):this.sel.add(id);}else{this.sel.clear();for(const id of grp)this.sel.add(id);
@@ -1124,9 +1127,10 @@ export class View{
         if(u&&u.f!=='meumeu'&&this.ui.unitInfo){this.ui.unitInfo(u);return;}
         if(v&&D.shift&&VEHDEF[v.k]&&v.f==='meumeu'&&!v.ally){if(this.selV!=null&&this.selV!==v.id&&VEHDEF[this.world.s.vehicles.find(o=>o.id===this.selV)?.k])this.selVs.add(this.selV);this.selV=null;this.selB=null;this.selVs.has(v.id)?this.selVs.delete(v.id):this.selVs.add(v.id);this.ui.changed();return;}
         if(v&&!v.ally){this.sel.clear();this.selVs.clear();this.selB=null;this.selV=v.id;this.ui.changed();return;}
-        const t=this.world.targetAt(w.x,w.y);this.sel.clear();this.selVs.clear();this.selV=null;this.selB=t?.type==='building'?t.id:null;this.ui.inspect(t);this.ui.changed();return;}
+        const t=this.world.targetAt(w.x,w.y);if(t?.type==='building'&&this.g3&&this.isLab(this.world.building(t.id))){this.enterLab(this.world.building(t.id));this.ui.changed();return;}   // (V12.6) la vue recherche
+        this.sel.clear();this.selVs.clear();this.selV=null;this.selB=t?.type==='building'?t.id:null;this.ui.inspect(t);this.ui.changed();return;}
       if(e.button===2){if(this.selV){this.ui.vehicleOrder(w);return;}if(this.selVs.size)this.ui.groupVehicleOrder([...this.selVs],w);if(this.selB&&!this.sel.size&&!this.selVs.size){this.ui.rally(w);return;}if(!this.sel.size)return;const t=this.world.targetAt(w.x,w.y);if(t&&e.shiftKey)t.queue=true;const r=this.ui.order([...this.sel],t);this.marks.push({x:w.x,y:w.y,age:0,bad:!r.ok});}});
-    cv.addEventListener('wheel',e=>{e.preventDefault();const [sx,sy]=this.pos(e);const before=this.toWorld(sx,sy);this.zoom=Math.max(.18,Math.min(6,this.zoom*(e.deltaY<0?1.15:1/1.15)));const after=this.toWorld(sx,sy);this.cx+=before.x-after.x;this.cy+=before.y-after.y;},{passive:false});}
+    cv.addEventListener('wheel',e=>{e.preventDefault();const [sx,sy]=this.pos(e);const before=this.toWorld(sx,sy);this.zoom=Math.max(.18,Math.min(this.lab?9:6,this.zoom*(e.deltaY<0?1.15:1/1.15)));const after=this.toWorld(sx,sy);this.cx+=before.x-after.x;this.cy+=before.y-after.y;},{passive:false});}
   // La géométrie des voies : les cases de rail deviennent des chaînes (d'un aiguillage à l'autre), lissées (Chaikin) pour que
   // l'escalier des cases devienne une courbe ; traverses tous les 0,2 case. Recalculée quand une voie change.
   railGeom(){const W=this.world,N=W.N;const ks=Object.keys(W.s.rails);let sig=ks.length;for(const k of ks)sig=(sig*31+(+k)*3+(W.rail[+k]||0))|0;
@@ -1197,4 +1201,6 @@ export class View{
       zone(p.x,p.y,Wd.he,`${Math.round(R)} m · ${inR}/${guns.length} à portée · ${W.observer('meumeu',p.x,p.y)?'observée':'sans observateur'}`,inR?'#ffd36a':'#eb5a46');}}
   pan(dx,dy){const w0=this.toWorld(this.canvas.width/2,this.canvas.height/2),w1=this.toWorld(this.canvas.width/2+dx,this.canvas.height/2+dy);this.cx+=w1.x-w0.x;this.cy+=w1.y-w0.y;{const N=this.world.N,[bx0,by0,bx1,by1]=this.world.bounds||[0,0,N,N],m=Math.min(12,N/4);this.cx=Math.max(bx0+m,Math.min(bx1-m,this.cx));this.cy=Math.max(by0+m,Math.min(by1-m,this.cy));}}   // (V12.5) la caméra reste dans le rectangle jouable
 }
+// (V12.6) la vue recherche : labview.js
+Object.assign(View.prototype,LABVIEW);
 const sum=o=>Object.values(o||{}).reduce((a,b)=>a+b,0);

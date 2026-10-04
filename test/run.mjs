@@ -160,8 +160,10 @@ if(on(12)){say('\n=== banc 12 : les idées des Meumeu ===');
   const W=new World(3);const cap=W.capital();const vil=W.s.units.filter(u=>u.f==='meumeu');const tree=W.s.nodes.filter(n=>n.type==='tree'&&n.left>1).sort((a,b)=>Math.hypot(a.i-cap.i,a.j-cap.j)-Math.hypot(b.i-cap.i,b.j-cap.j))[0];
   W.order(vil.map(u=>u.id),{type:'node',id:tree.id});const ev=count(W,48);const I=W.s.innov;
   say(`  deux jours de bûcheronnage à huit : ${fmt(I.prac.bois||0)} heures de pratique · idées : ${I.ideas.map(x=>`${x.id} (${x.who?.name||x.who})`).join(', ')||'aucune'}`);
-  const lab=put(W,'meumeu','labo',...free(W,'labo',cap.i+2,cap.j+2,6,16));Object.assign(cap.stock,{fer:20,pieces:40,bois:300});const first=I.ideas[0];const r0=W.mod('gather_tree');const d=first?W.develop(first.id):{ok:false,why:['pas d’idée']};run(W,12);
-  say(`  développer ${first?.id} : ${d.ok?'lancé':d.why} · adoptée : ${I.done.join(', ')||'non'} · coupe du bois ×${fmt(r0,2)} → ×${fmt(W.mod('gather_tree'),2)}`);}
+  // (V12.6) un savant formé au centre de recherche mène le projet, de la théorie au laboratoire
+  const lab=put(W,'meumeu','labo',...free(W,'labo',cap.i+2,cap.j+2,6,16)),C=put(W,'meumeu','centre_recherche',...free(W,'centre_recherche',cap.i+2,cap.j+2,6,20));Object.assign(cap.stock,{fer:20,pieces:60,bois:300,vivres:200});W.trainSavant(C,'agro');run(W,30);
+  const first=I.ideas[0];const r0=W.mod('gather_tree');const d=first?W.startProject(first.id,W.savants().map(u=>u.id)):{ok:false,why:['pas d’idée']};run(W,30);
+  say(`  projet ${first?.id} : ${d.ok?'lancé':d.why} · adoptée : ${I.done.join(', ')||'non'} · coupe du bois ×${fmt(r0,2)} → ×${fmt(W.mod('gather_tree'),2)}`);}
 
 if(on(13)){say('\n=== banc 13 : la chaîne des soins — le front, la tente, l’hôpital ===');
   const W=new World(4);W.s.beee.warDay=1;W.s.beee.nextWave=1e9;const cap=W.capital();const hop=put(W,'meumeu','hopital',...free(W,'hopital',cap.i+2,cap.j+2,6,16));

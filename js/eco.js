@@ -97,7 +97,8 @@ export const ECO={
       if(miss.length){b.why=`attend au dépôt d’approvisionnement : ${miss.map(([k,v])=>`${+(v-(sup.stock[k]||0)).toFixed(1)} ${this.goodName(k).toLowerCase()}`).join(', ')}`;return;}
       for(const [k,v] of Object.entries(R.in)){const q=Math.min(v,Math.max(0,sup.stock[k]||0));sup.stock[k]=(sup.stock[k]||0)-q;if(v-q>1e-9)this.take(b.f,fx,fy,k,v-q,RADIUS);}b.batch={...R,out:{...R.out},done:0};}
     const c=this.coalRate(b)*n*dt;if(c>0){if((sup.stock.charbon||0)<c){const [fx,fy]=this.bc(b);if(this.take(b.f,fx,fy,'charbon',c,RADIUS)<c-1e-9){b.why='machines froides : plus de charbon au dépôt d’approvisionnement ni à côté';b.cold=true;return;}}else sup.stock.charbon-=c;}b.cold=false;
-    b.batch.done+=n*dt*this.mod(B.factory.mod);b.why=null;b.working=true;this.practice(b.k==='poudrerie'?'chimie':B.factory.mod==='soins'?'soins':B.factory.mod==='armement'?'armement':B.factory.mod==='briques'?'construction':'atelier',dt*n);
+    // (V12.6) labBoost : les chimistes libres de l'atelier pilote de l'usine chimique, et ses innovations
+    b.batch.done+=n*dt*this.mod(B.factory.mod)*this.labBoost(b);b.why=null;b.working=true;this.practice(b.k==='poudrerie'?'chimie':B.factory.mod==='soins'?'soins':B.factory.mod==='armement'?'armement':B.factory.mod==='briques'?'construction':'atelier',dt*n);
     if(b.batch.done>=b.batch.hours)this.factoryDeliver(b,out);},
   factoryDeliver(b,out){const bt=b.batch;
     if(bt.tool){b.tooled??={};b.tooled[bt.tool]=true;b.batch=null;this.log(this.cityName(b),`${BUILDINGS[b.k].name} outillée pour ${this.design(bt.tool)?.name||'?'}.`,'good');return;}

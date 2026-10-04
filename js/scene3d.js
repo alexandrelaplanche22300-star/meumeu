@@ -11,6 +11,7 @@ import {gunModel} from './gun3d.js';
 import {layout} from './gunart.js';
 import {VEHDEF} from './vehicules.js';
 import {buildingModels,aztecModels} from './bldg3d.js';
+import {labInteriors} from './labs3d.js';
 import {bunkerModels,bunkerDoorGeo,bunkerRoofGeo} from './bunker3d.js';
 import {bargeModel,bateauModel,grandeBargeModel} from './barge3d.js';
 import {deckSlots,MEU_R} from './naval.js';
@@ -55,7 +56,7 @@ export const BUILDING_MODEL={
   centre:[':centre',1.0,0],camp:[':camp',1.0,0],maison:[':maison',1.0,0],ferme:[':ferme',1.0,0],grenier:[':grenier',1.0,0],atelier:[':atelier',1.0,0],four:[':four',1.0,0],mine:[':mine',1.0,0],gare:[':gare',1.0,0],entrepot:[':entrepot',1.0,0],labo:[':labo',1.0,0],caserne:[':caserne',1.0,0],caserne_elite:[':caserne_elite',1.0,0],poudrerie:[':poudrerie',1.0,0],arsenal:[':arsenal',1.0,0],armurerie:[':armurerie',1.0,0],manufacture:[':manufacture',1.0,0],garage:[':garage',1.0,0],hopital:[':hopital',1.0,0],tente:[':tente',1.0,0],archives:[':archives',1.0,0],fonderie:[':fonderie',1.0,0],
   moulin:['windmill',.8,0],barge:[':barge_chantier',1.0,0],grande_barge:[':grande_barge_chantier',1.0,0],bateau_bee:[':bateau_chantier',1.0,2],tour:[':tour',.8,0]};
 export const OUTCROP_MODEL={fer:'rocky_outcrop',charbon:'lava_rock',pierre:'stone_rock_pile',cuivre:'crystal_rock',plomb:'rock_formation',salpetre:'multicolored_crystal_pile',or:'rock_with_gold_veins'};
-export const MODEL_NAMES=[...new Set([...Object.values(BUILDING_MODEL).map(b=>b[0]).filter(n=>n[0]!==':'),...Object.values(OUTCROP_MODEL),'meumeu','meumeu_soldat','plush_cow_knight','goat_plush_toy','gewehr_43_rifle','heavy_machine_gun','assault_rifle','vintage_military_jeep_logistic_unarmed','vintage_military_logistic_jeep_with_gun','ww2_locomotive','ww2_wagon','armored_car','stone_rock_pile','silbervogel_bomber_3d_model',...Object.values(VEHDEF).map(V=>V.modele).filter(n=>n&&n[0]!==":")])];
+export const MODEL_NAMES=[...new Set([...Object.values(BUILDING_MODEL).map(b=>b[0]).filter(n=>n[0]!==':'),...Object.values(OUTCROP_MODEL),'meumeu','meumeu_soldat','plush_cow_knight','goat_plush_toy','meumeu_chercheur','gewehr_43_rifle','heavy_machine_gun','assault_rifle','vintage_military_jeep_logistic_unarmed','vintage_military_logistic_jeep_with_gun','ww2_locomotive','ww2_wagon','armored_car','stone_rock_pile','silbervogel_bomber_3d_model',...Object.values(VEHDEF).map(V=>V.modele).filter(n=>n&&n[0]!==":")])];
 
 // ---- petites géométries de code : arbres, buisson (couleurs de sommets)
 const colored=(g,hex)=>{const c=new THREE.Color(hex);const n=g.attributes.position.count,a=new Float32Array(n*3);for(let i=0;i<n;i++){a[3*i]=c.r;a[3*i+1]=c.g;a[3*i+2]=c.b;}g.setAttribute('color',new THREE.BufferAttribute(a,3));return g;};
@@ -93,6 +94,13 @@ function meumeuRig(M){const g=M?.geo;if(!g?.index)return null;const P=g.attribut
     const geo=g.clone();geo.translate(-pivot[0],-pivot[1],-pivot[2]);geo.setIndex(tri[s]);
     bras[s]={geo,pivot,rest:new THREE.Vector3(hand[0]-pivot[0],hand[1]-pivot[1],hand[2]-pivot[2]),len:Math.hypot(hand[0]-pivot[0],hand[1]-pivot[1],hand[2]-pivot[2])};}
   return {body,bras};}
+// (V12.6) la vue recherche : les postes que cherche chacun selon ce qu'il fait, dans l'ordre de préférence (les genres de postes : labs3d.js)
+const LAB_WANT={
+  centre_recherche:{consulte:['maitre','table','bureau'],etude:['ecole'],cours:['maitre'],reunion:['table'],orateur:['orateur'],travail:['bureau','maitre','table'],affecte:['bureau'],pause:['cafe','fenetre'],dort:['bureau','table'],attente:['livres','fenetre','bureau'],oisif:['livres','fenetre','cafe','bureau']},
+  labo:{consulte:['balance','hotte','etagere'],travail:['paillasse','hotte','balance'],affecte:['paillasse'],pause:['evier','etagere'],dort:['paillasse'],attente:['etagere','evier','balance'],oisif:['etagere','balance','evier','hotte']},
+  armurerie:{consulte:['maquette','plans'],travail:['planche','maquette'],affecte:['planche','maquette'],pause:['plans'],dort:['planche'],attente:['plans','maquette'],oisif:['plans','maquette']},
+  poudrerie:{consulte:['pupitre','condenseur'],travail:['cuve','condenseur','pupitre'],affecte:['cuve','condenseur','pupitre'],ouvrier:['ouvrier'],pause:['pupitre'],dort:['pupitre'],attente:['pupitre'],oisif:['pupitre','condenseur']}};
+const wrap=a=>((a+PI)%(2*PI)+2*PI)%(2*PI)-PI;
 const CYL=(r0,r1,h,seg=6)=>new THREE.CylinderGeometry(r1,r0,h,seg);
 const ANIMAL_GEO={
   biche:()=>{const c=0xb58a5a,d=0x8a6238;const g=[colored(at(new THREE.SphereGeometry(.32,8,6).scale(1.5,.8,.8),0,.62,0),c),colored(at(CYL(.07,.1,.5).rotateZ(-.55),.42,.92,0),c),colored(at(new THREE.SphereGeometry(.13,8,6).scale(1.3,1,.9),.62,1.12,0),d),colored(at(new THREE.SphereGeometry(.05,5,4),-.45,.72,0),0xf0e6d6)];
@@ -191,11 +199,12 @@ export class Scene3D{
     // V12.4 : les modèles donnés par le joueur — le soldat meumeu (casque compris) et la troupe de choc (chevalier à cape) ; à défaut, la peluche
     this.pools.soldat=this.M.meumeu_soldat?mk('meumeu_soldat',{cap:1200,anim:ch('meumeu_soldat')}):this.pools.meumeu;
     this.pools.choc=this.M.plush_cow_knight?mk('plush_cow_knight',{cap:400,anim:ch('plush_cow_knight')}):this.pools.soldat;this.pools.bee=mk('goat_plush_toy',{cap:1500,anim:ch('goat_plush_toy')});
+    this.pools.chercheur=this.M.meumeu_chercheur?mk('meumeu_chercheur',{cap:400,anim:ch('meumeu_chercheur')}):null;   // (V12.6) le savant en blouse
     this.pools.obus3d=new Pool(PROJ_GEO.obus(),{cap:300});this.scene.add(this.pools.obus3d.mesh);this.pools.fusee3d=new Pool(PROJ_GEO.fusee(),{cap:300});this.scene.add(this.pools.fusee3d.mesh);
     this.booms=[];this.boomGeo={ball:new THREE.IcosahedronGeometry(1,2),ring:new THREE.RingGeometry(.86,1,56).rotateX(-PI/2),dome:new THREE.SphereGeometry(1,16,8,0,PI*2,0,PI/2)};
     this.pools.fusil=mk('gewehr_43_rifle',{cap:1500});this.pools.mg=mk('heavy_machine_gun',{cap:200});
     for(let k=0;k<3;k++){const p=new Pool(boulder(k+1),{cap:1400});this.pools['rock'+k]=p;this.scene.add(p.mesh);}
-    this.M[':tour']={ext:[.9,1.8,.9],geo:TOWER_GEO()};Object.assign(this.M,buildingModels(),aztecModels(),bunkerModels());this.M[':barge']=bargeModel();this.M[':grande_barge']=grandeBargeModel();this.M[':bateau_bee']=bateauModel();this.M[':barge_chantier']={ext:this.M[':barge'].ext,geo:this.M[':barge'].full};this.M[':grande_barge_chantier']={ext:this.M[':grande_barge'].ext,geo:this.M[':grande_barge'].full};this.M[':bateau_chantier']={ext:this.M[':bateau_bee'].ext,geo:this.M[':bateau_bee'].geo};this.doorGeo=bunkerDoorGeo();this.doorMat=new THREE.MeshStandardMaterial({color:0x50565a,roughness:.7,metalness:.4});
+    this.M[':tour']={ext:[.9,1.8,.9],geo:TOWER_GEO()};Object.assign(this.M,buildingModels(),aztecModels(),bunkerModels(),labInteriors());this.M[':barge']=bargeModel();this.M[':grande_barge']=grandeBargeModel();this.M[':bateau_bee']=bateauModel();this.M[':barge_chantier']={ext:this.M[':barge'].ext,geo:this.M[':barge'].full};this.M[':grande_barge_chantier']={ext:this.M[':grande_barge'].ext,geo:this.M[':grande_barge'].full};this.M[':bateau_chantier']={ext:this.M[':bateau_bee'].ext,geo:this.M[':bateau_bee'].geo};this.doorGeo=bunkerDoorGeo();this.doorMat=new THREE.MeshStandardMaterial({color:0x50565a,roughness:.7,metalness:.4});
     for(const [res,name] of Object.entries(OUTCROP_MODEL)){this.pools['ore_'+res]=mk(name,{cap:300});}
     this.pools.jeep=mk('vintage_military_jeep_logistic_unarmed',{cap:40});this.pools.loco=mk('ww2_locomotive',{cap:20});this.pools.wagon=mk('ww2_wagon',{cap:200});
     this.ok=true;
@@ -360,6 +369,65 @@ export class Scene3D{
   // V12.4 : la même teinte pour un modèle cuit (sa texture multipliée par la couleur) ; un modèle sans texture garde la teinte des couleurs de sommets
   tintedFor(M,hex){if(!M?.mat)return hex==null?materialOf(true):this.tinted(hex);if(hex==null)return M.mat;const key=M.name+':'+hex;let m=this.tintMats.get(key);if(!m){m=M.mat.clone();m.color.setHex(hex);this.tintMats.set(key,m);}return m;}
 
+  // ---------- (V12.6) la vue recherche : l'intérieur d'un bâtiment de recherche, et ceux qui y vivent ----------
+  // Le toit s'envole (liftRoof) et l'intérieur paraît (labs3d.js) ; les savants, les élèves, les ouvriers de l'usine chimique y sont à l'échelle de la maison
+  // de poupée (0,42 de haut). Chacun prend le poste que demande ce qu'il fait (l'école, la réunion, le tableau, la paillasse, la planche, la cuve, le café…),
+  // y va par l'allée et le chemin d'accès du poste, s'y assied ou s'y tient, et s'y anime : il écrit, il parle, il regarde l'orateur, il s'endort, il saute
+  // de joie à l'eurêka, il chancelle à l'accident. this.labDraw : ce que la vue écrit par-dessus (noms, bulles, paroles).
+  liftRoof(g){g.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.material.transparent=true;o.material.depthWrite=false;o.castShadow=false;}});(this.lifts??=[]).push({g,t:0});}
+  liftsTick(dt){if(!this.lifts?.length)return;for(const L of this.lifts){L.t+=dt;const k=Math.min(1,L.t/.7);L.g.position.y=k*k*2.6;L.g.traverse(o=>{if(o.isMesh)o.material.opacity=1-k;});}
+    for(const L of this.lifts.filter(L=>L.t>=.7)){this.scene.remove(L.g);L.g.traverse(o=>{if(o.isMesh)o.material.dispose();});}this.lifts=this.lifts.filter(L=>L.t<.7);}
+  labFigures(view,b,M,dtc){const W=view.world,P=this.pools,[w,h]=W.sizeOf(b),cx=b.i+w/2,cz=b.j+h/2,now=performance.now()/1000;
+    const F=this.labFig??=new Map(),SEAT=this.labSeat??=new Map(),meet=b.meet,st=M.st,WANT=LAB_WANT[b.k]||{};
+    const people=[];for(const u of b.staff||[])people.push({u,act:u.k!=='savant'?'etude':meet&&meet.ids.includes(u.id)&&u.sci.act==='reunion'?(meet.speaker===u.id?'orateur':'reunion'):u.sci.act||'oisif'});
+    for(const u of this.labWorkers?.get(b.id)||[])people.push({u,act:'ouvrier'});
+    const order=['orateur','reunion','cours','etude','travail','consulte','affecte','ouvrier','pause','dort','attente','oisif'];people.sort((a,z)=>order.indexOf(a.act)-order.indexOf(z.act)||a.u.id-z.u.id);
+    // le poste : d'abord le genre préféré (il change parfois : on va au tableau, à la hotte) ; garder le sien s'il convient ; sinon le plus proche libre
+    const taken=new Set();
+    for(const p of people){let kinds=WANT[p.act]||WANT.oisif||[];const id=p.u.id;
+      if(p.act==='travail'&&b.k==='centre_recherche'&&Math.sin(now*.05+id*2.1)>.8)kinds=['maitre',...kinds.filter(k=>k!=='maitre')];
+      if(p.act==='travail'&&b.k==='labo'&&Math.sin(now*.06+id*1.3)>.85)kinds=['hotte','balance',...kinds];
+      if((p.act==='oisif'||p.act==='attente')&&Math.sin(now*.04+id*3.3)>.5)kinds=[...kinds.slice(1),kinds[0]];
+      const prev=SEAT.get(id),f=F.get(id),ox=f&&f.b===b.id?f.x-cx:M.door[0],oz=f&&f.b===b.id?f.z-cz:M.door[1];let idx=-1;
+      const near=k=>{let bi=-1,bd=1e9;for(let i=0;i<st.length;i++){if(st[i].k!==k||taken.has(i))continue;const d=Math.hypot(st[i].x-ox,st[i].z-oz);if(d<bd){bd=d;bi=i;}}return bi;};
+      const pv=prev&&prev.b===b.id&&prev.idx>=0&&!taken.has(prev.idx)?prev.idx:-1;
+      if(pv>=0&&st[pv].k===kinds[0])idx=pv;else{idx=kinds.length?near(kinds[0]):-1;if(idx<0&&pv>=0&&kinds.includes(st[pv].k))idx=pv;for(let q=1;idx<0&&q<kinds.length;q++)idx=near(kinds[q]);}
+      if(idx>=0)taken.add(idx);SEAT.set(id,{b:b.id,idx});p.idx=idx;}
+    const out=this.labDraw,mod=this.M.meumeu_chercheur?'meumeu_chercheur':'meumeu';
+    for(const p of people){const u=p.u,S=p.idx>=0?st[p.idx]:null;let f=F.get(u.id);
+      // sans poste (trop de monde) : une place au sol, propre à chacun
+      const tx=S?S.x:((u.id*37)%100/100-.5)*(w-1),tz=S?S.z:((u.id*61)%100/100-.5)*(h-1);
+      if(!f||f.b!==b.id){f={b:b.id,x:cx+M.door[0],z:cz+M.door[1],yaw:-PI/2,path:[],tx:null,tz:null,ph:0,bubSim:u.sci?.bub?.t,bubT:-1,S:null};F.set(u.id,f);}
+      f.seen=now;
+      if(f.tx!==tx||f.tz!==tz){f.path=this.labPath(M,f.S||{x:f.x-cx,z:f.z-cz,via:f.tx==null?[[M.door[0],M.door[1]]]:null},S||{x:tx,z:tz}).map(([x,z])=>[cx+x,cz+z]);f.tx=tx;f.tz=tz;f.S=S;}
+      let moving=false;if(f.path.length){const [px,pz]=f.path[0],dx=px-f.x,dz=pz-f.z,d=Math.hypot(dx,dz),v=.6*dtc;
+        if(d<=v){f.x=px;f.z=pz;f.path.shift();}else{f.x+=dx/d*v;f.z+=dz/d*v;}f.ph+=Math.min(d,v)*16;moving=d>1e-4;if(d>1e-4)f.yaw+=wrap(Math.atan2(dx,dz)-f.yaw)*Math.min(1,dtc*10);}
+      // la bulle d'un évènement (eurêka, accident, idée, projet fini) : le moment, en temps réel, où on l'a vue paraître
+      const bub=u.sci?.bub;if(bub&&bub.t!==f.bubSim){f.bubSim=bub.t;f.bubT=now;f.bubK=bub.k;}const ev=f.bubT>0&&now-f.bubT<2.4?f.bubK:null;
+      let yaw=f.yaw,y=0,sy=1,pitch=0,roll=0;const act=p.act,sit=!moving&&!!S?.sit;
+      if(!moving&&S){let want=Math.atan2(S.f[0],S.f[1]);
+        if(act==='reunion'&&meet){const sp=F.get(meet.speaker);if(sp&&sp.b===b.id)want+=wrap(Math.atan2(sp.x-f.x,sp.z-f.z)-want)*.45;}
+        else if(act==='orateur')want+=Math.sin(now*.7+u.id)*.6;
+        else if(act==='cours')want+=Math.sin(now*.22+u.id)>.75?PI:Math.sin(now*.9)*.35;   // il se tourne vers le tableau, puis vers les élèves
+        else if(act==='pause'){const o=people.find(q=>q!==p&&q.act==='pause'&&F.get(q.u.id)?.b===b.id);if(o){const g=F.get(o.u.id);want=Math.atan2(g.x-f.x,g.z-f.z);}}
+        else if((act==='travail'||act==='affecte'||act==='ouvrier')&&!S.sit&&Math.sin(now*.31+u.id*1.7)>.85)want+=.9;   // un regard au voisin
+        f.yaw+=wrap(want-f.yaw)*Math.min(1,dtc*5);yaw=f.yaw;
+        if(act==='dort')pitch=.45;
+        else if(act==='etude'||(S.sit&&(act==='travail'||act==='affecte')))pitch=.1+.08*Math.sin(now*2.2+u.id);
+        else if(act==='travail'||act==='affecte'||act==='ouvrier'){roll=.05*Math.sin(now*1.6+u.id);pitch=.06+.05*Math.sin(now*2.9+u.id*.7);}
+        else if(act==='orateur'||act==='cours')roll=.05*Math.sin(now*2+u.id);
+        else if(act==='reunion')pitch=.04*Math.sin(now*1.3+u.id);}
+      if(sit)sy=.78;
+      if(ev==='eureka'||ev==='fini'){const k=now-f.bubT;y+=Math.abs(Math.sin(k*9))*.13*(1-k/2.4);yaw+=k*6;}
+      if(ev==='accident')roll+=Math.sin(now*23+u.id)*.14;
+      const sav=u.k==='savant',Hk=sav?.42:.4,Mk=sav?mod:'meumeu',sc=Hk/this.M[Mk].ext[1],pool=sav?(P.chercheur||P.meumeu):P.meumeu;
+      pool.add(f.x,.08+y,f.z,yaw,sc,sc*sy,sc,{tint:sav?null:0xf4efe2,ph:f.ph,amp:moving?1:0,pitch,roll});
+      out.push({u,b:b.id,x:f.x,z:f.z,top:.08+y+Hk*sy+.03,act,ev,k:S?.k||null,moving});}}
+  // le chemin d'un poste à l'autre : le chemin d'accès du poste quitté (à rebours), l'allée, le chemin d'accès du nouveau poste, le poste
+  labPath(M,from,to){const A=M.aisle,on=p=>A?(A.z!=null?[p[0],A.z]:[A.x,p[1]]):null,pts=[];const back=from.via?[...from.via].reverse():[];pts.push(...back);
+    const ex=back.length?back[back.length-1]:[from.x,from.z],t0=to.via?.length?to.via[0]:[to.x,to.z];if(A){pts.push(on(ex),on(t0));}pts.push(...(to.via||[]),[to.x,to.z]);
+    return pts.filter((p,i)=>p&&(i===0||Math.hypot(p[0]-pts[i-1][0],p[1]-pts[i-1][1])>1e-3));}
+
   buildingMesh(b,def,[w,h]){
     const M=this.M[def[0]];if(!M)return null;const [ex,ey,ez]=M.ext;const q=def[2]||0;const ww=q%2?ez:ex,dd=q%2?ex:ez;
     const s=Math.min(w*def[1]/ww,h*def[1]/dd);const body=M.parts?M.byName.tour:M;
@@ -380,10 +448,14 @@ export class Scene3D{
     const W=view.world,s=W.s,N=W.N;const dtc=Math.min(.1,dt||.016);const P=this.pools;for(const k in P)P[k].begin();for(const e of this.guns.values())if(e.pool)e.pool.begin();this.gunsUsed=new Set();
     // ----- arbres, buissons, rochers, filons
     // V12.4 (K12) : les arbres deviennent transparents autour de nos unités et des ennemis repérés (deux cases autour) — on voit qui est sous les arbres
+    // (V12.6) la vue recherche : autour d'un bâtiment ouvert, les arbres (tout autour) et les nôtres (devant, dessus) s'effacent — rien ne cache l'intérieur
+    const OPEN=view.labOpen||null,labRects=[],labTrees=[];if(OPEN?.size)for(const id of OPEN){const b=W.building(id);if(!b)continue;const [w,h]=W.sizeOf(b);labRects.push([b.i-2.6,b.j-2.6,b.i+w+2.6,b.j+h+2.6]);labTrees.push([b.i-2.4,b.j-2.4,b.i+w+3.4,b.j+h+3.4]);}
+    const inLab=n=>labTrees.length&&labTrees.some(r=>n.i+.5>r[0]&&n.j+.5>r[1]&&n.i+.5<r[2]&&n.j+.5<r[3]);
     const clear=new Set();{const fogOn=s.fog!==false;for(const u of s.units){if(!(u.hp>0)||u.inBarracks||u.x<i0-2||u.x>i1+2||u.y<j0-2||u.y>j1+2)continue;if(u.f!=='meumeu'&&(fogOn&&!W.spotted(u,'meumeu',.5)))continue;
         const ci=Math.floor(u.x),cj=Math.floor(u.y);for(let dj=-2;dj<=2;dj++)for(let di=-2;di<=2;di++)if(di*di+dj*dj<=5)clear.add((cj+dj)*N+ci+di);}}
     for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const id=W.nodeAt[j*N+i];if(id<0)continue;const n=s.nodes[id];const f=Math.min(1,n.left/Math.max(1,n.max));
       const cx=n.i+.5+((n.id*37)%9-4)*.03,cz=n.j+.5+((n.id*53)%7-3)*.03,rot=(n.id*2.399)%6.283;
+      if(n.type!=='ore'&&inLab(n))continue;   // (la vue recherche : arbres, buissons, rochers autour du bâtiment ouvert)
       if(n.type==='tree'){if(n.left<1||view.zoom<.3)continue;const terr=W.G.terrain[n.j*N+n.i];const kind=TREE_KIND(terrainTreeName(terr,n));const sc=1.3*(f<.25?.42:.62+.22*f)*(.92+((n.id*13)%7)*.025);
         (clear.has(n.j*N+n.i)?P[kind+'_g']:P[kind]).add(cx,0,cz,rot,sc,sc*(.95+((n.id*7)%5)*.04),sc,{tint:treeTint(n.id,terr)});}
       else if(n.type==='bush'){if(view.zoom<.3)continue;(clear.has(n.j*N+n.i)?P.buisson_g:P.buisson).add(cx,0,cz,rot,.9,.9,.9,{tint:n.left>=1&&n.id%4===0?0xffb0c8:null});}
@@ -392,20 +464,22 @@ export class Scene3D{
         const m=1+(n.id%2);for(let q=0;q<m;q++){const a=rot+q*2.4+c(n.id+q)*2,d=.3+.15*c(n.id*3+q),ss=.2+.14*c(n.id*5+q);P['rock'+((v+q+1)%3)].add(cx+Math.cos(a)*d,-.02,cz+Math.sin(a)*d,a,ss*1.2,ss,ss,{tint:new THREE.Color(tn*.95,tn*.93,tn*.9).getHex()});}}
       else if(n.type==='ore'){const pool=P['ore_'+n.res]||P.ore_pierre;const M=this.M[OUTCROP_MODEL[n.res]||'stone_rock_pile'];const sc=(W.s.buildings.some(b=>b.ore===n.id)?0.001:1.5)/M.ext[0];pool.add(cx,0,cz,rot,sc,sc,sc,{tint:n.left>0?null:0x777777});}}
     // ----- bâtiments
-    const seen=new Set();
+    const seen=new Set();this.labDraw=[];
+    // (V12.6) les ouvriers d'un bâtiment ouvert sont dessinés dedans, à l'échelle de l'intérieur — pas dehors
+    this.labWorkers=new Map();const hideU=this.labHidden=new Set();if(labRects.length)for(const u of s.units)if(u.f==='meumeu'&&labRects.some(r=>u.x>r[0]&&u.y>r[1]&&u.x<r[2]&&u.y<r[3]))hideU.add(u.id);if(OPEN?.size)for(const u of s.units){const T=u.task;if(T?.kind==='work'&&OPEN.has(T.b)&&u.at&&u.hp>0){const L=this.labWorkers.get(T.b)||[];L.push(u);this.labWorkers.set(T.b,L);hideU.add(u.id);}}
     for(const b of s.buildings){const [w,h]=W.sizeOf(b);if(b.i+w<i0-6||b.i>i1+6||b.j+h<j0-6||b.j>j1+6)continue;
       const fog=s.fog!==false;if(fog&&b.f==='beee'&&!view.fxVisible(b.i+w/2,b.j+h/2,b.f))continue;
       /* (V12.5) les bâtiments meumeu en style aztèque (le centre-ville : la pyramide) ; ceux des Bèè gardent les leurs */
-      const def=(b.f==='meumeu'&&(b.k==='centre'?[':pyramide',1.0,0]:this.M[':az_'+b.k]&&[':az_'+b.k,1.0,0])||BUILDING_MODEL[b.k])||(BUILDINGS[b.k]?.bunker?[':bk_'+BUILDINGS[b.k].bunker+'_'+(b.rot||0),1,0]:null);if(!def)continue;seen.add(b.id);
-      let e=this.blds.get(b.id);const sig=def[0]+'|'+w+'x'+h+'|'+(b.rot||0);   /* (le modèle choisi : le centre change de modèle avec sa faction) */if(!e||e.sig!==sig){if(e)this.scene.remove(e.g);const g=this.buildingMesh(b,def,[w,h]);if(!g)continue;
+      const open=!!OPEN?.has(b.id)&&b.done&&!b.ruin&&!!this.M[':in_'+b.k];const def=open?[':in_'+b.k,1.0,0]:(b.f==='meumeu'&&(b.k==='centre'?[':pyramide',1.0,0]:this.M[':az_'+b.k]&&[':az_'+b.k,1.0,0])||BUILDING_MODEL[b.k])||(BUILDINGS[b.k]?.bunker?[':bk_'+BUILDINGS[b.k].bunker+'_'+(b.rot||0),1,0]:null);if(!def)continue;seen.add(b.id);
+      let e=this.blds.get(b.id);const sig=def[0]+'|'+w+'x'+h+'|'+(b.rot||0);   /* (le modèle choisi : le centre change de modèle avec sa faction) */if(!e||e.sig!==sig){const was=e;if(e){if(open&&!e.sig.startsWith(':in_'))this.liftRoof(e.g);else this.scene.remove(e.g);}const g=this.buildingMesh(b,def,[w,h]);if(!g)continue;
         if(BUILDINGS[b.k]?.bunker){const PL=W.bunkerPlanOf(b);g.userData.doors=PL.doors.map(([da,dc])=>{const dm=new THREE.Mesh(this.doorGeo,this.doorMat);dm.position.set(da+.5-PL.w/2,0,dc+.5-PL.h/2);if('#ED'.includes(PL.at(da,dc-1))||'#ED'.includes(PL.at(da,dc+1)))dm.rotation.y=Math.PI/2;dm.castShadow=true;g.add(dm);return {key:(b.j+dc)*N+b.i+da,mesh:dm};});
           // le toit : opaque (il cache l'intérieur) ; presque transparent tant que nos unités y sont (voir plus bas)
-          const rg=bunkerRoofGeo(BUILDINGS[b.k].bunker,b.rot||0);if(rg){const rm=new THREE.Mesh(rg,new THREE.MeshStandardMaterial({vertexColors:true,transparent:true,opacity:1,roughness:.9}));rm.castShadow=true;rm.receiveShadow=true;g.add(rm);g.userData.roof=rm;g.userData.plan=PL;}}e={g,sig,ruin:null,done:null,prog:-1};this.blds.set(b.id,e);this.scene.add(g);}
+          const rg=bunkerRoofGeo(BUILDINGS[b.k].bunker,b.rot||0);if(rg){const rm=new THREE.Mesh(rg,new THREE.MeshStandardMaterial({vertexColors:true,transparent:true,opacity:1,roughness:.9}));rm.castShadow=true;rm.receiveShadow=true;g.add(rm);g.userData.roof=rm;g.userData.plan=PL;}}e={g,sig,ruin:null,done:null,prog:-1,drop:was&&!open&&was.sig.startsWith(':in_')?.6:0};this.blds.set(b.id,e);this.scene.add(g);}
       const {g}=e;const mesh=g.children[0];if(g.userData.doors)for(const D of g.userData.doors)D.mesh.visible=!b.ruin&&!(b.doorsDown&&b.doorsDown.includes(D.key));
       if(g.userData.roof){const PL=g.userData.plan||(g.userData.plan=W.bunkerPlanOf(b)),nowT=performance.now();g.userData.roof.visible=b.done&&!b.ruin;
         // le toit devient transparent seulement quand l'un des nôtres est à l'intérieur (sol couvert ou porte) ; le brouillard ne change rien : on voit les nôtres
         if(!e.roofT||nowT-e.roofT>150){e.roofT=nowT;let inside=false;if(b.f==='meumeu'&&b.done)for(const u of s.units){if(u.f!=='meumeu')continue;const ra=Math.floor(u.x)-b.i,rc=Math.floor(u.y)-b.j;if(ra<0||rc<0||ra>=PL.w||rc>=PL.h)continue;const ch=PL.rows[rc][ra];if(ch==='.'||ch==='G'||ch==='A'||ch==='D'||ch==='o'){inside=true;break;}}e.roofTarget=inside?.16:1;}
-        const rmat=g.userData.roof.material;rmat.opacity+=((e.roofTarget??1)-rmat.opacity)*Math.min(1,dtc*7);rmat.depthWrite=rmat.opacity>.6;}const cx=b.i+w/2,cz=b.j+h/2;g.position.set(cx,0,cz);
+        const rmat=g.userData.roof.material;rmat.opacity+=((e.roofTarget??1)-rmat.opacity)*Math.min(1,dtc*7);rmat.depthWrite=rmat.opacity>.6;}const cx=b.i+w/2,cz=b.j+h/2;g.position.set(cx,0,cz);if(e.drop>0){e.drop=Math.max(0,e.drop-dtc);g.position.y=Math.pow(e.drop/.6,2)*2.4;}
       const prog=b.done?1:b.ruin?0:Math.max(.12,b.progress||0);// V12.4 : les dégâts se voient avant l'effondrement — quatre états selon la solidité perdue (25, 50, 75 %) : la suie noircit, puis le bâtiment
       // penche et s'affaisse un peu (rotation et position seulement : jamais déformé)
       const dmg=b.done&&!b.ruin&&b.max>0?Math.max(0,Math.min(3,Math.floor((1-b.hp/b.max)*4))):0;const stage=b.ruin?'r':b.done?'d'+dmg:prog.toFixed(2);
@@ -414,7 +488,8 @@ export class Scene3D{
         const mat=b.ruin?T(0x5a5048):dmg>0?T(shade(b.f==='beee'?base:def[3]||0xffffff,SOOT[dmg])):b.f==='beee'?T(base):(b.done?(def[3]?T(def[3]):T(null)):T(0xd8d0c0));for(const m of g.userData.subs)m.material=mat;
         mesh.scale.set(g.userData.s,g.userData.s*(b.ruin?.3:b.done?1:.25+.75*prog),g.userData.s);mesh.rotation.z=b.ruin?.05:dmg>=2?(dmg-1)*.035*((b.id%2)?1:-1):0;mesh.rotation.x=dmg>=3?.03:0;mesh.position.y=-.06*Math.max(0,dmg-1);}
       if(g.userData.spin){e.ang=(e.ang||0)+(b.done&&!b.ruin?dtc*.45:0);g.userData.spin.rotation.x=e.ang;}
-      g.visible=true;}
+      g.visible=true;if(open)this.labFigures(view,b,this.M[def[0]],dtc);}
+    this.liftsTick(dtc);if(this.labFig){const now=performance.now()/1000;for(const [id,f] of this.labFig)if(now-f.seen>1.5)this.labFig.delete(id);}
     for(const [id,e] of this.blds)if(!seen.has(id))e.g.visible=false;
     // ----- unités
     const Hm=this.M.meumeu.ext[1],Hb=this.M.goat_plush_toy.ext[1];
@@ -423,15 +498,15 @@ export class Scene3D{
     this.shellCarrier.clear();
     for(const g of s.units){if(!g.w||!(g.reload>0)||!(g.reloadTotal>1.4)||g.hp<=0)continue;const Wg0=this.designOf(W,g.w);if(!Wg0||!(Wg0.crew>1))continue;
       const sv=W.servants(g).sort((a,z)=>Math.hypot(a.x-g.x,a.y-g.y)-Math.hypot(z.x-g.x,z.y-g.y))[0];if(sv)this.shellCarrier.set(sv.id,{g,W:Wg0});}
-    const addUnit=u=>{if(u.x<i0-3||u.x>i1+3||u.y<j0-3||u.y>j1+3)return;
+    const addUnit=u=>{if(u.x<i0-3||u.x>i1+3||u.y<j0-3||u.y>j1+3)return;if(hideU.has(u.id))return;
       if(fog&&u.f!=='meumeu'&&!W.spotted(u,'meumeu',.5))return;
       const bee=u.f==='beee';const down=u.h?.state==='hors'||u.hp<=0;
       let fx=u.fx,fy=u.fy;if(fx==null){const d=u.dir||'se';[fx,fy]=d==='se'?[1,0]:d==='sw'?[0,1]:d==='ne'?[0,-1]:[-1,0];}
       const want=Math.atan2(fx,fy);let y=this.yaw.get(u.id);if(y==null)y=want;let dlt=((want-y+PI)%(2*PI)+2*PI)%(2*PI)-PI;y+=dlt*Math.min(1,dtc*12);this.yaw.set(u.id,y);
       // le modèle : la peluche pour les civils et les soignants, le soldat pour qui porte les armes (servants compris), le chevalier pour la troupe de choc
-      const mod=bee?'goat_plush_toy':(u.k==='villageois'||u.k==='medecin'||u.k==='infirmier')?'meumeu':this.M[u.skin]?u.skin:u.k==='choc'?'plush_cow_knight':'meumeu';
+      const mod=bee?'goat_plush_toy':u.k==='savant'&&this.M.meumeu_chercheur?'meumeu_chercheur':(u.k==='villageois'||u.k==='medecin'||u.k==='infirmier')?'meumeu':this.M[u.skin]?u.skin:u.k==='choc'?'plush_cow_knight':'meumeu';
       const M0=this.M[mod]||this.M.meumeu,Hmod=M0.ext[1];
-      const H=u.k==='villageois'?.92:u.k==='choc'?1.06:1.02;const sc=H/Hmod;const pool=bee?P.bee:mod==='plush_cow_knight'?P.choc:mod==='meumeu_soldat'?P.soldat:P.meumeu;const hx=Math.sin(y),hz=Math.cos(y);
+      const H=u.k==='villageois'||u.k==='savant'?.92:u.k==='choc'?1.06:1.02;const sc=H/Hmod;const pool=bee?P.bee:mod==='plush_cow_knight'?P.choc:mod==='meumeu_soldat'?P.soldat:mod==='meumeu_chercheur'?P.chercheur:P.meumeu;const hx=Math.sin(y),hz=Math.cos(y);
       let walking=u.anim==='walk'&&!down;
       // les servants suivent leur pièce par petits bonds : on lisse leur place à l'écran, et leur pas suit leur vitesse affichée
       let ux=u.x,uy=u.y;if(u.serve&&!down){const dp=(this.dpos??=new Map()),q=dp.get(u.id);if(q&&Math.hypot(q[0]-u.x,q[1]-u.y)<2){const k=Math.min(1,dtc*8);const nx=q[0]+(u.x-q[0])*k,ny=q[1]+(u.y-q[1])*k;const sp=Math.hypot(nx-q[0],ny-q[1])/Math.max(1e-3,dtc);q[0]=nx;q[1]=ny;ux=nx;uy=ny;walking=sp>.15;}else dp.set(u.id,[u.x,u.y]);}const ph=(u.walkPh||0)*2.4,amp=walking?1:0;

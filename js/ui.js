@@ -20,6 +20,7 @@ import {FixedClock} from './clock.js';
 import {resumeWorld} from './persistence.js';
 import {operationUI} from './operations-ui.js';
 import {VEHDEF} from './vehicules.js';
+import {researchUI,MODN,unlockName} from './research-ui.js';
 
 const $=s=>document.querySelector(s);
 // Une erreur de démarrage ne doit plus laisser une fenêtre muette : elle est
@@ -54,6 +55,7 @@ const view=new View($('#view'),world,{
   describe:t=>describe(t),
   pickOperation:(w,button)=>ops.map(w,button),
   unitLabel:u=>unitLabel(u),
+  labPick:uid=>{rui.pick(uid);renderPanel(true);},
   unitInfo:u=>openFiche(u.id),
   zoneAt:(w,keep)=>{const r=world.zoneFire([...view.sel],w.x,w.y,{n:ui.zoneN||Infinity,high:ui.zoneHigh});say(r.ok?r.text:r.why[0],r.ok?'':'bad');audio.play(r.ok?'order':'bad');view.marks.push({x:w.x,y:w.y,age:0,bad:!r.ok});renderPanel(true);return r;},
   order:(ids,t)=>{const r=world.order(ids,t);say(r.ok?r.text:r.why[0],r.ok?'':'bad');audio.play(r.ok?'order':'bad');if(r.ok){const u=world.unit(ids[0]);if(u)audio.play('ack',null,{f:u.f,n:ids.length});}renderPanel(true);return r;},
@@ -82,6 +84,8 @@ const view=new View($('#view'),world,{
   vehicleHint:w=>{const v=world.s.vehicles.find(x=>x.id===view.selV);return v?.k==='bombardier'?'clic droit : bombarder ici':null;},
   get pickStop(){return ui.pick?pickStop:null;}});
 const ops=operationUI({world:()=>world,view,ui,say,open:openModal,close:()=>{ui.modal=null;renderModal();},speed:setSpeed});
+// (V12.6) le panneau de la vue recherche
+const rui=researchUI({world:()=>world,view,ui,say,esc,ico,costHtml,hours,buildingPane:b=>buildingPane(b),audio});
 const room=new XRoom($('#xroom'));const body3d=new BodyView();
 const xray=new XRay($('#xray'),{onGo:(x,y)=>view.lookAt(x,y),room,onFiche:id=>openFiche(id),hostL:$('#xrayL')});
 const designer=new Designer($('#dz'),{world:()=>world,
@@ -174,7 +178,8 @@ function buildBar(){const el=$('#buildbar');if(!ui.bb){if(el.innerHTML!=='')el.i
 // ---------- le panneau ----------
 function renderPanel(force){const now=performance.now();if(!force&&now-ui.panelAt<400)return;const act=document.activeElement;if(!force&&act&&(act.tagName==='SELECT'||act.tagName==='INPUT')&&$('#panel')?.contains(act))return;if(!force&&ui.pointerIn&&now-(ui.lastPointer||0)<900)return;ui.panelAt=now;
   let h='';const sel=[...view.sel].map(id=>world.unit(id)).filter(Boolean);
-  if(ui.pick)h=pickPane();else if(view.selV!=null)h=vehiclePane();else if(sel.length)h=unitsPane(sel);else if(view.selVs.size)h=vehiclesPane();else if(view.selB!=null&&world.building(view.selB))h=buildingPane(world.building(view.selB));else h=overviewPane();
+  document.body.classList.toggle('labmode',!!view.lab);
+  if(ui.pick)h=pickPane();else if(view.lab&&world.building(view.lab.b))h=rui.pane(world.building(view.lab.b));else if(view.selV!=null)h=vehiclePane();else if(sel.length)h=unitsPane(sel);else if(view.selVs.size)h=vehiclesPane();else if(view.selB!=null&&world.building(view.selB))h=buildingPane(world.building(view.selB));else h=overviewPane();
   if(h!==ui.lastPanel){const p=$('#panel');const top=p.scrollTop;p.innerHTML=h;p.scrollTop=top;ui.lastPanel=h;}
   renderModal();}
 function pickPane(){return `<section class="pane"><h2>Tracer une ligne</h2><p>${ui.pick.a?'Cliquez l’arrêt d’arrivée.':'Cliquez l’arrêt de départ (le plus souvent : la ville).'}</p><p class="quiet small">${ui.pick.need}</p><button class="ghost small" data-act="pick-off">Annuler</button></section>`;}
@@ -392,8 +397,8 @@ function buildingPane(b){if(b.f==='beee'&&world.s.fog!==false&&!world.visibleAt(
   if(beee){h+=`<section class="pane war"><p>Choisissez des soldats, puis clic droit sur ce bâtiment : au contact, ils le saccagent et y mettent le feu ; les commandos y posent leurs charges. Les canons l’abattent de loin ; un bombardier, d’en haut.${!world.atWar?' <b>Nous sommes en paix : attaquer, c’est déclarer la guerre.</b>':''}</p></section>`;return h;}
   if(!b.done)return h;
   const mine=world.designsOf('meumeu');
-  if(B.lab){const dev=b.dev&&INNOV.find(x=>x.id===b.dev.id);h+=`<section class="pane"><h2>Recherche</h2>${dev?`<p>En développement : <b>${esc(dev.name)}</b> — encore ${hours(b.dev.left)}.</p><i class="gauge"><i style="width:${Math.round((1-b.dev.left/b.dev.total)*100)}%"></i></i>`:'<p class="quiet small">Rien en cours.</p>'}
-    <div class="row"><button data-modal="innov">Les idées des Meumeu (${world.s.innov.ideas.length})</button></div><p class="quiet small">${world.s.innov.done.length} innovation${world.s.innov.done.length>1?'s':''} adoptée${world.s.innov.done.length>1?'s':''}.</p></section>`;}
+  // (V12.6) la recherche : un clic ouvre la vue recherche (le toit s'envole) ; ce bouton aussi, depuis la carte ou en 2D
+  if((B.lab||b.k==='armurerie'||b.k==='poudrerie')&&!view.lab){const n=(b.staff||[]).length;h+=`<section class="pane"><h2>Recherche <small>${n} savant${n>1?'s':''} ici</small></h2><div class="row"><button data-r="go:${b.id}" ${view.g3?'':'disabled title="la vue recherche demande la 3D"'}>Ouvrir la vue recherche</button></div><p class="quiet small">${world.s.innov.done.length} innovation${world.s.innov.done.length>1?'s':''} adoptée${world.s.innov.done.length>1?'s':''} · ${world.s.innov.ideas.length} proposition${world.s.innov.ideas.length>1?'s':''}.</p></section>`;}
   if(B.factory)h+=factoryPane(b);else if(b.need)h+=reservePane(b);
   else if(B.makes||b.k==='mine'){const nd=b.k==='mine'&&world.s.nodes[b.ore];h+=nd?`<section class="pane"><div class="kv"><span>Filon</span><b>${ico(nd.res)} ${esc(RES[nd.res].name)} · ${n0(nd.left)} restant</b></div></section>`:'';
     // le moulin : le blé récolté, les vivres moulus, combien de bouches ça nourrit
@@ -488,7 +493,7 @@ function vehiclePane(){const v=world.s.vehicles.find(x=>x.id===view.selV);if(!v)
 const has=(W,k,more=()=>true)=>W.s.buildings.some(b=>b.f==='meumeu'&&b.k===k&&b.done&&more(b));
 const STEP_OK={bois:W=>(W.capital()?.stock.bois||0)>=260||(W.s.innov.prac.bois||0)>4,maisons:W=>W.s.buildings.some(b=>b.f==='meumeu'&&b.k==='moulin'&&b.done),
   camp:W=>has(W,'camp',b=>W.workers(b).length),charbon:W=>has(W,'mine',b=>W.s.nodes[b.ore]?.res==='charbon'),charrette:W=>W.s.vehicles.some(v=>v.f==='meumeu'&&v.k==='porteur'&&(v.trips||0)>0),
-  atelier:W=>has(W,'atelier'),labo:W=>has(W,'labo'),hopital:W=>has(W,'hopital'),
+  atelier:W=>has(W,'atelier'),labo:W=>has(W,'centre_recherche'),hopital:W=>has(W,'hopital'),
   caserne:W=>has(W,'caserne')&&W.s.units.filter(u=>u.f==='meumeu'&&u.w).length>=6,arsenal:W=>has(W,'arsenal',b=>(b.made||0)>0),
   rail:W=>W.s.buildings.filter(b=>b.f==='meumeu'&&b.k==='gare'&&b.done).length>=2&&W.s.vehicles.some(v=>v.f==='meumeu'&&v.k==='train'),
   defense:W=>W.s.buildings.filter(b=>b.f==='meumeu'&&b.k==='tour'&&b.done).length>=2&&Object.values(W.s.walls).filter(w=>w.f==='meumeu'&&w.b).length>=6,
@@ -525,7 +530,7 @@ function overviewPane(){const s=world.s;const cap=world.capital();const st=cap?.
 // ---------- les grandes fenêtres : santé, fiche médicale, idées, économie ----------
 function openModal(kind,id=null){ui.modal={kind,id};ui.modalHtml='';renderModal();}
 function renderModal(){const el=$('#modal');if(!ui.modal){if(!el.hidden){el.hidden=true;el.innerHTML='';}return;}
-  let body='';try{body={med:medModal,fiche:ficheModal,innov:innovModal,eco:ecoModal,squad:squadModal,operation:id=>ops.modal(id)}[ui.modal.kind]?.(ui.modal.id)||'';}catch(e){console.error(e);body=`<p class="bad">${esc(e.message)}</p>`;}
+  let body='';try{body={med:medModal,fiche:ficheModal,innov:()=>rui.modal(),eco:ecoModal,squad:squadModal,operation:id=>ops.modal(id)}[ui.modal.kind]?.(ui.modal.id)||'';}catch(e){console.error(e);body=`<p class="bad">${esc(e.message)}</p>`;}
   if(!body){ui.modal=null;el.hidden=true;return;}
   if(body!==ui.modalHtml){const box=el.querySelector('.mbody');const top=box?box.scrollTop:0;el.innerHTML=`<div class="mbox ${ui.modal.kind}" role="dialog">${body}</div>`;el.hidden=false;ui.modalHtml=body;const nb=el.querySelector('.mbody');if(nb)nb.scrollTop=top;
     const slot=el.querySelector('#f3dslot');if(slot)slot.appendChild(body3d.cv);}}
@@ -588,26 +593,6 @@ function ficheModal(id){const f=findUnit(id);if(!f)return '';const {u,where}=f;c
       ${where==='terrain'&&u.f==='meumeu'?`<div class="row">${needsCare(h)||h.state==='hors'?`<button class="small" data-sendmed="${u.id}">Envoyer le soignant le plus proche</button>`:''}${h.state==='hors'?`<button class="small warn" data-evac="${u.id}">Évacuer (deux porteurs)</button>`:''}<button class="small ghost" data-gotoxy="${u.x},${u.y}">Voir</button></div>`:''}
       <h3>Les blessures</h3><div class="wounds">${wl||'<p class="quiet small">aucune</p>'}</div>
       <h3>Les soins reçus</h3><div class="mlog">${(h.log||[]).slice().reverse().map(l=>`<div><time>j${Math.floor((l.t||0)/DAY)+1} ${String(Math.floor((l.t||0)%DAY)).padStart(2,'0')}h${String(Math.floor(((l.t||0)%1)*60)).padStart(2,'0')}</time> ${l.by?`<b>${esc(l.by)}</b> `:''}${esc(l.what)}</div>`).join('')||'<p class="quiet small">aucun</p>'}</div></div></div>`;}
-// les idées des Meumeu
-function researchParts(){const I=world.s.innov;const lab=world.s.buildings.find(b=>b.f==='meumeu'&&BUILDINGS[b.k].lab&&b.done);const dev=lab?.dev&&INNOV.find(x=>x.id===lab.dev.id);const have=lab?world.have('meumeu',lab.i+1,lab.j+1):{};
-  const card=(x,idea)=>{const X=INNOV.find(y=>y.id===x.id);const r=world.canDevelop(x.id);return `<article class="idea"><header><span class="dom">${esc(DOMAINS[X.dom])}</span><b>${esc(X.name)}</b></header><p>${esc(X.text)}</p>
-      <p class="fx">${Object.entries(X.mod).map(([k,v])=>`<span>${esc(MODN[k]||k)} ${v>=1?'+':'−'}${Math.round(Math.abs(v-1)*100)} %</span>`).join('')}${(X.unlock||[]).map(k=>`<span class="new">ouvre : ${esc(unlockName(k))}</span>`).join('')}</p>
-      ${X.needs?.length?`<p class="quiet small">demande : ${X.needs.map(n=>{const ok=world.s.innov.done.includes(n);return `<b class="${ok?'':'warn'}">${esc(INNOV.find(y=>y.id===n)?.name||n)}${ok?' ✓':''}</b>`;}).join(' · ')}</p>`:''}
-      <div class="row between"><span class="costs">${costHtml(X.cost,have)} · ${X.hours} h</span>${idea?`<span><button class="small ghost" data-drop="${x.id}">Écarter</button> <button class="small" data-dev="${x.id}" ${r.ok?'':'disabled'} title="${esc(r.why.join(', '))}">Développer</button></span>`:''}</div>
-      ${idea&&x.who?`<small class="who">idée de <b>${esc(x.who.name||x.who)}</b>, ${esc(UNITS[x.who.k]?.name.toLowerCase()||'')}</small>`:''}</article>`;};
-  const doms=Object.entries(DOMAINS).map(([k,n])=>{const p=I.prac[k]||0,nx=I.next[k]||14;const left=INNOV.filter(x=>x.dom===k&&!I.done.includes(x.id)).length;return `<div class="dm"><span>${esc(n)}</span><i class="gauge inline"><i style="width:${nx>=1e8?100:Math.min(100,p/nx*100)}%"></i></i><small>${nx>=1e8?'plus d’idée':left?`${left} à trouver`:'tout trouvé'}</small></div>`;}).join('');
-  const status=`${I.ideas.length} en attente · ${I.done.length} adoptées · ${lab?(dev?`au laboratoire : ${esc(dev.name)}, encore ${hours(lab.dev.left)}`:'le laboratoire attend une idée'):'il faut un laboratoire pour les développer'}`;
-  return {status,html:`<p class="quiet small">Ceux qui travaillent ont des idées : à force de couper du bois, de miner, de soigner, de tirer, l’un d’eux propose quelque chose. Chaque partie les amène dans un autre ordre.</p>
-    <div class="ideas">${I.ideas.map(x=>card({...x,who:typeof x.who==='object'?x.who:{name:x.who}},true)).join('')||'<p class="quiet">Pas d’idée en attente : travaillez, elles viendront.</p>'}</div>
-    <h3>Ce qu’on pratique</h3><div class="doms">${doms}</div>
-    <h3>L’arbre : ce qui demande une découverte préalable</h3><div style="display:block">${INNOV.filter(x=>x.needs?.length).map(x=>{const st=I.done.includes(x.id)?'<b>acquise</b>':x.needs.every(n=>I.done.includes(n))?'<b class="good">à trouver</b>':'<b class="warn">verrouillée</b>';return `<div style="display:flex;flex-wrap:wrap;gap:.2rem .7rem;align-items:baseline;padding:.3rem 0;border-bottom:1px solid rgba(255,255,255,.07)"><b style="min-width:11rem">${esc(x.name)}</b><span>${st}</span><small class="quiet">demande ${x.needs.map(n=>(I.done.includes(n)?'✓ ':'✗ ')+esc(INNOV.find(y=>y.id===n)?.name||n)).join(' · ')}${x.unlock?.length?' — ouvre '+x.unlock.map(k=>esc(unlockName(k))).join(', '):''}</small></div>`;}).join('')}</div>
-    <h3>Adoptées</h3><div class="ideas done">${I.done.map(id=>card({id},false)).join('')||'<p class="quiet small">aucune encore</p>'}</div>`};}
-// la recherche vit désormais au bureau d'études (onglet Recherche) ; l'ancienne modale garde le même contenu
-const researchHtml=()=>researchParts().html;
-const innovModal=()=>{const R=researchParts();return mhead('Les idées des Meumeu',R.status)+`<div class="mbody">${R.html}</div>`;};
-const unlockName=k=>{const [t,id]=k.split(':');return t==='fill'?`explosif « ${FILLS[id]?.name||id} »`:t==='preset'?`modèle « ${KIT_PRESETS.find(P=>P.id===id)?.design.name||id} »`:k;};
-const MODN={gather_tree:'coupe du bois',gather_rock:'taille de pierre',gather_bush:'cueillette',gather_ore:'extraction à la main',ferme:'moulins',mine:'mines',atelier:'ateliers',carburant_bois:'bois par carburant',cap_porteur:'charge des portettes',cap_train:'charge des trains',vit_train:'vitesse des trains',
-  construction:'vitesse de construction',charbon_machines:'charbon des machines',briques:'briqueteries',tender:'tender des locomotives',mur:'solidité des murs',fer_munitions:'fer par caisse',armement:'arsenal et manufacture',napalm:'durée des flaques incendiaires',tir:'précision',garrot:'durée d’un garrot',plasma:'plasma',brancard:'vitesse des brancardiers',antiseptique:'vitesse de l’infection',chirurgie:'vitesse de la chirurgie',creneaux:'tireurs par tour',couvert:'protection des murs'};
 // l'économie : ce qui produit, où sont les stocks, ce qui roule
 function ecoModal(){const tab=ui.ecoTab||'fret';const bs=world.s.buildings.filter(b=>b.f==='meumeu'&&b.done);let body='';
   const dn=id=>{const d=world.building(id);return d?`<a data-selb="${d.id}">${esc(BUILDINGS[d.k].name)}</a> <small>${esc(world.cityName(d))}</small>`:'<span class="warn">aucun</span>';};
@@ -658,6 +643,7 @@ function evacuate(id){const e=world.unit(id);if(!e)return;const c=world.s.units.
 // ---------- les clics ----------
 document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b||b.closest('#dz')||b.closest('#hub')||b.closest('#xray')||b.closest('#xroom'))return;audio.init();const d=b.dataset;
   if(d.speed!==undefined){setSpeed(+d.speed);return;}
+  if(d.r!=null){rui.click(d.r);renderPanel(true);return;}   // (V12.6) la vue recherche
   if(d.op){ops.action(d.op);renderModal();renderPanel(true);return;}
   if(d.build){view.placing=view.placing===d.build?null:d.build;view.lining=null;ui.bbHtml='';say(view.placing?`${BUILDINGS[d.build].name} : choisissez la place (une case d’écart avec les autres). Clic droit : annuler.`:'');renderPanel(true);return;}
   if(d.line){view.lining=view.lining?.kind===d.line?null:{kind:d.line};view.placing=null;ui.bbHtml='';say(!view.lining?'':d.line==='gomme'?'Annuler un tracé : balayez les pointillés dorés d’une voie ou d’un mur prévus. Clic droit : fini.':`${LINES[d.line].name} : cliquez-glissez sur la carte${d.line==='rail'?' — droites et virages, en contournant les obstacles':''}. Maj : plusieurs tracés. Clic droit : fini.`);renderPanel(true);return;}
@@ -666,7 +652,6 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   if(d.fiche){openFiche(+d.fiche);return;}
   if(d.sendmed){sendMedic(+d.sendmed);ui.modalHtml='';return;}
   if(d.evac){evacuate(+d.evac);ui.modalHtml='';return;}
-  if(d.dev){const r=world.develop(d.dev);say(r.ok?r.text:r.why[0],r.ok?'good':'bad');audio.play(r.ok?'built':'bad');ui.modalHtml='';renderPanel(true);return;}
   if(d.drop){world.dropIdea(d.drop);ui.modalHtml='';renderPanel(true);return;}
   if(d.b3){body3d.mode=d.b3;ui.modalHtml='';renderModal();return;}
   if(d.gisf!==undefined){ui.gisF=d.gisf;ui.modalHtml='';renderModal();return;}
@@ -764,7 +749,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   renderPanel(true);});
 // le curseur du retard : chaque cran règle tout de suite les charges de la sélection (le panneau n'est redessiné qu'au lâcher)
 document.addEventListener('input',e=>{const r=e.target.closest?.('[data-fusev]');if(!r)return;const v=+r.value/6;for(const id of view.sel){const u=world.unit(id);if(u&&(u.charges>0||u.torch>0))u.fuse=v;}const l=document.getElementById('fuse-l');if(l)l.textContent=fuseTxt(v);});
-document.addEventListener('change',e=>{{const sk=e.target.closest?.('[data-skin]');if(sk){const b=world.building(+sk.dataset.skin);if(b)b.skin=sk.value;return;}}if(e.target.closest?.('[data-fusev]')){renderPanel(true);return;}const sr=e.target.closest('[data-sqr],[data-sqw],[data-sqa]');if(sr){const d=sr.dataset;const u=world.unit(+(d.sqr||d.sqw||d.sqa));if(u){const r=d.sqr?world.setRole(u,sr.value):d.sqw?world.rearm(u,sr.value):world.rearmor(u,sr.value||null);if(!r.ok)say(r.why[0],'bad');ui.modalHtml='';renderModal();renderPanel(true);}return;}
+document.addEventListener('change',e=>{{const rs=e.target.closest?.('[data-rsel]');if(rs){rui.change(rs.dataset.rsel,rs.value);renderPanel(true);return;}}{const sk=e.target.closest?.('[data-skin]');if(sk){const b=world.building(+sk.dataset.skin);if(b)b.skin=sk.value;return;}}if(e.target.closest?.('[data-fusev]')){renderPanel(true);return;}const sr=e.target.closest('[data-sqr],[data-sqw],[data-sqa]');if(sr){const d=sr.dataset;const u=world.unit(+(d.sqr||d.sqw||d.sqa));if(u){const r=d.sqr?world.setRole(u,sr.value):d.sqw?world.rearm(u,sr.value):world.rearmor(u,sr.value||null);if(!r.ok)say(r.why[0],'bad');ui.modalHtml='';renderModal();renderPanel(true);}return;}
   const rk=e.target.closest('[data-relk]');if(rk){ui.relK=rk.value;renderPanel(true);}const rp=e.target.closest('[data-relp]');if(rp){ui.relP=rp.value;renderPanel(true);}
   const s=e.target.closest('[data-trainw]');if(s){ui.trainW[+s.dataset.trainw]=s.value;renderPanel(true);}const a=e.target.closest('[data-traina]');if(a){ui.trainA[+a.dataset.traina]=a.value;renderPanel(true);}const r=e.target.closest('[data-trainrole]');if(r){ui.trainRole[+r.dataset.trainrole]=r.value;renderPanel(true);}
   const t=e.target;const bd=world.building(view.selB);
@@ -781,7 +766,8 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','=','-',
   if(e.target.closest('input,textarea,select'))return;if(e.key==='Escape'&&document.body.classList.contains('cine')&&!designer.open){toggleCine(false);return;}if(designer.open){if(e.key==='Escape')designer.close();return;}if(room.isOpen){if(e.key==='Escape')room.close();return;}audio.init();const k=e.key;
   // V12.4 : Origine (Home) remet la caméra libre dans l'isométrie d'origine
   if(k==='Home'){view.resetCam();say('Caméra : vue isométrique d’origine (bouton du milieu : orienter ; Maj + milieu : déplacer).','info');return;}
-  if(ui.modal&&k==='Escape'){ui.modal=null;renderModal();return;}keys.add(k.toLowerCase());
+  if(ui.modal&&k==='Escape'){ui.modal=null;renderModal();return;}
+  if(k==='Escape'&&view.lab){view.exitLab();renderPanel(true);return;}keys.add(k.toLowerCase());
   if((k==='r'||k==='R')&&view.placing&&BUILDINGS[view.placing]?.bunker){view.placeRot=((view.placeRot||0)+1)%4;e.preventDefault();return;}
   if(k==='Escape'){view.zoning=false;view.placing=null;view.lining=null;ui.pick=null;view.sel.clear();view.selVs.clear();view.selB=null;view.selV=null;renderPanel(true);}
   else if(k===' '){e.preventDefault();setSpeed(ui.speed?0:(ui.lastSpeed||1));if(ui.speed)ui.lastSpeed=ui.speed;}
@@ -799,7 +785,7 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','=','-',
   else if(k==='t'||k==='T'){pitchTent();}
   else if((k==='f'||k==='F')&&view.sel.size){const n=world.smokeOrder([...view.sel]);say(n?`${n} fumigène${n>1?'s':''} lancé${n>1?'s':''}.`:'Plus de fumigène.',n?'':'bad');}
   else if(k==='f'||k==='F'){view.soil=!view.soil;say(view.soil?'Carte des sols : du gris (roche, lande) au vert sombre (terre noire). Les fermes et les moulins y rendent jusqu’à trois fois plus. (F pour fermer)':'Carte des sols fermée.','info');}
-  else if(k==='i'||k==='I'){openModal('innov');}
+  else if(k==='i'||k==='I'){if(view.lab){view.exitLab();renderPanel(true);}else if(!rui.open())openModal('innov');}
   else if(k==='m'||k==='M'){ui.modal?.kind==='med'?(ui.modal=null,renderModal()):openModal('med');}
   else if(k==='e'||k==='E'){ui.modal?.kind==='eco'?(ui.modal=null,renderModal()):openModal('eco');}
   else if(k==='h'||k==='H'){const c=world.capital();if(c)view.lookAt(c.i+2,c.j+2);}
@@ -849,8 +835,11 @@ function events(){for(const e of world.events.splice(0)){view.onEvent(e);const P
     case 'collapse':audio.play('collapse',P);if(e.k&&e.f==='meumeu'&&!e.small)alertBox(`<b>${BUILDINGS[e.k].name} détruit !</b>`,e.x,e.y);break;
     case 'fire':audio.play('fire',P);break;case 'felled':audio.play('felled',P);break;case 'death':audio.play('death',P,e);break;
     case 'built':audio.play('built',P);break;case 'trained':if(e.f==='meumeu')audio.play('trained',P);break;case 'design':audio.play('built');alertBox('<b>Nouvelle arme adoptée.</b> Réglez l’arsenal et la manufacture pour la fabriquer.',null,null,'good');break;
-    case 'idea':audio.play('trained');alertBox(`<b>${esc(e.who||'Un Meumeu')} a une idée :</b> ${esc(INNOV.find(x=>x.id===e.id)?.name||'')} <button class="small" data-modal="innov">Les idées</button>`,e.x,e.y,'good');break;
-    case 'innov':audio.play('built');say(`Innovation adoptée : ${INNOV.find(x=>x.id===e.id)?.name}.`,'good');break;
+    case 'idea':audio.play('trained');alertBox(`<b>${esc(e.who||'Un Meumeu')} a une idée :</b> ${esc(INNOV.find(x=>x.id===e.id)?.name||'')} <button class="small" data-r="open:projets">Vue recherche</button>`,e.x,e.y,'good');break;
+    case 'innov':audio.play('built');say(`${e.perc?'Percée ! ':''}Innovation adoptée : ${INNOV.find(x=>x.id===e.id)?.name}.`,'good');break;
+    // (V12.6) la recherche : l'accident, l'eurêka, la sortie d'école
+    case 'labboom':audio.play('boom',P,e);alertBox(`<b>Accident ${{centre_recherche:'au centre de recherche',labo:'au laboratoire',armurerie:'au bureau d’études',poudrerie:'à l’usine chimique'}[world.building(e.b)?.k]||''} !</b> <button class="small" data-r="go:${e.b}">Voir</button>`,e.x,e.y,'warn');break;
+    case 'eureka':audio.play('trained');break;case 'graduate':{audio.play('trained');const u=world.sci(e.id);if(u)say(`${u.name} sort de l’école.`,'good');break;}
     case 'stop':if(e.kind==='train')audio.play('train',P);break;case 'takeoff':audio.play('takeoff',P);break;case 'rail-cut':audio.play('rail',P);if(P?.vol>.05)say('Une voie ferrée est coupée : il faut la reposer.','bad');break;
     case 'tension':audio.play('drums');alertBox(`<b>Frontière.</b> ${esc(e.text)}`,null,null,'warn');break;
     case 'war':audio.play('horn');alertBox(`<b>${esc(e.text)}</b> Les tours, les soldats et les Bèè tirent désormais à vue.`);break;
