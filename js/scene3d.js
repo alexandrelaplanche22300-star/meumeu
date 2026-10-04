@@ -21,7 +21,8 @@ export const HK=Math.sqrt(2/3);
 // (le haut de la sélection, vers le corps) ; la main est son point le plus éloigné de l'épaule. Rend {body, arm:{geo,pivot,rest,len}} ou null.
 const SKIN_ARM={
   meumeu_soldat:(x,y,z,r,g,b,W,H)=>x<-W*.27&&y>H*.28&&y<H*.68,
-  plush_cow_knight:(x,y,z,r,g,b)=>x<-.05&&x>-.16&&y>.15&&y<.3&&z>.08&&r>.6&&Math.abs(r-b)>.05};
+  plush_cow_knight:(x,y,z,r,g,b)=>x<-.05&&x>-.16&&y>.15&&y<.3&&z>.08&&r>.6&&Math.abs(r-b)>.05,
+  goat_plush_toy:(x,y,z,r,g,b,W,H)=>x<-W*.23&&y>H*.25&&y<H*.63};   // (V12.5 : les Bèè aussi tendent le bras droit avec une arme d'épaule)
 function skinRig(M,sel){const g=M?.geo;if(!g?.index||!sel)return null;const P=g.attributes.position,C=g.attributes.color,I=g.index.array,[W,H]=M.ext;
   const body=[],arm=[];for(let t=0;t<I.length;t+=3){let x=0,y=0,z=0,r=0,gg=0,b=0;for(let q=0;q<3;q++){const v=I[t+q];x+=P.getX(v)/3;y+=P.getY(v)/3;z+=P.getZ(v)/3;if(C){r+=C.getX(v)/3;gg+=C.getY(v)/3;b+=C.getZ(v)/3;}}
     // (les couleurs de sommets sont linéaires — LIN dans mesh3d.js ; la règle se lit en couleurs d'écran)
@@ -433,7 +434,7 @@ export class Scene3D{
       // (V12.5) un soldat meumeu avec une arme d'épaule la tient, bras levés (holdGun) ; les autres comme avant
       // (V12.5) une arme d'épaule (ni pièce servie, ni pistolet) est tenue du bras droit : la Meumeu normale lève son bras droit (holdGun) ; les tenues
       // du joueur (soldat camouflé, élite à cape — leurs modèles restent tels quels) la tiennent bras droit tendu devant elles (holdSkin)
-      const shoulder=!!Wg&&!crewGun&&!Wg.pistol&&!bee&&u.k!=='villageois'&&(pose==='up'||pose==='crouch');
+      const shoulder=!!Wg&&!crewGun&&!Wg.pistol&&u.k!=='villageois'&&(pose==='up'||pose==='crouch');
       const rig=shoulder&&this.rig&&mod==='meumeu',skr=shoulder&&!rig&&!!this.skinRigs?.[mod];
       if(rig)this.holdGun(u,Wg,H,Hmod,sc,y,ux,uy,pose,{ph,amp,tint,kick,aiming,reloading,rp});
       else if(skr)this.holdSkin(u,Wg,H,Hmod,sc,y,ux,uy,pose,mod,{ph,amp,tint,kick,aiming,reloading,rp});
