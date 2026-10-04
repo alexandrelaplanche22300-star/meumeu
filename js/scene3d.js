@@ -349,8 +349,9 @@ export class Scene3D{
     const seen=new Set();
     for(const b of s.buildings){const [w,h]=W.sizeOf(b);if(b.i+w<i0-6||b.i>i1+6||b.j+h<j0-6||b.j>j1+6)continue;
       const fog=s.fog!==false;if(fog&&b.f==='beee'&&!view.fxVisible(b.i+w/2,b.j+h/2,b.f))continue;
-      const def=BUILDING_MODEL[b.k]||(BUILDINGS[b.k]?.bunker?[':bk_'+BUILDINGS[b.k].bunker+'_'+(b.rot||0),1,0]:null);if(!def)continue;seen.add(b.id);
-      let e=this.blds.get(b.id);const sig=b.k+'|'+w+'x'+h+'|'+(b.rot||0);if(!e||e.sig!==sig){if(e)this.scene.remove(e.g);const g=this.buildingMesh(b,def,[w,h]);if(!g)continue;
+      /* (V12.5) le centre-ville meumeu est une pyramide aztèque ; celui des Bèè garde son hôtel de ville */
+      const def=(b.k==='centre'&&b.f==='meumeu'?[':pyramide',1.0,0]:BUILDING_MODEL[b.k])||(BUILDINGS[b.k]?.bunker?[':bk_'+BUILDINGS[b.k].bunker+'_'+(b.rot||0),1,0]:null);if(!def)continue;seen.add(b.id);
+      let e=this.blds.get(b.id);const sig=def[0]+'|'+w+'x'+h+'|'+(b.rot||0);   /* (le modèle choisi : le centre change de modèle avec sa faction) */if(!e||e.sig!==sig){if(e)this.scene.remove(e.g);const g=this.buildingMesh(b,def,[w,h]);if(!g)continue;
         if(BUILDINGS[b.k]?.bunker){const PL=W.bunkerPlanOf(b);g.userData.doors=PL.doors.map(([da,dc])=>{const dm=new THREE.Mesh(this.doorGeo,this.doorMat);dm.position.set(da+.5-PL.w/2,0,dc+.5-PL.h/2);if('#ED'.includes(PL.at(da,dc-1))||'#ED'.includes(PL.at(da,dc+1)))dm.rotation.y=Math.PI/2;dm.castShadow=true;g.add(dm);return {key:(b.j+dc)*N+b.i+da,mesh:dm};});
           // le toit : opaque (il cache l'intérieur) ; presque transparent tant que nos unités y sont (voir plus bas)
           const rg=bunkerRoofGeo(BUILDINGS[b.k].bunker,b.rot||0);if(rg){const rm=new THREE.Mesh(rg,new THREE.MeshStandardMaterial({vertexColors:true,transparent:true,opacity:1,roughness:.9}));rm.castShadow=true;rm.receiveShadow=true;g.add(rm);g.userData.roof=rm;g.userData.plan=PL;}}e={g,sig,ruin:null,done:null,prog:-1};this.blds.set(b.id,e);this.scene.add(g);}
