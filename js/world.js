@@ -838,7 +838,8 @@ export class World{
     for(const b of [...s.buildings]){if(b.f==='beee'&&!(b.fire>0)&&far(b.i,b.j))lod(b,d=>this.buildingTick(b,d));else this.buildingTick(b,dt);}
     for(const v of [...s.vehicles])this.vehicleTick(v,dt);
     this.detectTick(dt);this.intelTick(dt);this.noiseTick(dt);this.stepsTick(dt);this.chargesTick();this.salvoTick();this.shotsTick(dt);this.fallsTick(dt);this.minesTick();this.bunkerTick();this.amphiTick();this.allyTick();this.flakTick(dt);this.defenseTick();this.squadTick();this.crewTick();this.operationTick();this.beeeTick(dt);this.bandsTick(dt);this.innovTick(dt);
-    this.bushT=(this.bushT||0)+dt;if(this.bushT>=.5){const g=this.bushT;this.bushT=0;for(const nd of this.bushes??=s.nodes.filter(n=>n.type==='bush'))if(nd.left<nd.max)nd.left=Math.min(nd.max,nd.left+g*nd.max/NODES.bush.regrow);}
+    this.bushT=(this.bushT||0)+dt;if(this.bushT>=.5){const g=this.bushT;this.bushT=0;/* (V12.5, choix du joueur : tout se renouvelle sauf les arbres) les buissons, les rochers et les filons regarnissent ; un rocher épuisé et retiré de la carte, non */
+      for(const nd of this.regrowing??=s.nodes.filter(n=>NODES[n.type]?.regrow))if(nd.left<nd.max&&(nd.type!=='rock'||this.nodeAt[nd.j*this.N+nd.i]===nd.id))nd.left=Math.min(nd.max,nd.left+g*nd.max/NODES[nd.type].regrow);}
     if(s.corpses.length&&s.t-s.corpses[0].t>3*DAY)s.corpses.shift();
     if(s.smokes.length)s.smokes=s.smokes.filter(m=>m.end>s.t);if(s.groundFires.length)s.groundFires=s.groundFires.filter(m=>m.end>s.t);
     this.checkEnd();}
@@ -1440,7 +1441,7 @@ export class World{
       // produit dans la ville, trois jours sinon, pour ne pas manger le stock de départ avant le premier moulin) — plus de plafond
       // de places, plus rien à cliquer ; on regarde tous les quarts d'heure et la naissance prend la moitié du temps.
       // Bèè : inchangé (plafond de places, réserve de 12 h, contrôle toutes les heures).
-      if(b.grow!==false){const bee=b.f==='beee';b.growT=(b.growT||0)-dt*((b.ration??1)>=.5?1:.3);if(b.growT<=0){b.growT=bee?1:.25;if(!b.queue.length){const food=b.stock.vivres||0,rate=this.cityFoodRate(b);const ok=bee?this.cityStats(b).res<this.cityStats(b).cap&&food>=25+rate*12:food>=25+rate*(this.s.buildings.some(x=>x.k==='moulin'&&x.f===b.f&&x.done&&!x.ruin&&this.cityOf(x)===b)?24:72);if(ok&&this.canTrain(b,'villageois').ok){this.train(b,'villageois');const q=b.queue[b.queue.length-1];q.left/=2;}}}}}
+      if(b.grow!==false){const bee=b.f==='beee';b.growT=(b.growT||0)-dt*((b.ration??1)>=.5?1:.3);if(b.growT<=0){b.growT=bee?1:.25;if(!b.queue.length){const food=b.stock.vivres||0,rate=this.cityFoodRate(b);const ok=bee?!this.beeeFull()&&this.cityStats(b).res<this.cityStats(b).cap&&food>=25+rate*12:food>=25+rate*(this.s.buildings.some(x=>x.k==='moulin'&&x.f===b.f&&x.done&&!x.ruin&&this.cityOf(x)===b)?24:72);if(ok&&this.canTrain(b,'villageois').ok){this.train(b,'villageois');const q=b.queue[b.queue.length-1];q.left/=2;}}}}}
     if(b.hide?.length&&(b.ruin||!this.shelterUnsafe(b))&&!(b.alarmBy!=null&&this.cityAlarm(b.alarmBy))){   /* (V12.5 : on sort quand la ville de l'abri n'est plus attaquée) */b.hideT=(b.hideT||0)+dt;if(b.hideT>.5||b.ruin){this.unhide(b);}}else b.hideT=0;
     if(b.inside?.length)this.drillTick(b,dt);
     if(b.stock&&(b.cleanT=(b.cleanT||0)+dt)>=1){b.cleanT=0;for(const k in b.stock){const v=b.stock[k];if(!(v>1e-6))delete b.stock[k];}}

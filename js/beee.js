@@ -13,6 +13,7 @@ const SUPPLY_HOP=58;
 // protections) ne se fabriquent qu'en temps de stabilité, avec des ressources en trop (beeeStable) ; sinon, des fusils seulement.
 const DOCTRINE={bee_fusil:.8,bee_pm:.07,bee_mg:.06,bee_chasse:.04,bee_lunette:.03};const ASSAULT=new Set(['bee_pm','bee_chasse','bee_mg']);
 
+export const BEE_POP_CAP=2500;
 export const BEEE_AI={
   // la stabilité : pas de faim, deux jours de vivres, l'armée à son effectif, du fer, des pièces et des cartouches en trop — alors
   // seulement l'armurerie se permet les équipements coûteux (jugé sur le plan de l'heure précédente)
@@ -47,6 +48,10 @@ export const BEEE_AI={
     const dead=this.s.corpses.filter(c=>c.f==='beee').length;L=Math.min(5,L+Math.floor(dead/40));
     if(L>(B.lvl||0)){B.lvl=L;this.emit({type:'escalade',lvl:L});}},
   // les réglages de l'offensive selon le niveau : colonnes simultanées, armée minimale, marge d'écrasement, garde laissée aux villes, jours entre deux départs
+  // (V12.5, choix du joueur) un plafond de population : au-delà de BEE_POP_CAP Bèè vivants (le niveau d'environ J35), plus de naissances, plus de renforts,
+  // plus de fondations — la guerre continue avec ce qu'ils ont. Mesuré sans plafond : 6 763 Bèè et 62 villes à J60, une riposte sans fin pour toute tête de pont,
+  // 10 s de calcul par heure de jeu. (w.beeePopCap le change pour un banc.)
+  beeeFull(){const t=this.s.t;if(this._bfT!==t){this._bfT=t;let n=0;for(const u of this.s.units)if(u.f==='beee'&&u.hp>0)n++;this._bfN=n;}return this._bfN>=(this.beeePopCap??BEE_POP_CAP);},
   raidK(){const L=this.beeeLevel();return {maxcol:1+(L>=3?1:0)+(L>=5?1:0),armyMin:Math.max(24,30-2*L),odds:2.5,keep:Math.max(.3,.5-.04*L),gap:Math.max(.25,.6-.07*L)};},
   beeeReady(){return [FOOD,'atelier','poudrerie','caserne','arsenal'].every(k=>this.s.buildings.some(b=>b.f==='beee'&&b.k===k&&b.done&&!b.ruin));},
   meumeuReady(){return [FOOD,'atelier'].every(k=>this.s.buildings.some(b=>b.f==='meumeu'&&b.k===k&&b.done&&!b.ruin));},
@@ -105,7 +110,7 @@ export const BEEE_AI={
         if(n&&!this.s.fog)this.log(c.name,`${c.name} arme ${n} civils pour se défendre.`,'warn');}}
     // Les renforts (V12.4, demande du joueur : « beaucoup plus de soldats bèè ») : toutes les 8 h, chaque ville qui a une caserne voit arriver 1 + niveau
     // soldats armés (fusil bèè, une caisse de cartouches), tant que l'armée est sous 120 + 40 × villes. Une aide donnée à l'IA, pour des vagues massives.
-    {const sol=this.s.units.filter(u=>u.f==='beee'&&u.k==='soldat'&&u.hp>0&&u.h?.state!=='hors').length,live_=cities.filter(c=>!c.fallen),capS=200+70*live_.length+Math.min(400,this.fortNeed?.()||0),L=this.beeeLevel();let room=capS-sol;
+    {const sol=this.s.units.filter(u=>u.f==='beee'&&u.k==='soldat'&&u.hp>0&&u.h?.state!=='hors').length,live_=cities.filter(c=>!c.fallen),capS=200+70*live_.length+Math.min(400,this.fortNeed?.()||0),L=this.beeeLevel();let room=this.beeeFull()?0:capS-sol;
       for(const c of live_){if(room<=0)break;if(this.s.t-(c.reinfT??-99)<8)continue;const bk=this.beeeBuildings('caserne').find(b=>b.done&&!b.ruin&&this.distB(b,c.x,c.y)<28);if(!bk)continue;c.reinfT=this.s.t;
         const n=Math.min(room,2+L),w=this.bestRifle('beee'),Wd=this.W(w),[bx,by]=[bk.i+1,bk.j+3];for(let k=0;k<n;k++){const [x,y]=this.freeSpot(bx+(this.rand()-.5)*4,by+(this.rand()-.5)*3,3);const u=this.addUnit('beee','soldat',x,y,{w});
           u.mag=Wd.p.mag;u.pouch=Math.max(0,Wd.carry-Wd.p.mag);   /* (V12.5) une dotation, plus une caisse entière */u.city=c.id;u.home=c.centre;u.task={kind:'guard',tx:c.x+3+(this.rand()-.5)*8,ty:c.y+3+(this.rand()-.5)*8};}room-=n;}}
@@ -253,7 +258,7 @@ export const BEEE_AI={
   beeeColonize(plan,base){const B=this.s.beee,t=this.s.t,N=this.N;const cities=B.cities.filter(c=>!c.fallen);const cities0=B.cities;const ctrs=this.beeeBuildings('centre');
     const founding=ctrs.filter(b=>!b.done).length;const idle=this.beeeCivilians().filter(u=>!u.task).length;
     const LV=this.beeeLevel();const maxF=2+Math.floor(cities.length/4)+(idle>25?1:0)+3;B.colonyWhy='';   // trois fondations de plus à la fois (mesuré)
-    if(this.day<(BEEE.colonyDay||5)){B.colonyWhy='trop tôt';return;}if(founding>=maxF){B.colonyWhy=`${founding} fondation(s) en cours`;return;}if(t<(B.colonyT||0)){B.colonyWhy='délai';return;}
+    if(this.day<(BEEE.colonyDay||5)){B.colonyWhy='trop tôt';return;}if(this.beeeFull()){B.colonyWhy='population au plafond';return;}if(founding>=maxF){B.colonyWhy=`${founding} fondation(s) en cours`;return;}if(t<(B.colonyT||0)){B.colonyWhy='délai';return;}
     const cost=this.colonyPrice();if(Object.entries(cost).some(([k,n])=>(plan.nat[k]||0)<n*1.25)||(plan.nat.vivres||0)<140){B.colonyWhy='pas de quoi fonder';return;}
     if(plan.pop<(cities.length+founding)*16&&idle<6){B.colonyWhy='pas assez de monde';return;}
     // les chantiers en retard (ils attendent plus de bois ou de pierre que le pays n'en a) : on les finit avant d'en ouvrir d'autres
@@ -297,7 +302,7 @@ export const BEEE_AI={
     for(const u of this.beeeAvailable(city.i,city.j,500).slice(0,4+LV))this.beeeAssign(u,{kind:'build',b:city.id});
     B.founded=(B.founded||0)+1;B.conq=null;this.log('Front',`Au bout de la voie : les Bèè fondent ${city.city}, loin de tout, reliée par le rail.`,'warn');},
   // démarrer une conquête vers `site` : la ville du réseau la plus proche, sa voie (ou la capitale), le tracé, le prix
-  beeeConquerStart(site,plan,base,cities){const B=this.s.beee,t=this.s.t;if(B.conq)return false;
+  beeeConquerStart(site,plan,base,cities){const B=this.s.beee,t=this.s.t;if(B.conq||this.beeeFull())return false;
     const live=cities.filter(c=>!c.fallen&&this.building(c.centre)?.done);const src=live.slice().sort((p,q)=>distance(p.x,p.y,site.i,site.j)-distance(q.x,q.y,site.i,site.j))[0];if(!src)return false;
     const hub=src.centre===base.id?[base.i-8,base.j-7]:src.railCells?.[0]||[Math.round(src.x-7),Math.round(src.y-7)];
     const a=[Math.round(site.i-5),Math.round(site.j-5)];const cells=this.railRoute(a[0],a[1],hub[0],hub[1]);if(!cells||cells.length<2)return false;

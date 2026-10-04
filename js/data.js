@@ -89,9 +89,9 @@ export const PRIO=['','Basse','Réduite','Normale','Haute','Urgente'];
 // Ce qu'on ramasse. left : ce que contient une touffe ; rate : par heure et par Meumeu.
 export const NODES={
   tree:{name:'Arbre',res:'bois',left:40,rate:7},
-  rock:{name:'Rocher',res:'pierre',left:60,rate:5},
+  rock:{name:'Rocher',res:'pierre',left:60,rate:5,regrow:720},   // regrow : heures pour se regarnir entièrement (V12.5 ; les arbres ne repoussent pas)
   bush:{name:'Buisson à baies',res:'vivres',left:30,rate:6,regrow:36},
-  ore:{name:'Filon',left:900,rate:2.5},
+  ore:{name:'Filon',left:900,rate:2.5,regrow:1440},
 };
 
 // Les bâtiments. size : [i, j] en cases. store : un dépôt, et combien il tient. pop : places de vie. hp : ce qu'il encaisse.
