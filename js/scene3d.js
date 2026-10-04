@@ -8,6 +8,7 @@ import * as THREE from './lib/three.module.js';
 import {loadModel,materialOf} from './mesh3d.js';
 import {T,DAY,ORE_COL,CARRY,BUILDINGS} from './data.js';
 import {gunModel} from './gun3d.js';
+import {layout} from './gunart.js';
 import {VEHDEF} from './vehicules.js';
 import {buildingModels} from './bldg3d.js';
 import {bunkerModels,bunkerDoorGeo,bunkerRoofGeo} from './bunker3d.js';
@@ -22,9 +23,9 @@ export const BUILDING_MODEL={
   centre:[':centre',1.0,0],camp:[':camp',1.0,0],maison:[':maison',1.0,0],ferme:[':ferme',1.0,0],grenier:[':grenier',1.0,0],atelier:[':atelier',1.0,0],four:[':four',1.0,0],mine:[':mine',1.0,0],gare:[':gare',1.0,0],entrepot:[':entrepot',1.0,0],labo:[':labo',1.0,0],caserne:[':caserne',1.0,0],caserne_elite:[':caserne_elite',1.0,0],poudrerie:[':poudrerie',1.0,0],arsenal:[':arsenal',1.0,0],armurerie:[':armurerie',1.0,0],manufacture:[':manufacture',1.0,0],garage:[':garage',1.0,0],hopital:[':hopital',1.0,0],tente:[':tente',1.0,0],archives:[':archives',1.0,0],fonderie:[':fonderie',1.0,0],
   moulin:['windmill',.8,0],barge:[':barge_chantier',1.0,0],grande_barge:[':grande_barge_chantier',1.0,0],bateau_bee:[':bateau_chantier',1.0,2],tour:[':tour',.8,0]};
 export const OUTCROP_MODEL={fer:'rocky_outcrop',charbon:'lava_rock',pierre:'stone_rock_pile',cuivre:'crystal_rock',plomb:'rock_formation',salpetre:'multicolored_crystal_pile',or:'rock_with_gold_veins'};
-export const MODEL_NAMES=[...new Set([...Object.values(BUILDING_MODEL).map(b=>b[0]).filter(n=>n[0]!==':'),...Object.values(OUTCROP_MODEL),'meumeu','meumeu_soldat','plush_cow_knight','meumeu_casque','goat_plush_toy','gewehr_43_rifle','heavy_machine_gun','assault_rifle','vintage_military_jeep_logistic_unarmed','vintage_military_logistic_jeep_with_gun','ww2_locomotive','ww2_wagon','armored_car','stone_rock_pile','silbervogel_bomber_3d_model',...Object.values(VEHDEF).map(V=>V.modele).filter(n=>n&&n[0]!==":")])];
+export const MODEL_NAMES=[...new Set([...Object.values(BUILDING_MODEL).map(b=>b[0]).filter(n=>n[0]!==':'),...Object.values(OUTCROP_MODEL),'meumeu','meumeu_soldat','plush_cow_knight','goat_plush_toy','gewehr_43_rifle','heavy_machine_gun','assault_rifle','vintage_military_jeep_logistic_unarmed','vintage_military_logistic_jeep_with_gun','ww2_locomotive','ww2_wagon','armored_car','stone_rock_pile','silbervogel_bomber_3d_model',...Object.values(VEHDEF).map(V=>V.modele).filter(n=>n&&n[0]!==":")])];
 
-// ---- petites géométries de code : arbres, buisson, casque (couleurs de sommets)
+// ---- petites géométries de code : arbres, buisson (couleurs de sommets)
 const colored=(g,hex)=>{const c=new THREE.Color(hex);const n=g.attributes.position.count,a=new Float32Array(n*3);for(let i=0;i<n;i++){a[3*i]=c.r;a[3*i+1]=c.g;a[3*i+2]=c.b;}g.setAttribute('color',new THREE.BufferAttribute(a,3));return g;};
 const merge=gs=>{const ps=[],cs=[];for(let g of gs){g=g.index?g.toNonIndexed():g;ps.push(g.attributes.position.array);cs.push(g.attributes.color.array);}
   const cat=(arrs)=>{const n=arrs.reduce((a,b)=>a+b.length,0),o=new Float32Array(n);let k=0;for(const a of arrs){o.set(a,k);k+=a.length;}return o;};
@@ -41,8 +42,25 @@ const TREE_GEO={
   conifere:()=>merge([colored(at(new THREE.CylinderGeometry(.06,.09,.5,5),0,.25,0),0x5e4026),colored(at(new THREE.ConeGeometry(.5,.8,6),0,.85,0),0x2f6a3c),colored(at(new THREE.ConeGeometry(.38,.7,6),0,1.35,0),0x387a45),colored(at(new THREE.ConeGeometry(.24,.55,6),0,1.78,0),0x428a50)]),
   palmier:()=>merge([colored(at(new THREE.CylinderGeometry(.05,.09,1.3,5),.06,.65,0),0x8a6a3c),colored(at(new THREE.ConeGeometry(.6,.25,7),.1,1.4,0),0x5f9a3a),colored(at(new THREE.ConeGeometry(.35,.3,7),.1,1.6,0),0x6daa44)]),
   sec:()=>merge([colored(at(new THREE.CylinderGeometry(.05,.1,1.2,5),0,.6,0),0x6a5a48),colored(at(new THREE.CylinderGeometry(.02,.04,.6,4),.25,1.1,0).rotateZ(-.9),0x6a5a48),colored(at(new THREE.CylinderGeometry(.02,.04,.5,4),-.22,1.0,0).rotateZ(.9),0x6a5a48)]),
-  buisson:()=>merge([colored(at(new THREE.IcosahedronGeometry(.34,0),0,.22,0),0x58933e),colored(at(new THREE.IcosahedronGeometry(.25,0),.25,.2,.1),0x64a048)]),
-  casque:()=>merge([colored(new THREE.SphereGeometry(.5,8,5,0,PI*2,0,PI*.56),0x55634a),colored(at(new THREE.CylinderGeometry(.58,.58,.06,10),0,-.02,0),0x46523c)])};
+  buisson:()=>merge([colored(at(new THREE.IcosahedronGeometry(.34,0),0,.22,0),0x58933e),colored(at(new THREE.IcosahedronGeometry(.25,0),.25,.2,.1),0x64a048)])};
+// (V12.5) les bras de la peluche meumeu : le modèle est fait de douze pièces cousues (corps, tête, jambes, oreilles, cornes, queue, bras) ; les deux bras
+// sont des pièces à part (un morceau d'un seul tenant, sur un côté, entre 22 et 70 % de la hauteur). On les détache : le corps sans ses bras devient
+// un modèle, chaque bras un autre, posé sur son épaule (le haut du bras) — il pivote d'un bloc, rien ne se déforme. Rend {body, bras:{'-1','1'}} ou null.
+// (le côté −X est la droite de la Meumeu : elle regarde vers +Z)
+function meumeuRig(M){const g=M?.geo;if(!g?.index)return null;const P=g.attributes.position,I=g.index.array,n=P.count,[W,H]=M.ext;
+  const par=new Int32Array(n);for(let i=0;i<n;i++)par[i]=i;const f=x=>{while(par[x]!==x)x=par[x]=par[par[x]];return x;};
+  for(let t=0;t<I.length;t+=3){const a=f(I[t]),b=f(I[t+1]),c=f(I[t+2]);par[a]=b;par[f(c)]=f(b);}
+  const box=new Map();for(let v=0;v<n;v++){const r=f(v);let q=box.get(r);if(!q)box.set(r,q={mn:[9,9,9],mx:[-9,-9,-9]});for(let a=0;a<3;a++){const x=P.getComponent(v,a);if(x<q.mn[a])q.mn[a]=x;if(x>q.mx[a])q.mx[a]=x;}}
+  const side=r=>{const q=box.get(r);if(!(q.mn[1]>H*.22&&q.mx[1]<H*.7))return 0;if(q.mn[0]>W*.15&&q.mx[0]>W*.4)return 1;if(q.mx[0]<-W*.15&&q.mn[0]<-W*.4)return -1;return 0;};
+  const tri={body:[],'-1':[],'1':[]};for(let t=0;t<I.length;t+=3){const s=side(f(I[t]));tri[s?String(s):'body'].push(I[t],I[t+1],I[t+2]);}
+  if(!tri['-1'].length||!tri['1'].length)return null;
+  const body=g.clone();body.setIndex(tri.body);const bras={};
+  for(const s of ['-1','1']){const q=box.get(f(tri[s][0])),top=q.mx[1],bot=q.mn[1];let px=0,py=0,pz=0,pn=0,hx=0,hy=0,hz=0,hn=0;
+    for(const v of new Set(tri[s])){const x=P.getX(v),y=P.getY(v),z=P.getZ(v);if(y>top-.03*H){px+=x;py+=y;pz+=z;pn++;}if(y<bot+.03*H){hx+=x;hy+=y;hz+=z;hn++;}}
+    const pivot=[px/pn,py/pn-.02*H,pz/pn],hand=[hx/hn,hy/hn,hz/hn];   // l'épaule : un peu sous le haut du bras ; la main : le bas du bras
+    const geo=g.clone();geo.translate(-pivot[0],-pivot[1],-pivot[2]);geo.setIndex(tri[s]);
+    bras[s]={geo,pivot,rest:new THREE.Vector3(hand[0]-pivot[0],hand[1]-pivot[1],hand[2]-pivot[2]),len:Math.hypot(hand[0]-pivot[0],hand[1]-pivot[1],hand[2]-pivot[2])};}
+  return {body,bras};}
 const CYL=(r0,r1,h,seg=6)=>new THREE.CylinderGeometry(r1,r0,h,seg);
 const ANIMAL_GEO={
   biche:()=>{const c=0xb58a5a,d=0x8a6238;const g=[colored(at(new THREE.SphereGeometry(.32,8,6).scale(1.5,.8,.8),0,.62,0),c),colored(at(CYL(.07,.1,.5).rotateZ(-.55),.42,.92,0),c),colored(at(new THREE.SphereGeometry(.13,8,6).scale(1.3,1,.9),.62,1.12,0),d),colored(at(new THREE.SphereGeometry(.05,5,4),-.45,.72,0),0xf0e6d6)];
@@ -103,8 +121,8 @@ class Pool{
     this.mesh.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(cap*3).fill(1),3);
     this.m=new THREE.Matrix4();this.q=new THREE.Quaternion();this.p=new THREE.Vector3();this.s=new THREE.Vector3();this.e=new THREE.Euler();this.c=new THREE.Color();}
   begin(){this.n=0;}
-  add(x,y,z,yaw,sx,sy,sz,{tint=null,ph=0,amp=0,pitch=0,roll=0,arm=0,kick=0}={}){
-    if(this.n>=this.cap)return;const i=this.n++;this.e.set(pitch,yaw,roll,'YXZ');this.q.setFromEuler(this.e);this.p.set(x,y,z);this.s.set(sx,sy,sz);this.m.compose(this.p,this.q,this.s);this.mesh.setMatrixAt(i,this.m);
+  add(x,y,z,yaw,sx,sy,sz,{tint=null,ph=0,amp=0,pitch=0,roll=0,arm=0,kick=0,q=null}={}){
+    if(this.n>=this.cap)return;const i=this.n++;if(q)this.q.copy(q);else{this.e.set(pitch,yaw,roll,'YXZ');this.q.setFromEuler(this.e);}this.p.set(x,y,z);this.s.set(sx,sy,sz);this.m.compose(this.p,this.q,this.s);this.mesh.setMatrixAt(i,this.m);
     if(tint!==null){this.c.setHex(tint);this.mesh.instanceColor.setXYZ(i,this.c.r,this.c.g,this.c.b);}else this.mesh.instanceColor.setXYZ(i,1,1,1);
     if(this.anim){const a=this.mesh.geometry.attributes.aAnim;a.setXYZW(i,ph,amp*(1-.85*arm),arm,kick);}}
   end(){this.mesh.count=this.n;this.mesh.instanceMatrix.needsUpdate=true;this.mesh.instanceColor.needsUpdate=true;if(this.anim)this.mesh.geometry.attributes.aAnim.needsUpdate=true;}
@@ -131,11 +149,11 @@ export class Scene3D{
     const ch=n=>({H:this.M[n].ext[1],W:this.M[n].ext[0]});
     for(const k of ['feuillu','conifere','palmier','sec','buisson']){const p=new Pool(TREE_GEO[k](),{cap:3000});this.pools[k]=p;this.scene.add(p.mesh);
       const q=new Pool(TREE_GEO[k](),{cap:800,ghost:true});this.pools[k+'_g']=q;this.scene.add(q.mesh);}
-    // le casque du joueur (meumeu helmet 3d model.glb, réduit à 1 500 faces) ; à défaut, le casque dessiné par le code
-    if(this.M.meumeu_casque){this.pools.casque=new Pool(this.M.meumeu_casque.geo,{cap:1200});this.casqueK=.266/this.M.meumeu_casque.ext[0];}else this.pools.casque=new Pool(TREE_GEO.casque(),{cap:1200});this.scene.add(this.pools.casque.mesh);
     for(const k of ['biche','lapin','charrette','caisse','poteau','lisse','buche','caillou','sac','tonnelet','obus']){const p=new Pool(ANIMAL_GEO[k](),{cap:k==='poteau'||k==='lisse'?4000:k==='caisse'||k==='buche'||k==='caillou'||k==='sac'?1500:600,flat:true});this.pools[k]=p;this.scene.add(p.mesh);}
     this.pools.avion=mk('silbervogel_bomber_3d_model',{cap:60});
     this.pools.meumeu=mk('meumeu',{cap:1200,anim:ch('meumeu')});
+    // (V12.5) le soldat meumeu qui tient son arme : le corps sans les bras, et ses deux bras, des pièces à part qui pivotent d'un bloc à l'épaule
+    this.rig=meumeuRig(this.M.meumeu);if(this.rig){const mat=this.M.meumeu.mat||null;for(const [k,geo,anim] of [['corps',this.rig.body,ch('meumeu')],['brasD',this.rig.bras['-1'].geo,null],['brasG',this.rig.bras['1'].geo,null]]){const p=new Pool(geo,{cap:1200,anim,base:mat});this.pools[k]=p;this.scene.add(p.mesh);}}
     // V12.4 : les modèles donnés par le joueur — le soldat meumeu (casque compris) et la troupe de choc (chevalier à cape) ; à défaut, la peluche
     this.pools.soldat=this.M.meumeu_soldat?mk('meumeu_soldat',{cap:1200,anim:ch('meumeu_soldat')}):this.pools.meumeu;
     this.pools.choc=this.M.plush_cow_knight?mk('plush_cow_knight',{cap:400,anim:ch('plush_cow_knight')}):this.pools.soldat;this.pools.bee=mk('goat_plush_toy',{cap:1500,anim:ch('goat_plush_toy')});
@@ -167,11 +185,29 @@ export class Scene3D{
   kick(id,e){if(e.veh!=null){this.kicks.set('v'+e.veh+':'+e.mount,{t:0,L:Math.max(.008,Math.min(.12,(e.cal||2)/250))});return;}const amp=Math.max(.15,Math.min(1,Math.log10(1+(e.E||30))/5))*(e.arc?1.25:1);this.kicks.set(id,{t:0,amp:Math.min(1,amp)});}
   designOf(W,id){try{return W.W(id);}catch(e){return null;}}
   // l'arme conçue, en 3D : un groupe d'instances par conception ; une pièce sert posée devant son tireur, une arme d'épaule est tenue
-  putGun(u,D,H,yaw,pose,walking,st={}){
-    const crew=D.crew>1;const key=u.w+'|'+JSON.stringify(D.p)+'|'+(D.mods||[]).join(',')+'|'+(crew?'m':'h');
+  // (V12.5) le soldat meumeu tient son arme, droite dans l'axe de son corps : à la hanche, sur le flanc droit, à l'horizontale ; en visée, la crosse à
+  // l'épaule ; au rechargement le canon pique du nez. Chaque bras pivote d'un bloc autour de son épaule vers sa cible : la main droite à la poignée,
+  // la gauche vers le devant de l'arme (ses bras de peluche ne vont pas plus loin). Le fusil (aussi long que la Meumeu est haute) ne traverse pas le corps.
+  holdGun(u,D,H,Hmod,sc,yaw,ux,uy,pose,st){const P=this.pools,R=this.rig,cr=pose==='crouch'?.72:1,hx=Math.sin(yaw),hz=Math.cos(yaw),PI2=PI/2;
+    const bob=Math.abs(Math.sin(st.ph))*st.amp*Hmod*.028,sway=Math.sin(st.ph)*st.amp*Hmod*.012;   // (le rebond de la marche, comme le corps, en unités du modèle)
+    P.corps.add(ux,0,uy,yaw,sc,sc*cr,sc,{tint:st.tint,ph:st.ph,amp:st.amp,kick:st.kick});
+    const toW=(x,y,z)=>[ux+((x+sway)*hz+z*hx)*sc,(y*cr+bob)*sc,uy+(-(x+sway)*hx+z*hz)*sc];   // repère du modèle (+Z devant) → monde
+    const k=st.reloading?Math.sin(st.rp*PI):0,kick=st.kick||0,G=layout(D),sMm=H/300*(D.pistol?.82:1.12),grip=(G.rs||60)*sMm/sc;   // (la poignée : au bout de la crosse)
+    // la poignée (repère du modèle) : à la hanche, ou à l'épaule en visée ; un peu plus bas au rechargement ; reculée par le coup
+    const gp=st.aiming?[-.165*Hmod/.752,.40*Hmod/.752,.16*Hmod/.752]:[-.17*Hmod/.752,(.30-.04*k)*Hmod/.752,.17*Hmod/.752];gp[2]-=kick*.03*Hmod;
+    const qy=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),yaw),qa=new THREE.Quaternion(),q=new THREE.Quaternion(),v=new THREE.Vector3();
+    for(const [s,pool,tgt] of [['-1',P.brasD,gp],['1',P.brasG,[gp[0]+.08*Hmod,gp[1]+.02*Hmod,gp[2]+.12*Hmod]]]){const A=R.bras[s],pv=A.pivot;
+      v.set(tgt[0]-pv[0],tgt[1]*cr-pv[1]*cr,tgt[2]-pv[2]).normalize();qa.setFromUnitVectors(A.rest.clone().normalize(),v);q.copy(qy).multiply(qa);
+      const w=toW(pv[0],pv[1],pv[2]);pool.add(w[0],w[1],w[2],0,sc,sc,sc,{tint:st.tint,q});}
+    // le fusil : sa crosse à « grip » derrière la poignée, l'axe juste au-dessus des mains, le canon vers l'avant
+    const b=toW(gp[0],gp[1]+.02*Hmod,gp[2]-grip);{const e=this.gunEntry(u,D);if(e.pool)e.pool.add(b[0],b[1],b[2],yaw-PI2,sMm,sMm,sMm,{roll:-.35*k});}}
+  // le modèle 3D d'une arme et son groupe d'instances (gardés par conception)
+  gunEntry(u,D){const crew=D.crew>1;const key=u.w+'|'+JSON.stringify(D.p)+'|'+(D.mods||[]).join(',')+'|'+(crew?'m':'h');
     let e=this.guns.get(key);if(!e){try{const m=gunModel(D,{inhand:!crew});e={m,pool:new Pool(m.geo,{cap:300,flat:false})};this.scene.add(e.pool.mesh);}catch(err){console.warn('arme 3D',err);e={m:null,pool:null};}this.guns.set(key,e);}
-    if(!e.pool)return;
-    const sMm=H/300*(crew?.9:D.pistol?.82:1.12),th=yaw-PI/2,hx=Math.sin(yaw),hz=Math.cos(yaw),kick=st.kick||0;this.gunsUsed.add(e);
+    this.gunsUsed.add(e);return e;}
+  putGun(u,D,H,yaw,pose,walking,st={}){
+    const crew=D.crew>1,e=this.gunEntry(u,D);if(!e.pool)return;
+    const sMm=H/300*(crew?.9:D.pistol?.82:1.12),th=yaw-PI/2,hx=Math.sin(yaw),hz=Math.cos(yaw),kick=st.kick||0;
     // une pièce servie : posée devant son tireur ; au tir elle glisse en arrière sur son affût
     if(crew){const back=kick*H*.22;e.pool.add(u.x-hx*back,(e.m.gh||0)*sMm,u.y-hz*back,th,sMm,sMm,sMm);return;}
     // une arme d'épaule : la crosse contre l'épaule, le garde-main dans les mains levées ; baissée en marche, inclinée au rechargement, relevée par le coup
@@ -349,7 +385,6 @@ export class Scene3D{
       const mod=bee?'goat_plush_toy':(u.k==='villageois'||u.k==='medecin'||u.k==='infirmier')?'meumeu':this.M[u.skin]?u.skin:u.k==='choc'?'plush_cow_knight':'meumeu';
       const M0=this.M[mod]||this.M.meumeu,Hmod=M0.ext[1];
       const H=u.k==='villageois'?.92:u.k==='choc'?1.06:1.02;const sc=H/Hmod;const pool=bee?P.bee:mod==='plush_cow_knight'?P.choc:mod==='meumeu_soldat'?P.soldat:P.meumeu;const hx=Math.sin(y),hz=Math.cos(y);
-      const helmeted=mod==='meumeu_soldat'&&P.soldat!==P.meumeu||mod==='plush_cow_knight'&&P.choc!==P.soldat;
       let walking=u.anim==='walk'&&!down;
       // les servants suivent leur pièce par petits bonds : on lisse leur place à l'écran, et leur pas suit leur vitesse affichée
       let ux=u.x,uy=u.y;if(u.serve&&!down){const dp=(this.dpos??=new Map()),q=dp.get(u.id);if(q&&Math.hypot(q[0]-u.x,q[1]-u.y)<2){const k=Math.min(1,dtc*8);const nx=q[0]+(u.x-q[0])*k,ny=q[1]+(u.y-q[1])*k;const sp=Math.hypot(nx-q[0],ny-q[1])/Math.max(1e-3,dtc);q[0]=nx;q[1]=ny;ux=nx;uy=ny;walking=sp>.15;}else dp.set(u.id,[u.x,u.y]);}const ph=(u.walkPh||0)*2.4,amp=walking?1:0;
@@ -364,7 +399,10 @@ export class Scene3D{
       let arm=0;
       // (les bras restent le long du corps : les lever par déformation donnait des « bras de manchot » ; seule la visée les relève un peu)
       if(!down){if(Wg&&!crewGun)arm=aiming?.3:0;else if(carry||u.crates>0||carrier&&u.serve)arm=.3;}
-      if(pose==='up'){pool.add(ux,0,uy,y,sc,sc,sc,{tint,ph,amp,arm,kick});}
+      // (V12.5) un soldat meumeu avec une arme d'épaule la tient, bras levés (holdGun) ; les autres comme avant
+      const rig=this.rig&&!bee&&mod==='meumeu'&&Wg&&!crewGun&&u.k!=='villageois'&&(pose==='up'||pose==='crouch');
+      if(rig)this.holdGun(u,Wg,H,Hmod,sc,y,ux,uy,pose,{ph,amp,tint,kick,aiming,reloading,rp});
+      else if(pose==='up'){pool.add(ux,0,uy,y,sc,sc,sc,{tint,ph,amp,arm,kick});}
       else if(pose==='crouch'){pool.add(ux,0,uy,y,sc,sc*.72,sc,{tint,ph:0,amp:0,arm,kick});}
       else{const r=Hmod*sc*.22;pool.add(u.x,r,u.y,y,sc,sc,sc,{tint:down?0x9a8a80:tint,pitch:down?-PI/2:PI/2});}
       // ce qu'on porte, devant soi (les bras le tiennent) : des bûches, des pierres, un sac de vivres, un tonnelet, des caisses
@@ -381,9 +419,8 @@ export class Scene3D{
         const gy=this.yaw.get(g.id)??Math.atan2(g.fx??1,g.fy??0),gh=Math.sin(gy),gz=Math.cos(gy);const sMm=H/300*.9;const br=[g.x+gh*(.22*(Wd.lengthMm||500)*sMm),(.3*H),g.y+gz*(.22*(Wd.lengthMm||500)*sMm)];
         const sp=front(0,H*.5,0);const px=sp[0]+(br[0]-sp[0])*e,pz=sp[2]+(br[2]-sp[2])*e,py=sp[1]+(br[1]-sp[1])*e+Math.sin(PI*e)*.08;
         const sc2=Math.max(.9,Math.min(2.2,.8+(Wd.rm||300)/900));P.obus.add(px,py,pz,tt<.999?Math.atan2(br[0]-sp[0],br[2]-sp[2])-PI/2:gy-PI/2,sc2,sc2,sc2);}
-      // équipement : le casque, puis l'arme telle qu'elle a été conçue (à défaut, un fusil générique)
-      if(!bee&&!helmeted&&u.k!=='villageois'&&pose!=='down'&&(pose==='up'||pose==='crouch')){const hy=H*(pose==='crouch'?.72:1)*.93;if(this.casqueK){const k=H*this.casqueK;P.casque.add(ux,hy-H*.035,uy,y,k,k,k);}else P.casque.add(ux,hy,uy,y,H*.23,H*.23,H*.23);}
-      if(Wg)this.putGun(u,Wg,H,y,pose,walking,{aiming,reloading,rp,kick});
+      // l'arme telle qu'elle a été conçue (à défaut, un fusil générique) ; plus de casque (V12.5, demande du joueur)
+      if(Wg){if(!rig)this.putGun(u,Wg,H,y,pose,walking,{aiming,reloading,rp,kick});}   /* (tenue : l'arme est déjà posée par holdGun) */
       else if(u.k!=='villageois'&&pose==='up'&&(bee||u.w)){const k=H*.62/this.M.gewehr_43_rifle.ext[0];P.fusil.add(u.x+hx*.23-hz*.07,H*.48,u.y+hz*.23+hx*.07,y-PI/2,k,k,k);}
     };
     for(const u of s.units)addUnit(u);
