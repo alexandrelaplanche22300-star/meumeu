@@ -982,8 +982,8 @@ export class World{
       case 'zone':return this.zoneTick(u,T0);
       case 'evac':return this.evacTick(u,T0);
       case 'board':return this.boardTick(u,T0);
-      case 'shelter':{const b=this.building(T0.b);if(!b||!b.done){u.task=null;return;}const [w,h]=this.sizeOf(b);if(!this.go(u,b.i+w/2,b.j+h/2,[b.i,b.j,w,h]))return;
-        if((b.hide||[]).length>=(BUILDINGS[b.k].shelter||0)){u.task=null;return;}(b.hide??=[]).push(u);this.s.units.splice(this.s.units.indexOf(u),1);this.uIndex.delete(u.id);u.task=null;u.path=null;return;}
+      case 'shelter':{const b=this.building(T0.b);if(!b||!b.done||b.ruin){this.shelterBack(u);return;}   /* (abri perdu ou plein : il reprend ce qu'il faisait) */const [w,h]=this.sizeOf(b);if(!this.go(u,b.i+w/2,b.j+h/2,[b.i,b.j,w,h]))return;
+        if((b.hide||[]).length>=(BUILDINGS[b.k].shelter||0)){this.shelterBack(u);return;}(b.hide??=[]).push(u);this.s.units.splice(this.s.units.indexOf(u),1);this.uIndex.delete(u.id);u.task=null;u.path=null;return;}
       case 'board':{const b=this.building(T0.b);if(!b||!b.done){u.task=null;return;}const [w,h]=this.sizeOf(b);if(!this.go(u,b.i+w/2,b.j+h/2,[b.i,b.j,w,h]))return;
         (b.pass??=[]).push(u);this.s.units.splice(this.s.units.indexOf(u),1);this.uIndex.delete(u.id);u.task=null;return;}}}
   stateChange(u,st){if(st==='hors'||st==='mort')this.handover(u);if(st==='mort'){this.death(u);return;}
@@ -1440,7 +1440,7 @@ export class World{
       // de places, plus rien à cliquer ; on regarde tous les quarts d'heure et la naissance prend la moitié du temps.
       // Bèè : inchangé (plafond de places, réserve de 12 h, contrôle toutes les heures).
       if(b.grow!==false){const bee=b.f==='beee';b.growT=(b.growT||0)-dt*((b.ration??1)>=.5?1:.3);if(b.growT<=0){b.growT=bee?1:.25;if(!b.queue.length){const food=b.stock.vivres||0,rate=this.cityFoodRate(b);const ok=bee?this.cityStats(b).res<this.cityStats(b).cap&&food>=25+rate*12:food>=25+rate*(this.s.buildings.some(x=>x.k==='moulin'&&x.f===b.f&&x.done&&!x.ruin&&this.cityOf(x)===b)?24:72);if(ok&&this.canTrain(b,'villageois').ok){this.train(b,'villageois');const q=b.queue[b.queue.length-1];q.left/=2;}}}}}
-    if(b.hide?.length&&(b.ruin||!this.s.units.some(e=>e.f!==b.f&&alive(e)&&this.distB(b,e.x,e.y)<13))){b.hideT=(b.hideT||0)+dt;if(b.hideT>.5||b.ruin){this.unhide(b);}}else b.hideT=0;
+    if(b.hide?.length&&(b.ruin||!this.s.units.some(e=>e.f!==b.f&&alive(e)&&this.distB(b,e.x,e.y)<13))&&!(b.alarmBy!=null&&this.cityAlarm(b.alarmBy))){b.hideT=(b.hideT||0)+dt;if(b.hideT>.5||b.ruin){this.unhide(b);}}else b.hideT=0;
     if(b.inside?.length)this.drillTick(b,dt);
     if(b.stock&&(b.cleanT=(b.cleanT||0)+dt)>=1){b.cleanT=0;for(const k in b.stock){const v=b.stock[k];if(!(v>1e-6))delete b.stock[k];}}
     if(b.fire>0&&b.stock&&this.rand()<dt*this.volatile(b)/60&&this.depotBlow(b,null))return;
@@ -1489,11 +1489,24 @@ export class World{
       if(e.f==='beee')this.beeeAlarm(e,by);return;}
     // un canon (une machine) : il perd des points
     if(e.hp!=null&&!e.h){e.hp-=dmg;e.hitAt=this.s.t;if(e.hp<=0){e.hp=0;this.death(e);}}}
-  shelter(u){const b=this.s.buildings.filter(b=>b.f===u.f&&b.done&&BUILDINGS[b.k].shelter&&(b.hide||[]).length<BUILDINGS[b.k].shelter&&this.distB(b,u.x,u.y)<25).sort((a,z)=>this.distB(a,u.x,u.y)-this.distB(z,u.x,u.y))[0];
-    if(b){u.task={kind:'shelter',b:b.id};u.path=null;u.carry=null;}return !!b;}
+  // l'abri le plus proche (à maxD cases) ; pour l'alerte d'une ville (c, rayon r) : seulement un abri de sa zone, qui garde ses villageois jusqu'à la fin d'alerte.
+  // (V12.5) le villageois retient ce qu'il faisait et ce qu'il portait : il le reprend en sortant de l'abri (shelterBack)
+  shelter(u,maxD=25,c=null,r=0){const b=this.s.buildings.filter(b=>b.f===u.f&&b.done&&!b.ruin&&BUILDINGS[b.k].shelter&&(b.hide||[]).length+(b.bound||0)<BUILDINGS[b.k].shelter&&this.distB(b,u.x,u.y)<maxD&&(!c||d2(b.i,b.j,c.i,c.j)<=r+4)).sort((a,z)=>this.distB(a,u.x,u.y)-this.distB(z,u.x,u.y))[0];
+    if(b){if(u.task?.kind!=='shelter')u.preShelter={task:u.task||null,carry:u.carry||null};u.task={kind:'shelter',b:b.id};u.path=null;u.carry=null;if(c){b.alarmBy=c.id;b.bound=(b.bound||0)+1;}}return !!b;}
+  shelterBack(u){const P=u.preShelter;u.task=P?.task||null;if(P?.carry&&!u.carry)u.carry=P.carry;u.preShelter=null;u.path=null;u.goal=null;}
+  // (V12.5) « Aux abris » d'une ville : les villageois à r cases de son centre courent au centre (place illimitée) ou dans une maison de la zone (5) et y restent
+  // jusqu'à la fin d'alerte ; le reste du pays continue de produire. Rend {n : partis à l'abri, full : sans place}. (bound : les places promises pendant l'appel)
+  shelterZone(c,r=30){c.alarm=true;let n=0,full=0;
+    for(const u of [...this.s.units]){if(u.f!==c.f||u.k!=='villageois'||!active(u)||u.task?.kind==='shelter'||d2(u.x,u.y,c.i+2,c.j+2)>r)continue;if(this.shelter(u,r+12,c,r))n++;else full++;}
+    for(const b of this.s.buildings)if(b.bound)delete b.bound;return {n,full};}
+  // la fin d'alerte : ceux qui couraient encore et ceux qui étaient à l'abri reprennent la tâche qu'ils avaient juste avant
+  shelterEnd(c){c.alarm=false;let n=0;for(const u of this.s.units)if(u.task?.kind==='shelter'&&this.building(u.task.b)?.alarmBy===c.id){this.shelterBack(u);n++;}
+    for(const b of this.s.buildings)if(b.alarmBy===c.id){b.alarmBy=null;n+=(b.hide||[]).length;if(b.hide?.length)this.unhide(b);}return n;}
+  cityAlarm(id){const c=this.building(id);return !!(c&&c.alarm&&!c.ruin);}
+  shelterHidden(c){let n=0;for(const b of this.s.buildings)if(b.alarmBy===c.id)n+=(b.hide||[]).length;return n;}
   shelterAll(){let n=0;for(const u of [...this.s.units])if(u.f==='meumeu'&&u.k==='villageois'&&active(u)&&this.shelter(u))n++;return n;}
   nearCity(u){const c=this.s.buildings.filter(b=>b.k==='centre'&&b.f===u.f).sort((a,z)=>d2(a.i,a.j,u.x,u.y)-d2(z.i,z.j,u.x,u.y))[0];return c&&d2(c.i,c.j,u.x,u.y)<30?c.city:'Campagne';}
-  unhide(b){const [w,h]=this.sizeOf(b);for(const u of b.hide){u.x=b.i+this.rand()*w;u.y=b.j+h+.5;u.task=null;u.path=null;this.s.units.push(u);this.uIndex.set(u.id,u);}b.hide=[];b.hideT=0;}
+  unhide(b){const [w,h]=this.sizeOf(b);for(const u of b.hide){u.x=b.i+this.rand()*w;u.y=b.j+h+.5;this.shelterBack(u);this.s.units.push(u);this.uIndex.set(u.id,u);}b.hide=[];b.hideT=0;}
   collapse(b){const B=BUILDINGS[b.k];const [w,h]=this.sizeOf(b);if(b.hide?.length)this.unhide(b);b.ruin=true;b.done=false;b.progress=.2;b.hp=b.max*.2;b.fire=Math.max(b.fire,2);b.queue=[];b.batch=null;b.paid={...B.cost};
     for(const v of this.s.vehicles)if(v.job&&(v.job.to===b.id||v.job.from===b.id)&&v.job.phase==='src')v.job=null;
     if(b.stock){for(const k of Object.keys(b.stock)){b.stock[k]-=b.stock[k]*.7;}}
@@ -1694,7 +1707,7 @@ export class World{
   defenseTick(){if(!this.atWar)return;for(const b of this.s.buildings){const B=BUILDINGS[b.k];if(!B.defense||!b.done)continue;const [w,h]=this.sizeOf(b);const gx=b.i+w/2,gy=b.j+h/2;
       b.cool=(b.cool||0)-this.dts;if(b.cool>0)continue;
       const e=this.s.units.filter(u=>u.f!==b.f&&active(u)&&d2(u.x,u.y,gx,gy)<B.defense.range&&this.spotted(u,b.f)).sort((a,z)=>d2(a.x,a.y,gx,gy)-d2(z.x,z.y,gx,gy))[0];if(!e){b.cool=1;continue;}
-      const wid=this.bestRifle(b.f);const W=this.W(wid);const shooters=Math.round(B.defense.shooters*(b.f==='meumeu'?this.mod('creneaux'):1))+Math.floor((b.hide||[]).length/3);if(b.f==='meumeu')this.practice('defense',.02);b.cool=(W.cyc+W.aim*.5)/shooters;
+      const wid=this.bestRifle(b.f);const W=this.W(wid);const shooters=Math.round(B.defense.shooters*(b.f==='meumeu'?this.mod('creneaux'):1))+Math.floor(Math.min(20,(b.hide||[]).length)/3);   /* (six tireurs de plus au plus : l'abri du centre est sans limite, ses créneaux non) */if(b.f==='meumeu')this.practice('defense',.02);b.cool=(W.cyc+W.aim*.5)/shooters;
       {const got=this.take(b.f,gx,gy,'m:'+wid,1/W.perCrate);if(got<1/W.perCrate*.99){b.dry=true;b.cool=3;continue;}b.dry=false;}
       const pseudo={id:'b'+b.id,f:b.f,k:'soldat',x:gx,y:gy,post:'accroupi',supp:0,xp:30,w:wid};const R=d2(e.x,e.y,gx,gy)*TILE_M;const fl=W.at(R);const res=this.resolve(pseudo,e,W,R,0);
       const x1=res.hit?e.x:(res.px??e.x),y1=res.hit?e.y:(res.py??e.y);

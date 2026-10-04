@@ -97,7 +97,7 @@ export const NODES={
 // Les bâtiments. size : [i, j] en cases. store : un dépôt, et combien il tient. pop : places de vie. hp : ce qu'il encaisse.
 // Un bâtiment à zéro s'effondre : il reste une ruine qu'on rebâtit (sans repayer), ou qu'on déblaie.
 export const BUILDINGS={
-  centre:{name:'Centre-ville',sprite:'command',big:true,size:[4,4],cost:{bois:200,pierre:150,pieces:20},hours:30,store:4000,pop:10,hp:1600,trains:['villageois'],defense:{range:9,shooters:2},shelter:20,ward:4,
+  centre:{name:'Centre-ville',sprite:'command',big:true,size:[4,4],cost:{bois:200,pierre:150,pieces:20},hours:30,store:4000,pop:10,hp:1600,trains:['villageois'],defense:{range:9,shooters:2},shelter:Infinity,   /* (V12.5 : un abri sans limite pour toute la ville) */ward:4,
     why:'Le cœur d’une ville : un grand dépôt, dix places de vie, on y forme des Meumeu. Le premier est la capitale : le rare doit y arriver. Tombé, la ville est perdue.'},
   camp:{name:'Camp-dépôt',sprite:'shelter',size:[2,2],cost:{},hours:5,store:500,hp:300,workers:6,hub:true,
     why:'Dépôt avancé gratuit : posez-le d’abord près d’un filon, sans autre dépôt à proximité. Envoyez des villageois le bâtir ; il stocke les matériaux de la mine et de la gare, et ses travailleurs récoltent autour (10 cases).'},
