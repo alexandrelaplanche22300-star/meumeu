@@ -819,7 +819,7 @@ export class World{
       if(u.iph!=null&&u.walkPh!=null)u.walkPh=u.iph+(u.walkPh-u.iph)*f;}
     return back;}
   update(dt){let left=dt;while(left>1e-9){const d=Math.min(.025,left);this.tick(d);left-=d;}}
-  tick(dt){const s=this.s;this.dt=dt;this.dts=dt*HOUR_REAL;s.solar=advanceSolar(this.hour(),this.dts,s.solarSettings||SOLAR_DEFAULT);s.t+=dt;this.gridBuild();this.pathBudget=14;
+  tick(dt){const s=this.s;this.dt=dt;this.dts=dt*HOUR_REAL;s.solar=advanceSolar(this.hour(),this.dts,s.solarSettings||SOLAR_DEFAULT);s.t+=dt;this.gridBuild();this.pathBudget=this.pathBudgetMax??14;
     // les engins de combat en état, une fois par pas (mesuré : chaque soldat parcourait tous les véhicules, trains et fret compris, en cherchant sa cible)
     this.cvs=s.vehicles.filter(v=>VEHDEF[v.k]&&v.hp>0);
     // l'ordre de passage change à chaque instant : personne ne tire toujours le premier parce qu'il est en tête de liste

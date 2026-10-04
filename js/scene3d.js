@@ -186,8 +186,8 @@ export class Scene3D{
   designOf(W,id){try{return W.W(id);}catch(e){return null;}}
   // l'arme conçue, en 3D : un groupe d'instances par conception ; une pièce sert posée devant son tireur, une arme d'épaule est tenue
   // (V12.5) le soldat meumeu tient son arme, droite dans l'axe de son corps : à la hanche, sur le flanc droit, à l'horizontale ; en visée, la crosse à
-  // l'épaule ; au rechargement le canon pique du nez. Chaque bras pivote d'un bloc autour de son épaule vers sa cible : la main droite à la poignée,
-  // la gauche vers le devant de l'arme (ses bras de peluche ne vont pas plus loin). Le fusil (aussi long que la Meumeu est haute) ne traverse pas le corps.
+  // l'épaule ; au rechargement le canon pique du nez. Seul le bras droit tient l'arme (demande du joueur) : il pivote d'un bloc autour de son épaule,
+  // la main à la poignée ; le bras gauche reste au repos le long du corps. Le fusil (aussi long que la Meumeu est haute) ne traverse pas le corps.
   holdGun(u,D,H,Hmod,sc,yaw,ux,uy,pose,st){const P=this.pools,R=this.rig,cr=pose==='crouch'?.72:1,hx=Math.sin(yaw),hz=Math.cos(yaw),PI2=PI/2;
     const bob=Math.abs(Math.sin(st.ph))*st.amp*Hmod*.028,sway=Math.sin(st.ph)*st.amp*Hmod*.012;   // (le rebond de la marche, comme le corps, en unités du modèle)
     P.corps.add(ux,0,uy,yaw,sc,sc*cr,sc,{tint:st.tint,ph:st.ph,amp:st.amp,kick:st.kick});
@@ -196,8 +196,8 @@ export class Scene3D{
     // la poignée (repère du modèle) : à la hanche, ou à l'épaule en visée ; un peu plus bas au rechargement ; reculée par le coup
     const gp=st.aiming?[-.165*Hmod/.752,.40*Hmod/.752,.16*Hmod/.752]:[-.17*Hmod/.752,(.30-.04*k)*Hmod/.752,.17*Hmod/.752];gp[2]-=kick*.03*Hmod;
     const qy=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),yaw),qa=new THREE.Quaternion(),q=new THREE.Quaternion(),v=new THREE.Vector3();
-    for(const [s,pool,tgt] of [['-1',P.brasD,gp],['1',P.brasG,[gp[0]+.08*Hmod,gp[1]+.02*Hmod,gp[2]+.12*Hmod]]]){const A=R.bras[s],pv=A.pivot;
-      v.set(tgt[0]-pv[0],tgt[1]*cr-pv[1]*cr,tgt[2]-pv[2]).normalize();qa.setFromUnitVectors(A.rest.clone().normalize(),v);q.copy(qy).multiply(qa);
+    for(const [s,pool,tgt] of [['-1',P.brasD,gp],['1',P.brasG,null]]){const A=R.bras[s],pv=A.pivot;
+      if(tgt){v.set(tgt[0]-pv[0],tgt[1]*cr-pv[1]*cr,tgt[2]-pv[2]).normalize();qa.setFromUnitVectors(A.rest.clone().normalize(),v);q.copy(qy).multiply(qa);}else q.copy(qy);
       const w=toW(pv[0],pv[1],pv[2]);pool.add(w[0],w[1],w[2],0,sc,sc,sc,{tint:st.tint,q});}
     // le fusil : sa crosse à « grip » derrière la poignée, l'axe juste au-dessus des mains, le canon vers l'avant
     const b=toW(gp[0],gp[1]+.02*Hmod,gp[2]-grip);{const e=this.gunEntry(u,D);if(e.pool)e.pool.add(b[0],b[1],b[2],yaw-PI2,sMm,sMm,sMm,{roll:-.35*k});}}

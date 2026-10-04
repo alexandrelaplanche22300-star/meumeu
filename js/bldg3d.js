@@ -150,9 +150,9 @@ const MAKERS={
     B.box(-.2,.04,-.15+.48,.16,.14,.04,PAL.feu);for(const [x,z] of [[W*.22,-D*.3],[W*.42,-D*.3],[W*.22,D*.05],[W*.42,D*.05]])B.cyl(x,.04,z,.025,.025,.55,PAL.boisSombre,5);
     B.box(W*.32,.59,-D*.12,.5,.04,.62,PAL.rouille);for(let k=0;k<3;k++)B.box(W*.32,.04+k*.1,-D*.12,.36,.09,.5,PAL.bois);for(let k=0;k<3;k++)B.box(-W*.32+k*.17,.04,D*.36,.15,.13,.12,PAL.noir);return B.geo();},
   // (V12.5, demande du joueur) le centre-ville meumeu : une pyramide aztèque à degrés — cinq terrasses (le talus incliné en bas, le panneau droit
-  // au-dessus, un cordon clair), le grand escalier sur la façade (+Z) entre ses deux rampes terminées par des têtes de serpent, et au sommet deux
-  // sanctuaires comme au Templo Mayor : l'un blanc et bleu, l'autre ocre et rouge, sous leurs crêtes ; des braseros aux quatre angles de la plate-forme
-  pyramide:(W,D)=>{const B=new Build(),L=0xcdb68a,Ls=0xa8936a,Lt=0xe0cfa4,Rg=0xa8402e,Bl=0x3e6e9c,Bc=0xf0ebe0,Sb=0x8a7a5c;slab(B,W,D,0xb9ad8e,.06);
+  // au-dessus, un cordon clair), le grand escalier sur la façade (+Z) entre ses deux rampes terminées par des têtes de serpent, et au sommet un seul
+  // bloc, de la même pierre que la pyramide, sans entrée (demande du joueur : pas de couleurs, un seul bloc) — tout dans les tons de la pierre
+  pyramide:(W,D)=>{const B=new Build(),L=0xcdb68a,Ls=0xa8936a,Lt=0xe0cfa4,Sb=0x8a7a5c;slab(B,W,D,0xb9ad8e,.06);
     const N=5,h=.28,s0=Math.min(W,D)*.92,s1=Math.min(W,D)*.44,back=.06;let y=.06;const tiers=[];
     for(let k=0;k<N;k++){const s=s0-(s0-s1)*k/(N-1),z=-back*k;tiers.push({s,z,y});
       {const g=new THREE.CylinderGeometry(s*.69,s*.71,h*.42,4,1);g.rotateY(PI/4);g.translate(0,y+h*.21,z);B.add(g,Ls);}   // le talus : une base carrée un peu évasée
@@ -162,16 +162,10 @@ const MAKERS={
     const M=14,sw=Math.min(W,D)*.24,rs=(yT-.06)/M,run=(zf-zb)/M;
     for(let i=0;i<M;i++){const fz=zf-i*run,bz=zT;B.box(0,.06+i*rs,(fz+bz)/2,sw,rs,fz-bz,i%2?Lt:0xd8c69a);}
     for(const sx of [-1,1]){const x=sx*(sw/2+.07);B.rod([x,.13,zf],[x,yT+.02,zb],.075,Ls);B.box(x,yT-.02,zb-.04,.17,.16,.17,Ls);
-      B.box(x,.06,zf+.08,.17,.15,.22,Sb);B.box(x,.1,zf+.2,.12,.04,.04,Rg);B.box(x+sx*.05,.17,zf+.14,.03,.03,.03,0x2a2622);}
-    // la plate-forme du sommet et ses deux sanctuaires
+      B.box(x,.06,zf+.08,.17,.15,.22,Sb);B.box(x+sx*.05,.17,zf+.14,.03,.03,.03,0x5e5440);}
+    // la plate-forme du sommet et son bloc : la pierre de la pyramide, un cordon clair à mi-hauteur et en couronne, sans porte
     B.box(0,yT,zT,sT*.98,.05,sT*.98,Lt);
-    const sh=(x,wall,band,crest)=>{const w=sT*.4,d=sT*.56,z=zT-sT*.12;B.box(x,yT+.05,z,w,.5,d,wall);for(const k of [0,1,2])B.box(x,yT+.12+k*.14,z,w*1.02,.04,d*1.02,band);
-      B.box(x,yT+.05,z+d/2+.01,w*.36,.32,.03,0x241e1a);   // la porte, face à l'escalier
-      B.box(x,yT+.55,z,w*1.08,.06,d*1.08,band);B.box(x,yT+.61,z,w*.9,.22,d*.86,crest);B.box(x,yT+.83,z,w*.7,.06,d*.6,band);
-      for(let k=0;k<4;k++)B.box(x-w*.36+k*w*.24,yT+.89,z+d*.3,.06,.12,.06,crest);};   // les merlons de la crête
-    sh(-sT*.22,Bc,Bl,Bl);sh(sT*.22,0xc8935a,Rg,Rg);
-    // les braseros aux angles de la plate-forme
-    for(const [sx,sz] of [[-1,-1],[1,-1],[-1,1],[1,1]]){const x=sx*sT*.42,z=zT+sz*sT*.42;B.cyl(x,yT+.05,z,.07,.09,.14,0x5a5048,8);B.cone(x,yT+.19,z,.06,.14,PAL.feu,5);}
+    {const w=sT*.78,d=sT*.66,z=zT-sT*.06;B.box(0,yT+.05,z,w,.62,d,L);B.box(0,yT+.32,z,w*1.02,.05,d*1.02,Lt);B.box(0,yT+.67,z,w*1.06,.06,d*1.06,Lt);B.box(0,yT+.73,z,w*.86,.08,d*.82,Ls);}
     return B.geo();},
   // le laboratoire : un pavillon blanc, une verrière, une coupole d'observation, des cornues sur le perron
   labo:(W,D)=>{const B=new Build();slab(B,W,D,0xb9b4a4,.06);const bw=W*.7,bd=D*.5;B.box(-.15,.06,-.2,bw,.85,bd,PAL.blanc);B.gable(-.15,.91,-.2,bw,bd,.32,0x2c5f6a,'x');
