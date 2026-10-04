@@ -18,4 +18,20 @@ const n=W.shelterEnd(c);ok(n>=h5,'fin d’alerte : tous sortent',`${n} sortis, $
 let same=0,diff=[];for(const id of hidIds){const u=W.unit(id);if(!u)continue;if(sig(u.task)===before.get(id))same++;else diff.push(before.get(id)+' → '+sig(u.task));}
 ok(same>=hidIds.size*.95,'chacun reprend la tâche qu’il avait juste avant',`${same}/${hidIds.size} identiques${diff.length?' ; ex. '+diff.slice(0,3).join(' | '):''}`);
 const had=[...hidIds].filter(id=>before.get(id)!=='-');step(1);const busy=had.map(id=>W.unit(id)).filter(u=>u&&u.task).length;ok(busy>=had.length*.85,'une heure après : ceux qui travaillaient travaillent',`${busy}/${had.length} (${hidIds.size-had.length} étaient déjà sans tâche avant l’alerte)`);
+// --- un abri tient tant que sa ville est attaquée, puis se vide (sans alerte du joueur)
+{const bee=W.addUnit('beee','soldat',cx+20,cy+6);bee.task={kind:'guard',tx:bee.x,ty:bee.y};bee.holdFire=true;const pin=()=>{bee.hp=1;if(bee.h)bee.h.state='ok';bee.x=cx+20;bee.y=cy+6;(bee.spot??={}).meumeu=s.t;};
+  const v=V().find(u=>Math.hypot(u.x-cx,u.y-cy)<20);W.shelter(v);for(let k=0;k<60*3;k++){pin();W.update(1/60);}
+  const inC=()=>s.buildings.some(b=>(b.hide||[]).includes(v));ok(inC(),'avec un Bèè vu à 20 cases, le villageois reste à l’abri (3 h)');
+  bee.hp=0;if(bee.h)bee.h.state='mort';step(1.5);ok(!inC(),'le Bèè parti, la ville n’est plus attaquée : il sort');}
+// --- le bouton général : seulement la ville menacée
+{const others=s.buildings.filter(b=>b.k==='centre'&&b.f==='meumeu'&&!b.ally&&b.done&&!b.ruin);const L0=W.shelterThreatened('meumeu');ok(L0.length===0,'« Aux abris ! » sans ennemi en vue : aucune ville',`${others.length} villes au joueur`);
+  const bee=W.addUnit('beee','soldat',cx+30,cy);bee.task={kind:'guard',tx:bee.x,ty:bee.y};(bee.spot??={}).meumeu=s.t;const L=W.shelterThreatened('meumeu');
+  ok(L.length===1&&L[0].c===c,'avec un Bèè vu à 30 cases de cette ville : elle seule',L.map(q=>q.c.city+' '+q.n).join(', '));W.shelterEnd(c);bee.hp=0;if(bee.h)bee.h.state='mort';step(1);}
+// --- le centre-ville détruit : ses abrités vont se réfugier au centre sûr le plus proche, s'y abritent, et en sortent (cette ville est calme)
+{W.shelterZone(c);step(5);const hid=s.buildings.filter(b=>b.alarmBy===c.id).flatMap(b=>b.hide||[]);ok(hid.length>0,'alerte : des villageois à l’abri',`${hid.length}`);
+  W.collapse(c);const run=hid.filter(u=>u.task?.kind==='shelter'&&u.task.refuge);const dest=new Set(run.map(u=>u.task.b));
+  ok(run.length===hid.length&&!dest.has(c.id),'centre détruit : tous sortent et courent vers un autre centre-ville',`${run.length}/${hid.length} en route vers ${[...dest].map(id=>W.building(id)?.city).join(', ')}`);
+  let inRef=0,peak=0;for(let h=0;h<48;h++){step(1);inRef=s.buildings.filter(b=>dest.has(b.id)).reduce((a,b)=>a+(b.hide||[]).filter(u=>hid.includes(u)).length,0);peak=Math.max(peak,inRef);if(peak>0&&inRef===0)break;}
+  const there=hid.filter(u=>W.unit(u.id)&&[...dest].some(id=>{const b=W.building(id);return b&&Math.hypot(u.x-b.i-2,u.y-b.j-2)<12;})).length;
+  ok(peak>0&&inRef===0,'ils s’y abritent, puis en sortent : cette ville n’est pas attaquée',`au plus ${peak} à l’abri là-bas, ${inRef} encore dedans, ${there}/${hid.length} près du centre-refuge`);}
 console.log(fails?`${fails} ÉCHEC(S)`:'TOUT PASSE');

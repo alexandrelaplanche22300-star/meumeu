@@ -982,7 +982,7 @@ export class World{
       case 'zone':return this.zoneTick(u,T0);
       case 'evac':return this.evacTick(u,T0);
       case 'board':return this.boardTick(u,T0);
-      case 'shelter':{const b=this.building(T0.b);if(!b||!b.done||b.ruin){this.shelterBack(u);return;}   /* (abri perdu ou plein : il reprend ce qu'il faisait) */const [w,h]=this.sizeOf(b);if(!this.go(u,b.i+w/2,b.j+h/2,[b.i,b.j,w,h]))return;
+      case 'shelter':{const b=this.building(T0.b);if(!b||!b.done||b.ruin){this.refuge(u,b);return;}   /* (abri perdu en chemin : le centre-ville sûr le plus proche) */const [w,h]=this.sizeOf(b);if(!this.go(u,b.i+w/2,b.j+h/2,[b.i,b.j,w,h]))return;
         if((b.hide||[]).length>=(BUILDINGS[b.k].shelter||0)){this.shelterBack(u);return;}(b.hide??=[]).push(u);this.s.units.splice(this.s.units.indexOf(u),1);this.uIndex.delete(u.id);u.task=null;u.path=null;return;}
       case 'board':{const b=this.building(T0.b);if(!b||!b.done){u.task=null;return;}const [w,h]=this.sizeOf(b);if(!this.go(u,b.i+w/2,b.j+h/2,[b.i,b.j,w,h]))return;
         (b.pass??=[]).push(u);this.s.units.splice(this.s.units.indexOf(u),1);this.uIndex.delete(u.id);u.task=null;return;}}}
@@ -1440,7 +1440,7 @@ export class World{
       // de places, plus rien à cliquer ; on regarde tous les quarts d'heure et la naissance prend la moitié du temps.
       // Bèè : inchangé (plafond de places, réserve de 12 h, contrôle toutes les heures).
       if(b.grow!==false){const bee=b.f==='beee';b.growT=(b.growT||0)-dt*((b.ration??1)>=.5?1:.3);if(b.growT<=0){b.growT=bee?1:.25;if(!b.queue.length){const food=b.stock.vivres||0,rate=this.cityFoodRate(b);const ok=bee?this.cityStats(b).res<this.cityStats(b).cap&&food>=25+rate*12:food>=25+rate*(this.s.buildings.some(x=>x.k==='moulin'&&x.f===b.f&&x.done&&!x.ruin&&this.cityOf(x)===b)?24:72);if(ok&&this.canTrain(b,'villageois').ok){this.train(b,'villageois');const q=b.queue[b.queue.length-1];q.left/=2;}}}}}
-    if(b.hide?.length&&(b.ruin||!this.s.units.some(e=>e.f!==b.f&&alive(e)&&this.distB(b,e.x,e.y)<13))&&!(b.alarmBy!=null&&this.cityAlarm(b.alarmBy))){b.hideT=(b.hideT||0)+dt;if(b.hideT>.5||b.ruin){this.unhide(b);}}else b.hideT=0;
+    if(b.hide?.length&&(b.ruin||!this.shelterUnsafe(b))&&!(b.alarmBy!=null&&this.cityAlarm(b.alarmBy))){   /* (V12.5 : on sort quand la ville de l'abri n'est plus attaquée) */b.hideT=(b.hideT||0)+dt;if(b.hideT>.5||b.ruin){this.unhide(b);}}else b.hideT=0;
     if(b.inside?.length)this.drillTick(b,dt);
     if(b.stock&&(b.cleanT=(b.cleanT||0)+dt)>=1){b.cleanT=0;for(const k in b.stock){const v=b.stock[k];if(!(v>1e-6))delete b.stock[k];}}
     if(b.fire>0&&b.stock&&this.rand()<dt*this.volatile(b)/60&&this.depotBlow(b,null))return;
@@ -1504,10 +1504,34 @@ export class World{
     for(const b of this.s.buildings)if(b.alarmBy===c.id){b.alarmBy=null;n+=(b.hide||[]).length;if(b.hide?.length)this.unhide(b);}return n;}
   cityAlarm(id){const c=this.building(id);return !!(c&&c.alarm&&!c.ruin);}
   shelterHidden(c){let n=0;for(const b of this.s.buildings)if(b.alarmBy===c.id)n+=(b.hide||[]).length;return n;}
-  shelterAll(){let n=0;for(const u of [...this.s.units])if(u.f==='meumeu'&&u.k==='villageois'&&active(u)&&this.shelter(u))n++;return n;}
+  // (V12.5) la ville d'un abri : le centre lui-même, ou le centre de sa faction le plus proche à 30 cases (gardé une demi-heure)
+  cityOf(b){if(b.k==='centre')return b.done&&!b.ruin?b:null;const C=this._cityOf??=new Map(),m=C.get(b.id);if(m&&this.s.t-m.t<.5){const c=m.c&&this.building(m.c);return c&&c.done&&!c.ruin?c:null;}
+    let best=null,bd=30;for(const c of this.s.buildings)if(c.k==='centre'&&c.f===b.f&&c.done&&!c.ruin){const d=d2(c.i,c.j,b.i,b.j);if(d<bd){bd=d;best=c;}}C.set(b.id,{t:this.s.t,c:best?.id??null});return best;}
+  // une ville est attaquée : un ennemi actif, VU par cette faction, à 40 cases de son centre (relevé au plus tous les quarts d'heure)
+  cityAttacked(c){const C=this._atk??=new Map(),m=C.get(c.id);if(m&&this.s.t-m.t<.25)return m.v;const cx=c.i+2,cy=c.j+2;
+    const v=this.s.units.some(e=>e.f!==c.f&&(e.f==='meumeu'||e.f==='beee')&&Math.abs(e.x-cx)<40&&Math.abs(e.y-cy)<40&&active(e)&&!e.inBarracks&&d2(e.x,e.y,cx,cy)<40&&this.spotted(e,c.f));C.set(c.id,{t:this.s.t,v});return v;}
+  // un abri n'est pas sûr tant que sa ville est attaquée (sans ville : un ennemi à 13 cases)
+  shelterUnsafe(b){const c=this.cityOf(b);return c?this.cityAttacked(c):this.s.units.some(e=>e.f!==b.f&&alive(e)&&this.distB(b,e.x,e.y)<13);}
+  // un réfugié : le centre-ville le plus proche de sa faction, sur sa terre, qui n'est pas attaqué (sinon le plus proche) ; il y court s'abriter, et en sortira
+  // quand cette ville sera calme, sans tâche (celle d'avant était dans la ville perdue). Toutes les factions : le joueur, l'allié, les Bèè.
+  refuge(u,lost=null){const L=this.landComp(),N=this.N,k=L[Math.floor(u.y)*N+Math.floor(u.x)];
+    const C=this.s.buildings.filter(c=>c.k==='centre'&&c.f===u.f&&c.done&&!c.ruin&&c!==lost&&L[(c.j+2)*N+c.i+2]===k),safe=C.filter(c=>!this.cityAttacked(c));
+    /* (d'abord une ville du même maître — le joueur chez le joueur, l'allié chez l'allié — puis la plus proche) */
+    const cost=c=>d2(c.i,c.j,u.x,u.y)+(!!c.ally!==!!u.ally?1e4:0),pick=(safe.length?safe:C).sort((a,z)=>cost(a)-cost(z))[0];if(!pick){this.shelterBack(u);return null;}
+    u.preShelter={task:null,carry:u.carry||u.preShelter?.carry||null};u.task={kind:'shelter',b:pick.id,refuge:1};u.carry=null;u.path=null;u.goal=null;return pick;}
+  // un abri détruit : ses abrités sortent ; un centre-ville détruit fait sortir aussi les maisons de sa ville ; eux, et ceux qui y couraient, partent se réfugier
+  shelterLost(b){const lost=[b];if(b.k==='centre')for(const o of this.s.buildings)if(o!==b&&o.f===b.f&&o.k!=='centre'&&BUILDINGS[o.k].shelter&&d2(o.i,o.j,b.i,b.j)<30)lost.push(o);
+    const ids=new Set(lost.map(o=>o.id)),out=[];for(const u of this.s.units)if(u.task?.kind==='shelter'&&ids.has(u.task.b))out.push(u);
+    for(const o of lost)if(o.hide?.length){out.push(...o.hide);this.unhide(o);}
+    const to=new Map();for(const u of out){const c=this.refuge(u,b);if(c)to.set(c,(to.get(c)||0)+1);}
+    if(to.size&&b.f==='meumeu'&&!b.ally)for(const [c,n] of to)this.log(c.city||'Front',`${n} villageois fuient l’abri perdu et courent se réfugier à ${c.city||'la ville la plus proche'}.`,'warn');}
+  // « Aux abris ! » général du joueur : seulement les villes menacées (un ennemi vu à 60 cases du centre) — ou, pour une armée signalée en (x, y), les villes à R cases
+  shelterThreatened(f='meumeu',x=null,y=null,R=90){const out=[];for(const c of this.s.buildings){if(c.k!=='centre'||c.f!==f||c.ally||!c.done||c.ruin)continue;const cx=c.i+2,cy=c.j+2;
+      const near=x!=null?d2(cx,cy,x,y)<R:this.s.units.some(e=>e.f!==f&&(e.f==='meumeu'||e.f==='beee')&&active(e)&&d2(e.x,e.y,cx,cy)<60&&this.spotted(e,f));if(near)out.push({c,...this.shelterZone(c)});}
+    return out;}
   nearCity(u){const c=this.s.buildings.filter(b=>b.k==='centre'&&b.f===u.f).sort((a,z)=>d2(a.i,a.j,u.x,u.y)-d2(z.i,z.j,u.x,u.y))[0];return c&&d2(c.i,c.j,u.x,u.y)<30?c.city:'Campagne';}
   unhide(b){const [w,h]=this.sizeOf(b);for(const u of b.hide){u.x=b.i+this.rand()*w;u.y=b.j+h+.5;this.shelterBack(u);this.s.units.push(u);this.uIndex.set(u.id,u);}b.hide=[];b.hideT=0;}
-  collapse(b){const B=BUILDINGS[b.k];const [w,h]=this.sizeOf(b);if(b.hide?.length)this.unhide(b);b.ruin=true;b.done=false;b.progress=.2;b.hp=b.max*.2;b.fire=Math.max(b.fire,2);b.queue=[];b.batch=null;b.paid={...B.cost};
+  collapse(b){const B=BUILDINGS[b.k];const [w,h]=this.sizeOf(b);if(BUILDINGS[b.k].shelter)this.shelterLost(b);b.ruin=true;b.done=false;b.progress=.2;b.hp=b.max*.2;b.fire=Math.max(b.fire,2);b.queue=[];b.batch=null;b.paid={...B.cost};
     for(const v of this.s.vehicles)if(v.job&&(v.job.to===b.id||v.job.from===b.id)&&v.job.phase==='src')v.job=null;
     if(b.stock){for(const k of Object.keys(b.stock)){b.stock[k]-=b.stock[k]*.7;}}
     // les blessés de l'hôpital, les passagers : ceux qui étaient dedans

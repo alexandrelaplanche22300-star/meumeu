@@ -507,7 +507,7 @@ function overviewPane(){const s=world.s;const cap=world.capital();const st=cap?.
     <div class="kv"><span>Armée</span><b>${army.length?Object.entries(army.reduce((o,u)=>(o[u.k]=(o[u.k]||0)+1,o),{})).map(([k,n])=>`${n} ${UNITS[k].name.toLowerCase()}${n>1?'s':''}`).join(', '):'aucune'}${army.length?` · <a data-act="army">choisir</a>`:''}</b></div>
     ${W.length?`<div class="kv"><span>Blessés</span><b><a data-modal="med">${W.length} · ${W.filter(x=>triage(x.u.h).k==='rouge').length} en urgence</a></b></div>`:''}
     <div class="kv"><span>Logistique</span><b>${s.vehicles.filter(v=>v.f==='meumeu'&&!v.ally).map(v=>`<a data-vehicle="${v.id}">${esc(v.name)}</a>`).join(', ')||'aucun véhicule'} · ${Object.values(s.rails).filter(r=>r.b).length} cases de voie · <a data-modal="eco">l’économie</a></b></div>
-    <div class="row"><button class="small bad" data-act="shelter">Aux abris !</button><span class="quiet small">les villageois courent au centre-ville ou dans une maison</span></div>
+    <div class="row"><button class="small bad" data-act="shelter">Aux abris !</button><span class="quiet small">les villes menacées (un ennemi vu à 60 cases du centre) : leurs villageois courent au centre-ville ou dans une maison ; les autres villes produisent</span></div>
     <div class="row"><button class="small ghost" data-act="design">Bureau d’études</button><button class="small ghost" data-modal="innov">Les idées (${s.innov.ideas.length})</button><button class="small ghost" data-modal="med">Santé</button></div></section>`;
   if(s.ally){const A=s.ally,AC=world.allyCities(),us=world.allyUnits(),sold=us.filter(u=>u.k!=='villageois'),boats=s.vehicles.filter(v=>v.ally&&v.k==='barge'&&v.hp>0),lastA=s.log.find(l=>/allié/i.test(l.text)||/\(allié\)/.test(l.where||''));
     h+=`<section class="pane"><h2>L’allié <small>la moitié ${A.up?'haute':'basse'} de l’île, mené par l’IA</small></h2>
@@ -746,7 +746,8 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
       say(r.ok?r.text:r.why[0],r.ok?'good':'bad');if(r.ok)audio.play('ack',null,{f:'meumeu',n:r.n});}renderPanel(true);}
   else if(a==='shelter-city'){const bd=world.building(view.selB);if(bd){const r=world.shelterZone(bd);say(r.n?`${bd.city} : ${r.n} villageois courent aux abris${r.full?` · ${r.full} sans place (bâtissez des maisons)`:''}.`:r.full?`${bd.city} : plus de place à l’abri (${r.full} villageois dehors) — bâtissez des maisons.`:`${bd.city} : aucun villageois dans la zone.`,r.n?'':'bad');audio.play('siren');renderPanel(true);}}
   else if(a==='shelter-end'){const bd=world.building(view.selB);if(bd){const n=world.shelterEnd(bd);say(`${bd.city} : fin d’alerte, ${n} villageois reprennent le travail.`,'good');renderPanel(true);}}
-  else if(a==='shelter'){const n=world.shelterAll();say(n?`${n} villageois courent aux abris.`:'Aucun abri à portée.',n?'':'bad');audio.play('siren');}
+  else if(a==='shelter'||a==='shelter-near'){const L=a==='shelter'?world.shelterThreatened('meumeu'):world.shelterThreatened('meumeu',+b.dataset.x,+b.dataset.y);const n=L.reduce((s,q)=>s+q.n,0);
+    say(L.length?`Aux abris : ${L.map(q=>`${q.c.city} (${q.n})`).join(', ')} — ${n} villageois ; les autres villes produisent.`:a==='shelter'?'Aucune ville n’est menacée : aucun ennemi vu à 60 cases d’un centre-ville.':'Aucune de nos villes n’est à moins de 90 cases de cette armée.',L.length?'':'bad');audio.play('siren');renderPanel(true);}
   else if(a==='sound'){b.textContent=audio.toggle()?'🔈':'🔇';}
   else if(a==='zoom-in')uiZ.step(1);else if(a==='zoom-out')uiZ.step(-1);else if(a==='zoom-auto'){uiZ.step(0);say(`Taille de l’interface : automatique (${Math.round(uiZ.cur*100)} %).`);}
   else if(a==='new'){if(confirm('Nouvelle partie : une nouvelle carte. La partie en cours sera perdue.')){setWorld(new World());say('Une nouvelle carte.','good');}}
@@ -853,7 +854,7 @@ function events(){for(const e of world.events.splice(0)){view.onEvent(e);const P
     case 'tension':audio.play('drums');alertBox(`<b>Frontière.</b> ${esc(e.text)}`,null,null,'warn');break;
     case 'war':audio.play('horn');alertBox(`<b>${esc(e.text)}</b> Les tours, les soldats et les Bèè tirent désormais à vue.`);break;
     case 'rout':audio.play('horn',P);break;
-    case 'wave':audio.play('horn',null);alertBox(`<b>Une armée bèè de ${e.n} marche sur nous !</b> <button class="small" data-act="shelter">Aux abris</button>`,e.x,e.y);break;
+    case 'wave':audio.play('horn',null);alertBox(`<b>Une armée bèè de ${e.n} marche sur nous !</b> <button class="small" data-act="shelter-near" data-x="${Math.round(e.x)}" data-y="${Math.round(e.y)}">Aux abris (villes proches)</button>`,e.x,e.y);break;
     case 'air-raid':audio.play('siren',null);alertBox('<b>Bombardier bèè en approche !</b> La DCA, les abris.',e.x,e.y);break;
     case 'downed':audio.play('bomb',P);break;
     case 'won':audio.play('won');$('#win').innerHTML=`<div class="scbox"><b class="big">Gagné !</b><p>Toutes les villes bèè sont tombées au jour ${world.s.won.day}. Votre civilisation continue de vivre.</p><button class="ghost" data-act="win-off">Continuer</button></div>`;$('#win').hidden=false;break;
