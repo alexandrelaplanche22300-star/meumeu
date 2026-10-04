@@ -33,6 +33,14 @@
 **Centres-villes meumeu (fait le 4 octobre)**
 - Les centres-villes meumeu doivent être des pyramides aztèques.
 
+**Décisions du 4 octobre (suite)**
+- Seul le bras droit de la Meumeu tient le fusil ; le gauche reste au repos.
+- Sommet de la pyramide : un seul bloc de la même pierre, sans couleur ni entrée.
+- **Ne jamais toucher aux tenues « Soldat camouflé » et « Élite à cape »** (ni casque, ni tête, ni bras).
+- Engins et grande barge : plus d'armes préfabriquées dans leur coût (elles viennent avec l'engin) ; soute pour les ressources (surtout munitions), et des civils peuvent traverser pour bâtir de l'autre côté.
+- Plafond de population bèè : 2 500 vivants (plus de naissances, de renforts ni de fondations au-delà).
+- Tout se renouvelle sauf les arbres : filons (plein en 60 jours) et rochers (30 jours).
+
 ## Fait (commits locaux)
 
 **IA bèè**
@@ -74,7 +82,7 @@
 1. ~~Soldats meumeu~~ : faits (casque retiré, arme tenue droite, bras rigides détachés du modèle — scene3d.js meumeuRig/holdGun).
 2. ~~Centres-villes en pyramides~~ : faits (bldg3d.js pyramide ; le centre bèè garde son hôtel de ville).
 3. ~~Moulin~~ : fait (moyeu et racines d'ailes d'origine retirés au dos du toit ; ce qui reste de dos est la galerie d'origine).
-4. **Batailles**
+4. **Batailles** (série 2 reprise à J40 avec --reprendre ; les séries 1 et 2 tournent sans le plafond bèè : en relancer une série 3 avec)
    - Les séries :
      - série 1 : `test/_saves/bataille_<graine>`, sans les têtes en masse, l'économie de guerre alliée ni les abris ;
      - série 2 : `test/_saves/bataille2_<graine>`, avec tout le code ;
@@ -83,7 +91,7 @@
    - Dépouiller avec `node test/_analyse_bataille.mjs <dossiers…>`.
    - Captures avec `test/_outils_captures/shots_mer.cjs`. Le lancer avec electron, pas en mode node : `OKM_ROOT=<jeu> SAVES=bataille2_301/j40.json,…`.
    - Faire le rapport au joueur : comparaison avant/après, chiffres, captures.
-5. **Chemins** : 14 recherches de chemin par minute de jeu pour tout le monde. À 6 000 unités, une marche de 200 cases prend des jours (2,5 cases/h).
+5. **Chemins** (mesuré : budget 14 → 40 : marcheurs 4,4 → 5,9 cases/h, calcul +4 % ; réglable par world.pathBudgetMax) : 14 recherches de chemin par minute de jeu pour tout le monde. À 6 000 unités, une marche de 200 cases prend des jours (2,5 cases/h).
    - Proposer et mesurer un budget adaptatif.
    - Le vrai jeu fait 80 pas par heure de jeu, le banc 60.
 6. **Bandes bèè « debarquement »** : elles abandonnent (« plus rien à prendre ») faute d'arriver avant leur délai.
