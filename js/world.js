@@ -862,7 +862,7 @@ export class World{
     // un servant rejoint sa pièce quand elle s'arrête
     if(u.serve){const g=this.unit(u.serve);if(!g||!alive(g)||g.h?.state==='hors'){u.serve=null;}else{const crew=this.s.units.filter(o=>o.serve===g.id&&alive(o)&&o.h?.state!=='hors').sort((a,b)=>a.id-b.id),slot=Math.max(0,crew.findIndex(o=>o.id===u.id)),slots=[[-.48,-.58],[-.48,.58],[.12,-.78],[.12,.78],[-.92,0],[.58,-.92],[.58,.92]],pos=slots[slot]||[-.9-Math.floor((slot-7)/2)*.38,slot%2?-.8:.8],fx=g.fx||1,fy=g.fy||0,fn=Math.hypot(fx,fy)||1,px=-fy/fn,py=fx/fn;const tx=g.x+fx/fn*pos[0]+px*pos[1],ty=g.y+fy/fn*pos[0]+py*pos[1];if(u.task?.kind!=='evac'&&!u.crewAmmo){u.task={kind:'guard',tx,ty};this.face(u,g.x-u.x,g.y-u.y);}}}
     // se réapprovisionner : munitions de sa conception, fumigènes, trousses — dans les dépôts proches
-    u.resup=(u.resup||0)-dts;if(u.resup<=0){u.resup=3;this.resupply(u);this.selfCare(u);if(u.f==='meumeu'){const I=u.w&&this.W(u.w).ir;const mx=Math.max(I?I.hours:0,u.bino?80:0);if(mx&&u.irMax!==mx){u.irLeft=u.irLeft==null?mx:Math.min(mx,u.irLeft);u.irMax=mx;}}}
+    u.resup=(u.resup||0)-dts;if(u.resup<=0){u.resup=3;this.resupply(u);this.selfCare(u);if(u.f==='meumeu'){const I=u.w&&this.W(u.w).ir;const mx=Math.max(I?I.hours:0,u.bino?80:0);if(mx&&u.irMax!==mx){u.irLeft=u.irLeft==null?mx:Math.min(mx,u.irLeft);u.irMax=mx;}if(I)u.nvOn=true;}}   /* (V12.5 : le viseur infrarouge d'une arme est toujours allumé ; les jumelles, elles, s'allument à la demande) */
     // V12.4 : la batterie de l'infrarouge ne se vide plus (elle est dimensionnée pour la lampe choisie : voir irOf) — plus de recharge à gérer
     if(u.irMax&&!(u.irLeft>0))u.irLeft=u.irMax;
     const T0=u.task;

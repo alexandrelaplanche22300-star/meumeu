@@ -635,6 +635,9 @@ export class View{
         let r=E.base*(back+(1-back)*t*t*(3-2*t));if(c>=E.cos)r=Math.max(r,E.optic*Math.min(1,(c-E.cos)/.04+.6));r=Math.max(1.6,r);const p=this.toScreen(u.x+dx*r,u.y+dy*r);if(!k)naked.moveTo(p.x,p.y);else naked.lineTo(p.x,p.y);}naked.closePath();}
     if(nb){ctx.save();ctx.fillStyle='rgba(175,255,110,.11)';ctx.fill(bino,'nonzero');ctx.restore();}
     if(!nir)return;
+    // (touche V) les cônes classiques à la place du filtre : la partie du faisceau au-delà de la vue nue, en aplat vert léger cerné
+    if(this.nirClassic){ctx.save();ctx.clip(beams,'nonzero');const cv=this.canvas,inv=new Path2D();inv.rect(-1e5,-1e5,2e5,2e5);inv.addPath(naked);ctx.clip(inv,'evenodd');ctx.fillStyle='rgba(175,255,110,.13)';ctx.fill(beams,'nonzero');ctx.restore();
+      ctx.save();ctx.strokeStyle='rgba(175,255,110,.55)';ctx.lineWidth=1.2*this.dpr;ctx.stroke(beams);ctx.restore();return;}
     const cv=this.canvas,Wc=cv.width,Hc=cv.height,T=this.nirCv??=document.createElement('canvas');if(T.width!==Wc||T.height!==Hc){T.width=Wc;T.height=Hc;}const t=T.getContext('2d'),M=ctx.getTransform();
     t.setTransform(1,0,0,1,0,0);t.globalAlpha=1;t.globalCompositeOperation='copy';t.drawImage(cv,0,0);
     t.globalCompositeOperation='saturation';t.fillStyle='#808080';t.fillRect(0,0,Wc,Hc);          // le noir et blanc

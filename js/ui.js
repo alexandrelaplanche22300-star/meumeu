@@ -301,7 +301,7 @@ function unitsPane(sel){const by={};for(const u of sel)by[u.k]=(by[u.k]||0)+1;co
   if(vil.length)h+=`<section class="pane"><h2>Bâtir <small>la barre en bas de la carte (B)</small></h2><p class="small">Choisissez un bâtiment en bas, cliquez sa place : ces ${vil.length} villageois y iront. Clic droit sur un arbre, un rocher, un buisson : ils ramassent et rapportent au dépôt le plus proche — ou envoyez-les à un camp, ils récoltent tout autour.</p></section>`;
   return h;}
 // Le cinéma : l'interface s'efface, des bandes noires et une vignette cadrent l'image, et la caméra suit l'action (director.js).
-// la vue 3D (V) : les modèles à la place des images ; un choix retenu d'une partie à l'autre
+// la vue 3D : les modèles à la place des images ; un choix retenu d'une partie à l'autre
 async function toggle3d(force,quiet){const on=true;   // la vue 2D d'origine est retirée : toujours la 3D
 const ok=await view.set3d(on);const b=document.getElementById('b3d');if(b)b.classList.toggle('on',ok);if(!quiet)say(ok?'Vue 3D.':on?'La 3D n’est pas disponible ici.':'Vue dessinée.','good');}
 // la 3D est la vue par défaut ; le choix « vue dessinée » est retenu
@@ -792,10 +792,10 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','=','-',
   else if(k==='b'||k==='B'){ui.bb=!ui.bb;ui.bbHtml='';$('#buildbar').innerHTML='';buildBar();}
   else if(k==='n'||k==='N'){toggleFog();}
   else if(k==='k'||k==='K'){toggleCine();}
-  else if(k==='v'||k==='V'){toggle3d();}
   else if(k==='c'||k==='C'){view.cones=!view.cones;say(view.cones?'Vigilance : le regard de chaque Bèè repéré près de nos soldats choisis (debout · accroupi · couché), et jusqu’où s’entend chacun de nos coups. La nuit, elle s’affiche d’elle-même pour une équipe d’infiltration. (C)':'Vigilance masquée (la nuit, elle reste pour une équipe d’infiltration).','info');}
   else if(k==='l'||k==='L'){view.logi=!view.logi;say(view.logi?'Carte logistique : dépôts, convois, voies coupées, usines arrêtées, soldats à sec. (L pour fermer)':'Carte logistique fermée.','info');}
-  else if(k==='v'||k==='V'){const L=[...view.sel].map(id=>world.unit(id)).filter(u=>u?.irMax);if(!L.length)say('Aucun appareil de vision nocturne dans la sélection.','info');else{const on=!L.every(u=>u.nvOn);for(const u of L)u.nvOn=on;say(`Vision nocturne ${on?'allumée':'éteinte'} (${L.length}) — batterie ${fmt(Math.min(...L.map(u=>u.irLeft??0)),1)} min.`,'info');renderPanel(true);}}
+  // V (V12.5) : l'affichage de la vision nocturne de nos armes à viseur infrarouge (toujours allumés) — filtre vert-gris ou cônes classiques
+  else if(k==='v'||k==='V'){view.nirClassic=!view.nirClassic;say(`Vision nocturne affichée en ${view.nirClassic?'cônes classiques':'filtre vert-gris'} (V pour changer).`,'info');}
   else if(k==='t'||k==='T'){pitchTent();}
   else if((k==='f'||k==='F')&&view.sel.size){const n=world.smokeOrder([...view.sel]);say(n?`${n} fumigène${n>1?'s':''} lancé${n>1?'s':''}.`:'Plus de fumigène.',n?'':'bad');}
   else if(k==='f'||k==='F'){view.soil=!view.soil;say(view.soil?'Carte des sols : du gris (roche, lande) au vert sombre (terre noire). Les fermes et les moulins y rendent jusqu’à trois fois plus. (F pour fermer)':'Carte des sols fermée.','info');}
