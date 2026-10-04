@@ -617,26 +617,34 @@ export class View{
     for(const u of W.s.units){if(u.f!=='beee'||!(u.hp>0)||u.task?.kind!=='search'||u.task.scout||!u.task.pts)continue;
       const p=u.task.pts[u.task.i||0];if(!p)continue;const q0=this.toScreen(u.x,u.y),q1=this.toScreen(p[0],p[1]);
       ctx.save();ctx.strokeStyle='rgba(255,150,120,.55)';ctx.setLineDash([4*dpr,4*dpr]);ctx.lineWidth=1.2*dpr;ctx.beginPath();ctx.moveTo(q0.x,q0.y);ctx.lineTo(q1.x,q1.y);ctx.stroke();ctx.fillStyle='rgba(255,150,120,.9)';ctx.fillRect(q1.x-2*dpr,q1.y-2*dpr,4*dpr,4*dpr);ctx.restore();}}
-  // Le tube infrarouge : dans son faisceau, l'image de la scène elle-même passe au filtre — désaturée, teintée vert-gris, éclaircie comme par un
-  // intensificateur, et granuleuse (un grain qui bouge à chaque image) ; hors du faisceau, la nuit reste la nuit (V12.5, demande du joueur).
-  // Les cônes de toutes nos unités sont réunis en UN seul tracé, filtré une fois (les recouvrements ne s'additionnent pas) ; le grain est une texture
-  // de bruit calculée une fois, posée en motif décalé au hasard (pas des centaines de points par image).
-  drawNir(){const W=this.world;if(W.light()>=.4)return;const ctx=this.ctx,dpr=this.dpr,[i0,i1,j0,j1]=this.vis||[0,1e9,0,1e9];const path=new Path2D(),bino=new Path2D(),cones=[];let nb=0;   /* (le filtre : seulement les faisceaux des armes infrarouges ; les jumelles infrarouges, un voile léger) */
-    for(const u of W.s.units){if(u.f!=='meumeu'||!(u.hp>0)||!u.nvOn||!((u.irLeft??0)>0))continue;
+  // Le tube infrarouge (V12.5, demande du joueur) : de nuit, la partie du faisceau d'une arme infrarouge allumée qui va AU-DELÀ de la vue nue (la vue
+  // classique de nuit, lunette comprise — même calcul que la perception, World.eyeProfile) passe au filtre : l'image de la scène, désaturée, éclaircie comme
+  // par un intensificateur, teintée vert-gris, granuleuse (un grain qui bouge à chaque image). Là où l'œil voit déjà, l'image reste celle de la nuit ;
+  // hors du faisceau aussi. Tout est fait sur une copie de l'image, découpée par un masque (faisceaux moins vues nues) : les recouvrements entre soldats
+  // ne s'additionnent pas. Les jumelles infrarouges gardent leur voile léger.
+  drawNir(){const W=this.world;if(W.light()>=.4)return;const ctx=this.ctx,[i0,i1,j0,j1]=this.vis||[0,1e9,0,1e9];const beams=new Path2D(),naked=new Path2D(),bino=new Path2D();let nb=0,nir=0;
+    for(const u of W.s.units){if(u.f!=='meumeu'||!(u.hp>0)||!u.nvOn||!((u.irLeft??0)>0)||u.inVeh||u.inBarracks)continue;
       const Wd=u.w?W.W(u.w):null,ir=Wd?.ir;const range=ir?ir.range*(1+.2*Math.log2(Wd.optic?.mag||1)):(u.bino||0);if(!range)continue;
       if(u.x+range<i0||u.x-range>i1||u.y+range<j0||u.y-range>j1)continue;
-      const beam=(ir?.beam||43)*Math.PI/180,a0=Math.atan2(u.fy??0,u.fx??1),P=ir?path:bino;if(!ir)nb++;let q=this.toScreen(u.x,u.y);P.moveTo(q.x,q.y);
-      for(let k=0;k<=12;k++){const a=a0-beam/2+beam*k/12;q=this.toScreen(u.x+Math.cos(a)*range,u.y+Math.sin(a)*range);P.lineTo(q.x,q.y);}P.closePath();if(ir)cones.push([u,range,beam,a0]);}
+      const beam=(ir?.beam||43)*Math.PI/180,a0=Math.atan2(u.fy??0,u.fx??1),P=ir?beams:bino;let q=this.toScreen(u.x,u.y);P.moveTo(q.x,q.y);
+      for(let k=0;k<=12;k++){const a=a0-beam/2+beam*k/12;q=this.toScreen(u.x+Math.cos(a)*range,u.y+Math.sin(a)*range);P.lineTo(q.x,q.y);}P.closePath();
+      if(!ir){nb++;continue;}nir++;
+      // la vue nue de nuit de ce soldat (face, flancs, dos, et sa lunette dans l'axe), comme drawNightVision sans l'infrarouge
+      const E=W.eyeProfile(u),fx=u.fx??1,fy=u.fy??0,fl=Math.hypot(fx,fy)||1;
+      for(let k=0;k<48;k++){const a=k/48*Math.PI*2,dx=Math.cos(a),dy=Math.sin(a),c=(fx*dx+fy*dy)/fl,t=Math.max(0,Math.min(1,(c+.6)/1.3)),back=[.22,.38,.62][E.wide];
+        let r=E.base*(back+(1-back)*t*t*(3-2*t));if(c>=E.cos)r=Math.max(r,E.optic*Math.min(1,(c-E.cos)/.04+.6));r=Math.max(1.6,r);const p=this.toScreen(u.x+dx*r,u.y+dy*r);if(!k)naked.moveTo(p.x,p.y);else naked.lineTo(p.x,p.y);}naked.closePath();}
     if(nb){ctx.save();ctx.fillStyle='rgba(175,255,110,.11)';ctx.fill(bino,'nonzero');ctx.restore();}
-    if(!cones.length)return;
-    const cv=this.canvas,Wc=cv.width,Hc=cv.height;ctx.save();ctx.clip(path,'nonzero');
-    ctx.globalCompositeOperation='saturation';ctx.fillStyle='#808080';ctx.fillRect(0,0,Wc,Hc);          // le noir et blanc
-    ctx.globalCompositeOperation='screen';ctx.fillStyle='rgba(70,82,66,.55)';ctx.fillRect(0,0,Wc,Hc);   // l'intensificateur : la nuit s'éclaircit
-    ctx.globalCompositeOperation='color';ctx.fillStyle='rgb(128,150,118)';ctx.fillRect(0,0,Wc,Hc);       // la teinte vert-gris (la luminance est gardée)
+    if(!nir)return;
+    const cv=this.canvas,Wc=cv.width,Hc=cv.height,T=this.nirCv??=document.createElement('canvas');if(T.width!==Wc||T.height!==Hc){T.width=Wc;T.height=Hc;}const t=T.getContext('2d'),M=ctx.getTransform();
+    t.setTransform(1,0,0,1,0,0);t.globalAlpha=1;t.globalCompositeOperation='copy';t.drawImage(cv,0,0);
+    t.globalCompositeOperation='saturation';t.fillStyle='#808080';t.fillRect(0,0,Wc,Hc);          // le noir et blanc
+    t.globalCompositeOperation='screen';t.fillStyle='rgba(70,82,66,.55)';t.fillRect(0,0,Wc,Hc);   // l'intensificateur : la nuit s'éclaircit
+    t.globalCompositeOperation='color';t.fillStyle='rgb(128,150,118)';t.fillRect(0,0,Wc,Hc);       // la teinte vert-gris (la luminance est gardée)
     if(!this._nirNoise){const n=document.createElement('canvas');n.width=n.height=192;const g=n.getContext('2d'),im=g.createImageData(192,192);
-      for(let k=0;k<im.data.length;k+=4){const v=Math.random()*255;im.data[k]=im.data[k+1]=im.data[k+2]=v;im.data[k+3]=255;}g.putImageData(im,0,0);this._nirNoise=ctx.createPattern(n,'repeat');}
-    ctx.globalCompositeOperation='overlay';ctx.globalAlpha=.42;const ox=Math.random()*192,oy=Math.random()*192;ctx.translate(-ox,-oy);ctx.fillStyle=this._nirNoise;ctx.fillRect(0,0,Wc+192,Hc+192);ctx.translate(ox,oy);   // le grain
-    ctx.restore();}
+      for(let k=0;k<im.data.length;k+=4){const v=Math.random()*255;im.data[k]=im.data[k+1]=im.data[k+2]=v;im.data[k+3]=255;}g.putImageData(im,0,0);this._nirNoise=n;}
+    t.globalCompositeOperation='overlay';t.globalAlpha=.42;const ox=Math.random()*192,oy=Math.random()*192;t.translate(-ox,-oy);t.fillStyle=t.createPattern(this._nirNoise,'repeat');t.fillRect(0,0,Wc+192,Hc+192);   // le grain
+    t.globalAlpha=1;t.setTransform(M);t.globalCompositeOperation='destination-in';t.fill(beams,'nonzero');t.globalCompositeOperation='destination-out';t.fill(naked,'nonzero');   // le masque
+    ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.drawImage(T,0,0);ctx.restore();}
   // La couronne d'équipe : un anneau-compas autour du centre des soldats sélectionnés (haut de l'écran = nord). Chaque bruit est une marque sur
   // l'anneau : sa POSITION est la direction entendue, la LARGEUR de l'arc le flou (fin = on sait, large = on ne sait pas), l'ÉPAISSEUR et
   // l'opacité la force entendue, un pictogramme dit quoi et des points combien de soldats l'ont entendu. Un trait qui pulse est neuf (moins
