@@ -621,12 +621,13 @@ export class View{
   // intensificateur, et granuleuse (un grain qui bouge à chaque image) ; hors du faisceau, la nuit reste la nuit (V12.5, demande du joueur).
   // Les cônes de toutes nos unités sont réunis en UN seul tracé, filtré une fois (les recouvrements ne s'additionnent pas) ; le grain est une texture
   // de bruit calculée une fois, posée en motif décalé au hasard (pas des centaines de points par image).
-  drawNir(){const W=this.world;if(W.light()>=.4)return;const ctx=this.ctx,dpr=this.dpr,[i0,i1,j0,j1]=this.vis||[0,1e9,0,1e9];const path=new Path2D(),cones=[];
+  drawNir(){const W=this.world;if(W.light()>=.4)return;const ctx=this.ctx,dpr=this.dpr,[i0,i1,j0,j1]=this.vis||[0,1e9,0,1e9];const path=new Path2D(),bino=new Path2D(),cones=[];let nb=0;   /* (le filtre : seulement les faisceaux des armes infrarouges ; les jumelles infrarouges, un voile léger) */
     for(const u of W.s.units){if(u.f!=='meumeu'||!(u.hp>0)||!u.nvOn||!((u.irLeft??0)>0))continue;
       const Wd=u.w?W.W(u.w):null,ir=Wd?.ir;const range=ir?ir.range*(1+.2*Math.log2(Wd.optic?.mag||1)):(u.bino||0);if(!range)continue;
       if(u.x+range<i0||u.x-range>i1||u.y+range<j0||u.y-range>j1)continue;
-      const beam=(ir?.beam||43)*Math.PI/180,a0=Math.atan2(u.fy??0,u.fx??1);let q=this.toScreen(u.x,u.y);path.moveTo(q.x,q.y);
-      for(let k=0;k<=12;k++){const a=a0-beam/2+beam*k/12;q=this.toScreen(u.x+Math.cos(a)*range,u.y+Math.sin(a)*range);path.lineTo(q.x,q.y);}path.closePath();cones.push([u,range,beam,a0]);}
+      const beam=(ir?.beam||43)*Math.PI/180,a0=Math.atan2(u.fy??0,u.fx??1),P=ir?path:bino;if(!ir)nb++;let q=this.toScreen(u.x,u.y);P.moveTo(q.x,q.y);
+      for(let k=0;k<=12;k++){const a=a0-beam/2+beam*k/12;q=this.toScreen(u.x+Math.cos(a)*range,u.y+Math.sin(a)*range);P.lineTo(q.x,q.y);}P.closePath();if(ir)cones.push([u,range,beam,a0]);}
+    if(nb){ctx.save();ctx.fillStyle='rgba(175,255,110,.11)';ctx.fill(bino,'nonzero');ctx.restore();}
     if(!cones.length)return;
     const cv=this.canvas,Wc=cv.width,Hc=cv.height;ctx.save();ctx.clip(path,'nonzero');
     ctx.globalCompositeOperation='saturation';ctx.fillStyle='#808080';ctx.fillRect(0,0,Wc,Hc);          // le noir et blanc
