@@ -7,6 +7,6 @@ main(async({run,wait})=>{await wait(1500);await run(`(async()=>{const d=await (a
   const out=await run(`(async()=>{const THREE=await import('./js/lib/three.module.js');const g3=view.g3;const cv=view.canvas;const R=cv.getBoundingClientRect();const res=[];
     for(const [px,py] of ${process.env.PTS}){const nd=new THREE.Vector2((px-R.left)/R.width*2-1,-((py-R.top)/R.height*2-1));const rc=new THREE.Raycaster();rc.setFromCamera(nd,g3.cam);
       const e=g3.blds.get(${at[0]});const hits=rc.intersectObjects(g3.scene.children,true).filter(h=>h.object.visible);if(!hits.length){res.push([px,py,'rien']);continue;}const h=hits[0];const m=h.object;const inv=m.matrixWorld.clone().invert();const p=h.point.clone().applyMatrix4(inv);
-      let o=m,inM=false;while(o){if(o===e.g)inM=true;o=o.parent;}res.push([px,py,inM?'MOULIN':(m.isInstancedMesh?'instances:'+(m.name||m.geometry?.type)+'#'+h.instanceId:(m.name||m.type)),+p.x.toFixed(3),+p.y.toFixed(3),+p.z.toFixed(3),h.faceIndex]);}return JSON.stringify(res);})()`);
+      let o=m,inM=false;while(o){if(o===e.g)inM=true;o=o.parent;}const pk=m.isInstancedMesh?Object.entries(view.g3.pools).find(([k,p])=>p.mesh===m)?.[0]:null;res.push([px,py,inM?'MOULIN':(m.isInstancedMesh?'pool:'+pk+'#'+h.instanceId:(m.name||m.type)),+p.x.toFixed(3),+p.y.toFixed(3),+p.z.toFixed(3),h.faceIndex]);}return JSON.stringify(res);})()`);
   console.log(out);
 },{w:900,h:700,out:path.join(__dirname,'moulin')});
