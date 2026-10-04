@@ -10,7 +10,7 @@ import {T,DAY,ORE_COL,CARRY,BUILDINGS} from './data.js';
 import {gunModel} from './gun3d.js';
 import {layout} from './gunart.js';
 import {VEHDEF} from './vehicules.js';
-import {buildingModels} from './bldg3d.js';
+import {buildingModels,aztecModels} from './bldg3d.js';
 import {bunkerModels,bunkerDoorGeo,bunkerRoofGeo} from './bunker3d.js';
 import {bargeModel,bateauModel,grandeBargeModel} from './barge3d.js';
 import {deckSlots,MEU_R} from './naval.js';
@@ -179,7 +179,7 @@ export class Scene3D{
     this.booms=[];this.boomGeo={ball:new THREE.IcosahedronGeometry(1,2),ring:new THREE.RingGeometry(.86,1,56).rotateX(-PI/2),dome:new THREE.SphereGeometry(1,16,8,0,PI*2,0,PI/2)};
     this.pools.fusil=mk('gewehr_43_rifle',{cap:1500});this.pools.mg=mk('heavy_machine_gun',{cap:200});
     for(let k=0;k<3;k++){const p=new Pool(boulder(k+1),{cap:1400});this.pools['rock'+k]=p;this.scene.add(p.mesh);}
-    this.M[':tour']={ext:[.9,1.8,.9],geo:TOWER_GEO()};Object.assign(this.M,buildingModels(),bunkerModels());this.M[':barge']=bargeModel();this.M[':grande_barge']=grandeBargeModel();this.M[':bateau_bee']=bateauModel();this.M[':barge_chantier']={ext:this.M[':barge'].ext,geo:this.M[':barge'].full};this.M[':grande_barge_chantier']={ext:this.M[':grande_barge'].ext,geo:this.M[':grande_barge'].full};this.M[':bateau_chantier']={ext:this.M[':bateau_bee'].ext,geo:this.M[':bateau_bee'].geo};this.doorGeo=bunkerDoorGeo();this.doorMat=new THREE.MeshStandardMaterial({color:0x50565a,roughness:.7,metalness:.4});
+    this.M[':tour']={ext:[.9,1.8,.9],geo:TOWER_GEO()};Object.assign(this.M,buildingModels(),aztecModels(),bunkerModels());this.M[':barge']=bargeModel();this.M[':grande_barge']=grandeBargeModel();this.M[':bateau_bee']=bateauModel();this.M[':barge_chantier']={ext:this.M[':barge'].ext,geo:this.M[':barge'].full};this.M[':grande_barge_chantier']={ext:this.M[':grande_barge'].ext,geo:this.M[':grande_barge'].full};this.M[':bateau_chantier']={ext:this.M[':bateau_bee'].ext,geo:this.M[':bateau_bee'].geo};this.doorGeo=bunkerDoorGeo();this.doorMat=new THREE.MeshStandardMaterial({color:0x50565a,roughness:.7,metalness:.4});
     for(const [res,name] of Object.entries(OUTCROP_MODEL)){this.pools['ore_'+res]=mk(name,{cap:300});}
     this.pools.jeep=mk('vintage_military_jeep_logistic_unarmed',{cap:40});this.pools.loco=mk('ww2_locomotive',{cap:20});this.pools.wagon=mk('ww2_wagon',{cap:200});
     this.ok=true;
@@ -379,8 +379,8 @@ export class Scene3D{
     const seen=new Set();
     for(const b of s.buildings){const [w,h]=W.sizeOf(b);if(b.i+w<i0-6||b.i>i1+6||b.j+h<j0-6||b.j>j1+6)continue;
       const fog=s.fog!==false;if(fog&&b.f==='beee'&&!view.fxVisible(b.i+w/2,b.j+h/2,b.f))continue;
-      /* (V12.5) le centre-ville meumeu est une pyramide aztèque ; celui des Bèè garde son hôtel de ville */
-      const def=(b.k==='centre'&&b.f==='meumeu'?[':pyramide',1.0,0]:BUILDING_MODEL[b.k])||(BUILDINGS[b.k]?.bunker?[':bk_'+BUILDINGS[b.k].bunker+'_'+(b.rot||0),1,0]:null);if(!def)continue;seen.add(b.id);
+      /* (V12.5) les bâtiments meumeu en style aztèque (le centre-ville : la pyramide) ; ceux des Bèè gardent les leurs */
+      const def=(b.f==='meumeu'&&(b.k==='centre'?[':pyramide',1.0,0]:this.M[':az_'+b.k]&&[':az_'+b.k,1.0,0])||BUILDING_MODEL[b.k])||(BUILDINGS[b.k]?.bunker?[':bk_'+BUILDINGS[b.k].bunker+'_'+(b.rot||0),1,0]:null);if(!def)continue;seen.add(b.id);
       let e=this.blds.get(b.id);const sig=def[0]+'|'+w+'x'+h+'|'+(b.rot||0);   /* (le modèle choisi : le centre change de modèle avec sa faction) */if(!e||e.sig!==sig){if(e)this.scene.remove(e.g);const g=this.buildingMesh(b,def,[w,h]);if(!g)continue;
         if(BUILDINGS[b.k]?.bunker){const PL=W.bunkerPlanOf(b);g.userData.doors=PL.doors.map(([da,dc])=>{const dm=new THREE.Mesh(this.doorGeo,this.doorMat);dm.position.set(da+.5-PL.w/2,0,dc+.5-PL.h/2);if('#ED'.includes(PL.at(da,dc-1))||'#ED'.includes(PL.at(da,dc+1)))dm.rotation.y=Math.PI/2;dm.castShadow=true;g.add(dm);return {key:(b.j+dc)*N+b.i+da,mesh:dm};});
           // le toit : opaque (il cache l'intérieur) ; presque transparent tant que nos unités y sont (voir plus bas)

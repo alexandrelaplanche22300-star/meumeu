@@ -179,6 +179,52 @@ const MAKERS={
     for(const x of [-.35,.25]){B.box(x,.08,D*.38,.18,.03,.5,0xd8d0b8);for(const dx of [-.08,.08])B.box(x+dx,.03,D*.38,.02,.06,.5,PAL.boisSombre);}return B.geo();},
 };
 
+// (V12.5, demande du joueur) les bâtiments meumeu en style aztèque : des terrasses à degrés (talus incliné, panneau droit, cordon clair), un escalier
+// sur la façade (+Z) dès deux terrasses, et au sommet le corps du bâtiment, tout en pierre, sans couleurs ; un détail dit ce qu'il fait (cheminée,
+// silo, puits de mine, portique de gare, champs, croix de l'hôpital…). Les Bèè gardent leurs bâtiments ; le moulin et la tente gardent les leurs.
+const AZ={L:0xcdb68a,Ls:0xa8936a,Lt:0xe0cfa4,Sb:0x8a7a5c,dark:0x2e2822,bois:0x7a5a38,vert:0x6f8a3c};
+// les terrasses : n niveaux de h, de la taille de l'empreinte (W × D) au plus haut (×k) ; rend le dessus {y, w, d, z}
+function azBase(B,W,D,n,h=.22,k=.7){let y=.05,w=W*.94,d=D*.94,z=0;B.box(0,0,0,W,.05,D,0xb9ad8e);
+  for(let i=0;i<n;i++){const f=n>1?1-(1-k)*i/(n-1):1,ww=W*.94*f,dd=D*.94*f,zz=-D*.03*i;
+    {const g=new THREE.CylinderGeometry(.5,.5,h*.42,4,1);g.rotateY(PI/4);g.scale(ww*1.41/ .99,1,dd*1.41/.99);g.translate(0,y+h*.21,zz);B.add(g,AZ.Ls);}
+    B.box(0,y+h*.42,zz,ww*.94,h*.5,dd*.94,AZ.L);B.box(0,y+h*.92,zz,ww*.98,h*.08,dd*.98,AZ.Lt);y+=h;w=ww*.9;d=dd*.9;z=zz;}
+  if(n>=2){const sw=Math.min(W,D)*.22,zf=D*.94/2+.02,zb=z+d/2,M=4*n,rs=(y-.05)/M,run=(zf-zb)/M;for(let i=0;i<M;i++){const fz=zf-i*run;B.box(0,.05+i*rs,(fz+zb)/2,sw,rs,fz-zb,i%2?AZ.Lt:0xd8c69a);}
+    for(const sx of [-1,1])B.rod([sx*(sw/2+.05),.1,zf],[sx*(sw/2+.05),y,zb],.05,AZ.Ls);}
+  return {y,w,d,z};}
+// le corps : un bloc de pierre, un cordon, une corniche ; une porte sombre en façade si `door`
+function azBlock(B,x,y,z,w,h,d,door=true){B.box(x,y,z,w,h,d,AZ.L);B.box(x,y+h*.5,z,w*1.02,.04,d*1.02,AZ.Lt);B.box(x,y+h,z,w*1.06,.05,d*1.06,AZ.Lt);B.box(x,y+h+.05,z,w*.88,.05,d*.84,AZ.Ls);
+  if(door)B.box(x,y,z+d/2+.005,Math.min(.24,w*.3),h*.55,.03,AZ.dark);}
+// la frise à degrés (xicalcoliuhqui) le long de la façade
+const azFret=(B,x,y,z,w)=>{const n=Math.max(3,Math.round(w/.18));for(let i=0;i<n;i++)B.box(x-w/2+(i+.5)*w/n,y,z,w/n*.55,.05+.04*(i%2),.03,AZ.Lt);};
+const azChimney=(B,x,y,z,h=.5)=>{B.box(x,y,z,.16,h,.16,AZ.Sb);B.box(x,y+h,z,.2,.04,.2,AZ.Ls);B.box(x,y+h+.04,z,.1,.02,.1,AZ.dark);};
+const AZTEC={
+  maison:(W,D)=>{const B=new Build(),t=azBase(B,W,D,1,.16);azBlock(B,0,t.y,t.z-.05,W*.6,.45,D*.55);azFret(B,0,t.y+.38,t.z-.05+D*.28,W*.5);return B.geo();},
+  camp:(W,D)=>{const B=new Build(),t=azBase(B,W,D,1,.1);for(const [x,z] of [[-.35,-.3],[.3,-.25],[-.25,.25]])B.box(x,t.y,z,.3,.22,.3,AZ.bois);B.box(.32,t.y,.28,.34,.14,.3,AZ.Ls);B.box(.32,t.y+.14,.28,.24,.1,.2,AZ.Lt);return B.geo();},
+  grenier:(W,D)=>{const B=new Build(),t=azBase(B,W,D,1,.16);B.cyl(0,t.y,t.z,W*.3,W*.28,.6,AZ.L,12);B.cyl(0,t.y+.3,t.z,W*.31,W*.31,.04,AZ.Lt,12);B.cone(0,t.y+.6,t.z,W*.34,.35,AZ.Ls,12);B.box(0,t.y,t.z+W*.28,.18,.3,.04,AZ.dark);return B.geo();},
+  ferme:(W,D)=>{const B=new Build(),t=azBase(B,W,D,1,.1);azBlock(B,-W*.22,t.y,-D*.22,W*.42,.4,D*.38);
+    for(let r=0;r<4;r++)B.box(W*.2,t.y,-D*.32+r*D*.18,W*.42,.06,D*.11,AZ.vert);for(let r=0;r<3;r++)B.box(-W*.2,t.y,D*.12+r*D*.13,W*.42,.06,D*.08,AZ.vert);return B.geo();},
+  atelier:(W,D)=>{const B=new Build(),t=azBase(B,W,D,1,.16);azBlock(B,0,t.y,t.z-.08,W*.7,.5,D*.55);azChimney(B,W*.22,t.y+.55,t.z-.15);return B.geo();},
+  four:(W,D)=>{const B=new Build(),t=azBase(B,W,D,1,.16);B.cyl(0,t.y,t.z,W*.32,W*.26,.45,AZ.L,10);B.dome(0,t.y+.45,t.z,W*.26,AZ.Ls);azChimney(B,0,t.y+.6,t.z,.3);B.box(0,t.y,t.z+W*.3,.2,.2,.04,0x7a3a1e);return B.geo();},
+  mine:(W,D)=>{const B=new Build(),t=azBase(B,W,D,1,.12);B.box(0,t.y,t.z+.05,W*.4,.03,D*.4,AZ.dark);
+    for(const sx of [-1,1])B.box(sx*W*.22,t.y,t.z+.05,.1,.55,.1,AZ.Sb);B.box(0,t.y+.55,t.z+.05,W*.54,.1,.12,AZ.Sb);B.box(W*.32,t.y,-D*.3,.3,.18,.3,0x6a6660);B.box(W*.3,t.y+.18,-D*.3,.18,.1,.18,0x7a7670);return B.geo();},
+  entrepot:(W,D)=>{const B=new Build(),t=azBase(B,W,D,1,.18);azBlock(B,0,t.y,t.z-.05,W*.82,.6,D*.62,false);for(const x of [-.3,0,.3])B.box(x*W,t.y,t.z-.05+D*.31+.005,.22,.36,.03,AZ.dark);azFret(B,0,t.y+.52,t.z-.05+D*.31+.01,W*.78);return B.geo();},
+  gare:(W,D)=>{const B=new Build(),t=azBase(B,W,D,1,.14);azBlock(B,-W*.15,t.y,-D*.22,W*.5,.5,D*.4);
+    for(let i=0;i<5;i++)B.box(-W*.42+i*W*.21,t.y,D*.22,.08,.5,.08,AZ.L);B.box(0,t.y+.5,D*.22,W*.92,.06,D*.3,AZ.Lt);return B.geo();},
+  caserne:(W,D)=>{const B=new Build(),t=azBase(B,W,D,3,.18,.62);azBlock(B,0,t.y,t.z-.04,t.w*.86,.45,t.d*.7);azFret(B,0,t.y+.37,t.z-.04+t.d*.35+.01,t.w*.8);return B.geo();},
+  caserne_elite:(W,D)=>{const B=new Build(),t=azBase(B,W,D,3,.2,.6);for(const sx of [-1,1])azBlock(B,sx*t.w*.24,t.y,t.z-.04,t.w*.4,.55,t.d*.7);azFret(B,0,t.y+.05,t.z+t.d*.4,t.w*.9);return B.geo();},
+  arsenal:(W,D)=>{const B=new Build(),t=azBase(B,W,D,2,.16,.75);azBlock(B,0,t.y,t.z-.05,t.w*.85,.42,t.d*.75);azChimney(B,-t.w*.25,t.y+.47,t.z-.1,.3);return B.geo();},
+  armurerie:(W,D)=>{const B=new Build(),t=azBase(B,W,D,2,.16,.75);azBlock(B,0,t.y,t.z-.05,t.w*.85,.42,t.d*.75);azFret(B,0,t.y+.34,t.z-.05+t.d*.38,t.w*.8);return B.geo();},
+  manufacture:(W,D)=>{const B=new Build(),t=azBase(B,W,D,2,.18,.78);azBlock(B,0,t.y,t.z-.05,t.w*.9,.55,t.d*.75);for(const x of [-.3,.3])azChimney(B,x*t.w,t.y+.6,t.z-.15,.45);return B.geo();},
+  fonderie:(W,D)=>{const B=new Build(),t=azBase(B,W,D,1,.18);azBlock(B,-W*.1,t.y,t.z-.05,W*.6,.55,D*.6);azChimney(B,W*.3,t.y,-D*.2,1.0);B.box(W*.32,t.y,D*.25,.3,.12,.3,0x7a3a1e);return B.geo();},
+  poudrerie:(W,D)=>{const B=new Build(),t=azBase(B,W,D,1,.14);azBlock(B,0,t.y,t.z-.08,W*.6,.42,D*.5);for(const [x,z] of [[-.32,.3],[.32,.3]])B.cyl(x*W,t.y,z*D,.1,.1,.22,AZ.Sb,8);return B.geo();},
+  garage:(W,D)=>{const B=new Build(),t=azBase(B,W,D,1,.16);azBlock(B,0,t.y,t.z-.1,W*.8,.7,D*.6,false);for(const x of [-.22,.22])B.box(x*W,t.y,t.z-.1+D*.3+.005,W*.3,.5,.03,AZ.dark);azFret(B,0,t.y+.62,t.z-.1+D*.3+.01,W*.76);return B.geo();},
+  hopital:(W,D)=>{const B=new Build(),t=azBase(B,W,D,2,.16,.75);azBlock(B,0,t.y,t.z-.05,t.w*.85,.5,t.d*.72);const zf=t.z-.05+t.d*.36+.02;B.box(0,t.y+.18,zf,.26,.07,.03,AZ.Lt).box(0,t.y+.1,zf,.07,.24,.03,AZ.Lt);return B.geo();},
+  archives:(W,D)=>{const B=new Build(),t=azBase(B,W,D,2,.16,.75);azBlock(B,0,t.y,t.z-.08,t.w*.75,.5,t.d*.6);for(let i=0;i<4;i++)B.box(-t.w*.3+i*t.w*.2,t.y,t.z-.08+t.d*.36,.07,.5,.07,AZ.Lt);return B.geo();},
+  labo:(W,D)=>{const B=new Build(),t=azBase(B,W,D,2,.16,.75);azBlock(B,0,t.y,t.z-.05,t.w*.8,.45,t.d*.7);B.cyl(t.w*.25,t.y+.5,t.z-.1,.2,.22,.12,AZ.L,12);B.dome(t.w*.25,t.y+.62,t.z-.1,.2,AZ.Ls);return B.geo();},
+};
+// les modèles aztèques, prêts pour la scène : { ':az_nom': {ext, geo} } ; le centre-ville, c'est la pyramide
+export function aztecModels(){const out={};for(const [k,mk] of Object.entries(AZTEC)){const [W,D]=BUILDINGS[k]?.size||[2,2];const geo=mk(W,D);const b=geo.boundingBox;out[':az_'+k]={ext:[b.max.x-b.min.x,b.max.y,b.max.z-b.min.z],geo};}return out;}
+
 // les géométries et leurs mesures, prêtes pour la scène : { nom: {ext:[largeur,hauteur,profondeur], geo} }
 export function buildingModels(){const out={};for(const [k,mk] of Object.entries(MAKERS)){const [W,D]=BUILDINGS[k==='pyramide'?'centre':k]?.size||[2,2];   /* (la pyramide : l'empreinte du centre-ville) */const geo=mk(W,D);const b=geo.boundingBox;out[':'+k]={ext:[b.max.x-b.min.x,b.max.y,b.max.z-b.min.z],geo};}return out;}
 export const BUILDING_KEYS=Object.keys(MAKERS);
