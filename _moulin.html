@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Contrôle du moulin</title>
+<style>body{margin:0;background:#20232a;color:#ddd;font:13px sans-serif}#g{display:grid;grid-template-columns:repeat(4,1fr);gap:2px}canvas{width:100%;display:block;background:#3a3f48}#info{padding:4px 8px}</style></head>
+<body><div id="info"></div><div id="g"></div>
+<script type="module">
+// Page de contrôle (dev, exclue de la construction) : la pièce « tour » du moulin seule, sous quatre angles, les triangles choisis par la règle en rouge.
+// (V12.5) appliquée une fois à assets3d/windmill.json (522 triangles retirés : les deux ailes basses, la racine des ailes hautes et le moyeu du jeu d'ailes
+// d'origine, restés dans la tour à la conversion — ils dépassaient du toit, « détachés », en plus des ailes faites par le code) :
+//   (()=>{const z=Math.abs(t.cz),P=y=>y<.34?.16:y<.38?.18:y<.42?.155:y<.46?.13:y<.5?.08:.045;const lo=t.cx<-.09&&z>.04&&t.cy>.12&&Math.abs(t.cy-(.454-.95*z))/1.379<.085,hi=t.cx<-.09&&z>.04&&t.cy<.6&&Math.abs(t.cy-(.454+.78*z))/1.264<.07,hub=t.cx<-.06&&z<.1&&t.cy>.28&&t.cy<.62&&t.r>P(t.cy)+.005;return lo||hi||hub;})()
+// La règle : #r=<expression JS sur t = {cx,cy,cz, nx,ny,nz, r}> (le centre du triangle, sa normale, son rayon horizontal).
+import * as THREE from './js/lib/three.module.js';
+const J=await (await fetch('assets3d/windmill.json')).json();
+const part=J.parts.find(p=>p.n===(new URLSearchParams(location.search).get('p')||'tour'));
+const B=s=>{const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u.buffer;};
+const p=new Int16Array(B(part.p)),idx=new Uint16Array(B(part.i)),k=J.half/32767;const V=i=>[p[3*i]*k,p[3*i+1]*k,p[3*i+2]*k];
+const rule=new Function('t','return '+(decodeURIComponent(location.hash.replace(/^#r=/,''))||'false'));
+const pos=[],col=[];let n=0;
+for(let t=0;t<idx.length/3;t++){const v=[0,1,2].map(c=>V(idx[3*t+c]));const c=[0,1,2].map(a=>(v[0][a]+v[1][a]+v[2][a])/3);
+  const e1=v[1].map((x,a)=>x-v[0][a]),e2=v[2].map((x,a)=>x-v[0][a]);let nn=[e1[1]*e2[2]-e1[2]*e2[1],e1[2]*e2[0]-e1[0]*e2[2],e1[0]*e2[1]-e1[1]*e2[0]];const L=Math.hypot(...nn)||1;nn=nn.map(x=>x/L);
+  const sel=rule({cx:c[0],cy:c[1],cz:c[2],nx:nn[0],ny:nn[1],nz:nn[2],r:Math.hypot(c[0],c[2])});if(sel)n++;if(sel&&new URLSearchParams(location.search).get('cut'))continue;   // (?cut=1 : retirés au lieu d'être rougis)
+  for(const q of v){pos.push(...q);col.push(...(sel?[1,.1,.1]:[.78,.76,.72]));}}
+const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setAttribute('color',new THREE.Float32BufferAttribute(col,3));geo.computeVertexNormals();
+document.getElementById('info').textContent=`pièce ${part.n} · ${idx.length/3} triangles · ${n} choisis (rouge) · règle : ${decodeURIComponent(location.hash.replace(/^#r=/,''))||'—'}`;
+for(const yaw of [0,Math.PI/2,Math.PI,3*Math.PI/2,0,Math.PI/2,Math.PI,3*Math.PI/2].map((y,i)=>[y,i<4?.45:1.2])){const cv=document.createElement('canvas');cv.width=400;cv.height=400;document.getElementById('g').appendChild(cv);
+  const R=new THREE.WebGLRenderer({canvas:cv,antialias:true});const S=new THREE.Scene();S.add(new THREE.HemisphereLight(0xffffff,0x444444,1.1));const D=new THREE.DirectionalLight(0xffffff,.9);D.position.set(1,2,1.5);S.add(D);
+  S.add(new THREE.Mesh(geo,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide,flatShading:true})));
+  const C=new THREE.OrthographicCamera(-.4,.4,.4,-.4,.01,10);const [a,el]=yaw;C.position.set(Math.cos(a)*2*Math.cos(el),.3+2*Math.sin(el),Math.sin(a)*2*Math.cos(el));C.lookAt(0,.3,0);R.render(S,C);}
+window.__done=true;
+</script></body></html>
