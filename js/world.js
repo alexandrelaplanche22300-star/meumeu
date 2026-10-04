@@ -511,8 +511,9 @@ export class World{
     const set=(u,task)=>{u.task=task;u.path=null;u.goal=null;u.pathExact=null;u.pathWait=0;u.idleT=0;u.hold=false;u.why=null;};
     const hostile=(t.type==='unit'&&this.unit(t.id)?.f==='beee')||(t.type==='building'&&this.building(t.id)?.f==='beee')||(t.type==='wall'&&this.s.walls[t.k]?.f==='beee');
     if(hostile&&!this.atWar)this.declareWar('meumeu');
-    // un point sur l'autre rive de la mer : les soldats choisis s'embarquent sur les barges libres les plus proches et débarquent là-bas
-    if(this.G.mode==='mer'&&(t.type==='point'||t.type==='building')){const bb=t.type==='building'?this.building(t.id):null,tx=bb?bb.i+1:t.x,ty=bb?bb.j+1:t.y;const sol=us.filter(u=>u.k!=='villageois'&&!UNITS[u.k]?.medic);
+    // un point sur l'autre rive de la mer : ceux qu'on a choisis — soldats, et aussi civils (V12.5 : des villageois pour bâtir de l'autre côté, des soignants) —
+    // s'embarquent sur les barges libres les plus proches et débarquent là-bas
+    if(this.G.mode==='mer'&&(t.type==='point'||t.type==='building')){const bb=t.type==='building'?this.building(t.id):null,tx=bb?bb.i+1:t.x,ty=bb?bb.j+1:t.y;const sol=us;
       if(sol.length&&tx!=null&&sol.every(u=>(u.x<this.N/2)!==(tx<this.N/2))){const bo=this.amphiFreeBoats('meumeu',sol[0].x,sol[0].y,90).slice(0,Math.ceil(sol.length/20));const R=this.amphiLaunch('meumeu',sol,bo,tx,ty);return R.ok?{ok:true,text:R.text}:R;}}
     if(t.type==='vehicle'){const v=this.s.vehicles.find(o=>o.id===t.id);if(!v||v.hp<=0)return {ok:false,why:['véhicule hors d’usage']};if(v.f!=='meumeu')return {ok:false,why:['pas un des nôtres']};
       const V=VEHDEF[v.k],s=this.vehSeats(v),room=(s.cond?0:1)+V.places.servants-s.serv+V.places.passagers-s.pass;if(room<=0)return {ok:false,why:['plus de place à bord']};

@@ -16,11 +16,10 @@ const have=()=>W.have('meumeu',g.i+1,g.j+1);const fill=(k,n)=>{cap.stock[k]=(cap
 const run=(h,each)=>{for(let t=0;t<h;t+=.025){try{W.update(.025);}catch(e){errs++;if(errs<3)console.log('ERREUR',e.stack);return;}if(each?.())return;}};
 const delta=(a,b,cost)=>Object.keys(cost).map(k=>`${k} ${+((a[k]||0)-(b[k]||0)).toFixed(2)}/${cost[k]}`).join(' · ');
 const exact=(a,b,cost)=>Object.entries(cost).every(([k,n])=>Math.abs(((a[k]||0)-(b[k]||0))-n)<1e-6);
-// G3 d'abord : sans canon
-for(const [k,n] of Object.entries(VEHDEF.char.cout))if(!k.startsWith('a:canon'))fill(k,n+5);
-{const h0=have();const r=W.train(g,'char');const h1=have();P(!r.ok&&/canon/i.test((r.why||[]).join(' '))&&exact(h0,h1,{}),'G3. sans canon de char : refusé, la raison le dit, rien n’est prélevé',`${r.ok?'accepté':'refusé : '+(r.why||[]).join(', ')}`);}
+// G3 (V12.5) : un engin ne demande que des matières — ses armes viennent avec lui, aucune arme préfabriquée n'est prise au stock
+P(!Object.keys(VEHDEF.char.cout).some(k=>k.startsWith('a:'))&&Object.values(VEHDEF).every(V=>!Object.keys(V.cout||{}).some(k=>k.startsWith('a:'))),'G3. aucun engin ne coûte d’arme préfabriquée',Object.entries(VEHDEF).filter(([,V])=>Object.keys(V.cout||{}).some(k=>k.startsWith('a:'))).map(([k])=>k).join(', ')||'aucun');
 // G1, G2 : le char
-fill('a:canon_char_mle1',2);
+for(const [k,n] of Object.entries(VEHDEF.char.cout))fill(k,n+5);
 {const h0=have();const r=W.train(g,'char');const h1=have();const C=VEHDEF.char.cout;
   P(r.ok&&exact(h0,h1,C),'G1. le char : commande acceptée, le stock baisse exactement du coût',`${r.ok?'acceptée':'refusée : '+r.why}` + ` · ${delta(h0,h1,C)}`);
   const n0=W.s.vehicles.length,t0=W.s.t;let v=null;run(80,()=>{v=W.s.vehicles.slice(n0).find(o=>o.k==='char');return !!v;});const dt=W.s.t-t0;

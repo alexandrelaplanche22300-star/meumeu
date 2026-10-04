@@ -4,8 +4,8 @@
 <body><div id="info"></div><div id="g"></div>
 <script type="module">
 // Page de contrôle (dev, exclue de la construction) : un modèle de assets3d (?m=nom, ?p=pièce), sous quatre angles et de plus haut, ses couleurs de sommets,
-// les triangles choisis par la règle en rouge (#r=<expression JS sur t = {cx,cy,cz, nx,ny,nz, r, H, W, D}> : le centre du triangle, sa normale, son rayon
-// horizontal, et la hauteur, la largeur, la profondeur du modèle) ; ?cut=1 : les triangles choisis sont retirés au lieu d'être rougis.
+// les triangles choisis par la règle en rouge (#r=<expression JS sur t = {cx,cy,cz, nx,ny,nz, r, H, W, D, cr,cg,cb}> : le centre du triangle, sa normale, son rayon
+// horizontal, la hauteur, la largeur, la profondeur du modèle, la couleur moyenne de ses sommets entre 0 et 1) ; ?cut=1 : les triangles choisis sont retirés au lieu d'être rougis.
 // Repère : y vers le haut ; le devant d'une peluche est +Z (son lacet vaut atan2(fx, fy) dans scene3d.js).
 import * as THREE from './js/lib/three.module.js';
 const Q=new URLSearchParams(location.search),name=Q.get('m')||'meumeu';
@@ -18,7 +18,8 @@ const rule=new Function('t','return '+(decodeURIComponent(location.hash.replace(
 const pos=[],col=[];let n=0;
 for(let t=0;t<idx.length/3;t++){const v=[0,1,2].map(c=>V(idx[3*t+c]));const c=[0,1,2].map(a=>(v[0][a]+v[1][a]+v[2][a])/3);
   const e1=v[1].map((x,a)=>x-v[0][a]),e2=v[2].map((x,a)=>x-v[0][a]);let nn=[e1[1]*e2[2]-e1[2]*e2[1],e1[2]*e2[0]-e1[0]*e2[2],e1[0]*e2[1]-e1[1]*e2[0]];const L=Math.hypot(...nn)||1;nn=nn.map(x=>x/L);
-  const sel=rule({cx:c[0],cy:c[1],cz:c[2],nx:nn[0],ny:nn[1],nz:nn[2],r:Math.hypot(c[0],c[2]),H:Ht,W:Wd,D:Dp});if(sel)n++;if(sel&&Q.get('cut'))continue;
+  const cc=c8?[0,1,2].map(q=>(c8[3*idx[3*t]+q]+c8[3*idx[3*t+1]+q]+c8[3*idx[3*t+2]+q])/765):[.8,.8,.8];
+  const sel=rule({cx:c[0],cy:c[1],cz:c[2],nx:nn[0],ny:nn[1],nz:nn[2],r:Math.hypot(c[0],c[2]),H:Ht,W:Wd,D:Dp,cr:cc[0],cg:cc[1],cb:cc[2]});if(sel)n++;if(sel&&Q.get('cut'))continue;
   for(let q=0;q<3;q++){pos.push(...v[q]);const vi=idx[3*t+q];col.push(...(sel?[1,.1,.1]:c8?[c8[3*vi]/255,c8[3*vi+1]/255,c8[3*vi+2]/255]:[.78,.76,.72]));}}
 const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setAttribute('color',new THREE.Float32BufferAttribute(col,3));geo.computeVertexNormals();
 document.getElementById('info').textContent=`${name}${J.parts?' · pièce '+src.n:''} · ${idx.length/3} triangles · ${n} choisis (rouge) · ext ${J.ext.map(x=>x.toFixed(3)).join(' × ')} · règle : ${decodeURIComponent(location.hash.replace(/^#r=/,''))||'—'}`;
