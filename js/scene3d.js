@@ -23,6 +23,17 @@ const SKIN_ARM={
   meumeu_soldat:(x,y,z,r,g,b,W,H)=>x<-W*.27&&y>H*.28&&y<H*.68,
   plush_cow_knight:(x,y,z,r,g,b)=>x<-.05&&x>-.16&&y>.15&&y<.3&&z>.08&&r>.6&&Math.abs(r-b)>.05,
   goat_plush_toy:(x,y,z,r,g,b,W,H)=>x<-W*.23&&y>H*.25&&y<H*.63};   // (V12.5 : les Bèè aussi tendent le bras droit avec une arme d'épaule)
+// (V12.5) boucher les ouvertures d'un maillage indexé : chaque boucle d'arêtes de bord (une arête d'un seul triangle) qui touche `edgeSet` reçoit un
+// sommet au centre de la boucle (position, couleur, coordonnées de texture moyennes) et un éventail de triangles — l'épaule d'où le bras a été détaché
+function capHoles(geo,tri,edgeSet,rep){const cnt=new Map(),dir=new Map(),key=(a,b)=>a<b?a+'_'+b:b+'_'+a;
+  for(let t=0;t<tri.length;t+=3)for(let c=0;c<3;c++){const a=rep[tri[t+c]],b=rep[tri[t+(c+1)%3]],k=key(a,b);cnt.set(k,(cnt.get(k)||0)+1);dir.set(k,[a,b]);}
+  /* (une arête suivie une seule fois : un sommet peut ouvrir plusieurs boucles) */
+  const next=new Map();for(const [k,n] of cnt)if(n===1&&(!edgeSet||edgeSet.has(k))){const [a,b]=dir.get(k);(next.get(b)||next.set(b,[]).get(b)).push(a);}   // (sens inverse : le bouchon fait face au dehors)
+  const loops=[];for(const s0 of next.keys())while(next.get(s0)?.length){const L=[s0];let v=next.get(s0).pop();while(v!=null&&v!==s0&&L.length<5000){L.push(v);const o=next.get(v);v=o?.length?o.pop():null;}if(L.length>=3)loops.push(L);}
+  if(!loops.length)return tri;const A=geo.attributes,names=Object.keys(A),n0=A.position.count,add=loops.length;
+  for(const nm of names){const at=A[nm],sz=at.itemSize,arr=new at.array.constructor((n0+add)*sz);arr.set(at.array);
+    loops.forEach((L,q)=>{for(let c=0;c<sz;c++){let s=0;for(const v of L)s+=at.array[v*sz+c];arr[(n0+q)*sz+c]=s/L.length;}});geo.setAttribute(nm,new THREE.BufferAttribute(arr,sz,at.normalized));}
+  const out=tri.slice();loops.forEach((L,q)=>{for(let i=0;i<L.length;i++)out.push(L[i],L[(i+1)%L.length],n0+q);});return out;}
 function skinRig(M,sel){const g=M?.geo;if(!g?.index||!sel)return null;const P=g.attributes.position,C=g.attributes.color,I=g.index.array,[W,H]=M.ext;
   const body=[],arm=[];for(let t=0;t<I.length;t+=3){let x=0,y=0,z=0,r=0,gg=0,b=0;for(let q=0;q<3;q++){const v=I[t+q];x+=P.getX(v)/3;y+=P.getY(v)/3;z+=P.getZ(v)/3;if(C){r+=C.getX(v)/3;gg+=C.getY(v)/3;b+=C.getZ(v)/3;}}
     // (les couleurs de sommets sont linéaires — LIN dans mesh3d.js ; la règle se lit en couleurs d'écran)
@@ -31,7 +42,11 @@ function skinRig(M,sel){const g=M?.geo;if(!g?.index||!sel)return null;const P=g.
   const vs=[...new Set(arm)];let top=-9;for(const v of vs)top=Math.max(top,P.getY(v));
   let px=0,py=0,pz=0,n=0;for(const v of vs)if(P.getY(v)>top-.04*H){px+=P.getX(v);py+=P.getY(v);pz+=P.getZ(v);n++;}const pivot=[px/n*.8,py/n-.02*H,pz/n];
   let far=0,hand=null;for(const v of vs){const d=Math.hypot(P.getX(v)-pivot[0],P.getY(v)-pivot[1],P.getZ(v)-pivot[2]);if(d>far){far=d;hand=[P.getX(v),P.getY(v),P.getZ(v)];}}
-  const bg=g.clone();bg.setIndex(body);const ag=g.clone();ag.translate(-pivot[0],-pivot[1],-pivot[2]);ag.setIndex(arm);
+  /* (V12.5) le bras était cousu au corps : l'épaule ouverte est bouchée, sur le corps et au haut du bras (mesuré : des trous visibles sur les Bèè) */
+  const rep=new Int32Array(P.count),pk=new Map();for(let v=0;v<P.count;v++){const k=Math.round(P.getX(v)*2e4)+','+Math.round(P.getY(v)*2e4)+','+Math.round(P.getZ(v)*2e4);if(!pk.has(k))pk.set(k,v);rep[v]=pk.get(k);}
+  const ek=(a,b)=>a<b?a+'_'+b:b+'_'+a,armE=new Set(),bodyE=new Set();for(let t=0;t<arm.length;t+=3)for(let c=0;c<3;c++)armE.add(ek(rep[arm[t+c]],rep[arm[t+(c+1)%3]]));for(let t=0;t<body.length;t+=3)for(let c=0;c<3;c++)bodyE.add(ek(rep[body[t+c]],rep[body[t+(c+1)%3]]));
+  const seam=new Set([...armE].filter(k=>bodyE.has(k)));
+  const bg=g.clone();bg.setIndex(capHoles(bg,body,seam,rep));const ag=g.clone();ag.translate(-pivot[0],-pivot[1],-pivot[2]);{let T=capHoles(ag,arm,seam,rep);for(let q=0;q<2;q++)T=capHoles(ag,T,null,new Int32Array(ag.attributes.position.count).map((_,v)=>v<rep.length?rep[v]:v));ag.setIndex(T);}   /* (le bras : toutes ses ouvertures, il est caché sous l'épaule) */
   return {body:bg,arm:{geo:ag,pivot,rest:new THREE.Vector3(hand[0]-pivot[0],hand[1]-pivot[1],hand[2]-pivot[2]),len:far}};}
 const PI=Math.PI;
 // un modèle par bâtiment : [modèle, part de l'empreinte occupée, rotation (quarts de tour), hauteur maximale en unités]
