@@ -244,7 +244,9 @@ export class Scene3D{
   // les ailes d'un moulin, dans le repère du modèle (unités du moulin converti : tour de 0,61 de haut) : axe = X, ailes dans le plan YZ,
   // longueur 0,26 (le bout passe à 0,21 au-dessus du sol), un longeron de bois et une toile tendue d'un côté
   windSails(){const G=new THREE.Group();this._wm??={bois:new THREE.MeshLambertMaterial({color:0x6b4a2e,flatShading:true}),toile:new THREE.MeshLambertMaterial({color:0xe6dcc4,flatShading:true,side:THREE.DoubleSide})};
-    const W=this._wm,hubM=new THREE.Mesh(new THREE.CylinderGeometry(.022,.022,.05,8),W.bois);hubM.rotation.z=PI/2;hubM.castShadow=true;G.add(hubM);
+    const W=this._wm,hubM=new THREE.Mesh(new THREE.CylinderGeometry(.024,.024,.05,8),W.bois);hubM.rotation.z=PI/2;hubM.castShadow=true;G.add(hubM);
+    /* (V12.5) l'arbre de couche : du cœur de la calotte jusqu'au moyeu — les ailes tiennent à la tour */
+    const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.013,.016,.15,8),W.bois);shaft.rotation.z=PI/2;shaft.position.x=-.075;shaft.castShadow=true;G.add(shaft);
     for(let k=0;k<4;k++){const arm=new THREE.Group();arm.rotation.x=k*PI/2+PI/4;
       const spar=new THREE.Mesh(new THREE.BoxGeometry(.012,.27,.012),W.bois);spar.position.set(.02,.135,0);spar.castShadow=true;arm.add(spar);
       const sail=new THREE.Mesh(new THREE.BoxGeometry(.004,.19,.055),W.toile);sail.position.set(.02,.165,.032);sail.castShadow=true;arm.add(sail);
@@ -284,7 +286,9 @@ export class Scene3D{
     // les pièces mobiles (les ailes du moulin) tournent autour de leur pivot, dans le repère du modèle
     // V12.4 : les ailes du moulin converti étaient à l'intérieur de la tour, côté opposé à la caméra (elles dépassaient du toit, « détachées ») ;
     // elles sont faites par le code : un moyeu sur la face du toit vue par la caméra (+X), quatre ailes en croix qui tournent autour de l'axe du moyeu
-    if(def[0]==='windmill'&&M.parts){const hub=new THREE.Group();hub.position.set(.135,.47,0);hub.add(this.windSails());mesh.add(hub);g.userData.spin=hub;
+    /* (V12.5) le moyeu à 0,20 devant l'axe, au milieu de la calotte (y 0,44) : le plan des ailes (x 0,22) passe devant le bord du toit (0,177), l'auvent (0,195)
+       et le socle ; le bout des ailes descend à 0,17 — avant, à 0,135, elles traversaient le toit et ne tenaient à rien */
+    if(def[0]==='windmill'&&M.parts){const hub=new THREE.Group();hub.position.set(.2,.44,0);hub.add(this.windSails());mesh.add(hub);g.userData.spin=hub;
       return g;}   // (les ailes gardent leurs matériaux : la teinte du chantier ou des ruines ne vise que les pièces à couleurs de sommets)
     if(M.parts)for(const p of M.parts){if(p===body)continue;const sub=new THREE.Mesh(p.geo,M.mat||materialOf(true));sub.castShadow=true;sub.position.set(-p.pivot[0],-p.pivot[1],-p.pivot[2]);
       const pg=new THREE.Group();pg.position.set(p.pivot[0],p.pivot[1],p.pivot[2]);pg.add(sub);mesh.add(pg);if(p.name==='ailes')g.userData.spin=pg;g.userData.subs.push(sub);}
