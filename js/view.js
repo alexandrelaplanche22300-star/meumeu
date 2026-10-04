@@ -617,9 +617,10 @@ export class View{
     for(const u of W.s.units){if(u.f!=='beee'||!(u.hp>0)||u.task?.kind!=='search'||u.task.scout||!u.task.pts)continue;
       const p=u.task.pts[u.task.i||0];if(!p)continue;const q0=this.toScreen(u.x,u.y),q1=this.toScreen(p[0],p[1]);
       ctx.save();ctx.strokeStyle='rgba(255,150,120,.55)';ctx.setLineDash([4*dpr,4*dpr]);ctx.lineWidth=1.2*dpr;ctx.beginPath();ctx.moveTo(q0.x,q0.y);ctx.lineTo(q1.x,q1.y);ctx.stroke();ctx.fillStyle='rgba(255,150,120,.9)';ctx.fillRect(q1.x-2*dpr,q1.y-2*dpr,4*dpr,4*dpr);ctx.restore();}}
-  // Le tube infrarouge : dans son faisceau, une image monochrome vert-jaune et granuleuse ; hors du faisceau, la nuit reste la nuit.
-  // La vision infrarouge de toutes nos unités : les cônes sont réunis en UN seul tracé, rempli une fois (les recouvrements ne s'additionnent pas)
-  // et grainé une fois (300 grains en tout, pas 110 par unité : à vingt lunettes le jeu ramait).
+  // Le tube infrarouge : dans son faisceau, l'image de la scène elle-même passe au filtre — désaturée, teintée vert-gris, éclaircie comme par un
+  // intensificateur, et granuleuse (un grain qui bouge à chaque image) ; hors du faisceau, la nuit reste la nuit (V12.5, demande du joueur).
+  // Les cônes de toutes nos unités sont réunis en UN seul tracé, filtré une fois (les recouvrements ne s'additionnent pas) ; le grain est une texture
+  // de bruit calculée une fois, posée en motif décalé au hasard (pas des centaines de points par image).
   drawNir(){const W=this.world;if(W.light()>=.4)return;const ctx=this.ctx,dpr=this.dpr,[i0,i1,j0,j1]=this.vis||[0,1e9,0,1e9];const path=new Path2D(),cones=[];
     for(const u of W.s.units){if(u.f!=='meumeu'||!(u.hp>0)||!u.nvOn||!((u.irLeft??0)>0))continue;
       const Wd=u.w?W.W(u.w):null,ir=Wd?.ir;const range=ir?ir.range*(1+.2*Math.log2(Wd.optic?.mag||1)):(u.bino||0);if(!range)continue;
@@ -627,9 +628,13 @@ export class View{
       const beam=(ir?.beam||43)*Math.PI/180,a0=Math.atan2(u.fy??0,u.fx??1);let q=this.toScreen(u.x,u.y);path.moveTo(q.x,q.y);
       for(let k=0;k<=12;k++){const a=a0-beam/2+beam*k/12;q=this.toScreen(u.x+Math.cos(a)*range,u.y+Math.sin(a)*range);path.lineTo(q.x,q.y);}path.closePath();cones.push([u,range,beam,a0]);}
     if(!cones.length)return;
-    ctx.save();ctx.fillStyle='rgba(175,255,110,.11)';ctx.fill(path,'nonzero');ctx.clip(path,'nonzero');
-    ctx.fillStyle='rgba(215,255,150,.55)';const per=Math.max(4,Math.floor(300/cones.length));
-    for(const [u,range,beam,a0] of cones)for(let g=0;g<per;g++){const r=Math.random()*range,a=a0+(Math.random()-.5)*beam,q=this.toScreen(u.x+Math.cos(a)*r,u.y+Math.sin(a)*r);ctx.fillRect(q.x,q.y,1.6*dpr,1.6*dpr);}
+    const cv=this.canvas,Wc=cv.width,Hc=cv.height;ctx.save();ctx.clip(path,'nonzero');
+    ctx.globalCompositeOperation='saturation';ctx.fillStyle='#808080';ctx.fillRect(0,0,Wc,Hc);          // le noir et blanc
+    ctx.globalCompositeOperation='screen';ctx.fillStyle='rgba(70,82,66,.55)';ctx.fillRect(0,0,Wc,Hc);   // l'intensificateur : la nuit s'éclaircit
+    ctx.globalCompositeOperation='color';ctx.fillStyle='rgb(128,150,118)';ctx.fillRect(0,0,Wc,Hc);       // la teinte vert-gris (la luminance est gardée)
+    if(!this._nirNoise){const n=document.createElement('canvas');n.width=n.height=192;const g=n.getContext('2d'),im=g.createImageData(192,192);
+      for(let k=0;k<im.data.length;k+=4){const v=Math.random()*255;im.data[k]=im.data[k+1]=im.data[k+2]=v;im.data[k+3]=255;}g.putImageData(im,0,0);this._nirNoise=ctx.createPattern(n,'repeat');}
+    ctx.globalCompositeOperation='overlay';ctx.globalAlpha=.42;const ox=Math.random()*192,oy=Math.random()*192;ctx.translate(-ox,-oy);ctx.fillStyle=this._nirNoise;ctx.fillRect(0,0,Wc+192,Hc+192);ctx.translate(ox,oy);   // le grain
     ctx.restore();}
   // La couronne d'équipe : un anneau-compas autour du centre des soldats sélectionnés (haut de l'écran = nord). Chaque bruit est une marque sur
   // l'anneau : sa POSITION est la direction entendue, la LARGEUR de l'arc le flou (fin = on sait, large = on ne sait pas), l'ÉPAISSEUR et
