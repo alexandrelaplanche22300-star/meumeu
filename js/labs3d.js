@@ -126,5 +126,10 @@ function bureauInterior(W,D){const B=new Build(),S=shell(B,W,D,{floor:['plank','
   return {geo:B.geo(),st,door:S.door,aisle:{z:.03}};}
 
 const MAKE={centre_recherche:centreInterior,labo:laboInterior,armurerie:bureauInterior};
-// les intérieurs, prêts pour la scène : { ':in_<bâtiment>': {ext, geo, st, door} }
-export function labInteriors(){const out={};for(const [k,mk] of Object.entries(MAKE)){const [W,D]=BUILDINGS[k].size;const m=mk(W,D);const b=m.geo.boundingBox;out[':in_'+k]={ext:[b.max.x-b.min.x,b.max.y,b.max.z-b.min.z],...m};}return out;}
+// la taille pour laquelle chaque intérieur est dessiné (V12.7 : les bâtiments ont grandi — l'intérieur est agrandi d'un seul facteur k, postes et chemins compris)
+const DESIGN={centre_recherche:[5,4],labo:[3,3],armurerie:[2,2]};
+// les intérieurs, prêts pour la scène : { ':in_<bâtiment>': {ext, geo, st, door, k} } — k : l'agrandissement (les savants aussi)
+export function labInteriors(){const out={};for(const [k,mk] of Object.entries(MAKE)){const [W0,D0]=DESIGN[k],[W,D]=BUILDINGS[k].size,K=Math.min(W/W0,D/D0);const m=mk(W0,D0);
+    m.geo.scale(K,K,K);m.geo.computeBoundingBox();const sc=p=>p&&[p[0]*K,p[1]*K];
+    for(const s of m.st){s.x*=K;s.z*=K;if(s.via)s.via=s.via.map(sc);}m.door=sc(m.door);if(m.aisle){if(m.aisle.z!=null)m.aisle.z*=K;if(m.aisle.x!=null)m.aisle.x*=K;}
+    const b=m.geo.boundingBox;out[':in_'+k]={ext:[b.max.x-b.min.x,b.max.y,b.max.z-b.min.z],...m,k:K};}return out;}

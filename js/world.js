@@ -1137,7 +1137,7 @@ export class World{
     // (en ronde il tourne la tête, en alerte il scrute partout), et la nuit son infrarouge s'il en a un (projecteur allumé, batterie chargée)
     const alerts=this.s.beee.alerts||[];
     const Lt=this.light();let gmax=Math.max(1,...act.map(u=>this.eyeProfile(u).max/Math.max(1,base)));
-    for(const o of act){const D=o.scoutRole?{scout:1.5}:UDEF(o);const civ=!o.w&&!UDEF(o).img;const Wo=o.w?this.W(o.w):null;o._civ=civ;o._eye=(D.scout||1)*(civ?.45:1)*(o.post==='couche'?.9:1);
+    for(const o of act){const D=o.scoutRole?{scout:1.5}:UDEF(o);const civ=!o.w&&!UDEF(o).img;const Wo=o.w?this.W(o.w):null;o._civ=civ;o._eye=(D.scout||1)*(civ?.45:1)*(o.post==='couche'?.9:1)*(night&&o.f==='meumeu'?1.5:1);
       // la lunette : son gain (de jour, et selon son objectif la nuit), dans un cône de ±22° autour de la visée (±35° immobile : il balaie)
       const O=Wo?.optic;o._scope=O&&O.mag>1?1+(O.day-1)*Math.max(0,Math.min(1,(Lt-.15)/.45)):1;o._scC=t-(o.moved??-9)>.05?.82:.93;gmax=Math.max(gmax,o._eye*o._scope);
       const alert=o.f==='beee'&&(o.task?.kind==='search'||alerts.some(a=>t-a.t<3&&d2(a.x,a.y,o.x,o.y)<a.r+14));o._wide=alert?2:o.task?.kind==='patrol'?1:0;

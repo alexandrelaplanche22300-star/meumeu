@@ -404,7 +404,7 @@ export class Scene3D{
       if(!f||f.b!==b.id){f={b:b.id,x:cx+M.door[0],z:cz+M.door[1],yaw:-PI/2,path:[],tx:null,tz:null,ph:0,bubSim:u.sci?.bub?.t,bubT:-1,S:null};F.set(u.id,f);}
       f.seen=now;
       if(f.tx!==tx||f.tz!==tz){f.path=this.labPath(M,f.S||{x:f.x-cx,z:f.z-cz,via:f.tx==null?[[M.door[0],M.door[1]]]:null},S||{x:tx,z:tz}).map(([x,z])=>[cx+x,cz+z]);f.tx=tx;f.tz=tz;f.S=S;}
-      let moving=false;if(f.path.length){const [px,pz]=f.path[0],dx=px-f.x,dz=pz-f.z,d=Math.hypot(dx,dz),v=.6*dtc;
+      let moving=false;if(f.path.length){const [px,pz]=f.path[0],dx=px-f.x,dz=pz-f.z,d=Math.hypot(dx,dz),v=.6*dtc*(M.k||1);
         if(d<=v){f.x=px;f.z=pz;f.path.shift();}else{f.x+=dx/d*v;f.z+=dz/d*v;}f.ph+=Math.min(d,v)*16;moving=d>1e-4;if(d>1e-4)f.yaw+=wrap(Math.atan2(dx,dz)-f.yaw)*Math.min(1,dtc*10);}
       // la bulle d'un évènement (eurêka, accident, idée, projet fini) : le moment, en temps réel, où on l'a vue paraître
       const bub=u.sci?.bub;if(bub&&bub.t!==f.bubSim){f.bubSim=bub.t;f.bubT=now;f.bubK=bub.k;}const ev=f.bubT>0&&now-f.bubT<2.4?f.bubK:null;
@@ -426,9 +426,9 @@ export class Scene3D{
       if(sit)sy=.78;
       if(ev==='eureka'||ev==='fini'){const k=now-f.bubT;y+=Math.abs(Math.sin(k*9))*.13*(1-k/2.4);yaw+=k*6;}
       if(ev==='accident')roll+=Math.sin(now*23+u.id)*.14;
-      const king=u.k==='reine'&&!!P.reine,sav=u.k==='savant',Hk=king?.46:sav?.42:.4,Mk=king?'meumeu_reine':sav?mod:'meumeu',sc=Hk/this.M[Mk].ext[1],pool=king?P.reine:sav?(P.chercheur||P.meumeu):P.meumeu;
-      pool.add(f.x,.08+y,f.z,yaw,sc,sc*sy,sc,{tint:king||sav?null:0xf4efe2,ph:f.ph,amp:moving?1:0,pitch,roll});
-      out.push({u,b:b.id,x:f.x,z:f.z,top:.08+y+Hk*sy+.03,act,ev,k:S?.k||null,moving,spk:!!p.spk});}}
+      const king=u.k==='reine'&&!!P.reine,sav=u.k==='savant',Hk=(king?.46:sav?.42:.4)*(M.k||1),Mk=king?'meumeu_reine':sav?mod:'meumeu',sc=Hk/this.M[Mk].ext[1],pool=king?P.reine:sav?(P.chercheur||P.meumeu):P.meumeu;
+      pool.add(f.x,.08*(M.k||1)+y,f.z,yaw,sc,sc*sy,sc,{tint:king||sav?null:0xf4efe2,ph:f.ph,amp:moving?1:0,pitch,roll});
+      out.push({u,b:b.id,x:f.x,z:f.z,top:.08*(M.k||1)+y+Hk*sy+.03,act,ev,k:S?.k||null,moving,spk:!!p.spk});}}
   // (V12.7) la conception, en vrai : l'arme du programme dessinée en 3D par le concepteur (gunModel) — sur la grande table du centre de recherche
   // pendant une réunion (la conception discutée : elle change à chaque vague retenue), sur l'établi du bureau d'études (le prototype en cours)
   labProps(view,b){const W=view.world,[w,h]=W.sizeOf(b),cx=b.i+w/2,cz=b.j+h/2;let p=null,at=null;
@@ -438,7 +438,7 @@ export class Scene3D{
     const key='lab|'+JSON.stringify(p);let e=this.guns.get(key);
     if(!e){try{const m=gunModel(D,{inhand:false});e={m,pool:new Pool(m.geo,{cap:4,flat:false})};this.scene.add(e.pool.mesh);}catch(err){console.warn('arme 3D (labo)',err);e={m:null,pool:null};}this.guns.set(key,e);}
     this.gunsUsed.add(e);if(!e.pool)return;const G=layout(D),bb=e.m.geo.boundingBox,ht=bb?bb.max.y-bb.min.y:100;
-    const s=Math.min(at.len/Math.max(40,G.Lw||300),.32/Math.max(10,ht));e.pool.add(cx+at.x,at.y-(bb?bb.min.y*s:0),cz+at.z,at.rot,s,s,s);}
+    const K=this.M[':in_'+b.k]?.k||1;const s=Math.min(at.len*K/Math.max(40,G.Lw||300),.32*K/Math.max(10,ht));e.pool.add(cx+at.x*K,at.y*K-(bb?bb.min.y*s:0),cz+at.z*K,at.rot,s,s,s);}
   // le chemin d'un poste à l'autre : le chemin d'accès du poste quitté (à rebours), l'allée, le chemin d'accès du nouveau poste, le poste
   labPath(M,from,to){const A=M.aisle,on=p=>A?(A.z!=null?[p[0],A.z]:[A.x,p[1]]):null,pts=[];const back=from.via?[...from.via].reverse():[];pts.push(...back);
     const ex=back.length?back[back.length-1]:[from.x,from.z],t0=to.via?.length?to.via[0]:[to.x,to.z];if(A){pts.push(on(ex),on(t0));}pts.push(...(to.via||[]),[to.x,to.z]);

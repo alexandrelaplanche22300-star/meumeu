@@ -5,7 +5,7 @@ export const SOUND_LIFE={tirs:8,explosion:10,pas:4,train:5,usine:5,mine:5,chanti
 export const PERCEPTION={
   eyeProfile(o){
     const D=o.f==='beee'?BEEE.units[o.k]:UNITS[o.k],W=o.w?this.W(o.w):null,night=this.light()<.4;
-    const civ=!o.w&&!D?.img&&!o.tower,eye=(o.tower?1.8:o.scoutRole?1.5:D?.scout||(D?.choc?1.15:1))*(civ?.45:1)*(o.h?.state==='hors'?.3:1);
+    const civ=!o.w&&!D?.img&&!o.tower,eye=(o.tower?1.8:o.scoutRole?1.5:D?.scout||(D?.choc?1.15:1))*(civ?.45:1)*(o.h?.state==='hors'?.3:1)*(night&&o.f==='meumeu'?1.5:1);   // (V12.7 : les Meumeu voient mieux la nuit)
     const O=W?.optic,blend=Math.max(0,Math.min(1,(this.light()-.15)/.45));
     const scope=O?.mag>1?1+(O.day-1)*blend:1;   // (V12.7 : la nuit, une lunette ne fait pas voir plus loin — seuls l'infrarouge et les jumelles de nuit)
     const optic=this.sight()*eye*scope;

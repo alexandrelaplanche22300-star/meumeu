@@ -120,10 +120,10 @@ export const BUILDINGS={
     why:'Un grand dépôt, sans voie : au cœur d’un quartier d’usines, au pied d’une mine. Réglez sa priorité et ses demandes : le fret le remplit.'},
   // V12.7 : le laboratoire de chimie remplace l'usine chimique chez les Meumeu — ses ouvriers produisent poudre, explosifs, incendiaires ; ses chimistes y mènent
   // les tâches de chimie des programmes (charges, chargement des obus, moteurs-fusées)
-  labo:{name:'Laboratoire de chimie',sprite:'still',size:[3,3],cost:{bois:80,pierre:90,pieces:12},hours:16,workers:3,hp:600,lab:true,factory:{coal:.15,mod:'armement'},
+  labo:{name:'Laboratoire de chimie',sprite:'still',size:[4,4],cost:{bois:80,pierre:90,pieces:12},hours:16,workers:3,hp:600,lab:true,factory:{coal:.15,mod:'armement'},
     why:'Ses ouvriers produisent la poudre des cartouches, les explosifs, le mélange incendiaire (une production à la fois) ; ses chimistes (six places) y mènent les tâches de chimie des programmes : charges propulsives, chargement des obus, explosifs nouveaux, moteurs-fusées. Loin des maisons : ça saute. Cliquez dessus : le toit s’ouvre sur la vue recherche.'},
   // V12.6 : le centre de recherche — l'école des savants, leurs bureaux, le tableau noir, la salle de réunion
-  centre_recherche:{name:'Centre de recherche',sprite:'research',size:[5,4],cost:{bois:120,pierre:140,pieces:20},hours:24,hp:900,lab:true,
+  centre_recherche:{name:'Centre de recherche',sprite:'research',size:[7,6],cost:{bois:120,pierre:140,pieces:20},hours:24,hp:900,lab:true,
     why:'On y forme les savants (un villageois, des vivres, une journée d’école) : ingénieurs, chimistes, physiciens. Les physiciens y calculent trajectoires, tables de tir, stabilité, optique ; les programmes s’y réunissent autour de la grande table, où le commandement tranche entre les propositions des savants. Dix places. Cliquez dessus : le toit s’ouvre sur la vue recherche.'},
   caserne:{name:'Caserne',sprite:'school',size:[3,3],cost:{bois:60,pierre:50},stock0:{'a:mle1':4,'m:mle1':2,vivres:60,pieces:8},hours:12,hp:800,trains:['soldat'],
     why:'On y forme ceux qu’on y envoie : ils s’entraînent, puis sortent armés d’une conception adoptée. Un soldat devient commando par son équipement : charges, tenue camouflée, jumelles, arme. Loin des dépôts, le porteur de munitions ravitaille l’escouade.'},
@@ -133,7 +133,7 @@ export const BUILDINGS={
     why:'L’usine chimique bèè : le salpêtre et le charbon, traités, broyés, mêlés — la poudre des cartouches, ou des explosifs.'},
   arsenal:{name:'Arsenal',sprite:'chem',size:[2,2],cost:{bois:40,pierre:50,pieces:10},hours:10,workers:2,hp:500,arsenal:true,factory:{coal:.25,mod:'armement'},
     why:'Les munitions d’une conception adoptée — plomb pour les balles, cuivre pour les étuis, poudre, pièces : une seule production par arsenal. Tout part en caisses au dépôt de sortie.'},
-  armurerie:{name:'Bureau d’études',sprite:'research',size:[2,2],cost:{bois:40,pierre:30,pieces:10},hours:12,hp:400,design:true,
+  armurerie:{name:'Bureau d’études',sprite:'research',size:[3,3],cost:{bois:40,pierre:30,pieces:10},hours:12,hp:400,design:true,
     why:'On y conçoit les armes : le calibre, l’ogive, la poudre, le canon, la culasse. Lancée, une conception devient un programme : ses ingénieurs (cinq places) la présentent en réunion, en chiffrent les tâches, mènent tube, culasse, mécanisme, affût, puis l’essai de tir ; adoptée, elle se fabrique.'},
   manufacture:{name:'Manufacture d’armes',sprite:'foundry',size:[3,3],cost:{pierre:100,bois:40,pieces:30,fer:10},hours:20,workers:4,hp:900,manufacture:true,factory:{coal:.3,mod:'armement'},
     why:'Une usine d’armes, outillée pour un seul modèle (fusil ou protection) : changer de modèle, c’est refaire l’outillage (6 h). Quand la dernière tombe, les plans sont perdus — sauf des archives dans une autre ville.'},
