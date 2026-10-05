@@ -2,7 +2,7 @@
 // (cadences de tir, vol des balles, hémorragies). Une heure de jeu dure HOUR_REAL secondes à 1× : c'est aussi le nombre de
 // secondes de combat qu'elle contient. Les positions sont en cases (x = i, y = j) ; une case vaut TILE_M mètres pour la balistique.
 // Deux civilisations sur la même carte. Tout est un objet placé ; les stocks sont dans les dépôts, les munitions en caisses.
-import {SITE_RANGE,HOUR_REAL,DAY,NIGHT,MAP_N,RADIUS,CARRY,GAP,TERRAIN,T,RES,RARE,ORE_LEFT,NODES,BUILDINGS,LINES,UNITS,BLASTS,VEHICLES,PRODUCTS,LIMIT_OF,FRET,BOMB,FLAK,FIRE,BEEE,START,NAMES,CITY_NAMES,BEEE_CITIES,VEHICLE_NAMES,INNOV,DOMAINS,madeAt} from './data.js';
+import {COMMON_ORES,SITE_RANGE,HOUR_REAL,DAY,NIGHT,MAP_N,RADIUS,CARRY,GAP,TERRAIN,T,RES,RARE,ORE_LEFT,NODES,BUILDINGS,LINES,UNITS,BLASTS,VEHICLES,PRODUCTS,LIMIT_OF,FRET,BOMB,FLAK,FIRE,BEEE,START,NAMES,CITY_NAMES,BEEE_CITIES,VEHICLE_NAMES,INNOV,DOMAINS,madeAt} from './data.js';
 import {ECO} from './eco.js';
 import {generate,rng} from './gen.js';
 import {Pather} from './path.js';
@@ -87,7 +87,8 @@ export class World{
       // (les bancs d'essai IA contre IA : l'allié mène TOUTE l'île — la capitale du joueur et ses villageois compris ; personne ne joue le joueur)
       if(options.allyAll){s.ally.all=true;cap.ally=true;cap.city+=' (allié)';s.ally.cities.push({c:cap.id,main:false});for(const u of s.units)if(u.f==='meumeu')u.ally=true;}}
     if(options.assisted||options.dev)this.assistedStart(cap,ci,cj);
-    if(options.dev)this.devStart(cap,ci,cj);   // partie de test : le départ établi, plus de gros stocks ; le brouillard reste (bouton « Brouillard » pour le lever)
+    if(options.dev)this.devStart(cap,ci,cj);
+    if(options.sci)this.sciStart(cap,ci,cj);   // (V12.7) partie de test de la recherche   // partie de test : le départ établi, plus de gros stocks ; le brouillard reste (bouton « Brouillard » pour le lever)
     for(const [n,p] of G.beee.slice(0,BEEE.cities).entries())this.makeBeeeCity(...p,BEEE_CITIES[n]);
     this.spawnFauna();
     this.log(CITY_NAMES[0],'La capitale est fondée. Les Bèè commencent eux aussi avec un centre-ville et des villageois. Les filons éloignés attisent déjà la rivalité ; les premières offensives attendront que les industries puissent tourner.');}
@@ -115,14 +116,29 @@ export class World{
     for(const k of ['labo','arsenal','manufacture']){const at=this.buildSpot(F,k,ci,cj,7,26);if(at)this.addBuilding(F,k,at[0],at[1],true);}   // (V12.7 : le laboratoire de chimie fait la poudre)
     this.log(CITY_NAMES[0],`Départ établi : deux moulins, ${this.startMines.length} mines en service (${this.startMines.join(', ')||'aucune'}), grenier, atelier, bureau d'études, caserne, entrepôt, et un arsenal, une manufacture d'armes et une usine chimique à l'arrêt. Quatre soldats gardent la capitale; les Bèè restent une menace de campagne.`,'good');
   }
+  // (V12.7) Partie de test de la recherche (bouton « Recherche ») : le départ établi, plus le centre de recherche, le four et la fonderie, une mine
+  // en service sur CHAQUE sorte de filon (avec son camp-dépôt), de quoi lancer des programmes, et six savants déjà formés (deux par métier),
+  // chacun à son poste. Le brouillard reste.
+  sciStart(cap,ci,cj){const F='meumeu';
+    Object.assign(cap.stock,{bois:1600,pierre:1200,vivres:1600,pieces:520,charbon:420,fer:320,plomb:160,cuivre:140,salpetre:140,poudre:140,explosifs:50,sante:40});
+    for(let n=0;n<16;n++){const a=n/16*Math.PI*2+.3;this.addUnit(F,'villageois',ci+Math.cos(a)*8.6,cj+Math.sin(a)*8.6);}
+    const C=(()=>{const at=this.buildSpot(F,'centre_recherche',ci,cj,8,30);return at?this.addBuilding(F,'centre_recherche',at[0],at[1],true):null;})();
+    for(const k of ['four','fonderie']){const at=this.buildSpot(F,k,ci,cj,8,30);if(at)this.addBuilding(F,k,at[0],at[1],true);}
+    const have=new Set(this.s.buildings.filter(b=>b.f===F&&b.k==='mine'&&b.ore!=null).map(b=>this.s.nodes[b.ore]?.res));
+    const more=this.placeMines(F,ci,cj,COMMON_ORES.filter(r=>!have.has(r)),2,110);
+    const L=this.s.buildings.find(b=>b.f===F&&b.k==='labo'),A=this.s.buildings.find(b=>b.f===F&&b.k==='armurerie');
+    const V=this.s.units.filter(u=>u.f===F&&u.k==='villageois'&&!u.task&&!u.ally);const posts={ingenieur:A,chimiste:L,physicien:C};let n=0;
+    for(const [role,xp] of [['ingenieur',90],['ingenieur',20],['chimiste',140],['chimiste',30],['physicien',80],['physicien',10]]){const u=V[n++];const b=posts[role];if(!u||!b)continue;
+      u.k='savant';u.sci={role,xp,born:this.s.t,task:null,pid:null,papers:0,bold:+this.rand().toFixed(2)};this.labEnter(u,b);}
+    this.log(CITY_NAMES[0],`Partie de test de la recherche : centre de recherche, laboratoire de chimie, bureau d’études, four, fonderie, mines sur tous les filons${more.length?' (dont '+more.join(', ')+')':''}, six savants à leur poste. Concevez une arme au bureau d’études, puis « Lancer le programme ».`,'good');}
   // Une case libre pour un bâtiment, en spirale autour de (x,y) entre les rayons r0 et r1.
   buildSpot(F,k,x,y,r0=4,r1=26){for(let r=r0;r<r1;r++)for(let a=0;a<48;a++){const i=Math.round(x+Math.cos(a/48*6.283)*r-BUILDINGS[k].size[0]/2),j=Math.round(y+Math.sin(a/48*6.283)*r-BUILDINGS[k].size[1]/2);if(this.canPlace(F,k,i,j).ok)return [i,j];}return null;}
   // Une mine en service sur le filon le plus proche de chaque ressource demandée (la mine d'abord : elle exige de l'espace autour
   // d'elle ; son camp-dépôt ensuite, un peu à l'écart) ; deux villageois libres y travaillent. Rend les ressources réellement servies.
-  placeMines(F,ci,cj,list,perMine=2){const built=[],idle=()=>this.s.units.filter(u=>u.f===F&&u.k==='villageois'&&!u.task);
+  placeMines(F,ci,cj,list,perMine=2,maxD=48){const built=[],idle=()=>this.s.units.filter(u=>u.f===F&&u.k==='villageois'&&!u.task);
     for(const res of list){
       // le filon le plus proche où une mine se pose (le plus proche peut être sous un bâtiment du départ) ; jusqu'à 48 cases
-      let nd=null,okm=null;for(const n of this.s.nodes.filter(n=>n.type==='ore'&&n.res===res&&n.left>0&&Math.hypot(n.i-ci,n.j-cj)<48).sort((p,q)=>Math.hypot(p.i-ci,p.j-cj)-Math.hypot(q.i-ci,q.j-cj))){const c=this.canPlace(F,'mine',n.i,n.j);if(c.ok){nd=n;okm=c;break;}}
+      let nd=null,okm=null;for(const n of this.s.nodes.filter(n=>n.type==='ore'&&n.res===res&&n.left>0&&Math.hypot(n.i-ci,n.j-cj)<maxD).sort((p,q)=>Math.hypot(p.i-ci,p.j-cj)-Math.hypot(q.i-ci,q.j-cj))){const c=this.canPlace(F,'mine',n.i,n.j);if(c.ok){nd=n;okm=c;break;}}
       if(nd){const m=this.addBuilding(F,'mine',nd.i,nd.j,true);if(okm.ore)m.ore=okm.ore.id;m.site=okm.site?.id??null;built.push(res);
         const cp=this.buildSpot(F,'camp',nd.i+.5,nd.j+.5,4,14);if(cp)this.addBuilding(F,'camp',cp[0],cp[1],true);
         for(const u of idle().slice(0,perMine))u.task={kind:'work',b:m.id};}}
