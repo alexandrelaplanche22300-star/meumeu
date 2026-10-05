@@ -603,10 +603,11 @@ export class View{
     const sec=Math.max(0,Math.round(A.age*HOUR_REAL)),when=sec<60?`il y a ${sec} s`:`il y a ${Math.floor(sec/60)} min ${String(sec%60).padStart(2,'0')}`;
     const p=A.pow,force=A.fresh<.35?'incertain':p<.3?'faible':p<.55?'moyen':p<.8?'fort':'très fort';
     const db=(A.kind==='tirs'||A.kind==='explosion')&&A.db?` ${Math.round(A.db)} dB`:'';
-    // une équipe en marche s'annonce comme telle : combien (à peu près) et à quelle distance (proche / moyenne / lointaine)
-    const team=A.kind==='pas'&&(A.team||1)>=3,size=A.team>=12?'FORMATION ≈'+A.team:A.team>=6?'ÉQUIPE ≈'+A.team:'PETITE ÉQUIPE ≈'+A.team,prox=(A.near??.5)>.66?'proche':(A.near??.5)>.33?'à moyenne distance':'lointaine';
-    if(team)return `${size} — ${CARD[k]} — ${prox} — ${when}`;
-    return `${A.lbl.toUpperCase()}${db} — ${CARD[k]} — ${force} — ${when}`;}
+    // (V12.7, le joueur : une distance et un angle approximatifs) — la distance estimée à l'oreille (±30 %), en mètres arrondis
+    const m=Math.max(0,(A.d||0)*4),dist='≈ '+Math.max(5,m<20?Math.round(m/5)*5:m<100?Math.round(m/10)*10:Math.round(m/25)*25)+' m';
+    // des pas : combien marchent ensemble (plus ils sont nombreux, plus on les entend de loin) — un seul, deux, une petite équipe, une équipe, beaucoup
+    if(A.kind==='pas'){const n=A.team||1,who=n>=12?'BEAUCOUP DE PAS — FORMATION ≈'+n:n>=6?'ÉQUIPE ≈'+n:n>=3?'PETITE ÉQUIPE ≈'+n:n===2?'PAS ≈2':'PAS';return `${who} — ${CARD[k]} — ${dist} — ${force} — ${when}`;}
+    return `${A.lbl.toUpperCase()}${db} — ${CARD[k]} — ${dist} — ${force} — ${when}`;}
   // Brouillard levé : ce que les Bèè savent. Chaque alerte est un CÔNE (direction entendue, jamais une position) ; les chercheurs
   // en fouille montrent le prochain point de leur balayage.
   drawDevCones(){const W=this.world,B=W.s.beee,ctx=this.ctx,z=this.z(),dpr=this.dpr,t=W.s.t;
