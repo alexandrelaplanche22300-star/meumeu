@@ -16,7 +16,7 @@ const TW=64,TH=32,ELEV_LAB=.66;   // l'élévation de la vue recherche (38°) : 
 const ICON={etude:'📖',cours:'🎓',reunion:'💬',orateur:'🗣',travail:'✎',reflexion:'💭',dort:'💤',attente:'⏳',oisif:'…',ouvrier:'⚒',pause:'☕'};
 const WORK_ICON={bureau:'✎',maitre:'✎',table:'✎',paillasse:'⚗',hotte:'⚗',balance:'⚖',planche:'📐',maquette:'🔧',cuve:'🔥',plans:'📐'};
 const EV={eureka:['Eurêka !','#ffd36a','#3a2a00'],accident:['Ça a sauté !','#e0705f','#fff8e6'],fini:['Ça y est !','#9fe0a0','#12341a'],bloque:['…ça bloque.','#c8c8c8','#2a2a2a']};
-const KCOL={prop:'#fff2c8',objection:'#ffd8d0',soutien:'#d8f2dc',compromis:'#ffe6c8',decision:'#cfeeee',calcul:'#f4f6ff',parole:'#fffdf4'};
+const KCOL={prop:'#fff2c8',objection:'#ffd8d0',soutien:'#d8f2dc',compromis:'#ffe6c8',decision:'#cfeeee',calcul:'#f4f6ff',parole:'#fffdf4',talk:'#fffdf4',pause:'#f6efe2',idee:'#fff2c8',conclusion:'#e2f5da'};
 const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
 const hash=n=>{n=(n^61)^(n>>>16);n=n+(n<<3);n=n^(n>>>4);n=Math.imul(n,0x27d4eb2d);n=n^(n>>>15);return n>>>0;};
 // couper une réplique en lignes (au plus 3)
@@ -43,7 +43,7 @@ export const LABVIEW={
   labFigAt(sx,sy){const L=this.g3?.labDraw;if(!L?.length)return null;let best=null,bd=1e9;const z=this.z();
     for(const f of L){const q=this.toScreen(f.x,f.z,f.top*.55/.8165),d=Math.hypot(q.x-sx,q.y-sy);if(d<Math.max(10*this.dpr,.32*TH*z)&&d<bd){bd=d;best=f;}}return best;},
   // un clic gauche quand la vue est ouverte : rend vrai s'il est pris
-  labClick(sx,sy,w){const f=this.labFigAt(sx,sy);if(f?.u.k==='roi')return true;if(f){this.labSel=f.u.id;this.ui.labPick?.(f.u.id);this.ui.changed();return true;}
+  labClick(sx,sy,w){const f=this.labFigAt(sx,sy);if(f?.u.k==='reine')return true;if(f){this.labSel=f.u.id;this.ui.labPick?.(f.u.id);this.ui.changed();return true;}
     const t=this.world.targetAt(w.x,w.y),b=t?.type==='building'?this.world.building(t.id):null;if(this.isLab(b)){if(b.id!==this.lab.b){this.enterLab(b);this.ui.changed();}return true;}
     this.exitLab();return false;},
   labOnEvent(e){const W=this.world,b=e.b!=null?W.building(e.b):null;if(!b)return;const [w,h]=W.sizeOf(b),x=b.i+w/2,y=b.j+h/2;
@@ -73,6 +73,14 @@ export const LABVIEW={
       ctx.globalAlpha=1;ctx.fillStyle=col;ctx.strokeStyle='#173d44';ctx.lineWidth=2*dpr;ctx.beginPath();ctx.arc(p.x,p.y,(5+Math.sin(now*5+u.id))*dpr,0,7);ctx.fill();ctx.stroke();
       if(z>.6){ctx.font=`700 ${10*dpr}px system-ui,sans-serif`;ctx.textAlign='center';ctx.lineWidth=3*dpr;ctx.strokeText(u.name,p.x,p.y-9*dpr);ctx.fillStyle='#fffaf0';ctx.fillText(u.name,p.x,p.y-9*dpr);}}
     ctx.restore();},
+  // la réplique à montrer dans un bâtiment, au rythme de la lecture : la réunion (son script) ou les conversations (s.research.talk). La simulation
+  // va plus vite que la lecture (une heure de jeu = 4 s) : la file saute les plus anciennes quand elle prend du retard.
+  labPaced(b,MA,now){const W=this.world,Q=this.labQ??=new Map();let q=Q.get(b.id);const meet=!!MA&&MA.M.phase!=='rassemblement',key=meet?'m'+MA.P.id+':'+MA.M.t0:'t';
+    if(!q||q.key!==key){q={key,i:meet?Math.max(0,MA.M.script.length-3):0,last:meet?0:((W.s.research.talk||[]).filter(l=>l.b===b.id).at(-1)?.id??0),next:0,cur:null};Q.set(b.id,q);}
+    if(now<q.next)return q.cur;
+    if(meet){const S=MA.M.script;if(S.length-q.i>7)q.i=S.length-5;if(q.i>=S.length){if(now>q.next+2)q.cur=null;return q.cur;}q.cur=S[q.i++];}
+    else{const T=(W.s.research.talk||[]).filter(l=>l.b===b.id&&l.id>q.last&&l.t<=W.s.t+.001&&W.s.t-l.t<3);if(T.length>6)T.splice(0,T.length-4);if(!T.length){if(now>q.next+2)q.cur=null;return q.cur;}q.cur=T[0];q.last=T[0].id;}
+    q.next=now+Math.min(6,Math.max(2.4,1+q.cur.text.length*.045));return q.cur;},
   // par-dessus la scène : le monde assombri autour, le flux, les noms, les icônes, les bulles, les bandeaux des bâtiments
   labOverlay(){if(!this.lab||!this.g3)return;const ctx=this.ctx,W=this.world,dpr=this.dpr,z=this.z(),now=performance.now()/1000,b0=W.building(this.lab.b);if(!b0)return;
     const cw=this.canvas.width,ch=this.canvas.height,[w0,h0]=W.sizeOf(b0),c0=this.toScreen(b0.i+w0/2,b0.j+h0/2),R=(w0+h0)*TW/2*z*.62;
@@ -82,10 +90,14 @@ export const LABVIEW={
     this.labFlow(ctx);
     const figs=this.g3.labDraw||[],small=z<2.2;const font=(px,wgt=700)=>`${wgt} ${px*dpr}px system-ui,"Segoe UI Emoji",sans-serif`;
     // les bulles : en réunion, la réplique en cours (sur celui qui la dit) ; ailleurs, une pensée à la fois par bâtiment, toutes les 3,4 s
-    const speak=new Map(),slot=Math.floor(now/3.4);
+    const speak=new Map(),slot=Math.floor(now/3.4);this.labTalkNow=new Map();
     for(const b of W.s.buildings){if(!this.labOpen?.has(b.id))continue;const L=figs.filter(f=>f.b===b.id&&!f.moving);if(!L.length)continue;const MA=W.meetingAt(b);
-      if(MA&&MA.M.phase!=='rassemblement'){const l=MA.line;if(MA.M.phase==='decision'){const f=L.find(x=>x.act==='reunion');if(f)speak.set(f.u.id,{txt:`${MEETINGS[MA.M.type].name} : on attend la décision du commandement (${MA.M.props.length} proposition${MA.M.props.length>1?'s':''})`,k:'decision',big:true});}
-        else if(l){const f=L.find(x=>x.u.id===l.by)||L.find(x=>x.act==='reunion'&&x.u.sci?.role===l.role);if(f)speak.set(f.u.id,{txt:l.text,k:l.k,big:true});}}
+      // la réplique en cours (réunion ou conversation) : sur celui qui la dit ; il se tourne vers celui à qui il parle (scene3d lit labTalkNow)
+      const line=this.labPaced(b,MA,now);if(line){const f=L.find(x=>x.u.id===line.by)||(line.by==null?L.find(x=>x.act==='reunion'&&x.u.sci?.role===line.role):null);
+        if(f){speak.set(f.u.id,{txt:line.text,k:line.k,big:!!MA});this.labTalkNow.set(b.id,{by:line.by,to:line.to??null});}}
+      else if(MA&&MA.M.phase!=='rassemblement'){if(MA.M.phase==='decision'){const f=L.find(x=>x.act==='reunion');if(f)speak.set(f.u.id,{txt:`${MEETINGS[MA.M.type].name} : on attend la décision de la reine (${MA.M.props.length} proposition${MA.M.props.length>1?'s':''})`,k:'decision',big:true});}
+      }
+      if(speak.size&&[...speak.keys()].some(id=>L.some(x=>x.u.id===id)))continue;   // (une conversation en cours : pas de pensée par-dessus)
       // la pensée : le dernier calcul d'un savant qui pense (récent), ou une parole du quotidien
       const thinkers=L.filter(f=>f.u.k==='savant'&&f.act!=='reunion'&&f.act!=='dort'&&f.u.sci?.think&&W.s.t-f.u.sci.think.t<2.5);
       const pool=thinkers.length?thinkers:L.filter(f=>f.act!=='reunion'&&f.act!=='dort'&&f.act!=='oisif');if(!pool.length||now%3.4>2.9)continue;const f=pool[hash(slot*31+b.id)%pool.length];if(speak.has(f.u.id))continue;
@@ -102,7 +114,7 @@ export const LABVIEW={
       // le nom, dans la couleur du métier
       if(!small||sel){ctx.save();ctx.font=font(10.5,800);ctx.textAlign='center';ctx.textBaseline='top';const p=this.toScreen(f.x,f.z);const ny=p.y+3*dpr;ctx.lineWidth=3*dpr;ctx.strokeStyle='#173d44';
         const nm=u.name||'?',tw=ctx.measureText(nm).width,lh=12*dpr;let y=ny;for(let k=0;k<3&&placed.some(r=>Math.abs(r[0]-p.x)<(r[2]+tw)/2&&Math.abs(r[1]-y)<lh);k++)y+=lh;placed.push([p.x,y,tw]);
-        ctx.strokeText(nm,p.x,y);ctx.fillStyle=u.k==='roi'?'#ffd36a':R0?R0.col:'#e8e4d4';ctx.fillText(nm,p.x,y);ctx.restore();}}
+        ctx.strokeText(nm,p.x,y);ctx.fillStyle=u.k==='reine'?'#ffd36a':R0?R0.col:'#e8e4d4';ctx.fillText(nm,p.x,y);ctx.restore();}}
     // le bandeau de chaque bâtiment ouvert : ce qui s'y passe
     for(const b of W.s.buildings){if(!this.labOpen?.has(b.id))continue;const [w,h]=W.sizeOf(b),q=this.toScreen(b.i+w/2,b.j,1.25);if(q.x<-200||q.x>cw+200||q.y<-60||q.y>ch+60)continue;
       const lines=[BUILDINGS[b.k].name];const here=W.s.units.filter(u=>u.inLab===b.id&&u.hp>0);const ids=new Set(here.map(u=>u.id));

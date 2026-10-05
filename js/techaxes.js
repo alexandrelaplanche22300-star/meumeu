@@ -288,10 +288,19 @@ export function thinkStep(L,p,{rnd=Math.random,dir={},lab=false,grade=1,ctx={}}=
     L.edits=cand;L.score=s;L.fx=fx;L.fails=0;L.notes.unshift(`Essai ${L.steps} : ${tried}${main?' — '+fxTxt(main).toLowerCase():''}. Mieux.`);}
   else{L.fails++;if(PARAMS[id]){L.step[id]=Math.max(.03,(L.step[id]??.16)*.8);L.bias[id]=-dirn;}L.notes.unshift(`Essai ${L.steps} : ${tried} — ${s<L.score-10?'pire':'rien de mieux'}.`);}
   if(L.notes.length>12)L.notes.length=12;
+  (L.hist??=[]).push({n:L.steps,txt:tried,val:shortEdit(p,editOf(id,v)),s:+s.toFixed(1),ok:better,fx:main?fxTxt(main).toLowerCase():''});if(L.hist.length>16)L.hist.shift();
   // mûre, ou impasse (une piste mûre continue de s'affiner, sans changer d'état)
   if(L.st==='exploration'){if((L.score>=25&&L.steps>=3)||(L.score>=8&&L.steps>=4&&(L.fails>=3||L.steps>=10))){L.st='mure';L.notes.unshift('Je tiens quelque chose : à présenter.');}
     else if(L.steps>=6+2*levers.length&&L.score<4){L.st='impasse';L.notes.unshift('Je n’arrive à rien : impasse.');}}
   return {tried,better,main,score:s};}
+// le nom court d'un levier, et une édition dite brièvement (« pas 6,2 cm », « culot 0,00 », « un frein de bouche »)
+export const SHORT={calibre:'calibre',balle:'projectile',tube:'tube',paroi:'paroi',pas:'pas',charge:'charge',vivacite:'vivacité',ogive:'ogive',culot:'culot',cadence:'cadence',remplissage:'explosif',moteur:'moteur',ailettes:'ailettes'};
+export function shortEdit(p,e){const id=leverOfEdit(e);if(CHOICES[id])return CHOICES[id].txt(e[1]);if(!PARAMS[id])return `${e[0]} ${e[1]}`;return `${SHORT[id]||id} ${fmtP(p,id,e[1])}`;}
+// la valeur essayée, courte (« 6,2 cm », « un frein de bouche »)
+export const shortTry=t=>String(t).includes('→ ')?String(t).split('→ ').pop():String(t);
+// ce qu'un savant conclut de sa piste : le meilleur de ses essais
+export function concludeLine(L,p){const ok=(L.hist||[]).filter(h=>h.ok).length,m=L.fx.find(f=>f.k===L.goal||(L.goal==='lethal'&&f.k==='blast'));
+  return `Sur ${L.steps} essai${L.steps>1?'s':''} (${ok} prometteur${ok>1?'s':''}), je retiens : ${L.edits.map(e=>descEdit(p,e)).join(' ; ')||'rien'}${m?' — '+fxTxt(m).toLowerCase():''}`;}
 // plusieurs pas d'affilée (au tableau, en réunion : un calcul à chaud)
 export function burst(L,p,n,o){let r=null;for(let i=0;i<n&&LIVE.has(L.st);i++)r=thinkStep(L,p,o)||r;return r;}
 // ce qu'il croit : l'estimation (bruitée selon le grade et la confiance), et l'effet néfaste qu'il n'a pas vu
@@ -301,7 +310,7 @@ export function believe(fx,grade,conf,rnd=Math.random){const sig=NOISE[grade]*(1
 // les défauts qu'un métier voit dans une conception, et les buts que les directives lui donnent
 export function defectsSeen(role,D,dir={},ctx={}){const n=nums(D),out=[];
   for(const [g,G] of Object.entries(GOALS)){if(!metricOk(g,D))continue;const lv=(G.levers[role]||[]).filter(x=>!(dir.frozen||[]).includes(x)&&leverOk(x,D.p,D,ctx));if(!lv.length)continue;let why=null;try{why=G.bad(D,n);}catch(e){}
-    const pr=dir.prio?.[g]||0;if(why&&(EYES[role].includes(g)||lv.length>=2||pr>0))out.push({goal:g,why,origin:'defaut'});else if(pr>0)out.push({goal:g,why:`le commandement veut ${G.name}`,origin:'directive'});}
+    const pr=dir.prio?.[g]||0;if(why&&(EYES[role].includes(g)||lv.length>=2||pr>0))out.push({goal:g,why,origin:'defaut'});else if(pr>0)out.push({goal:g,why:`la reine veut ${G.name}`,origin:'directive'});}
   return out;}
 // les buts où un métier peut quelque chose (pour l'intuition, l'inspiration)
 export function goalsFor(role,D,dir={},ctx={}){return Object.keys(GOALS).filter(g=>metricOk(g,D)&&(GOALS[g].levers[role]||[]).some(x=>!(dir.frozen||[]).includes(x)&&leverOk(x,D.p,D,ctx)));}
@@ -320,7 +329,7 @@ export function proposalOf(L,p,A,who,{rnd=Math.random,dir={},kind='piste',title=
   if(kind==='piste'&&confOf(L)<.45)kind='idee';
   return {kind,lead:L.id,role:who.role,by:who.id,byName:who.name,grade:who.grade,goal:L.goal,why:L.why||'',title:title||ideaTitle(L,p),edits:JSON.parse(JSON.stringify(L.edits)),changes:L.edits.map(e=>descEdit(p,e)),
     bold:!!L.bold,est:B.est,missed:B.missed,real:fx,conf,score:leadScore(D0,D1,L.goal,dir,L.bold),dWork:+(an1.work-an0.work).toFixed(1),newTasks:an1.tasks.filter(t=>t.n>0&&!an0.tasks.some(o=>o.ax===t.ax)).map(t=>t.label),
-    origin:L.origin,inspiredBy:L.inspiredBy,steps:L.steps,exp:L.exp,notes:L.notes.slice(0,5),objections:[],supports:[]};}
+    origin:L.origin,inspiredBy:L.inspiredBy,steps:L.steps,exp:L.exp,notes:L.notes.slice(0,5),hist:(L.hist||[]).slice(-8),best:L.edits.map(e=>shortEdit(p,e)),objections:[],supports:[]};}
 // le débat : chacun regarde les propositions des autres avec ses yeux — objections (ce qui se dégrade dans son domaine, surtout ce que l'auteur n'a
 // pas vu), soutiens (ce qui s'améliore dans son domaine)
 export function debate(props,who,rnd=Math.random,D=null){const L=[];for(const c of props)for(const w of who){if(w.id===c.by)continue;const eyes=(EYES[w.role]||[]).filter(k=>!D||metricOk(k,D));

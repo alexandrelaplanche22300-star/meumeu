@@ -80,7 +80,7 @@ function centreInterior(W,D){const B=new Build(),S=shell(B,W,D,{hb:.92});const s
   // la salle de réunion : la grande table, huit chaises, le tableau de liège
   board(B,1.25,1.1,D,{cork:true,y:.34,h:.42});{const L=at(B,1.25,-.72,0);legs(L,1.5,.6,.17);L.box(0,Y0+.17,0,1.56,.03,.64,C.wood);L.box(-.3,Y0+.2,.05,.14,.005,.1,C.paper).box(.35,Y0+.2,-.1,.12,.005,.1,C.paper).cyl(.05,Y0+.2,0,.04,.04,.06,C.brass,8);}
   const back=x=>[[.1,.17],[.1,-1.48],[x,-1.48]];for(const x of [.75,1.25,1.75]){chair(B,x,-1.22,1);P('table',x,-1.15,0,1,1,back(x));chair(B,x,-.22,3);P('table',x,-.29,0,-1,1);}
-  chair(B,.3,-.72,0);P('roi',.37,-.72,1,0,1,[[.1,.17],[.1,-.72]]);chair(B,2.2,-.72,2);P('table',2.13,-.72,-1,0,1,[[2.3,.17],[2.3,-.72]]);P('orateur',1.25,-1.62,0,1,0,back(1.25));
+  chair(B,.3,-.72,0);P('reine',.37,-.72,1,0,1,[[.1,.17],[.1,-.72]]);chair(B,2.2,-.72,2);P('table',2.13,-.72,-1,0,1,[[2.3,.17],[2.3,-.72]]);P('orateur',1.25,-1.62,0,1,0,back(1.25));
   // six bureaux, en deux rangées, l'assis tourné vers la caméra de droite (+X)
   let n=0;for(const z of [.5,1.3])for(const x of [-1.6,-.75,.1]){desk(B,x,z,0,n++);const c=x<-1?-2.05:x<0?-1.25:-.4;P('bureau',x-.2,z,1,0,1,z>1?[[c,.17],[c,z]]:null);}
   // la bibliothèque, le long du mur de gauche (−X)

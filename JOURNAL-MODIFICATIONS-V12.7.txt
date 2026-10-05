@@ -94,3 +94,16 @@ ERREURS PAYÉES PENDANT LA SESSION (à ne pas refaire)
 - La réutilisation d'un nom de variable déstructurée dans une affectation (const c=…props[+c]) : ReferenceError (zone morte).
 - ui.js importait MODN/unlockName supprimés : le jeu ne se chargeait plus (« does not provide an export named »).
 - targetAt trouvait le savant caché au centre du bâtiment : le clic n'ouvrait pas la vue recherche.
+
+SUITE (2e partie de session) : LA REINE, LES MODÈLES DÉTAILLÉS, LES CONVERSATIONS
+- assets3d/meumeu_reine.json (nouveau), assets3d/meumeu_chercheur.json (refait à 14 000 triangles) ; meumeu_roi.json et roi_meumeu.cjs supprimés.
+- research.js : talkAdd, aff/affAdd, talkTick, talkMake, deepenProp ; réunion vivante (ouverture, préfixes selon le grade, feuille de calculs,
+  réactions, objection_pre, la reine parle, réponses, lamentations, fin) ; « commandement » → « la reine » partout.
+- researchdata.js : TALK (≈ 40 catégories de répliques), talkLine, METRIC_ART ; MEET_PHASES 'Décision de la reine'.
+- techaxes.js : L.hist (feuille de calculs), SHORT, shortEdit, shortTry, concludeLine ; proposalOf : hist, best.
+- labview.js : labPaced (rythme de lecture), labTalkNow, bulles de conversation, bulle d'attente adressée à la reine.
+- scene3d.js : la reine (KING → id 'reine', modèle meumeu_reine), le parleur se tourne vers l'autre et gesticule ; labProps (l'arme sur la table
+  et l'établi) ; import derive.
+- research-ui.js : talkHtml (Ce qu'ils se disent, conversations du Carnet, répliques d'un savant), histHtml (Ses calculs), « À creuser ».
+- css : rtalk, rhist, rcalc. Test recherche R1–R12 : PASS ; captures en jeu sans erreur de console.
+- Piège payé : un heredoc du shell a mangé les « \ » d'une expression régulière dans un correctif : écrire les correctifs avec l'outil d'écriture.

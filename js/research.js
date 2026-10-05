@@ -5,17 +5,17 @@
 // ILS PENSENT : chacun tient un carnet de PISTES sur le programme qu'il sert (techaxes : un défaut vu par son métier, une directive, l'idée d'un
 // collègue, une intuition, raisonnable ou radicale) et les creuse pas à pas sur la vraie balistique du concepteur — plus vite à son poste, où il vérifie.
 // Une piste mûre se présente en RÉUNION. Une réunion se tient par PHASES : le tour de table (l'avancement, le prévu et le mesuré), les propositions
-// (chacun refait ses calculs au tableau), le débat (objections, soutiens, compromis, calculs des combinaisons), puis la DÉCISION du commandement — le
+// (chacun refait ses calculs au tableau), le débat (objections, soutiens, compromis, calculs des combinaisons), puis la DÉCISION de la REINE MEUMEU — le
 // joueur — par VAGUES : ce qu'il retient s'applique aussitôt à la conception, les propositions restantes sont recalculées ou tombent, d'autres naissent
 // de la nouvelle conception ; jusqu'à trois vagues. De retour à leur poste, les savants refont leurs pistes sur la conception nouvelle.
-// Le commandement oriente aussi par des DIRECTIVES (un but prioritaire, un levier auquel on ne touche pas). Une tâche finie fait avancer l'état de
+// La reine oriente aussi par des DIRECTIVES (un but prioritaire, un levier auquel on ne touche pas). Une tâche finie fait avancer l'état de
 // l'art. Une conception adoptée se fabrique ; l'équipe peut continuer sur des variantes, qui deviennent des prototypes (Mk 2, Mk 3…).
 // Les idées des ouvriers (la pratique) et les protections du concepteur deviennent de petits programmes, sans réunion.
 import {BUILDINGS,INNOV,UNITS} from './data.js';
 import {derive} from './ballistics.js';
 import {deriveArmor} from './armor.js';
-import {LAB_KIND,LAB_SEATS,DOM_ROLE,GRADES,gradeOf,MEETINGS,BLOCKS} from './researchdata.js';
-import {ROLES,GOALS,EYES,PARAMS,descEdit,analyze,artPush,applyEdit,presentLines,progressLines,effects,fxTxt,newLead,thinkStep,burst,defectsSeen,goalsFor,rebaseLead,ideaTitle,proposalOf,debate,merge,conflictOf,keysOf,leverOfEdit} from './techaxes.js';
+import {LAB_KIND,LAB_SEATS,DOM_ROLE,GRADES,gradeOf,MEETINGS,BLOCKS,TALK,talkLine,METRIC_ART} from './researchdata.js';
+import {ROLES,GOALS,EYES,PARAMS,descEdit,analyze,artPush,applyEdit,presentLines,progressLines,effects,fxTxt,newLead,thinkStep,burst,defectsSeen,goalsFor,rebaseLead,ideaTitle,proposalOf,debate,merge,conflictOf,keysOf,leverOfEdit,LEVER_NAME,shortTry,concludeLine,metricOk,KEYNUMS} from './techaxes.js';
 
 const SCHOOL=4,STUDY_H=24,TICK=.1,LOG_MAX=300,BASE_STAFF=.35,CHAIRS=8,LEADS_MAX=60,WAVES=3;
 // combien de pas de réflexion par heure : libre à son poste, à son poste pendant une tâche, en marchant ; la nuit ; l'équipe d'un bureau sans ingénieur
@@ -124,7 +124,7 @@ export const RESEARCH={
   setPriority(pid,goal,w){const P=this.program(pid);if(!P||P.kind!=='arme'||!GOALS[goal])return {ok:false,why:['pas un programme d’arme']};P.dir??={prio:{},frozen:[]};w=Math.max(0,Math.min(2,+w||0));
     if(w)P.dir.prio[goal]=w;else delete P.dir.prio[goal];const txt=w?`Directive : ${w>=2?'priorité absolue à':'priorité à'} ${GOALS[goal].name}.`:`Directive levée : ${GOALS[goal].name}.`;this.pev(P,txt);return {ok:true,text:`${P.name} — ${txt}`};},
   setFrozen(pid,lever,on){const P=this.program(pid);if(!P||P.kind!=='arme')return {ok:false,why:['pas un programme d’arme']};P.dir??={prio:{},frozen:[]};const F=P.dir.frozen;
-    if(on&&!F.includes(lever)){F.push(lever);for(const L of P.leads||[])if(LIVE.has(L.st)&&L.edits.some(e=>leverOfEdit(e)===lever)){L.st='caduque';L.notes.unshift('Le commandement a gelé ce levier.');}}
+    if(on&&!F.includes(lever)){F.push(lever);for(const L of P.leads||[])if(LIVE.has(L.st)&&L.edits.some(e=>leverOfEdit(e)===lever)){L.st='caduque';L.notes.unshift('La reine a gelé ce levier.');}}
     else if(!on)P.dir.frozen=F.filter(x=>x!==lever);const txt=on?`Directive : ne plus toucher à ${lever}.`:`Directive levée : ${lever}.`;this.pev(P,txt);return {ok:true,text:`${P.name} — ${txt}`};},
 
   // ---------- la réflexion : chacun creuse ses pistes ----------
@@ -140,7 +140,7 @@ export const RESEARCH={
   // une piste neuve : un défaut que son métier voit (ou une directive), une idée refusée qu'il reprend, une intuition ; force : un but imposé (l'inspiration)
   openLead(P,w,p,force=null){const D=derive(p),dir=P.dir||{},ctx=this.fillsCtx(P);const mine=P.leads.filter(L=>L.owner===w.id),live=mine.filter(L=>LIVE.has(L.st));let pick=force;
     if(!pick){const def=defectsSeen(w.role,D,dir,ctx).filter(d=>!live.some(L=>L.goal===d.goal));const ref=mine.filter(L=>L.st==='refusee'&&(L.refused||0)<2);const r=this.rand();
-      if(ref.length&&r<.15){const L=ref[Math.floor(this.rand()*ref.length)];L.st='exploration';L.origin='reprise';L.edits=L.edits.slice(0,1);L.notes.unshift('Le commandement n’en a pas voulu : je reprends autrement.');rebaseLead(L,p,{dir});if(!LIVE.has(L.st))return null;return L;}
+      if(ref.length&&r<.15){const L=ref[Math.floor(this.rand()*ref.length)];L.st='exploration';L.origin='reprise';L.edits=L.edits.slice(0,1);L.notes.unshift('La reine n’en a pas voulu : je reprends autrement.');rebaseLead(L,p,{dir});if(!LIVE.has(L.st))return null;return L;}
       if(def.length&&r<.8){const d=def[Math.floor(this.rand()*def.length)];pick={goal:d.goal,why:d.why,origin:d.origin};}
       else{const g=goalsFor(w.role,D,dir,ctx).filter(x=>!live.some(L=>L.goal===x));if(!g.length)return null;const goal=g[Math.floor(this.rand()*g.length)];pick={goal,why:`une intuition sur ${GOALS[goal].name}`,origin:'intuition'};}}
     if(live.some(L=>L.goal===pick.goal&&!!L.bold===!!pick.bold))return null;
@@ -157,9 +157,10 @@ export const RESEARCH={
   // un pas de réflexion d'un savant (u : l'unité, absente pour l'équipe d'un bureau)
   thinkOne(P,w,u,p,lab){const live=P.leads.filter(L=>L.owner===w.id&&LIVE.has(L.st));const cap=w.grade>=2?3:2;let L=null;
     if(live.length<cap&&(!live.length||this.rand()<.3))L=this.openLead(P,w,p);
+    if(!L){const pr=live.filter(x=>x.prio);if(pr.length&&this.rand()<.7)L=pr[Math.floor(this.rand()*pr.length)];}
     if(!L){const ex=live.filter(x=>x.st==='exploration');L=ex.length&&this.rand()<.8?ex[Math.floor(this.rand()*ex.length)]:live[Math.floor(this.rand()*live.length)];}
     if(!L)return null;const st0=L.st;const r=thinkStep(L,p,{rnd:()=>this.rand(),dir:P.dir||{},lab,grade:w.grade,ctx:this.fillsCtx(P)});
-    if(u)u.sci.think={t:this.s.t,pid:P.id,lead:L.id,goal:L.goal,txt:r?r.tried:L.notes[0]||'…',good:!!r?.better,st:L.st};
+    if(u)u.sci.think={t:this.s.t,pid:P.id,lead:L.id,goal:L.goal,txt:r?r.tried:L.notes[0]||'…',good:!!r?.better,st:L.st,lab};
     if(st0!=='mure'&&L.st==='mure'){this.pev(P,`${w.name} tient une piste : ${short(ideaTitle(L,p))}.`,'good');if(u){u.sci.bub={k:'eureka',t:this.s.t};const b=this.where(u);if(b)this.emit({type:'eureka',b:b.id,id:u.id});}this.inspire(P,L,w,p);}
     return r;},
   thinkTick(h,sleep){const R=this.s.research.programs;
@@ -171,6 +172,49 @@ export const RESEARCH={
     // un bureau sans ingénieur : ses dessinateurs réfléchissent aussi (lentement, en débutants)
     for(const P of R){if(P.kind!=='arme'||!['lancement','actif','suivi'].includes(P.st)||P.meet||sleep)continue;if(this.savants().some(u=>u.sci.role==='ingenieur'&&(u.sci.pid===P.id||P.team.includes(u.id))))continue;
       const b0=this.building(P.b0);if(b0&&b0.done&&!b0.ruin&&this.rand()<THINK.bureau*h)this.thinkOne(P,this.pseudoOf(P),null,P.p,true);}},
+
+  // ---------- les conversations : ce qu'ils se disent au travail et à la pause (s.research.talk ; la vue les montre au rythme de la lecture) ----------
+  talkAdd(b,lines,pid=null){const R=this.s.research;R.talk??=[];R.tid??=1;let t=this.s.t;for(const l of lines){if(!l?.text)continue;R.talk.push({id:R.tid++,t,b:b.id,by:l.by,to:l.to??null,text:l.text,k:l.k||'talk',pid});t+=.02;}
+    if(R.talk.length>240)R.talk.splice(0,R.talk.length-240);},
+  // l'entente de deux savants (−1 rivaux … +1 amis) : les débats la font et la défont
+  aff(a,b){return this.unit(a)?.sci?.aff?.[b]||0;},
+  affAdd(a,b,v){if(!(a>0)||!(b>0)||a===b)return;for(const [x,y] of [[a,b],[b,a]]){const u=this.unit(x);if(!u?.sci)continue;u.sci.aff??={};u.sci.aff[y]=+Math.max(-1,Math.min(1,(u.sci.aff[y]||0)+v)).toFixed(3);}},
+  talkTick(h,sleep){for(const b of this.labs()){const here=this.s.units.filter(u=>u.inLab===b.id&&u.k==='savant'&&u.hp>0&&!u.sci.meet);if(!here.length)continue;
+      if(this.rand()>(here.length>1?.08:.035)*(sleep?.15:1)*(h/.1))continue;
+      // qui parle : celui qui vient de penser, d'abord ; à qui : un collègue du même programme, d'abord
+      const recent=here.filter(u=>u.sci.think&&this.s.t-u.sci.think.t<1.5);const A=(recent.length?recent:here)[Math.floor(this.rand()*(recent.length||here.length))];
+      const others=here.filter(u=>u!==A).sort((x,z)=>Number(z.sci.pid===A.sci.pid)-Number(x.sci.pid===A.sci.pid)||x.id-z.id);const B=others.length?others[Math.floor(this.rand()*Math.min(2,others.length))]:null;
+      const r=this.talkMake(A,B);if(r?.lines?.length)this.talkAdd(b,r.lines,r.pid);}},
+  talkMake(A,B){const rnd=()=>this.rand(),T=A.sci.think,P=T?this.program(T.pid):null,L=P?.leads?.find(x=>x.id===T.lead);const S=this.savants();
+    const V={a:A.name,b:B?.name,c:S.length?S[Math.floor(rnd()*S.length)].name:null};
+    const say=(u,key,vars={},k='talk',to=null)=>({by:u.id,to:to?.id??null,text:talkLine(key,{...V,...vars},rnd),k});
+    // une rivalité, une amitié, de temps en temps
+    if(B&&rnd()<.18){const f=this.aff(A.id,B.id);if(f<-.25)return {lines:[say(A,'rival',{},'talk',B),say(B,'rival_rep',{},'talk',A)],pid:P?.id};if(f>.25)return {lines:[say(A,'ami',{},'talk',B)],pid:P?.id};}
+    if(L&&P&&rnd()<.85){const p=P.meet?.p||P.p,H=L.hist?.at(-1);const vars={prog:P.name,goal:GOALS[L.goal]?.name||L.goal,why:L.why||null,n:L.steps,lever:L.edits.length?LEVER_NAME(leverOfEdit(L.edits.at(-1))):null,tried:H?.txt||null,val:H?(H.val||shortTry(H.txt)):null,fx:H?.fx||null};
+      // une piste qui vient de mûrir : la conclusion ; une impasse
+      if(L.st==='mure'&&!L.told){L.told=true;const ls=[say(A,'conclut',{...vars,best:concludeLine(L,p)},'conclusion',B)];if(B)ls.push(say(B,'conclut_rep',vars,'talk',A));return {lines:ls,pid:P.id};}
+      if(L.st==='impasse'&&!L.told){L.told=true;const ls=[say(A,'impasse',vars,'talk',B)];if(B)ls.push(say(B,'impasse_rep',vars,'talk',A));return {lines:ls,pid:P.id};}
+      // une piste toute neuve : l'idée (ou l'inspiration, la refonte, l'intuition)
+      if(L.steps<=3&&!L.toldNew){L.toldNew=true;const ib=L.inspiredBy>0?this.unit(L.inspiredBy):null;const key=ib&&ib!==A?'inspire':L.bold?'idee_radicale':L.origin==='intuition'?'intuition':'idee';
+        const ls=[say(A,key,{...vars,b:(ib||B)?.name},'idee',ib||B)];if(B)ls.push(say(B,key==='idee_radicale'?'idee_radicale_rep':key==='inspire'&&ib===B?'inspire_rep':'idee_rep',vars,'talk',A));return {lines:ls,pid:P.id};}
+      // un essai : à voix haute, ou devant un collègue qui regarde avec les yeux de son métier
+      if(H){const ls=[say(A,T.lab&&L.exp>0&&rnd()<.45?'essai_banc_'+A.sci.role:'essai',vars,'calcul',B),say(A,H.ok?'mieux':'pire',vars,'calcul')];if(!B||rnd()<.25)return {lines:ls,pid:P.id};
+        let bad=null,D0=null;try{D0=derive(p);const D1=derive(applyEdit(p,L.edits));bad=effects(D0,D1).find(f=>!f.good&&EYES[B.sci.role]?.includes(f.k)&&metricOk(f.k,D0)&&Math.abs(f.rel)>.05);}catch(e){}
+        if(bad){ls.push(say(B,'objecte',{...vars,fxb:fxTxt(bad).toLowerCase(),metric:METRIC_ART[bad.k]||bad.name.toLowerCase()},'objection',A));const ok=rnd()<.6;ls.push(say(A,ok?'repond_ok':'repond_doute',vars,'talk',B));
+          if(!ok)L.notes.unshift(`${B.name} m’a fait voir : ${fxTxt(bad).toLowerCase()}.`);this.affAdd(A.id,B.id,ok?-.04:.03);}
+        else if(rnd()<.3){const E=(EYES[B.sci.role]||[]).filter(m=>!D0||metricOk(m,D0));const m=E[Math.floor(rnd()*E.length)];ls.push(say(B,'question',{...vars,metric:METRIC_ART[m]||null},'talk',A));ls.push(say(A,'repond_ok',vars,'talk',B));}
+        else if(rnd()<.45){ls.push(say(B,'question_etat',vars,'talk',A));ls.push(say(A,'reponse_etat',vars,'talk',B));}
+        else{ls.push(say(B,H.ok?'encourage':'console',vars,'talk',A));this.affAdd(A.id,B.id,.02);}
+        return {lines:ls,pid:P.id};}
+      if(!B)return {lines:[say(A,'monologue',vars,'calcul')],pid:P.id};}
+    // la pause : un programme, la vie
+    const live=this.s.research.programs.filter(x=>['actif','lancement','suivi','pret'].includes(x.st)&&x.kind==='arme');const Q=live.length?live[Math.floor(rnd()*live.length)]:null;
+    if(!B)return {lines:[say(A,'monologue',{},'talk')],pid:Q?.id};
+    if(Q&&rnd()<.55){const left=Math.round(Q.tasks.reduce((s,t)=>s+Math.max(0,t.work-t.done),0)),blk=Q.tasks.find(t=>t.block)?.block?.why||null;
+      return {lines:[say(A,'cafe_prog',{prog:Q.name,left:left||null,block:blk},'pause',B),say(B,'cafe_rep',{},'pause',A)],pid:Q.id};}
+    return {lines:[say(A,'cafe',{},'pause',B),say(B,'cafe_rep',{},'pause',A)],pid:null};},
+  // la reine demande de creuser une proposition (au lieu de la retenir ou de la refuser) : son auteur s'y remet, en priorité
+  deepenProp(pid,i){const P=this.program(pid),c=P?.meet?.props[i];if(!c)return {ok:false,why:['pas de proposition']};c.deep=!c.deep;return {ok:true,text:c.deep?`À creuser : ${c.title.replace(/^(Refonte — )?Pour [^:]+: /,'')}`:'Plus à creuser'};},
 
   // ---------- les réunions ----------
   // le lieu : le centre de recherche le plus proche du bureau d'origine ; sans centre, le bureau lui-même
@@ -210,6 +254,7 @@ export const RESEARCH={
   meetNext(P,b){const M=P.meet;if(M.phase==='tour')this.meetPropose(P,b);else if(M.phase==='propositions')this.meetDebate(P,b);else this.meetDecision(P,b);},
   // les propositions : chacun refait ses calculs au tableau, et présente ce qu'il tient — pistes mûres, et parfois une idée en l'air
   meetPropose(P,b){const M=P.meet,who=M.who,A=this.s.research.art,rnd=()=>this.rand(),dir=P.dir||{},ctx=this.fillsCtx(P),say=this.sayer(M),from=M.script.length;const fresh=[];
+    {const sen=[...who].sort((a,z)=>z.grade-a.grade)[0];if(sen)say(sen.role,talkLine(M.king?'ouvre_prop_reine':'ouvre_prop',{},rnd),sen.id);}
     const first=M.type==='lancement';
     for(const w of who){let live=P.leads.filter(L=>L.owner===w.id&&LIVE.has(L.st));const want=first?2:live.length<2&&this.rand()<.5?live.length+1:1;
       while(live.length<want){const L=this.openLead(P,w,M.p);if(!L)break;live.push(L);}
@@ -223,13 +268,22 @@ export const RESEARCH={
   addProps(P,list,say){const M=P.meet;for(const c of list){const twin=M.props.find(o=>sameIdea(o,c));
       if(twin){twin.also=[...(twin.also||[]),{by:c.by,byName:c.byName}];twin.conf=Math.min(.99,+(twin.conf+.15).toFixed(2));(twin.leads??=[]).push(c.lead);say(c.role,`J’arrive au même calcul que ${twin.byName}.`,c.by,'soutien',M.props.indexOf(twin));continue;}
       M.props.push(c);M.seen++;this.sayProp(M,c,say);}},
-  sayProp(M,c,say){const i=M.props.indexOf(c);say(c.role,`${c.kind==='idee'?'Une idée en l’air : ':c.kind==='rebond'?'Avec ce changement, je vois autre chose. ':''}${c.title}.`,c.by,'prop',i);
-    const why=c.origin==='defaut'?`J’ai vu : ${c.why}.`:c.origin==='directive'?`Le commandement l’a demandé.`:c.origin==='reprise'?`Je reprends l’idée refusée, autrement.`:c.why?cap1(c.why)+'.':'';if(why)say(c.role,why,c.by,'calcul',i);
+  sayProp(M,c,say){const i=M.props.indexOf(c),rnd=()=>this.rand(),pick=L=>L[Math.floor(rnd()*L.length)];
+    let pre=c.by<0?pick(TALK.prefixe_equipe):c.kind==='rebond'?'Avec ce changement, je vois autre chose :':c.kind==='contre'||c.kind==='compromis'||c.kind==='combinaison'?'':pick(TALK.prefixe[Math.min(4,c.grade||0)]);
+    if(pre&&M.king)pre=pick(TALK.prefixe_reine)+pre.charAt(0).toLowerCase()+pre.slice(1);
+    say(c.role,`${pre?pre+' ':''}${c.kind==='idee'?'une idée en l’air — ':''}${pre?short(c.title).charAt(0).toLowerCase()+short(c.title).slice(1):short(c.title)}${c.bold?' (une refonte)':''}.`,c.by,'prop',i);
+    // la feuille de calculs : ce qu'il a essayé, jusqu'au meilleur
+    const H=(c.hist||[]).slice(-5);if(H.length>=2)say(c.role,`J’ai essayé ${H.map(h=>(h.val||shortTry(h.txt))+(h.ok?' ✓':' ✗')).join(', ')} — le meilleur : ${(c.best||c.changes.map(shortTry)).join(', ')}.`,c.by,'calcul',i);
+    const why=c.origin==='defaut'?`J’ai vu : ${c.why}.`:c.origin==='directive'?`La reine l’a demandé.`:c.origin==='reprise'?`Je reprends l’idée refusée, autrement.`:c.why?cap1(c.why)+'.':'';if(why)say(c.role,why,c.by,'calcul',i);
     if(c.est.length)say(c.role,`${c.steps} calcul${c.steps>1?'s':''}${c.exp?`, dont ${c.exp} vérifiés au banc`:''} : ${c.est.slice(0,3).map(e=>`${e.name.toLowerCase()} ${e.rel>0?'+':'−'}${Math.round(Math.abs(e.rel)*100)} %`).join(', ')}.`,c.by,'calcul',i);
-    if(c.dWork>1)say(c.role,`Il faudra ${Math.round(c.dWork)} heures-savants de plus${c.newTasks.length?' : '+c.newTasks.slice(0,2).join(', ').toLowerCase():''}.`,c.by,'calcul',i);},
+    if(c.dWork>1)say(c.role,`Il faudra ${Math.round(c.dWork)} heures-savants de plus${c.newTasks.length?' : '+c.newTasks.slice(0,2).join(', ').toLowerCase():''}.`,c.by,'calcul',i);
+    // un collègue réagit
+    const o=(M.who||[]).filter(w=>w.id!==c.by&&w.id>0);if(o.length&&rnd()<.45){const w=pick(o);say(w.role,talkLine(c.bold&&rnd()<.6?'reaction_radicale':'reaction',{},rnd),w.id,'parole',i);}},
   // le débat : objections et soutiens ; les conflits donnent des compromis, les propositions compatibles se calculent ensemble
   meetDebate(P,b){const M=P.meet,who=M.who,A=this.s.research.art,rnd=()=>this.rand(),dir=P.dir||{},say=this.sayer(M),from=M.script.length;
-    const fresh=M.props.filter(c=>!c.debated),lines=debate(fresh,who,rnd,derive(M.p));for(const l of lines)say(l.role,l.text,l.by,/^Et c’est bon/.test(l.text)?'soutien':'objection',M.props.indexOf(l.on));for(const c of fresh)c.debated=true;
+    const fresh=M.props.filter(c=>!c.debated),lines=debate(fresh,who,rnd,derive(M.p));
+    for(const l of lines){const sup=/^Et c’est bon/.test(l.text);const pre=!sup&&this.rand()<.35?talkLine('objection_pre',{},rnd):'';say(l.role,pre?pre+l.text.charAt(0).toLowerCase()+l.text.slice(1):l.text,l.by,sup?'soutien':'objection',M.props.indexOf(l.on));this.affAdd(l.by,l.on.by,sup?.08:-.07);}
+    for(const c of fresh)c.debated=true;
     const senior=[...who].sort((a,z)=>z.grade-a.grade)[0],phys=who.find(w=>w.role==='physicien')||senior;const base=M.props.filter(c=>!c.from);let nc=0,nk=0,nx=0;const add=[];
     for(const o of lines){if(nx>=3||/^Et c’est bon/.test(o.text)||!o.fx)continue;const w=who.find(x=>x.id===o.by),c=o.on,goal=FX_GOAL[o.k];if(!w||!goal||this.rand()>.4+.1*w.grade)continue;
       const q=applyEdit(M.p,c.edits);const L=this.openLead(P,w,q,{goal,why:`pour garder l’idée de ${c.byName} sans perdre ${o.fx.name.toLowerCase()}`,origin:'inspiration',inspiredBy:c.by});if(!L)continue;
@@ -251,7 +305,7 @@ export const RESEARCH={
     if(M.type==='revue'&&!M.wave)for(const t of P.tasks)if(t.block&&this.rand()<.7){t.block=null;this.pev(P,`La revue a débloqué : ${t.label.toLowerCase()}.`,'good');}
     M.phase='decision';M.deadline=this.s.t+MEETINGS[M.type].wait;M.seg={from:M.script.length,to:M.script.length,t0:this.s.t,dur:1};
     this.emit({type:'decision',pid:P.id,b:b.id,n:M.props.length,wave:M.wave+1});
-    this.rlog(b,`${MEETINGS[M.type].name} de « ${P.name} »${M.wave?` (vague ${M.wave+1})`:''} : ${M.props.length} proposition${M.props.length>1?'s':''} attendent la décision du commandement.`,'warn',null,true);},
+    this.rlog(b,`${MEETINGS[M.type].name} de « ${P.name} »${M.wave?` (vague ${M.wave+1})`:''} : ${M.props.length} proposition${M.props.length>1?'s':''} attendent la décision de la reine.`,'warn',null,true);},
   // la réunion qui se tient dans un bâtiment (pour la vue) : le programme, la réunion, la réplique en cours
   meetingAt(b){for(const P of this.s.research.programs){const M=P.meet;if(!M||M.b!==b.id)continue;let idx=-1;const S=M.seg;
       if(S&&M.phase!=='rassemblement'){const n=S.to-S.from;idx=M.phase==='decision'||n<=0?M.script.length-1:S.from+Math.min(n-1,Math.floor((this.s.t-S.t0)/S.dur*n));}
@@ -261,21 +315,24 @@ export const RESEARCH={
     let n;try{n=proposalOf(L,p,A,{id:c.by,name:c.byName,role:c.role,grade:c.grade},{rnd:()=>this.rand(),dir:P.dir||{},kind:c.kind,title:c.from?c.title:null});}catch(e){return null;}
     if(n.score<3||!n.real.length)return null;for(const k of ['also','leads','from','synergy','debated'])if(c[k]!==undefined)n[k]=c[k];n.conf=c.conf;n.objections=c.objections;n.supports=c.supports;n.prev=c.score;return n;},
   dropProp(P,c,how){for(const id of leadIds(c)){const L=P.leads.find(x=>x.id===id);if(!L||L.st!=='proposee')continue;
-      if(how==='refusee'){L.st='refusee';L.refused=(L.refused||0)+1;L.notes.unshift('Le commandement ne l’a pas retenue.');}
+      if(c.deep&&how!=='caduque'){L.st='exploration';L.prio=true;L.notes.unshift('La reine veut que je creuse.');}
+      else if(how==='refusee'){L.st='refusee';L.refused=(L.refused||0)+1;L.notes.unshift('La reine ne l’a pas retenue.');}
       else if(how==='caduque'){L.st='caduque';L.notes.unshift('La décision l’a rendue sans objet.');}
       else L.st=L.score>=8&&L.steps>=4?'mure':'exploration';}},
   // le commandement tranche une vague : picks (les numéros des propositions retenues) ; close : il clôt la réunion ; absent : personne n'est venu
   decide(pid,picks=[],{close=false,absent=false}={}){const P=this.program(pid),M=P?.meet;if(!M||M.phase!=='decision')return {ok:false,why:['pas de décision attendue']};
     const chosen=[];for(const i of picks){const c=M.props[i];if(!c||chosen.includes(c)||chosen.some(o=>conflictOf(o,c)))continue;chosen.push(c);}
-    if(!chosen.length){this.meetEnd(P,{decided:!absent,absent});return {ok:true,text:absent?'Réunion close sans le commandement':M.chosen.length?'Réunion close':'Conception gardée'};}
+    if(!chosen.length){this.meetEnd(P,{decided:!absent,absent});return {ok:true,text:absent?'Réunion close sans la reine':M.chosen.length?'Réunion close':'Conception gardée'};}
     const b=this.building(M.b),say=this.sayer(M),from=M.script.length,dir=P.dir||{},rnd=()=>this.rand();
     const p0=M.p;let p=p0;for(const c of chosen){try{p=applyEdit(p,c.edits);}catch(e){}}const fx=effects(derive(p0),derive(p));M.p=p;M.wave++;
-    for(const c of chosen){c.taken=M.wave;M.chosen.push(c);for(const id of leadIds(c)){const L=P.leads.find(x=>x.id===id);if(L){L.st='retenue';L.titleAt=c.title;L.notes.unshift('Retenue par le commandement.');}}
+    for(const c of chosen){c.taken=M.wave;M.chosen.push(c);for(const id of leadIds(c)){const L=P.leads.find(x=>x.id===id);if(L){L.st='retenue';L.titleAt=c.title;L.notes.unshift('Retenue par la reine.');}}
       P.applied.push({title:c.title,by:c.by,byName:c.byName,role:c.role,est:c.est,real:c.real,t:this.s.t});}
-    const what=chosen.map(c=>short(c.title).toLowerCase()).join(' ; ');say('ingenieur',`Le commandement retient : ${what}. On redessine.`,undefined,'decision');
+    const what=chosen.map(c=>short(c.title).toLowerCase()).join(' ; ');if(M.king)say('reine',`Je retiens : ${what}.`,'reine','decision');else say('ingenieur',`La reine retient : ${what}. On redessine.`,undefined,'decision');
+    {const w=(M.who||[]).find(x=>x.id>0);if(w)say(w.role,talkLine(M.king?'decision_reine':'decision',{},rnd),w.id,'parole');}
+    for(const c of chosen)for(const c2 of chosen)if(c!==c2)this.affAdd(c.by,c2.by,.03);
     if(fx.length)say('physicien',`La conception nouvelle : ${fx.slice(0,5).map(fxTxt).join(', ').toLowerCase()}.`,undefined,'calcul');
     if(M.type!=='variante')this.reshape(P,p);
-    this.pev(P,`Le commandement retient : ${what}.${fx.length?' '+fx.slice(0,4).map(fxTxt).join(', ')+'.':''}`,'good');this.rlog(b,`« ${P.name} » : retenu — ${what}.`,'good');
+    this.pev(P,`La reine retient : ${what}.${fx.length?' '+fx.slice(0,4).map(fxTxt).join(', ')+'.':''}`,'good');this.rlog(b,`« ${P.name} » : retenu — ${what}.`,'good');
     // ce qui reste sur la table : ce que la décision a tranché tombe ; le reste est recalculé sur la conception nouvelle
     const rest=[];for(const c of M.props){if(c.taken)continue;if(chosen.some(o=>conflictOf(o,c))){this.dropProp(P,c,'caduque');continue;}const n=this.recalcProp(P,c,p);
       if(!n){this.dropProp(P,c,'caduque');say(c.role,`« ${short(c.title)} » n’apporte plus rien : je la retire.`,c.by,'parole');continue;}
@@ -291,9 +348,9 @@ export const RESEARCH={
     this.addProps(P,fresh,say);const nd=M.props.filter(c=>!c.debated);for(const l of debate(nd,M.who||[],rnd,derive(p)))say(l.role,l.text,l.by,/^Et c’est bon/.test(l.text)?'soutien':'objection',M.props.indexOf(l.on));for(const c of nd)c.debated=true;
     if(!M.props.length){this.meetEnd(P,{decided:true});return {ok:true,text:`${chosen.length} retenue${chosen.length>1?'s':''} — plus rien sur la table`};}
     this.meetSeg(M,'application',from,.08,.35);return {ok:true,text:`${chosen.length} retenue${chosen.length>1?'s':''} : la conception change`};},
-  // le roi (le joueur) assiste : on la tient à jour tant que la fenêtre de réunion est ouverte (sinon il s'en va au bout d'une demi-heure)
-  attendMeeting(pid,on){const P=this.program(pid),M=P?.meet;if(!M)return;if(on){M.kingT=this.s.t;if(!M.king){M.king=true;const say=this.sayer(M);say('ingenieur','Le roi entre et prend place au bout de la table.','roi','decision');
-      const w=(M.who||[]).find(x=>x.id>0);if(w)say(w.role,['Majesté !','Le roi est là : on vous écoute, Majesté.','Majesté, la conception est sur la table.'][Math.floor(this.rand()*3)],w.id,'parole');}}
+  // la reine (le joueur) assiste : on la tient à jour tant que la fenêtre de réunion est ouverte (sinon il s'en va au bout d'une demi-heure)
+  attendMeeting(pid,on){const P=this.program(pid),M=P?.meet;if(!M)return;if(on){M.kingT=this.s.t;if(!M.king){M.king=true;const say=this.sayer(M);say('ingenieur','La reine Meumeu entre ; tout le monde se lève. Elle prend place au bout de la table.','reine','decision');
+      const w=(M.who||[]).find(x=>x.id>0);if(w)say(w.role,['Majesté !','Majesté, nous vous attendions.','Votre Majesté nous honore : la conception est sur la table.','Majesté, nous avons beaucoup calculé.'][Math.floor(this.rand()*3)],w.id,'parole');}}
     else if(M.king){M.king=false;}},
   closeMeeting(pid){const P=this.program(pid);if(!P?.meet)return {ok:false,why:['pas de réunion en cours']};if(P.meet.phase==='decision')return this.decide(pid,[],{close:true});
     const n=P.meet.chosen.length;this.meetEnd(P,{decided:true});return {ok:true,text:n?'Réunion close':'Réunion close sans rien retenir'};},
@@ -302,15 +359,18 @@ export const RESEARCH={
   // la fin d'une réunion : ce qui n'a pas été retenu est refusé (ou, sans le commandement, retourne au carnet) ; chacun repart à son poste
   // refaire ses pistes sur la conception nouvelle
   meetEnd(P,{decided=false,absent=false}={}){const M=P.meet;if(!M)return null;
+    {const say=this.sayer(M);let n=0;for(const c of M.props){if(c.taken)continue;if(c.deep){say(c.role,talkLine('creuser',{},()=>this.rand()),c.by,'parole');this.pev(P,`La reine demande de creuser : ${short(c.title)}.`);}
+      else if(decided&&n<2&&c.by>0&&this.rand()<.6){n++;say(c.role,talkLine('refus',{},()=>this.rand()),c.by,'parole');}}
+      if(decided)say('ingenieur',talkLine('fin',{},()=>this.rand()),undefined,'parole');}
     for(const c of M.props)if(!c.taken)this.dropProp(P,c,decided?'refusee':'retour');
     const changed=M.chosen.flatMap(keysOf);if(changed.length&&M.type!=='variante')for(const L of P.leads)rebaseLead(L,P.p,{dir:P.dir,changed});
     P.meetings.push({type:M.type,t:this.s.t,waves:M.wave,seen:M.seen,chosen:M.chosen.map(c=>c.title)});
     for(const id of M.ids){const u=this.unit(id);if(u?.sci?.meet===P.id)u.sci.meet=null;}P.meet=null;P.lastMeet=this.s.t;
-    if(!M.chosen.length)this.pev(P,absent?`Le commandement n’est pas venu : le chef de projet garde la conception.`:`Le commandement garde la conception telle quelle.`,absent?'bad':'info');
+    if(!M.chosen.length)this.pev(P,absent?`La reine n’est pas venue : le chef de projet garde la conception.`:`La reine garde la conception telle quelle.`,absent?'bad':'info');
     if(M.type==='variante'){if(M.chosen.length){const V=this.createVariant(P,M.p);V.applied=P.applied.map(a=>({...a}));return V;}this.pev(P,'Rien de retenu : l’équipe continue d’étudier.');for(const t of P.tasks)t.done=0;this.assignAll(P);return null;}
     if(P.st==='lancement')P.st='actif';
     // après l'essai, sans changement : la conception est prête — c'est le commandement qui la déclare terminée (adoptNow)
-    if(M.type==='finale'&&!M.chosen.length&&P.tasks.every(t=>t.done>=t.work)){P.st='pret';P.readyT=this.s.t;this.pev(P,`La conception est prête : au commandement de la déclarer terminée.`,'good');}else this.assignAll(P);
+    if(M.type==='finale'&&!M.chosen.length&&P.tasks.every(t=>t.done>=t.work)){P.st='pret';P.readyT=this.s.t;this.pev(P,`La conception est prête : à la reine de la déclarer terminée.`,'good');}else this.assignAll(P);
     return null;},
   // une réunion interrompue (le bâtiment tombé, la conception déclarée terminée) : rien n'est décidé
   closeMeet(P){const M=P.meet;if(!M)return;for(const c of M.props)if(!c.taken)this.dropProp(P,c,'retour');for(const id of M.ids){const u=this.unit(id);if(u?.sci?.meet===P.id)u.sci.meet=null;}P.meet=null;P.lastMeet=this.s.t;},
@@ -365,10 +425,10 @@ export const RESEARCH={
     // les programmes
     for(const P of R.programs){if(P.st!=='lancement'&&P.st!=='actif'&&P.st!=='suivi'&&P.st!=='pret')continue;
       // prête : le commandement doit la déclarer terminée ; au bout d'un jour et demi, le chef de projet la clôt
-      if(P.st==='pret'){if(s.t-(P.readyT??s.t)>36){this.pev(P,`Sans nouvelle du commandement, le chef de projet clôt la conception.`,'bad');this.adopt(P);}continue;}
+      if(P.st==='pret'){if(s.t-(P.readyT??s.t)>36){this.pev(P,`Sans nouvelle de la reine, le chef de projet clôt la conception.`,'bad');this.adopt(P);}continue;}
       // la réunion : on se rassemble (deux heures au plus), les phases défilent, puis on attend la décision du commandement
       const M=P.meet;if(M){const b=this.building(M.b);if(!b||!b.done||b.ruin){this.closeMeet(P);if(P.st==='lancement')P.st='actif';continue;}
-        if(M.king&&s.t-(M.kingT??0)>.5)M.king=false;   // (la fenêtre fermée sans le dire : le roi est parti)
+        if(M.king&&s.t-(M.kingT??0)>.5)M.king=false;   // (la fenêtre fermée sans le dire : la reine est partie)
         if(M.phase==='rassemblement'){const here=M.ids.filter(id=>this.where(this.unit(id))===b);for(const id of M.ids){const u=this.unit(id);if(u&&u.k==='savant'&&this.where(u)!==b&&u.task?.kind!=='lab')this.sendTo(u,b,{meet:true});}
           if(here.length>=M.ids.length||s.t-M.t0>2)this.meetOpen(P,b);}
         else if(M.phase==='decision'){if(M.king)M.deadline=Math.max(M.deadline,s.t+.5);if(s.t>=M.deadline){this.decide(P.id,[],{absent:true});continue;}}
@@ -399,7 +459,7 @@ export const RESEARCH={
       if(P.st==='suivi'&&!P.meet&&((mure>=3&&since>=12)||P.tasks.every(t=>t.done>=t.work)))this.callMeeting(P,'variante');}
     for(const P of R.programs)if(P.kind!=='arme'&&P.st==='actif'&&P.tasks.every(t=>t.done>=t.work))this.adopt(P);
     // la réflexion
-    this.thinkTick(h,sleep);
+    this.thinkTick(h,sleep);this.talkTick(h,sleep);
     // les savants sans tâche : à leur bâtiment, ils réfléchissent ; la nuit, ils dorment
     for(const u of sav){if(u.k!=='savant')continue;const S=u.sci,b=this.where(u);
       if(!S.task&&!S.meet&&!b&&!u.task){const home=this.labFor(S.role,u.x,u.y,u);if(home)this.sendTo(u,home);}

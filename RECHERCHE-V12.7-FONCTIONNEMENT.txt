@@ -182,29 +182,45 @@ touche plus à ce levier — les pistes qui le touchaient tombent. Dans le panne
   « Retenir » (grisé si en conflit avec une carte retenue), « Voir dans le concepteur » (ouvre le concepteur sur la conception proposée).
 - LE CONCEPTEUR : « Lancer le programme » ; la liste des tâches que la conception demande (métier, écart à l'état de l'art, heures).
 
-7 bis. LE ROI MEUMEU : LE JOUEUR À LA TABLE
+7 bis. LA REINE MEUMEU (LE JOUEUR) ; LES MODÈLES DÉTAILLÉS
 ----------------------------------------------------------------------------------------------------------
-- Demande du joueur : « prends un modèle de meumeu, rajoute-lui la cape du soldat élite et fais-en le roi meumeu ; quand je rejoins la
-  réunion je suis le roi meumeu et je rejoins la table ».
-- LE MODÈLE assets3d/meumeu_roi.json, fabriqué par test/_outils_captures/roi_meumeu.cjs (à relancer pour le refaire) : le modèle meumeu tel
-  quel + LA CAPE de l'Élite à cape (plush_cow_knight) + une couronne faite par le code. Les modèles d'origine ne sont PAS modifiés (on les lit).
-    · la cape détachée de l'élite (un seul maillage soudé) : le velours rouge (r>77, g<41, b<56) et ce qui le borde à moins de 4,5 cm sous la
-      tête (l'hermine de la bordure, des revers et du col), sans le museau ni les jambes/plastron/cordons entre les pans ;
-    · calée sur le Meumeu : hauteur ×1,13 (rapport des tailles), largeur ×1,12, le dos de la cape posé contre le dos du Meumeu hauteur par
-      hauteur (profils lissés, 1,4 cm d'écart, la queue comprise) ; puis PLAQUÉE : le rayon du Meumeu (épaules et bras compris) mesuré dans
-      48 directions tous les centimètres ; un point de la cape qui entrerait dans le corps est repoussé juste dehors ; le col est resserré
-      au cou. La cape enveloppe les bras, symétrique ;
-    · la couronne : bandeau d'or, cinq pointes à boule, rubis et saphirs, centrée sur l'axe du visage (les yeux et les naseaux) et au milieu
-      de la tête d'avant en arrière.
-  Contrôle visuel : la page de dev _cape.html?m=meumeu_roi (huit angles ; #r=<règle> colore des triangles, ?cut=1 ne montre qu'eux ;
-  t.red, t.d = distance au velours) et test/_outils_captures/modele_page.cjs (capture avec OKM_PAGE).
-- EN JEU : ouvrir la fenêtre de réunion (« Assister ») = le roi présent : world.attendMeeting(pid,true) à chaque rafraîchissement de la fenêtre
-  (M.king, M.kingT) ; une réplique « Le roi entre et prend place au bout de la table. », un savant le salue (« Majesté ! ») ; tant que le
-  roi est là, la réunion l'attend (l'échéance est repoussée). Fenêtre fermée : le roi s'en va (au plus tard une demi-heure de jeu après).
-  « Assister » fait aussi voler la caméra jusqu'au bâtiment de la réunion. « 👑 Voir la table » réduit la fenêtre en un bandeau en bas
-  (la dernière réplique, « Rouvrir la réunion », « Quitter ») : on voit le roi entrer par la porte, aller au fauteuil du bout de la table
-  (le poste 'roi' du centre de recherche, labs3d) et s'asseoir ; ses répliques ont leur bulle ; son nom est en or ; un clic sur lui ne
-  choisit personne. scene3d : KING={id:'roi',k:'roi'}, le groupe P.roi (modèle meumeu_roi, 0,47 de haut).
+- Le joueur est LA REINE MEUMEU. Toutes les répliques s'adressent à elle (« La reine retient… », « Majesté… », « Décision de la reine »).
+- Modèles fournis par le joueur (zips « meumeu king 3d model » et « cute cow researcher 3d model »), convertis par oberkommando-v12.0/outils/
+  convertir.cjs avec un budget de 14 000 triangles (la copie du scratchpad convertir_hd.cjs lit OKM_BUDGET ; le budget habituel des peluches,
+  1 800, dégradait trop) : assets3d/meumeu_reine.json (couronne, cape rouge d'hermine, sceptre) et assets3d/meumeu_chercheur.json (blouse,
+  stylos) — 14 000 triangles, ~190 Ko chacun. Le roi bricolé (meumeu + cape de l'élite) et son générateur sont supprimés.
+  Contrôle : la page de dev _cape.html?m=<modèle> (huit angles ; règles de sélection #r=…, t.red, t.d) ; test/_outils_captures/modele_page.cjs.
+- EN JEU : ouvrir la fenêtre de réunion (« Assister ») = la reine présente : world.attendMeeting(pid,true) à chaque rafraîchissement
+  (M.king, M.kingT) ; « La reine Meumeu entre ; tout le monde se lève. » ; un savant la salue ; tant qu'elle est là la réunion l'attend ; fenêtre
+  fermée : elle s'en va (au plus tard une demi-heure de jeu). « Assister » fait voler la caméra jusqu'au bâtiment. « 👑 Voir la table » réduit
+  la fenêtre en un bandeau : on la voit entrer, aller au fauteuil du bout de la table (poste 'reine', labs3d) et s'asseoir ; quand elle tranche,
+  c'est elle qui parle (« Je retiens : … ») et on lui répond (« Sage décision, Majesté. »).
+
+7 ter. LES CONVERSATIONS, LES CALCULS, LA VIE
+----------------------------------------------------------------------------------------------------------
+- researchdata.TALK : le répertoire des répliques (une entrée = une ligne) ; talkLine(clé,champs) ne prend qu'un modèle dont tous les champs
+  sont connus, met les majuscules. METRIC_ART : les grandeurs avec leur article.
+- research.talkTick (toutes les 0,1 h) : dans chaque bâtiment de recherche, de temps en temps, une conversation (talkMake) tirée des VRAIES
+  pistes : l'essai qu'un savant vient de faire (« Pesée faite : charge 67 %… portée +4 %. » — le geste selon le métier : le chimiste pèse,
+  l'ingénieur tourne une pièce, le physicien calcule au tableau), « Mieux ! » / « Fausse piste. », ce que le collègue d'un autre métier en voit
+  (une objection chiffrée, une question, un encouragement ou une consolation), une idée neuve, une intuition, une refonte, une inspiration,
+  une impasse, une CONCLUSION (« Sur 10 essais (3 prometteurs), je retiens : … »), et la pause (l'avancement d'un programme, la vie).
+  s.research.talk : {id,t,b,by,to,text,k,pid}, 240 au plus.
+- Les ENTENTES (u.sci.aff) : une objection éloigne, un soutien rapproche, deux propositions retenues ensemble rapprochent ; rivaux (« Encore
+  toi ? Tes chiffres sont faux. ») ou amis (« Bien vu ! »).
+- La FEUILLE DE CALCULS d'une piste (L.hist : chaque essai, sa valeur courte — « pas 6,2 cm », « culot 0,00 » —, mieux ou non, l'effet).
+  En réunion : « J'ai essayé paroi ×0,68 ✓, tube 105 cm ✗, … — le meilleur : paroi ×0,65. » ; dans le panneau (Ses calculs) ; sur les cartes.
+- LA RÉUNION VIVANTE : on ouvre les propositions (« Majesté, voici ce que nous proposons. »), chacun introduit la sienne selon son grade
+  (« Euh… si je peux me permettre » … « Mes calculs sont formels » ; l'équipe du bureau : « Notre équipe propose, après maintes réflexions : »),
+  dit ses calculs, un collègue réagit (« Je n'y avais pas pensé. », « Audacieux ! »), les objections ont leur « Si je puis me permettre… »,
+  l'auteur refusé se lamente, la séance est levée.
+- « À CREUSER » (bouton sur une carte, world.deepenProp) : ni retenue ni refusée ; son auteur y retourne en priorité (L.prio) et la
+  représentera.
+- LE RYTHME DE LECTURE : une heure de jeu dure 4 s ; la vue (labview.labPaced) montre une réplique à la fois par bâtiment, 2,4 à 6 s selon sa
+  longueur, et saute les plus anciennes quand elle prend du retard. Celui qui parle se tourne vers celui à qui il parle et gesticule
+  (view.labTalkNow → scene3d).
+- L'ARME EN VRAI : scene3d.labProps pose la conception en 3D (gunModel du concepteur) sur la grande table du centre pendant une réunion (elle
+  change à chaque vague retenue) et le prototype sur l'établi du bureau d'études.
 
 8. LE LABORATOIRE DE CHIMIE
 ----------------------------------------------------------------------------------------------------------

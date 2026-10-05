@@ -40,8 +40,12 @@ export function researchUI({world,view,ui,say,esc,ico,costHtml,hours,buildingPan
   const gauge=(f,col)=>`<i class="gauge"><i style="width:${pct(f)}%${col?`;background:${col}`:''}"></i></i>`;
   const clock=t=>`j${Math.floor(t/24)+1} ${String(Math.floor(t%24)).padStart(2,'0')}h${String(Math.floor((t%1)*60)).padStart(2,'0')}`;
   const role=r=>ROLES[r]?`<span class="rrole" style="--c:${ROLES[r].col}">${ROLES[r].ico} ${ROLES[r].name}</span>`:'';
-  const nameOf=id=>id==='roi'?'Le roi':id>0?(W().unit(id)?.name||'?'):'L’équipe du bureau';
-  const roleCol=r=>ROLES[r]?.col||'#ccc';
+  const nameOf=id=>id==='reine'?'La reine':id>0?(W().unit(id)?.name||'?'):'L’équipe du bureau';
+  const roleCol=r=>r==='reine'?'#e8bf62':ROLES[r]?.col||'#ccc';
+  // une conversation (s.research.talk) : qui, à qui, quoi
+  const talkHtml=L=>L.length?`<div class="rtalk">${L.map(l=>{const u=W().unit(l.by);return `<p class="k-${l.k}" style="--c:${roleCol(u?.sci?.role)}"><b>${esc(nameOf(l.by))}</b>${l.to?`<small> → ${esc(nameOf(l.to))}</small>`:''} ${esc(l.text)}</p>`;}).join('')}</div>`:'';
+  // la feuille de calculs d'une piste
+  const histHtml=H=>H?.length?`<ol class="rhist">${H.map(h=>`<li class="${h.ok?'ok':'ko'}">${h.ok?'✓':'✗'} ${esc(h.val||h.txt)}${h.fx?` <small>${esc(h.fx)}</small>`:''}</li>`).join('')}</ol>`:'';
   const where=u=>{const w=W(),b=w.where(u);if(b)return AU[b.k]||BUILDINGS[b.k].name;const T=u.task;if(T?.kind==='lab'){const tb=w.building(T.b);return tb?'en route '+(AU[tb.k]||'').replace(/^au /,'vers le ').replace(/^à l’/,'vers l’'):'en chemin';}return 'dehors';};
   // les chiffres d'une conception (ce qui compte pour cette arme)
   const numsHtml=p=>{let D;try{D=derive(p);}catch(e){return '';}const n=nums(D),L=[];const add=(k,lbl,v)=>{if(metricOk(k,D))L.push(`<span><small>${lbl}</small><b>${v}</b></span>`);};
@@ -73,7 +77,7 @@ export function researchUI({world,view,ui,say,esc,ico,costHtml,hours,buildingPan
   function leadsHtml(P){const w=W(),L=P.leads||[];if(!L.length)return '<p class="quiet small">Les carnets sont vides : les savants n’ont pas encore pensé à ce programme.</p>';
     const live=L.filter(x=>x.st==='exploration'||x.st==='mure'||x.st==='proposee'),dead=L.filter(x=>!live.includes(x)).slice(-6).reverse();
     const row=x=>`<div class="rlead st-${x.st}" style="--c:${roleCol(x.role)}"><b>${esc(nameOf(x.owner))}</b><span>${esc(GOALS[x.goal]?.name||x.goal)}${x.bold?' · <em>radicale</em>':''} — ${LEAD_ST[x.st]||x.st}</span>${gauge(confOf(x))}
-      <small>${esc(x.titleAt?short(x.titleAt):x.edits.length?short(ideaTitle(x,P.p)):'')}${x.notes[0]?` · <i>${esc(x.notes[0])}</i>`:''}</small></div>`;
+      <small>${esc(x.titleAt?short(x.titleAt):x.edits.length?short(ideaTitle(x,P.p)):'')}${x.notes[0]?` · <i>${esc(x.notes[0])}</i>`:''}</small>${x.hist?.length?`<details class="rcalc"><summary class="small quiet">Ses calculs (${x.hist.length})</summary>${histHtml(x.hist)}</details>`:''}</div>`;
     return `${live.sort((a,z)=>(z.st==='mure')-(a.st==='mure')||z.score-a.score).map(row).join('')||'<p class="quiet small">Aucune piste vivante.</p>'}${dead.length?`<details><summary class="quiet small">${L.length-live.length} piste${L.length-live.length>1?'s':''} close${L.length-live.length>1?'s':''} (retenues, refusées, impasses)</summary>${dead.map(row).join('')}</details>`:''}`;}
   function dirHtml(P){const w=W(),dir=P.dir||{prio:{},frozen:[]};let D;try{D=derive(P.p);}catch(e){return '';}
     const goals=Object.keys(GOALS).filter(g=>metricOk(g,D)),levers=LEVERS.filter(l=>leverOk(l,P.p,D,{})||(dir.frozen||[]).includes(l));
@@ -91,6 +95,7 @@ export function researchUI({world,view,ui,say,esc,ico,costHtml,hours,buildingPan
       ${openP?`<div class="rtasks">${P.tasks.map(t=>taskRow(P,t)).join('')}</div>
       ${P.kind==='arme'?`<h3 class="rsub">Directives</h3>${dirHtml(P)}<h3 class="rsub">Les carnets <small>${(P.leads||[]).filter(x=>x.st==='exploration'||x.st==='mure').length} pistes vivantes</small></h3><div class="rleads">${leadsHtml(P)}</div>`:''}
       <div class="rteam">${team.map(u=>`<span class="rwho" style="--c:${roleCol(u.sci.role)}"><button class="link" data-r="sel:${u.id}">${esc(u.name)}</button> <small>${ROLES[u.sci.role].ico} ${GRADES[gradeOf(u.sci.xp)].name}</small></span>`).join('')||'<span class="quiet small">l’équipe du bureau seule</span>'}</div>
+      ${(()=>{const T=(w.s.research.talk||[]).filter(l=>l.pid===P.id).slice(-6);return T.length?`<h3 class="rsub">Ce qu’ils se disent</h3>${talkHtml(T)}`:'';})()}
       <ul class="rev">${P.ev.slice(0,5).map(e=>`<li class="${e.tone}"><time>${clock(e.t)}</time> ${esc(e.txt)}</li>`).join('')}</ul>`:''}
       ${acts.length?`<div class="row wrap">${acts.join('')}</div>`:''}</article>`;}
   function tabProgrammes(){const w=W(),Rs=w.s.research;const live=Rs.programs.filter(P=>['lancement','actif','pret','suivi'].includes(P.st)).sort((a,z)=>(z.kind==='arme')-(a.kind==='arme')||z.t0-a.t0);
@@ -106,6 +111,7 @@ export function researchUI({world,view,ui,say,esc,ico,costHtml,hours,buildingPan
       <label class="small quiet" title="${nx?`${Math.floor(S.xp)} / ${nx.xp} pour ${nx.name.toLowerCase()}`:'au sommet'}">expérience ${gauge(nx?(S.xp-GRADES[g].xp)/(nx.xp-GRADES[g].xp):1,'var(--gold)')}</label>
       <p class="small">${esc(ACT[S.act]||S.act||'—')} — ${esc(where(u))}${P?` · <b>${esc(P.name)}</b>`:''}</p>
       ${T&&w.s.t-T.t<6?`<p class="rthink">💭 ${esc(T.txt)}${T.good?' — <b class="good">mieux !</b>':''}</p>`:''}
+      ${sel?talkHtml((w.s.research.talk||[]).filter(l=>l.by===u.id||l.to===u.id).slice(-5)):''}
       ${sel?`<p class="small">${live.length} piste${live.length>1?'s':''} vivante${live.length>1?'s':''}${live.length?' : '+live.map(L=>esc(GOALS[L.goal]?.name||L.goal)+(L.st==='mure'?' (mûre)':'')).join(', '):''} · ${(S.bold??.5)>.6?'audacieux : beaucoup de refontes':(S.bold??.5)<.25?'prudent':'mesuré'} · ${S.papers||0} programme${(S.papers||0)>1?'s':''} abouti${(S.papers||0)>1?'s':''} · savant depuis le ${clock(S.born)}</p>`:''}</article>`;}
   function tabSavants(b){const w=W(),S=R(),L=w.savants().sort((a,z)=>Number(z.id===S.sel)-Number(a.id===S.sel)||Number(w.where(z)===b)-Number(w.where(a)===b)||z.sci.xp-a.sci.xp);
     return `<section class="pane"><h2>Les savants <small>${L.length} · trois métiers : ${Object.values(ROLES).map(r=>r.plural).join(', ')}</small></h2>${L.map(savantCard).join('')||'<p class="quiet small">Aucun savant : formez-en à l’école (onglet École).</p>'}</section>`;}
@@ -124,12 +130,12 @@ export function researchUI({world,view,ui,say,esc,ico,costHtml,hours,buildingPan
     for(const ax of AXES){if(ax.type==='probleme')continue;const ks=Object.keys(A).filter(k=>k===ax.id||k.startsWith(ax.id+':'));for(const k of ks){const v=A[k];const sub=k.includes(':')?' — '+k.split(':')[1]:'';
       rows.push(`<div class="kv"><span>${ROLES[ax.role]?.ico||''} ${esc(ax.name)}${esc(sub)}</span><b>${Array.isArray(v)?v.map(esc).join(', '):ax.unit==='m'?dist(v):fmt(v,v<10?2:0)+' '+esc(ax.unit||'')}</b></div>`);}}
     return `<section class="pane"><h2>L’état de l’art <small>ce que nos armes adoptées ont prouvé — au-delà, chaque conception demande des tâches</small></h2>${rows.join('')||'<p class="quiet small">Rien encore.</p>'}</section>`;}
-  function tabCarnet(){const L=W().s.research.log;return `<section class="pane"><h2>Le carnet de laboratoire <small>${L.length} lignes</small></h2>${L.slice(0,150).map(l=>`<div class="logline ${l.tone}"><time>${clock(l.t)}</time>${l.where?`<b>${esc(l.where)}</b>`:''}${esc(l.txt)}</div>`).join('')||'<p class="quiet small">Rien encore.</p>'}</section>`;}
+  function tabCarnet(){const L=W().s.research.log,T=(W().s.research.talk||[]).slice(-60).reverse();return `<section class="pane"><h2>Les conversations <small>ce qu’ils se disent, du plus récent</small></h2>${talkHtml(T)||'<p class="quiet small">Personne n’a encore parlé.</p>'}</section><section class="pane"><h2>Le carnet de laboratoire <small>${L.length} lignes</small></h2>${L.slice(0,150).map(l=>`<div class="logline ${l.tone}"><time>${clock(l.t)}</time>${l.where?`<b>${esc(l.where)}</b>`:''}${esc(l.txt)}</div>`).join('')||'<p class="quiet small">Rien encore.</p>'}</section>`;}
 
   // ---------- la réunion ----------
   const picks=(pid,M)=>{const S=R();const k=pid+':'+(M?.wave||0)+':'+(M?.props.length||0);if(S.picks[pid]?.k!==k)S.picks[pid]={k,L:[]};return S.picks[pid].L;};
   function card(P,M,c,i,sel){const on=sel.includes(i),conflict=!on&&sel.some(j=>M.props[j]&&conflictOf(M.props[j],c));let p1=null;try{p1=applyEdit(M.p,c.edits);}catch(e){}
-    const why=c.origin==='defaut'?`A vu : ${c.why}`:c.origin==='directive'?'Directive du commandement':c.origin==='inspiration'?c.why:c.origin==='reprise'?'Reprend une idée refusée, autrement':c.origin==='compromis'||c.origin==='combinaison'||c.origin==='contre'?c.why:c.why?c.why.charAt(0).toUpperCase()+c.why.slice(1):'';
+    const why=c.origin==='defaut'?`A vu : ${c.why}`:c.origin==='directive'?'Directive de la reine':c.origin==='inspiration'?c.why:c.origin==='reprise'?'Reprend une idée refusée, autrement':c.origin==='compromis'||c.origin==='combinaison'||c.origin==='contre'?c.why:c.why?c.why.charAt(0).toUpperCase()+c.why.slice(1):'';
     const also=c.also?.length?` · arrivé${c.also.length>1?'s':''} au même calcul : ${c.also.map(a=>esc(a.byName)).join(', ')}`:'';
     return `<article class="rcard ${on?'on':''} ${conflict?'off':''} ${c.bold?'bold':''}" style="--c:${roleCol(c.role)}">
       <header><span class="rkind">${c.bold?'Refonte radicale · ':''}${KIND[c.kind]||c.kind}</span><b>${esc(short(c.title))}</b><small>${ROLES[c.role]?.ico||''} ${esc(c.byName)} — ${esc(GRADES[c.grade]?.name.toLowerCase()||'')}${also}</small></header>
@@ -140,8 +146,8 @@ export function researchUI({world,view,ui,say,esc,ico,costHtml,hours,buildingPan
       ${why?`<p class="rc-why">${esc(why)}</p>`:''}
       ${(c.objections||[]).map(o=>`<p class="rc-obj"><b>${esc(o.byName)}</b> : ${esc(o.text)}</p>`).join('')}${(c.supports||[]).map(o=>`<p class="rc-sup"><b>${esc(o.byName)}</b> : ${esc(o.text)}</p>`).join('')}
       <p class="rc-cost small">${c.dWork>0.5?`+${Math.round(c.dWork)} heures-savants`:c.dWork<-.5?`${Math.round(c.dWork)} heures-savants`:'sans travail de plus'}${c.newTasks?.length?' · nouveau : '+c.newTasks.map(esc).join(', ').toLowerCase():''}</p>
-      ${c.notes?.length?`<details class="rc-notes"><summary class="small quiet">Ses calculs</summary>${c.notes.map(n=>`<p class="small">${esc(n)}</p>`).join('')}</details>`:''}
-      <footer>${M.phase==='decision'?`<button class="small ${on?'':'ghost'}" data-r="mpick:${P.id}:${i}" ${conflict?'disabled title="touche la même chose qu’une proposition déjà retenue"':''}>${on?'✓ Retenue':'Retenir'}</button>`:''}<button class="small ghost" data-r="mdraft:${P.id}:${i}">Voir dans le concepteur</button></footer></article>`;}
+      ${c.hist?.length?`<details class="rc-notes"><summary class="small quiet">Ses calculs (${c.steps})</summary>${histHtml(c.hist)}</details>`:''}
+      <footer>${M.phase==='decision'?`<button class="small ${on?'':'ghost'}" data-r="mpick:${P.id}:${i}" ${conflict?'disabled title="touche la même chose qu’une proposition déjà retenue"':''}>${on?'✓ Retenue':'Retenir'}</button>`:''}${M.phase==='decision'&&c.lead>0?`<button class="small ${c.deep?'':'ghost'}" data-r="mdeep:${P.id}:${i}" title="Ni retenue ni refusée : son auteur y retourne en priorité, et la représentera">${c.deep?'✓ À creuser':'À creuser'}</button>`:''}<button class="small ghost" data-r="mdraft:${P.id}:${i}">Voir dans le concepteur</button></footer></article>`;}
   function meetModal(pid){const w=W(),P=w.program(+pid);if(!P)return '';const M=P.meet;
     if(!M){const last=P.meetings.at(-1);return `<header class="mhead"><div><b>« ${esc(P.name)} »</b><small>pas de réunion en cours</small></div><button class="ghost" data-act="modal-off">Fermer</button></header><div class="mbody">${last?`<p>Dernière réunion : ${esc(MEETINGS[last.type]?.name||last.type)}, ${clock(last.t)} — ${last.waves} vague${last.waves>1?'s':''}, ${last.seen||0} propositions, retenues : ${last.chosen.length?last.chosen.map(t=>esc(short(t))).join(' ; '):'aucune'}.</p>`:''}<img class="rpic" src="${portrait(P.p)}" alt="">${numsHtml(P.p)}</div>`;}
     const b=w.building(M.b),sel=picks(P.id,M);const who=(M.who||[]).map(x=>`<span class="rwho" style="--c:${roleCol(x.role)}">${ROLES[x.role]?.ico||''} ${esc(x.name)}</span>`).join('');
@@ -149,7 +155,7 @@ export function researchUI({world,view,ui,say,esc,ico,costHtml,hours,buildingPan
     const script=M.script.slice(-40).reverse().map(l=>`<p class="k-${l.k}" style="--c:${roleCol(l.role)}"><b>${esc(nameOf(l.by))}</b> ${esc(l.text)}</p>`).join('');
     const props=M.props.map((c,i)=>card(P,M,c,i,sel)).join('');
     if(R().mini){const l=M.script.at(-1);return `<header class="mhead"><div><b>👑 ${esc(MEETINGS[M.type].name)} — « ${esc(P.name)} »</b><small>${esc(MEET_PHASES[M.phase]||M.phase)}${M.phase==='decision'?` · ${M.props.length} proposition${M.props.length>1?'s':''} attendent votre décision`:''}${l?` · <b>${esc(nameOf(l.by))}</b> : ${esc(l.text)}`:''}</small></div><button data-r="mini:0">Rouvrir la réunion</button><button class="ghost" data-act="modal-off">Quitter</button></header>`;}
-    return `<header class="mhead"><div><b>${esc(MEETINGS[M.type].name)} — « ${esc(P.name)} »</b><small>${esc(AU[b?.k]||'')} · vague ${M.wave+1} sur 3 · vous présidez : le roi siège au bout de la table</small></div><button class="ghost" data-r="mini:1" title="Réduire la fenêtre : la réunion dans la vue recherche">👑 Voir la table</button><button class="ghost" data-act="modal-off">Fermer</button></header>
+    return `<header class="mhead"><div><b>${esc(MEETINGS[M.type].name)} — « ${esc(P.name)} »</b><small>${esc(AU[b?.k]||'')} · vague ${M.wave+1} sur 3 · vous présidez : la reine siège au bout de la table</small></div><button class="ghost" data-r="mini:1" title="Réduire la fenêtre : la réunion dans la vue recherche">👑 Voir la table</button><button class="ghost" data-act="modal-off">Fermer</button></header>
       <div class="mbody rmeet">
         <div class="rribbon">${PH.map((k,i)=>`<span class="${i<cur?'done':i===cur?'cur':''}">${esc(MEET_PHASES[k])}${k==='decision'&&M.wave?` (vague ${M.wave+1})`:''}</span>`).join('')}${M.phase==='application'?'<span class="cur">On redessine</span>':''}</div>
         <div class="rm-top"><figure class="rm-design"><img class="rpic" src="${portrait(M.p,M.chosen.length&&M.p0?M.p0:null)}" alt="">${numsHtml(M.p)}<figcaption class="small quiet">Autour de la table : ${who||'personne encore'}</figcaption>
@@ -190,6 +196,7 @@ export function researchUI({world,view,ui,say,esc,ico,costHtml,hours,buildingPan
       // la réunion : retenir (une vague), clore, voir une proposition dans le concepteur
       if(k==='mpick'){const P=w.program(+a);if(!P?.meet)return;const L=picks(P.id,P.meet),i=+c;const at=L.indexOf(i);if(at>=0)L.splice(at,1);else L.push(i);return;}
       if(k==='mdecide'){const P=w.program(+a);if(!P?.meet)return;const L=picks(P.id,P.meet).slice();const r=w.decide(P.id,L);ok(r);S.picks[P.id]=null;return;}
+      if(k==='mdeep'){ok(w.deepenProp(+a,+c));return;}
       if(k==='mclose'){const r=w.closeMeeting(+a);ok(r);return;}
       if(k==='mdraft'){const P=w.program(+a),pr=P?.meet?.props[+c];if(!pr)return;let p;try{p=applyEdit(P.meet.p,pr.edits);}catch(e){return;}close?.();draft?.(p,`${P.name} — ${short(pr.title).slice(0,40)}`);return;}},
     change(arg,value,el){const w=W(),[k,a]=String(arg).split(':');

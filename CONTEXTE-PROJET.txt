@@ -51,5 +51,5 @@ CONSTRUIRE UN EXE PORTABLE (si besoin d'un seul fichier)
 HISTORIQUE RÉCENT
 - V12.2 engins de combat ; V12.3 modèles générés par le code ; V12.4 corrige ZQSD (déplacements clavier) ; V12.5 refonte mer, plages,
   assaut amphibie ; V12.6 première recherche (savants, projets par bâtiment, réunions, vue toit ouvert) ;
-  V12.7 la recherche autour des conceptions du joueur : programmes, état de l'art, carnet de pistes, réunions par phases et vagues,
+  V12.7 la recherche autour des conceptions du joueur (le joueur est la reine Meumeu) : programmes, état de l'art, carnet de pistes, réunions par phases et vagues,
   directives, laboratoire de chimie qui produit et cherche, fenêtre de réunion avec dessins et estimations, flux visible.

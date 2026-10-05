@@ -8,6 +8,7 @@ import * as THREE from './lib/three.module.js';
 import {loadModel,materialOf} from './mesh3d.js';
 import {T,DAY,ORE_COL,CARRY,BUILDINGS} from './data.js';
 import {gunModel} from './gun3d.js';
+import {derive} from './ballistics.js';
 import {layout} from './gunart.js';
 import {VEHDEF} from './vehicules.js';
 import {buildingModels,aztecModels} from './bldg3d.js';
@@ -56,7 +57,7 @@ export const BUILDING_MODEL={
   centre:[':centre',1.0,0],camp:[':camp',1.0,0],maison:[':maison',1.0,0],ferme:[':ferme',1.0,0],grenier:[':grenier',1.0,0],atelier:[':atelier',1.0,0],four:[':four',1.0,0],mine:[':mine',1.0,0],gare:[':gare',1.0,0],entrepot:[':entrepot',1.0,0],labo:[':labo',1.0,0],caserne:[':caserne',1.0,0],caserne_elite:[':caserne_elite',1.0,0],poudrerie:[':poudrerie',1.0,0],arsenal:[':arsenal',1.0,0],armurerie:[':armurerie',1.0,0],manufacture:[':manufacture',1.0,0],garage:[':garage',1.0,0],hopital:[':hopital',1.0,0],tente:[':tente',1.0,0],archives:[':archives',1.0,0],fonderie:[':fonderie',1.0,0],
   moulin:['windmill',.8,0],barge:[':barge_chantier',1.0,0],grande_barge:[':grande_barge_chantier',1.0,0],bateau_bee:[':bateau_chantier',1.0,2],tour:[':tour',.8,0]};
 export const OUTCROP_MODEL={fer:'rocky_outcrop',charbon:'lava_rock',pierre:'stone_rock_pile',cuivre:'crystal_rock',plomb:'rock_formation',salpetre:'multicolored_crystal_pile',or:'rock_with_gold_veins'};
-export const MODEL_NAMES=[...new Set([...Object.values(BUILDING_MODEL).map(b=>b[0]).filter(n=>n[0]!==':'),...Object.values(OUTCROP_MODEL),'meumeu','meumeu_soldat','plush_cow_knight','goat_plush_toy','meumeu_chercheur','meumeu_roi','gewehr_43_rifle','heavy_machine_gun','assault_rifle','vintage_military_jeep_logistic_unarmed','vintage_military_logistic_jeep_with_gun','ww2_locomotive','ww2_wagon','armored_car','stone_rock_pile','silbervogel_bomber_3d_model',...Object.values(VEHDEF).map(V=>V.modele).filter(n=>n&&n[0]!==":")])];
+export const MODEL_NAMES=[...new Set([...Object.values(BUILDING_MODEL).map(b=>b[0]).filter(n=>n[0]!==':'),...Object.values(OUTCROP_MODEL),'meumeu','meumeu_soldat','plush_cow_knight','goat_plush_toy','meumeu_chercheur','meumeu_reine','gewehr_43_rifle','heavy_machine_gun','assault_rifle','vintage_military_jeep_logistic_unarmed','vintage_military_logistic_jeep_with_gun','ww2_locomotive','ww2_wagon','armored_car','stone_rock_pile','silbervogel_bomber_3d_model',...Object.values(VEHDEF).map(V=>V.modele).filter(n=>n&&n[0]!==":")])];
 
 // ---- petites géométries de code : arbres, buisson (couleurs de sommets)
 const colored=(g,hex)=>{const c=new THREE.Color(hex);const n=g.attributes.position.count,a=new Float32Array(n*3);for(let i=0;i<n;i++){a[3*i]=c.r;a[3*i+1]=c.g;a[3*i+2]=c.b;}g.setAttribute('color',new THREE.BufferAttribute(a,3));return g;};
@@ -96,12 +97,12 @@ function meumeuRig(M){const g=M?.geo;if(!g?.index)return null;const P=g.attribut
   return {body,bras};}
 // (V12.6) la vue recherche : les postes que cherche chacun selon ce qu'il fait, dans l'ordre de préférence (les genres de postes : labs3d.js)
 const LAB_WANT={
-  centre_recherche:{roi:['roi','orateur','table'],etude:['ecole'],cours:['maitre'],reunion:['table','orateur','roi'],orateur:['orateur'],travail:['bureau','maitre','table'],reflexion:['maitre','bureau','fenetre','livres'],pause:['cafe','fenetre'],dort:['bureau','table'],attente:['livres','fenetre','bureau'],oisif:['livres','fenetre','cafe','bureau']},
+  centre_recherche:{reine:['reine','orateur','table'],etude:['ecole'],cours:['maitre'],reunion:['table','orateur','reine'],orateur:['orateur'],travail:['bureau','maitre','table'],reflexion:['maitre','bureau','fenetre','livres'],pause:['cafe','fenetre'],dort:['bureau','table'],attente:['livres','fenetre','bureau'],oisif:['livres','fenetre','cafe','bureau']},
   labo:{travail:['paillasse','hotte','balance','cuve'],reflexion:['balance','paillasse','etagere','hotte'],ouvrier:['ouvrier','cuve'],pause:['evier','etagere'],dort:['paillasse'],attente:['etagere','evier','balance'],oisif:['etagere','balance','evier','hotte']},
   armurerie:{travail:['planche','maquette'],reflexion:['planche','plans','maquette'],pause:['plans'],dort:['planche'],attente:['plans','maquette'],oisif:['plans','maquette']}};
 const wrap=a=>((a+PI)%(2*PI)+2*PI)%(2*PI)-PI;
-// le roi Meumeu (le joueur en réunion) : une figure de la vue recherche, sans unité dans le monde
-const KING={id:'roi',k:'roi',name:'Le roi Meumeu',sci:null};
+// la reine Meumeu (le joueur en réunion) : une figure de la vue recherche, sans unité dans le monde
+const KING={id:'reine',k:'reine',name:'La reine Meumeu',sci:null};
 const CYL=(r0,r1,h,seg=6)=>new THREE.CylinderGeometry(r1,r0,h,seg);
 const ANIMAL_GEO={
   biche:()=>{const c=0xb58a5a,d=0x8a6238;const g=[colored(at(new THREE.SphereGeometry(.32,8,6).scale(1.5,.8,.8),0,.62,0),c),colored(at(CYL(.07,.1,.5).rotateZ(-.55),.42,.92,0),c),colored(at(new THREE.SphereGeometry(.13,8,6).scale(1.3,1,.9),.62,1.12,0),d),colored(at(new THREE.SphereGeometry(.05,5,4),-.45,.72,0),0xf0e6d6)];
@@ -201,7 +202,7 @@ export class Scene3D{
     this.pools.soldat=this.M.meumeu_soldat?mk('meumeu_soldat',{cap:1200,anim:ch('meumeu_soldat')}):this.pools.meumeu;
     this.pools.choc=this.M.plush_cow_knight?mk('plush_cow_knight',{cap:400,anim:ch('plush_cow_knight')}):this.pools.soldat;this.pools.bee=mk('goat_plush_toy',{cap:1500,anim:ch('goat_plush_toy')});
     this.pools.chercheur=this.M.meumeu_chercheur?mk('meumeu_chercheur',{cap:400,anim:ch('meumeu_chercheur')}):null;   // (V12.6) le savant en blouse
-    this.pools.roi=this.M.meumeu_roi?mk('meumeu_roi',{cap:4,anim:ch('meumeu_roi')}):null;   // (V12.7) le roi Meumeu : le joueur, quand il assiste à une réunion
+    this.pools.reine=this.M.meumeu_reine?mk('meumeu_reine',{cap:4,anim:ch('meumeu_reine')}):null;   // (V12.7) la reine Meumeu : le joueur, quand il assiste à une réunion
     this.pools.obus3d=new Pool(PROJ_GEO.obus(),{cap:300});this.scene.add(this.pools.obus3d.mesh);this.pools.fusee3d=new Pool(PROJ_GEO.fusee(),{cap:300});this.scene.add(this.pools.fusee3d.mesh);
     this.booms=[];this.boomGeo={ball:new THREE.IcosahedronGeometry(1,2),ring:new THREE.RingGeometry(.86,1,56).rotateX(-PI/2),dome:new THREE.SphereGeometry(1,16,8,0,PI*2,0,PI/2)};
     this.pools.fusil=mk('gewehr_43_rifle',{cap:1500});this.pools.mg=mk('heavy_machine_gun',{cap:200});
@@ -380,14 +381,14 @@ export class Scene3D{
   liftsTick(dt){if(!this.lifts?.length)return;for(const L of this.lifts){L.t+=dt;const k=Math.min(1,L.t/.7);L.g.position.y=k*k*2.6;L.g.traverse(o=>{if(o.isMesh)o.material.opacity=1-k;});}
     for(const L of this.lifts.filter(L=>L.t>=.7)){this.scene.remove(L.g);L.g.traverse(o=>{if(o.isMesh)o.material.dispose();});}this.lifts=this.lifts.filter(L=>L.t<.7);}
   labFigures(view,b,M,dtc){const W=view.world,P=this.pools,[w,h]=W.sizeOf(b),cx=b.i+w/2,cz=b.j+h/2,now=performance.now()/1000;
-    const F=this.labFig??=new Map(),SEAT=this.labSeat??=new Map(),MA=W.meetingAt?.(b),meet=MA?.M||null,spk=meet&&meet.phase!=='decision'?MA.line?.by??null:null,st=M.st,WANT=LAB_WANT[b.k]||{};
+    const TN=view.labTalkNow?.get(b.id),F=this.labFig??=new Map(),SEAT=this.labSeat??=new Map(),MA=W.meetingAt?.(b),meet=MA?.M||null,spk=meet&&meet.phase!=='decision'?MA.line?.by??null:null,st=M.st,WANT=LAB_WANT[b.k]||{};
     const people=[];for(const u of W.s.units){if(u.inLab!==b.id||!(u.hp>0))continue;const inMeet=!!(meet&&u.sci?.meet&&meet.ids.includes(u.id));people.push({u,act:u.k!=='savant'?'etude':inMeet?'reunion':u.sci?.act||'oisif',spk:inMeet&&spk===u.id});}
-    if(meet?.king)people.unshift({u:KING,act:'roi',spk:spk==='roi'});
+    if(meet?.king)people.unshift({u:KING,act:'reine',spk:spk==='reine'});
     for(const u of this.labWorkers?.get(b.id)||[])people.push({u,act:'ouvrier'});
-    const order=['roi','orateur','reunion','cours','etude','travail','reflexion','ouvrier','pause','dort','attente','oisif'];people.sort((a,z)=>order.indexOf(a.act)-order.indexOf(z.act)||a.u.id-z.u.id);
+    const order=['reine','orateur','reunion','cours','etude','travail','reflexion','ouvrier','pause','dort','attente','oisif'];people.sort((a,z)=>order.indexOf(a.act)-order.indexOf(z.act)||a.u.id-z.u.id);
     // le poste : d'abord le genre préféré (il change parfois : on va au tableau, à la hotte) ; garder le sien s'il convient ; sinon le plus proche libre
     const taken=new Set();
-    for(const p of people){let kinds=WANT[p.act]||(p.act==='roi'?['table','orateur']:null)||WANT.oisif||[];const id=p.u.id;
+    for(const p of people){let kinds=WANT[p.act]||(p.act==='reine'?['table','orateur']:null)||WANT.oisif||[];const id=p.u.id;
       if(p.act==='travail'&&b.k==='centre_recherche'&&Math.sin(now*.05+id*2.1)>.8)kinds=['maitre',...kinds.filter(k=>k!=='maitre')];
       if(p.act==='travail'&&b.k==='labo'&&Math.sin(now*.06+id*1.3)>.85)kinds=['hotte','balance',...kinds];
       if((p.act==='oisif'||p.act==='attente')&&Math.sin(now*.04+id*3.3)>.5)kinds=[...kinds.slice(1),kinds[0]];
@@ -414,19 +415,30 @@ export class Scene3D{
         else if(act==='cours')want+=Math.sin(now*.22+u.id)>.75?PI:Math.sin(now*.9)*.35;   // il se tourne vers le tableau, puis vers les élèves
         else if(act==='pause'){const o=people.find(q=>q!==p&&q.act==='pause'&&F.get(q.u.id)?.b===b.id);if(o){const g=F.get(o.u.id);want=Math.atan2(g.x-f.x,g.z-f.z);}}
         else if((act==='travail'||act==='affecte'||act==='ouvrier')&&!S.sit&&Math.sin(now*.31+u.id*1.7)>.85)want+=.9;   // un regard au voisin
+        if(TN&&(TN.by===u.id||TN.to===u.id)){const o=F.get(TN.by===u.id?TN.to:TN.by);if(o&&o.b===b.id)want+=wrap(Math.atan2(o.x-f.x,o.z-f.z)-want)*.7;}
         f.yaw+=wrap(want-f.yaw)*Math.min(1,dtc*5);yaw=f.yaw;
         if(act==='dort')pitch=.45;
         else if(act==='etude'||(S.sit&&(act==='travail'||act==='affecte')))pitch=.1+.08*Math.sin(now*2.2+u.id);
         else if(act==='travail'||act==='affecte'||act==='ouvrier'){roll=.05*Math.sin(now*1.6+u.id);pitch=.06+.05*Math.sin(now*2.9+u.id*.7);}
-        else if(act==='orateur'||act==='cours'||p.spk){roll=.07*Math.sin(now*2.4+u.id);pitch=-.05+.05*Math.sin(now*3.1+u.id);}
+        else if(act==='orateur'||act==='cours'||p.spk||TN?.by===u.id){roll=.07*Math.sin(now*2.4+u.id);pitch=-.05+.05*Math.sin(now*3.1+u.id);}
         else if(act==='reflexion'){const up=Math.sin(now*.45+u.id*1.9)>.35;pitch=up?-.14:.1+.06*Math.sin(now*2.6+u.id);roll=up?.05*Math.sin(now*.9+u.id):0;}
         else if(act==='reunion')pitch=.04*Math.sin(now*1.3+u.id);}
       if(sit)sy=.78;
       if(ev==='eureka'||ev==='fini'){const k=now-f.bubT;y+=Math.abs(Math.sin(k*9))*.13*(1-k/2.4);yaw+=k*6;}
       if(ev==='accident')roll+=Math.sin(now*23+u.id)*.14;
-      const king=u.k==='roi'&&!!P.roi,sav=u.k==='savant',Hk=king?.47:sav?.42:.4,Mk=king?'meumeu_roi':sav?mod:'meumeu',sc=Hk/this.M[Mk].ext[1],pool=king?P.roi:sav?(P.chercheur||P.meumeu):P.meumeu;
+      const king=u.k==='reine'&&!!P.reine,sav=u.k==='savant',Hk=king?.46:sav?.42:.4,Mk=king?'meumeu_reine':sav?mod:'meumeu',sc=Hk/this.M[Mk].ext[1],pool=king?P.reine:sav?(P.chercheur||P.meumeu):P.meumeu;
       pool.add(f.x,.08+y,f.z,yaw,sc,sc*sy,sc,{tint:king||sav?null:0xf4efe2,ph:f.ph,amp:moving?1:0,pitch,roll});
       out.push({u,b:b.id,x:f.x,z:f.z,top:.08+y+Hk*sy+.03,act,ev,k:S?.k||null,moving,spk:!!p.spk});}}
+  // (V12.7) la conception, en vrai : l'arme du programme dessinée en 3D par le concepteur (gunModel) — sur la grande table du centre de recherche
+  // pendant une réunion (la conception discutée : elle change à chaque vague retenue), sur l'établi du bureau d'études (le prototype en cours)
+  labProps(view,b){const W=view.world,[w,h]=W.sizeOf(b),cx=b.i+w/2,cz=b.j+h/2;let p=null,at=null;
+    if(b.k==='centre_recherche'){const MA=W.meetingAt?.(b);if(MA&&MA.M.phase!=='rassemblement'){p=MA.M.p;at={x:1.25,z:-.72,y:.3,len:1.2,rot:0};}}
+    else if(b.k==='armurerie'){const P=W.s.research.programs.find(x=>x.kind==='arme'&&x.b0===b.id&&['lancement','actif','pret','suivi'].includes(x.st));if(P){p=P.meet?.p||P.p;at={x:.45,z:.5,y:.31,len:.42,rot:-PI/2};}}
+    if(!p)return;let D;try{D=derive(p);}catch(e){return;}
+    const key='lab|'+JSON.stringify(p);let e=this.guns.get(key);
+    if(!e){try{const m=gunModel(D,{inhand:false});e={m,pool:new Pool(m.geo,{cap:4,flat:false})};this.scene.add(e.pool.mesh);}catch(err){console.warn('arme 3D (labo)',err);e={m:null,pool:null};}this.guns.set(key,e);}
+    this.gunsUsed.add(e);if(!e.pool)return;const G=layout(D),bb=e.m.geo.boundingBox,ht=bb?bb.max.y-bb.min.y:100;
+    const s=Math.min(at.len/Math.max(40,G.Lw||300),.32/Math.max(10,ht));e.pool.add(cx+at.x,at.y-(bb?bb.min.y*s:0),cz+at.z,at.rot,s,s,s);}
   // le chemin d'un poste à l'autre : le chemin d'accès du poste quitté (à rebours), l'allée, le chemin d'accès du nouveau poste, le poste
   labPath(M,from,to){const A=M.aisle,on=p=>A?(A.z!=null?[p[0],A.z]:[A.x,p[1]]):null,pts=[];const back=from.via?[...from.via].reverse():[];pts.push(...back);
     const ex=back.length?back[back.length-1]:[from.x,from.z],t0=to.via?.length?to.via[0]:[to.x,to.z];if(A){pts.push(on(ex),on(t0));}pts.push(...(to.via||[]),[to.x,to.z]);
@@ -492,7 +504,7 @@ export class Scene3D{
         const mat=b.ruin?T(0x5a5048):dmg>0?T(shade(b.f==='beee'?base:def[3]||0xffffff,SOOT[dmg])):b.f==='beee'?T(base):(b.done?(def[3]?T(def[3]):T(null)):T(0xd8d0c0));for(const m of g.userData.subs)m.material=mat;
         mesh.scale.set(g.userData.s,g.userData.s*(b.ruin?.3:b.done?1:.25+.75*prog),g.userData.s);mesh.rotation.z=b.ruin?.05:dmg>=2?(dmg-1)*.035*((b.id%2)?1:-1):0;mesh.rotation.x=dmg>=3?.03:0;mesh.position.y=-.06*Math.max(0,dmg-1);}
       if(g.userData.spin){e.ang=(e.ang||0)+(b.done&&!b.ruin?dtc*.45:0);g.userData.spin.rotation.x=e.ang;}
-      g.visible=true;if(open)this.labFigures(view,b,this.M[def[0]],dtc);}
+      g.visible=true;if(open){this.labFigures(view,b,this.M[def[0]],dtc);this.labProps(view,b);}}
     this.liftsTick(dtc);if(this.labFig){const now=performance.now()/1000;for(const [id,f] of this.labFig)if(now-f.seen>1.5)this.labFig.delete(id);}
     for(const [id,e] of this.blds)if(!seen.has(id))e.g.visible=false;
     // ----- unités
