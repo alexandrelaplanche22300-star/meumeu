@@ -276,6 +276,8 @@ export class World{
   design(id){return this.s.designs[id]||null;}
   // les caractéristiques d'une arme : dérivées de sa conception, gardées une demi-heure de jeu (la conception peut changer au bureau)
   W(id){const d=this.design(id)||this.s.designs.mle1;const C=this.wCache??=new Map();const c=C.get(d);if(c&&c.p===d.p&&this.s.t-c.t<.5&&this.s.t>=c.t)return c.D;const D=derive(d.p);C.set(d,{p:d.p,t:this.s.t,D});return D;}
+  // (V12.7) la pièce d'artillerie adoptée la plus récente d'un camp (servie, à obus explosif) : celle que la fonderie donne à ses canons
+  artilleryOf(f){return this.designsOf(f).filter(d=>{try{const D=this.W(d.id);return D.crew>1&&D.he&&!D.he.shaped&&!D.rocket;}catch(e){return false;}}).at(-1)||null;}
   designsOf(f,status='adopte'){return Object.values(this.s.designs).filter(d=>d.f===f&&(!status||d.status===status));}
   goodName(k){if(k.startsWith('p:')){const a=this.s.armors[k.slice(2)];return a?a.name:'Protection';}if(k.startsWith('m:')){const d=this.design(k.slice(2));return `Munitions ${d?d.name:'?'}`;}if(k.startsWith('a:')){const d=this.design(k.slice(2));return d?d.name:'Arme';}return RES[k]?.name||k;}
   // proposer un prototype au bureau d'études : il se paie, il prend du temps, puis il est adopté
@@ -300,7 +302,7 @@ export class World{
     this.launchArmor(b,this.s.armors[id]);return {ok:true,id,text:`Programme lancé : ${this.s.armors[id].name}`};}
   // ---------- les choses ----------
   addUnit(f,k,x,y,o={}){const D=f==='beee'?BEEE.units[k]:UNITS[k];const u={id:this.id(),f,k,x,y,hp:1,max:1,task:null,path:null,carry:null,cool:0,dir:'se',fx:1,fy:0,anim:'idle',post:'debout',supp:0,xp:0};
-    if(D.img){u.hp=D.hp;u.max=D.hp;u.w=o.w||(f==='meumeu'?'canon_mle1':'bee_canon');const W=this.W(u.w),rounds=Math.max(0,Math.floor(o.rounds??0));u.mag=Math.min(W.p.mag,rounds);u.pouch=rounds-u.mag;u.shells=0;}else{u.h=newHealth();if(D.choc){u.h.vit=D.choc.vit;u.h.tough=D.choc.tough;}}
+    if(D.img){u.hp=D.hp;u.max=D.hp;u.w=o.w||(f==='meumeu'?(this.artilleryOf('meumeu')?.id||'canon_mle1'):'bee_canon');const W=this.W(u.w),rounds=Math.max(0,Math.floor(o.rounds??0));u.mag=Math.min(W.p.mag,rounds);u.pouch=rounds-u.mag;u.shells=0;}else{u.h=newHealth();if(D.choc){u.h.vit=D.choc.vit;u.h.tough=D.choc.tough;}}
     if(D.arm){u.w=o.w||(typeof D.arm==='string'?D.arm:'mle1');const W=this.W(u.w);if(o.rounds!=null){const rounds=Math.max(0,Math.floor(o.rounds));u.mag=Math.min(W.p.mag,rounds);u.pouch=rounds-u.mag;}else{u.mag=W.p.mag;u.pouch=Math.min(W.carry,W.p.mag*8);}}
     if(D.medic)u.kits=D.kits;if(D.tents)u.tents=D.tents;if(D.smoke)u.smoke=D.smoke;
     u.armor=o.armor??null;u.plates={};
@@ -731,7 +733,8 @@ export class World{
   // Un soldat part avec une arme de la conception choisie : elle doit être dans un dépôt proche de la caserne.
   draftCandidate(b,skip=null){const city=this.cityOf(b),reserved=new Set();for(const x of this.s.buildings)for(const q of x.queue||[])if(q!==skip&&q.draftId!=null)reserved.add(q.draftId);
     return this.s.units.filter(u=>u.f===b.f&&u.k==='villageois'&&alive(u)&&!reserved.has(u.id)&&(!city||this.homeOf(u)===city)).sort((a,z)=>Number(!!a.task)-Number(!!z.task)||d2(a.x,a.y,b.i,b.j)-d2(z.x,z.y,b.i,b.j))[0]||null;}
-  canTrain(b,k,w=null,armor=null){const B=BUILDINGS[b.k],why=[],D=UNITS[k]||VEHICLES[k]||(VEHDEF[k]&&{name:VEHDEF[k].name,cost:VEHDEF[k].cout,hours:VEHDEF[k].heures});if(!b.done)why.push('pas fini');if(!(B.trains||[]).includes(k))why.push('pas ici');if(VEHDEF[k]?.faction&&VEHDEF[k].faction!==b.f)why.push('pas pour ce camp');if(VEHDEF[k]&&!VEHDEF[k].faction&&b.f==='beee'&&VEHDEF[k].nav)why.push('les Bèè n’ont pas ce bateau');if(b.queue.length>=5)why.push('cinq en attente');
+  canTrain(b,k,w=null,armor=null){const B=BUILDINGS[b.k],why=[],D=UNITS[k]||VEHICLES[k]||(VEHDEF[k]&&{name:VEHDEF[k].name,cost:VEHDEF[k].cout,hours:VEHDEF[k].heures});
+    if(k==='canon'&&b.f==='meumeu'&&!b.ally&&!w&&!this.artilleryOf('meumeu'))why.push('une pièce d’artillerie adoptée (concevez-la au bureau d’études)');if(!b.done)why.push('pas fini');if(!(B.trains||[]).includes(k))why.push('pas ici');if(VEHDEF[k]?.faction&&VEHDEF[k].faction!==b.f)why.push('pas pour ce camp');if(VEHDEF[k]&&!VEHDEF[k].faction&&b.f==='beee'&&VEHDEF[k].nav)why.push('les Bèè n’ont pas ce bateau');if(b.queue.length>=5)why.push('cinq en attente');
     const draft=null;if(UNITS[k]?.arm)why.push('envoyez-y des villageois, puis faites-les sortir équipés');
     // pas de maisons à bâtir : un Meumeu de plus, ce sont des vivres de plus (sa formation, puis sa ration chaque heure)
     if(UNITS[k]&&!UNITS[k]?.arm){const c=this.cityOf(b)||b;if(c.k==='centre'&&(c.ration??1)<.5)why.push('la ville a faim : moins de la moitié des rations');}if(k==='train'&&!this.platform(b))why.push('la gare n’a pas de voie');

@@ -342,7 +342,7 @@ function linksPane(b){const near=world.reach(b);
   if(need&&sup){const {inb}=world.demandLines(sup);h+=`<h3>Sa commande au dépôt d’approvisionnement</h3>${Object.entries(need).map(([k,n])=>{const have=sup.stock[k]||0;return `<div class="kv"><span>${ico(k)} ${esc(world.goodName(k))}</span><b class="${have>=n-1e-6?'good':have>0?'':'warn'}">${n1(have)} / ${n1(n)}${inb[k]?` · <span class="good">+${n1(inb[k])} en route</span>`:''}</b></div>`;}).join('')}`;}
   else if(world.takesIn(b))h+=`<p class="quiet small">Pas de commande en ce moment (${b.halt?'usine arrêtée':!b.prod?'aucune production':'plafond atteint'}).</p>`;
   h+=`<p class="quiet small">Le dépôt d’approvisionnement porte la commande : le bureau du fret y amène ce qui manque, dans l’ordre des priorités. Reliez-le : porteurs, rail.</p></section>`;return h;}
-function wantGoods(){return [...GOODS,...world.designsOf('meumeu').flatMap(d=>['m:'+d.id,'a:'+d.id]),...world.armorsOf('meumeu').map(a=>'p:'+a.id)];}
+function wantGoods(){return [...GOODS,...world.designsOf('meumeu').flatMap(d=>['m:'+d.id,'a:'+d.id]),...world.designsOf('meumeu','engin').map(d=>'m:'+d.id),...world.armorsOf('meumeu').map(a=>'p:'+a.id)];}
 function depotPane(b){const B=BUILDINGS[b.k];const st=Object.entries(b.stock).filter(([,v])=>v>=.05);const used=world.stored(b);const {lines,inb,outb,def}=world.demandLines(b);const L=world.linkedTo(b);const p=b.prio??3;
   let h=`<section class="pane"><h2>Dépôt <small>${n0(used)}/${B.store} caisses</small></h2><i class="gauge"><i style="width:${Math.min(100,used/B.store*100)}%"></i></i>
     <div class="stockrow">${st.map(([k,v])=>`<span class="rchip" title="${esc(world.goodName(k))}">${ico(k)}<b>${n1(v)}</b></span>`).join('')||'<span class="quiet">vide</span>'}</div>${(b.pass||[]).length?`<p class="small">${b.pass.length} passagers attendent l’avion.</p>`:''}
@@ -843,7 +843,7 @@ function events(){for(const e of world.events.splice(0)){view.onEvent(e);const P
     case 'innov':audio.play('built');say(`${e.perc?'Percée ! ':''}Innovation adoptée : ${INNOV.find(x=>x.id===e.id)?.name}.`,'good');break;
     // (V12.6) la recherche : l'accident, l'eurêka, la sortie d'école
     case 'labboom':audio.play('boom',P,e);alertBox(`<b>Accident ${{centre_recherche:'au centre de recherche',labo:'au laboratoire de chimie',armurerie:'au bureau d’études'}[world.building(e.b)?.k]||''} !</b> <button class="small" data-r="go:${e.b}">Voir</button>`,e.x,e.y,'warn');break;
-    case 'decision':{const Pg=world.program(e.pid);if(!Pg)break;audio.play('horn');alertBox(`<b>${esc(Pg.name)} :</b> ${e.n} proposition${e.n>1?'s':''} attendent votre décision${e.wave>1?` (vague ${e.wave})`:''}. <button class="small" data-r="meet:${e.pid}">Assister</button>`,null,null,'warn');break;}
+    case 'decision':{const Pg=world.program(e.pid);if(!Pg)break;audio.play('horn');alertBox(`<b>${esc(Pg.name)} :</b> ${e.n} proposition${e.n>1?'s attendent':' attend'} votre décision${e.wave>1?` (vague ${e.wave})`:''}. <button class="small" data-r="meet:${e.pid}">Assister</button>`,null,null,'warn');break;}
     case 'meeting':{const Pg=world.program(e.pid);if(Pg&&e.kind==='lancement')say(`« ${Pg.name} » : réunion de lancement convoquée.`,'info');break;}
     case 'eureka':audio.play('trained');break;case 'graduate':{audio.play('trained');const u=world.sci(e.id);if(u)say(`${u.name} sort de l’école.`,'good');break;}
     case 'stop':if(e.kind==='train')audio.play('train',P);break;case 'takeoff':audio.play('takeoff',P);break;case 'rail-cut':audio.play('rail',P);if(P?.vol>.05)say('Une voie ferrée est coupée : il faut la reposer.','bad');break;
@@ -871,6 +871,7 @@ function scenarioFront(w){const c=w.s.beee.cities.find(x=>!x.fallen);const cap=w
   if(!w.atWar)w.declareWar('meumeu');w.s.fog=false;
   const dx=cap.i-c.x,dy=cap.j-c.y,L=Math.hypot(dx,dy)||1;const [px,py]=w.freeSpot(c.x+dx/L*55,c.y+dy/L*55,10);const ux=dx/L,uy=dy/L,sx=-uy,sy=ux;
   const at=(f,b)=>w.freeSpot(px+ux*b+sx*f,py+uy*b+sy*f,3);const face=u=>{u.fx=-ux;u.fy=-uy;};
+  for(const id of ['canon_mle1','fusees_mle1'])if(w.s.designs[id])w.s.designs[id].status='adopte';   // (V12.7 : des références, que le scénario adopte)
   const rocket=w.designsOf('meumeu').find(d=>/fus[ée]e/i.test(d.name)&&w.W(d.id).crew>1);
   const crewGun=(wid,f,b,rounds)=>{const [x,y]=at(f,b);const g=w.addUnit('meumeu','soldat',x,y,{w:wid,rounds});g.task={kind:'guard',tx:x,ty:y};face(g);
     const n=Math.max(0,w.W(wid).crew-1);for(let k=0;k<n;k++){const [sx2,sy2]=at(f+(k%3-1)*.8,b+1+Math.floor(k/3)*.8);const s=w.addUnit('meumeu','soldat',sx2,sy2,{w:'mle1'});s.serve=g.id;s.task={kind:'guard',tx:sx2,ty:sy2};face(s);}return g;};

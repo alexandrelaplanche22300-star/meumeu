@@ -21,7 +21,7 @@ const near=(a,b,e=1e-6)=>Math.abs(a-b)<=e;
 // une pièce lourde à trépied : plusieurs servants
 const MG={id:'mg',f:'meumeu',name:'Mitrailleuse',status:'adopte',p:{d:2.2,l:8,nose:'pointue',base:'bt',cons:'fmj',c:.05,L:260,twist:70,action:'auto',rof:650,mag:150,heavy:true,wallx:1.6,mods:['trepied']}};
 const mk=(seed=3,recrues=8)=>{const W=new World(seed,{assisted:true});const cap=W.capital();Object.assign(cap.stock,{pieces:900,fer:900,cuivre:900,bois:900,poudre:400,plomb:500,explosifs:200,vivres:900});
-  W.s.designs.mg=JSON.parse(JSON.stringify(MG));
+  W.s.designs.mg=JSON.parse(JSON.stringify(MG));W.s.designs.canon_mle1.status='adopte';   // (V12.7 : une référence, plus une arme de départ)
   let cas=W.s.buildings.find(b=>b.f==='meumeu'&&b.k==='caserne'&&b.done);if(!cas){const at=W.buildSpot('meumeu','caserne',cap.i+8,cap.j+2,0,24);cas=W.addBuilding('meumeu','caserne',at[0],at[1],true);}
   Object.assign(cap.stock,{'a:canon_mle1':4,'m:canon_mle1':12,'a:mle1':30,'m:mle1':20,'a:mg':3,'m:mg':12});
   for(const v of W.s.units.filter(u=>u.f==='meumeu'&&u.k==='villageois').slice(0,recrues))W.enterBarracks(v,cas);

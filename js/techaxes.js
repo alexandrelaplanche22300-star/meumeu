@@ -104,7 +104,7 @@ export const FIXED={
 };
 
 // ---------- l'état de l'art ----------
-export function artInit(designs){const A={};for(const d of designs){if(!d||d.status!=='adopte')continue;let D;try{D=derive(d.p);}catch(e){continue;}artPush(A,d.p,D);}return A;}
+export function artInit(designs){const A={};for(const d of designs){if(!d||(d.status!=='adopte'&&d.status!=='engin'))continue;let D;try{D=derive(d.p);}catch(e){continue;}artPush(A,d.p,D);}return A;}
 // ce que prouve une conception adoptée (ou une tâche finie : seulement son axe)
 export function artPush(A,p,D,only=null){for(const ax of AXES){if(ax.type==='probleme'||(only&&ax.id!==only))continue;const v=ax.val(p,D);if(v==null)continue;
     if(ax.type==='metric'){const k=ax.key?ax.id+':'+ax.key(p):ax.id;A[k]=Math.max(A[k]||0,v);}else{const k=ax.id;A[k]??=[];if(!A[k].includes(v))A[k].push(v);}}return A;}
@@ -352,15 +352,29 @@ export function merge(a,b,p,A,who,{rnd=Math.random,dir={}}={}){const shared=conf
   c.why=shared?`${a.byName} et ${b.byName} touchent la même chose : à mi-chemin.`:`J’ai fait le calcul des deux ensemble.`;return c;}
 
 // ---------- ce qu'on dit en réunion ----------
-// la présentation d'une conception par l'équipe du bureau d'études, puis la réaction de chaque métier à ses tâches
-export function presentLines(p,an,name){const D=an.D,L=[];const he=D.he&&!D.he.shaped;
-  L.push({role:'ingenieur',text:`Voici « ${name} » : ${D.name}, tube de ${Math.round(p.L)} mm.`});
-  L.push({role:'ingenieur',text:D.rocket?`Une fusée : Δv ${Math.round(D.boost?.dv||0)} m/s, portée ${dist(rangeOf(D))}.`:`${Math.round(D.v0)} m/s à la bouche, ${Math.round(D.P)} MPa, portée ${dist(rangeOf(D))}.`});
-  if(he)L.push({role:'ingenieur',text:`L’obus : ${gr(D.m)}, ${gr(D.he.g)} de ${(FILLS[p.fill]||FILLS.tolite).name.toLowerCase()}, souffle mortel à ${fmt(D.he.blast,1)} m.`});
-  L.push({role:'ingenieur',text:`${kg(D.mass)}, ${D.crew} servant${D.crew>1?'s':''}.`});
-  const nov=an.tasks.filter(t=>t.n>0);L.push({role:'physicien',text:nov.length?`${an.tasks.length} tâches, dont ${nov.length} au-delà de ce qu’on sait : ${Math.round(an.work)} heures-savants.`:`Tout est dans ce qu’on maîtrise : ${Math.round(an.work)} heures-savants.`});
-  for(const t of nov.slice(0,5))L.push({role:t.role,text:`${t.label} — ${t.gap}.`});
-  for(const v of (D.verdicts||[]).filter(v=>v.tone==='bad'&&/pression|instable|stabilit|recul|portée|enray|chauffe|dispersion/i.test(v.t)).slice(0,2))L.push({role:'physicien',text:v.t+'.'});
+// la présentation d'une conception par l'équipe du bureau d'études (la réunion de lancement) : toutes ses caractéristiques, chacune par le métier
+// qui la connaît, puis ce qui plaît et ce qui inquiète, puis les tâches au-delà de ce qu'on sait
+const MAT={steel:'acier',iron:'fonte',bronze:'bronze'},COST={pieces:'pièces',fer:'fer',cuivre:'cuivre',plomb:'plomb',bois:'bois',charbon:'charbon',poudre:'poudre',explosifs:'explosifs'};
+const lc=t=>t.charAt(0).toLowerCase()+t.slice(1);
+const roleOfVerdict=t=>/pression|usé|poudre|charge|explosi/i.test(t)?'chimiste':/recul|lourde|surchauffe|enray|fiable|affût|épaule|trépied/i.test(t)?'ingenieur':'physicien';
+export function presentLines(p,an,name){const D=an.D,L=[],he=D.he&&!D.he.shaped,n=nums(D),A=ACTIONS[p.action]||{};const say=(role,text)=>L.push({role,text});
+  const kind=D.rocket?'une fusée':indirect(D)?'une pièce d’artillerie':A.mortar?'un mortier':A.auto?'une arme automatique':D.crew>1?'une arme servie':'une arme d’épaule';
+  say('ingenieur',`Voici « ${name} », sortie de notre bureau d’études : ${kind} de ${mm(p.d)} — ${D.name}.`);
+  say('ingenieur',`Le tube : ${Math.round(p.L)} mm${D.rocket?'':`, une paroi ×${fmt(wallF(p),2)}`}${p.kit?.material?`, en ${MAT[p.kit.material]||p.kit.material}`:''}${(p.tubes||1)>1?` — ${p.tubes} tubes`:''}${A.name?` ; le mécanisme : ${A.name.toLowerCase()}`:''}.`);
+  say('ingenieur',`Le projectile : ${gr(D.m)}, ${fmt(p.l/p.d,1)} calibres de long${CONSTRUCTIONS[p.cons]?`, ${CONSTRUCTIONS[p.cons].name.toLowerCase()}`:''}.`);
+  if(D.rocket)say('chimiste',`Le moteur : Δv ${Math.round(D.boost?.dv||0)} m/s, une combustion de ${fmt(D.boost?.tb||0,2)} s.`);
+  else say('chimiste',`La charge : ${D.E0>=1000?fmt(D.E0/1000,1)+' kJ':Math.round(D.E0)+' J'} à la bouche — ${Math.round(D.v0)} m/s, ${Math.round(D.P)} MPa dans le tube, ${Math.round((D.eta||0)*100)} % de la poudre utile.`);
+  if(he)say('chimiste',`L’obus : ${gr(D.he.g)} de ${(FILLS[p.fill]||FILLS.tolite).name.toLowerCase()}, ${(SHELLS[p.shell]||SHELLS.lisse).name.toLowerCase()}, fusée ${(FUSES[p.fuse]||FUSES.impact).name.toLowerCase()} : souffle mortel à ${fmt(D.he.blast,1)} m, ${D.he.n} éclats mortels jusqu’à ${fmt(D.he.lethal,1)} m.`);
+  if(indirect(D)||D.rocket){const R=rangeOf(D);say('physicien',`La trajectoire : ${dist(R)} au plus loin ; ${fmt(D.moa,1)} MOA de dispersion — à cette distance, ${fmt(D.moa*.000291*R,1)} m d’écart entre deux coups.`);}
+  else say('physicien',`La trajectoire : ${dist(D.eff)} de portée utile ; ${fmt(D.moa,1)} MOA de dispersion ; une stabilité Sg de ${fmt(D.Sg,2)}.`);
+  if(!he&&!D.rocket&&n.pen>0)say('physicien',`À 30 m, elle perce ${fmt(n.pen,1)} mm d’acier.`);
+  say('ingenieur',`${kg(D.mass)} chargée, ${D.crew} servant${D.crew>1?'s':''}${A.auto?` ; ${D.rpm} coups/min, ${D.sustain} tenus sans surchauffe`:''} ; un recul de ${fmt(D.recoil,1)} J.`);
+  const cw=Object.entries(D.costW||{}).filter(([,v])=>v>0).map(([k,v])=>`${fmt(v,v<10?1:0)} ${COST[k]||k}`).join(', ');
+  say('ingenieur',`À fabriquer : ${cw||'presque rien'} par arme, ${fmt(D.hoursW||0,1)} h de manufacture ; ${D.perCrate} coups par caisse.`);
+  for(const v of (D.verdicts||[]).filter(v=>v.tone==='good').slice(0,2))say('physicien',`Ce qui me plaît : ${lc(v.t)}.`);
+  for(const v of (D.verdicts||[]).filter(v=>v.tone==='bad').slice(0,3))say(roleOfVerdict(v.t),`Ce qui m’inquiète : ${lc(v.t)}.`);
+  const nov=an.tasks.filter(t=>t.n>0);say('physicien',nov.length?`Pour la faire : ${an.tasks.length} tâches, dont ${nov.length} au-delà de ce qu’on sait — ${Math.round(an.work)} heures-savants.`:`Tout est dans ce qu’on maîtrise : ${Math.round(an.work)} heures-savants.`);
+  for(const t of nov.slice(0,6))say(t.role,`${t.label} — ${t.gap}.`);
   return L;}
 // l'avancement, à une revue
 export function progressLines(P){const L=[];const done=P.tasks.filter(t=>t.done>=t.work),run=P.tasks.filter(t=>t.done<t.work);

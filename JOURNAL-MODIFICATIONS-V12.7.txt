@@ -122,3 +122,19 @@ SUITE 4 : LES EXTÉRIEURS DES BÂTIMENTS DE RECHERCHE
   laboratoire de chimie (brique, bande de danger, hublots verts, cuves de cuivre et d’acier, tuyaux, ballon de verre, cheminées aux fumées verte et
   violette), le bureau d’études (crème et bleu de plan, sheds vitrés, baies, engrenage, girouette-fusil). Palette SCI. Captures :
   test/_outils_captures/exterieurs_recherche.cjs.
+
+=== Suite 5 (V12.7) ===
+- Sauvegarde automatique : c.relay devient un booléen (beee.js) ; la structure circulaire site → relay → conquête → site cassait la sauvegarde.
+- Dialogues : une question reçoit sa réponse avant de changer de sujet ; blagues sourcils/moustaches retirées ; scènes « guerre » et « reine »
+  (envie de gagner, ce qu'on prépare aux Bèè) ; conversations plus fréquentes, jamais coupées (la vue saute des conversations entières, jamais un milieu).
+- Réunion de lancement : présentation complète des caractéristiques par métier (tube, projectile, charge, obus, trajectoire, masse, coût, verdicts, tâches) ;
+  la fenêtre avance au rythme de la lecture (M.shown) ; la reine présente, la simulation attend ; bouton « Passer ».
+- Profil des programmes et réunion : l'arme en 3D sur son plateau (snap3d) et la munition en coupe (cutaway), côte à côte.
+- Concepteur : pour un obus, la perforation des éclats selon la distance à l'explosion (gros / typiques / petits, limite mortelle, graduation mm) ;
+  texte de l'explosion pour un Bèè ; distances ≥ 2 m écrites en mètres ; curseur « Nombre de tubes » actif pour les lance-fusées (1 à 12).
+- Armes de départ Meumeu : Fusil Mle 1, Fusil d'assaut FAM-1 (gaz, 1,6 mm, chargeur 30, 650 coups/min, cache-flamme), Mitrailleuse lourde Mle 1,
+  Fusil de précision lourd FPLMeumeu-1 (2,6 mm monolithique, tube lourd 420 mm, lunette, bipied, frein ; 122 m utiles, 0,86 MOA) qui remplace
+  le fusil antichar. Obusier et lance-fusées Mle 1 : statut « reference » (tests, scénario front) ; canons des engins : statut « engin »
+  (l'arsenal fait leurs obus, le savoir des savants les compte). La fonderie ne forme un canon qu'avec une pièce d'artillerie adoptée (artilleryOf).
+- Tests : recherche R1–R12, v10 39/39, fusées, rechargement, explosions, artillerie, balistique, nir, couronne, économie, recrutement… PASS.
+  Échecs déjà présents avant (identiques sur le commit précédent) : caserne_pieces E2/E3/E8, dev 2, depart_etabli D3bis/D6, chimie, node.

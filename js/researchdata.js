@@ -36,9 +36,8 @@ export const BLOCKS={tube:['le tube gonfle à l’épreuve','une fissure à la c
 export const SAYS={
   ecole:['Recopiez la formule.','Encore une fois, lentement.','Qui peut me dire pourquoi ?','Au tableau !'],
   oisif:['Que fait-on, maintenant ?','Un programme, vite !','Je relis les rapports d’essai.','Si seulement on avait des plans…'],
-  cafe:['Encore un café ?','Tu as vu l’essai d’hier ?','Meuh.'],
   eureka:['Eurêka !','Ça y est !','Je l’ai !','Mais oui, bien sûr !'],
-  accident:['Tout le monde dehors !','Ça a sauté !','Mes sourcils !','Ouvrez les fenêtres !'],
+  accident:['Tout le monde dehors !','Ça a sauté !','Ma blouse !','Ouvrez les fenêtres !'],
   dort:['Zzz…'],
   attente:['On attend la décision.','La reine viendra-t-elle ?'],
 };
@@ -56,8 +55,6 @@ export const TALK={
   mieux:['Mieux !','Ah ! Ça s’améliore.','Voilà qui est encourageant.','C’est le meilleur jusqu’ici.','Ça tient !','Je le savais !','Oh, intéressant…','On progresse.','Enfin !','Ça monte, ça monte !'],
   pire:['Non… pire.','Raté. Je reviens en arrière.','Hmm, ça ne marche pas comme prévu.','Fausse piste.','Ce n’est pas ça.','Zut. On efface.','Ça empire. Dans l’autre sens, alors.','Rien de mieux.','Bof.','Je m’égare.'],
   question:['Et {metric}, tu y as pensé ?','Tu as regardé {metric} ?','Ton affaire, elle ne change pas {metric} ?','Et {metric}, ça bouge ?'],
-  question_etat:['Montre-moi tes chiffres.','Tu en es où, {a} ?','Combien d’essais déjà ?','Tu as vérifié deux fois ?','C’est pour « {prog} » ?','Tu es sûr de ta formule ?','Ça avance ?'],
-  reponse_etat:['{n} essais, et je cherche encore.','J’avance : {fx}.','Presque. Encore un ou deux calculs.','Oui, pour « {prog} ».','Tiens, regarde : {tried}.','Sûr ? Non. Mais les chiffres sont bons.','Ça avance. Lentement.'],
   objecte:['Attention : chez moi, {fxb}.','Ça m’inquiète pour {metric} : {fxb}.','Mes calculs disent {fxb}. Tu es sûr ?','{fxb}… ça va coincer, {a}.','Je regarde de mon côté : {fxb}. Pas terrible.'],
   repond_ok:['Oui, j’ai vérifié : ça tient.','Je compenserai.','Le jeu en vaut la chandelle.','C’est le prix à payer.','Je note.','Oui, oui, j’y ai pensé.','Je sais. Je cherche encore.','Tu verras à la réunion.'],
   repond_doute:['Hmm… je n’avais pas vu ça.','Tu as raison, je reprends.','Je vais revoir mes chiffres.','Aïe. Merci de me le dire.','Ah. Ça change tout.','Bon sang, tu as raison.'],
@@ -80,9 +77,8 @@ export const TALK={
   monologue:['Voyons… {tried}…','Si je change {lever}…','Hmm. {fx}…','Encore un essai.','Où est mon crayon ?','Les chiffres ne mentent pas.','Recommençons.','Et si… non.','Un, deux, trois… {val}.','Il faut que ça tombe juste.'],
   // la pause, la vie
   cafe:['Tu as vu l’essai d’hier ?','Encore un café ?','Il paraît que {c} a trouvé quelque chose.','La reine viendra à la réunion, tu crois ?','J’ai rêvé de balistique cette nuit.','Qui a pris ma règle à calcul ?','Meuh.','On avance, on avance…','Tu dors, toi, la nuit ?','Le tableau est plein de craie.','Les Bèè n’ont pas de savants, eux.','Mon foin est froid.','Tu as lu le rapport d’essai ?','J’ai mal au cou à force d’écrire.'],
-  cafe_prog:['« {prog} » avance bien.','Pour « {prog} », il reste {left} de travail.','« {prog} » est bloqué : {block}.','On attend la réunion pour « {prog} ».','« {prog} » : la reine doit trancher.','Tu crois que « {prog} » ira au front ?','Le dessin de « {prog} » me plaît.'],
-  cafe_rep:['Oui.','Hmm.','Ah bon ?','On verra.','C’est bien.','Pas facile.','Meuh !','Sans doute.','Tu crois ?','Il faudrait demander à la reine.'],
   // la réunion
+  presentation_reac:['Belle pièce.','Elle a de l’allure.','Lourde, mais elle portera loin.','J’ai déjà trois idées en l’écoutant.','Les Bèè vont la détester.','On peut faire mieux, et on va le faire.','Ambitieuse. J’aime ça.','Il y a du travail. Tant mieux.'],
   ouvre_prop:['Bien. Passons aux propositions.','Qui commence ?','À vous, les chercheurs.','Les propositions, maintenant.'],
   ouvre_prop_reine:['Majesté, voici ce que nous proposons.','Majesté, nos propositions.','Si Votre Majesté le permet, nos propositions.'],
   prefixe:[['Euh… si je peux me permettre, j’ai trouvé quelque chose :','Je ne suis qu’assistant, mais :','J’ai peut-être une idée :','Je… j’ai fait un calcul :'],
@@ -106,8 +102,6 @@ TALK.essai.push('Allez, encore un : {val}.','Je pousse jusqu’à {val}, pour vo
 TALK.mieux.push('Regarde ça ! Regarde !','Ha ! Je le tiens.','C’est beau quand ça marche.','Les chiffres sourient, enfin.','Mieux que ce matin !','Je l’écris tout de suite, avant de l’oublier.','Tu vois ? Il fallait insister.');
 TALK.pire.push('Ah non.','Bon. Pas par là.','Je m’attendais à mieux.','La balistique me déteste aujourd’hui.','Ça, c’est une impasse polie.','Pire. Mais j’ai appris pourquoi.','Retour à la case départ.');
 TALK.question.push('Tu as pensé à {metric}, au moins ?','Et pour {metric}, ça donne quoi ?','Ça ne va pas abîmer {metric} ?','Je vérifierais {metric}, si j’étais toi.');
-TALK.question_etat.push('Tu es sur quoi, là ?','Tu me montres ta feuille ?','Toujours sur ta piste ?','C’est le combientième essai ?','Tu veux un deuxième avis ?');
-TALK.reponse_etat.push('Essai {n}. Et ce n’est pas fini.','Sur {goal}. Ça résiste.','Regarde : {tried}. Qu’est-ce que tu en penses ?','Encore deux ou trois essais, et je conclus.','Je commence à y voir clair : {fx}.');
 TALK.repond_ok.push('J’ai vérifié trois fois.','Ça reste dans les marges.','Je le sais, et je l’accepte.','On en parlera à la réunion.','Je mettrai ça dans ma feuille de calculs.');
 TALK.repond_doute.push('Attends, je refais le calcul…','Tu me fais douter, maintenant.','Merci. Vraiment. Je n’avais pas vu.','Bon, retour au tableau.');
 TALK.encourage.push('Continue, tu tiens quelque chose.','J’aime bien la direction.','Ça a de l’allure.','Tu as l’œil, toi.','Garde ça pour la réunion !');
@@ -129,9 +123,37 @@ export const SCENES={
     ['Tu l’as déjà vue de près, la reine ?','Une fois. Elle a lu mes calculs jusqu’au bout.','Et alors ?','Elle a dit « intéressant ». Je n’ai pas dormi de la nuit.'],
     ['Il paraît que la reine relit toutes les feuilles de calculs.','Toutes ? Même les miennes, avec les ratures ?','Surtout celles-là. Elle aime voir comment on cherche.','Je vais recopier les miennes au propre.'],
     ['Si la reine me demande encore de « creuser »…','C’est bon signe : elle n’a pas dit non.','Ni oui.','C’est ça, la recherche.'],
-    ['Tu crois que la reine préfère les idées sages ou les refontes ?','Ça dépend de la guerre.','Et la guerre, ça dépend de nos armes.','Alors on tourne en rond. Encore un café ?'],
+    ['Tu crois que la reine préfère les idées sages ou les refontes ?','Ça dépend de la guerre.','Et la guerre, ça dépend de nos armes.','Alors on tourne en rond. Encore un café ?','Volontiers. Et après, on sort de ce cercle à coups de calculs.'],
     ['La couronne de la reine, elle est en quel métal, à ton avis ?','En or. Densité dix-neuf virgule trois.','Tu calcules même la couronne de la reine ?','Je calcule tout. C’est mon métier.'],
+    ['La reine Meumeu est passée ce matin.','Elle a dit quelque chose ?','« Je veux une arme qui ne laisse aucune chance aux Bèè. »','Alors on n’a pas le droit de se tromper.'],
+    ['Tu sais pourquoi la reine assiste à nos réunions ?','Pour nous surveiller ?','Pour choisir elle-même ce qui ira au front.','C’est un honneur. Et une sacrée pression.'],
+    ['La reine m’a regardé pendant ma proposition.','Et alors ?','Elle a hoché la tête. Une seule fois.','Une seule fois, venant d’elle, c’est une médaille.'],
+    ['Pour la reine : aucune pitié pour les Bèè.','Aucune.','Et pour nos erreurs ?','Encore moins. Alors on vérifie.'],
+    ['La reine a dit que la guerre se gagnerait ici, dans nos labos, pas seulement au front.','Elle a raison. Un bon calcul vaut un régiment.','Et un mauvais calcul ?','Un régiment perdu. Voilà pourquoi je recompte.'],
+    ['Si la reine retient ma refonte, je la dédierai aux soldats de la passe.','Et si elle la refuse ?','Je la retravaillerai jusqu’à ce qu’elle l’accepte.','Voilà l’esprit des Meumeu.'],
     ['J’ai rêvé que la reine refusait toutes mes propositions.','Et dans la vraie vie ?','Elle en a refusé deux sur trois.','Alors ton rêve était trop pessimiste.'],
+  ],
+  guerre:[
+    ['Je n’aimerais pas être à la place des Bèè, vu ce qu’on leur prépare.','Ils l’ont cherché. Ils ont brûlé nos fermes.','Avec ce qui sort de nos tables, ils vont comprendre.','Qu’ils comprennent vite, alors.'],
+    ['La reine Meumeu nous a dit qu’elle ne veut en laisser aucun en vie.','Elle l’a dit comme ça ?','Mot pour mot. Et elle n’a même pas cligné des yeux.','Alors au travail : nos armes doivent être à la hauteur de ses ordres.'],
+    ['Tu penses aux soldats, parfois, quand tu calcules ?','Tout le temps. Chaque mètre de portée, c’est un Meumeu qui rentre chez lui.','Et chaque éclat de plus, un Bèè qui ne revient pas.','C’est la guerre. Ce sont eux qui l’ont voulue.'],
+    ['J’ai hâte de voir nos obus tomber sur leurs tranchées.','Moi aussi. Mais d’abord, qu’ils tombent au bon endroit.','Ça, c’est ton travail.','Et le tien de les rendre plus méchants. Marché conclu.'],
+    ['Mon cousin est au front.','Alors on travaille aussi pour lui.','Il écrit que les Bèè tremblent quand nos fusils parlent.','Ils trembleront davantage avec les prochains.'],
+    ['Tu crois qu’on gagnera la guerre ?','On a la reine, la science et la rancune. Eux n’ont que des cornes.','Les cornes, ça fait mal quand même.','Pas autant qu’un obus fusant au-dessus de leurs têtes.'],
+    ['La reine veut des armes qui font peur.','Peur ? Moi je veux qu’elles les fassent fuir.','Fuir, c’est bien. Ne pas revenir, c’est mieux.','C’est exactement ce que la reine a dit.'],
+    ['Il paraît que les Bèè copient nos fusils.','Avec des années de retard.','Alors changeons de conception plus vite qu’ils ne copient.','C’est exactement ce qu’on fait ici, jour et nuit.'],
+    ['Si on leur envoyait tout ce qu’on a, d’un seul coup ?','La reine attend le bon moment.','Elle attend surtout nos armes.','Alors ne la faisons pas attendre. Au tableau.'],
+    ['J’ai vu les blessés revenir du front ce matin.','Moi aussi.','C’est pour eux que je refais mes calculs trois fois.','Refais-les une quatrième. Ils le méritent.'],
+    ['Vengeance pour la ferme de la colline.','Vengeance, oui. Mais avec des chiffres justes.','Une vengeance mal calculée, c’est un obus dans nos propres lignes.','Tu as raison. Je vérifie encore.'],
+    ['Quand la guerre sera finie, tu feras quoi ?','Je calculerai la trajectoire des fleurs.','Les fleurs n’ont pas de trajectoire.','Si on les lance assez fort, si.'],
+    ['La reine dit que chaque Bèè abattu est une victoire de la science.','Alors la science a déjà gagné quelques batailles.','Il en reste beaucoup à gagner.','On les gagnera une par une. Calcul par calcul.'],
+    ['Les Bèè ont attaqué une de nos mines cette nuit.','Encore ?','Six mineurs blessés.','Alors il nous faut une arme qui les arrête avant qu’ils approchent. Je m’y mets.'],
+    ['Tu as vu leur artillerie ? Des tubes de fonte, montés à la va-vite.','Elle tire quand même.','Pas longtemps. Nos tubes tiennent deux fois plus.','Et nos obus portent deux fois plus loin.'],
+    ['Je rêve du jour où les Bèè demanderont la paix.','La reine ne la leur accordera pas.','Tu crois ?','Elle l’a dit : aucune pitié.'],
+    ['Notre mitrailleuse a tenu la passe tout seule, hier.','Trois cents Bèè, paraît-il.','Et pas un n’est passé.','Voilà à quoi servent nos calculs de chauffe.'],
+    ['Tu crois que les Bèè savent qu’on existe, nous, les savants ?','Ils le sauront quand nos armes arriveront.','Ils ne connaîtront jamais nos noms.','Tant mieux. Ils connaîtront nos obus.'],
+    ['La guerre ne finira pas toute seule.','Non. Elle finira quand nos armes l’auront finie.','Alors chaque heure ici compte.','Chaque heure, et chaque essai.'],
+    ['J’ai envie d’en finir, avec ces chèvres.','Moi aussi. Mais on en finira proprement : avec la meilleure arme possible.','Proprement ?','Pour nous. Pas pour eux.'],
   ],
   apres_reunion:[
     ['La reine a retenu : {last}.','J’en étais sûr. Les chiffres étaient trop beaux.','Il faudra le prouver à l’essai.','On le prouvera.'],
@@ -163,7 +185,7 @@ export const SCENES={
     ['Les chèvres ont des fusils, maintenant.','Des fusils copiés sur les nôtres, avec dix ans de retard.','Alors gardons dix ans d’avance.','Au travail.'],
   ],
   nuit:[
-    ['Tu ne dors pas ?','Je n’arrive pas à arrêter de calculer.','Moi non plus. Ma tête fait des tables de tir.','Bon. Puisqu’on est là, on vérifie tes chiffres ?'],
+    ['Tu ne dors pas ?','Je n’arrive pas à arrêter de calculer.','Moi non plus. Ma tête fait des tables de tir.','Bon. Puisqu’on est là, on vérifie tes chiffres ?','Allez. Mais après, au lit — la reine veut des savants réveillés.'],
     ['Il est tard.','Encore une colonne et je vais me coucher.','C’est ce que tu as dit il y a trois colonnes.','Il y a beaucoup de colonnes.'],
     ['Chut. Tout le monde dort.','Sauf nous et la lampe.','Et les équations.','Les équations ne dorment jamais.'],
   ],
@@ -179,7 +201,7 @@ export const SCENES={
     ['J’ai compté : on a écrit quatre cents pages ce mois-ci.','Et combien sont justes ?','Trois cent quatre-vingt-dix-neuf.','Et la dernière ?','C’est la mienne. Je la refais.'],
     ['Tu as vu mon carnet ?','Lequel ? Tu en as six.','Le bleu, avec les taches de café.','Ils ont tous des taches de café.'],
     ['Si on finit tôt, on va voir l’essai de tir ?','Seulement si on se met derrière le mur.','Évidemment, derrière le mur.','Et avec du coton dans les oreilles.'],
-    ['Tu as entendu le bruit tout à l’heure ?','C’était le labo. Encore une pesée qui a mal tourné.','Personne n’est blessé ?','Juste les sourcils d’un chimiste.'],
+    ['Tu as entendu le bruit tout à l’heure ?','C’était le labo. Encore une pesée qui a mal tourné.','Personne n’est blessé ?','Une blouse brûlée, et beaucoup de fierté. Il recommencera demain.'],
   ],
   grade:[
     ['Je suis {grade}, maintenant.','Félicitations ! Tu vas devoir porter une blouse plus longue.','Et diriger des assistants.','C:Moi, je veux bien être dirigé. Tant qu’on m’explique.'],
@@ -198,7 +220,7 @@ export const SCENES={
   metier_chimiste:[
     ['Ça sent le soufre ici.','C’est la poudre lente. Elle sent toujours un peu.','Tu pourrais ouvrir la fenêtre ?','Si j’ouvre, la balance ne pèse plus juste.'],
     ['J’ai réussi un grain qui brûle deux fois moins vite.','Et la pression ?','Elle baisse. La vitesse aussi, un peu.','C’est toujours ça : rien n’est gratuit en chimie.'],
-    ['Combien de sourcils tu as perdus cette année ?','Deux paires.','Et tu continues ?','Ils repoussent. Les découvertes, non.'],
+    ['Combien d’explosions tu as eues au labo cette année ?','Trois. Toutes prévues, ou presque.','Et tu continues ?','Chaque explosion m’a appris quelque chose. Les Bèè, eux, n’apprendront rien des nôtres.'],
     ['Le gel incendiaire colle à tout.','Même aux blouses ?','Surtout aux blouses.','On devrait en informer la reine.'],
   ],
   metier_ingenieur:[
@@ -208,13 +230,23 @@ export const SCENES={
     ['Un tube plus long, ça tire plus droit.','Et ça se porte moins bien.','Tout est compromis, ici.','C’est pour ça qu’on est payés.'],
   ],
   metier_physicien:[
-    ['J’ai refait l’intégrale de la trajectoire.','Et ?','Six mètres de plus. Six mètres !','Tu sais que les Bèè ne verront pas la différence ?'],
+    ['J’ai refait l’intégrale de la trajectoire.','Et ?','Six mètres de plus. Six mètres !','Tu sais que les Bèè ne verront pas la différence ?','Ils la sentiront : six mètres de plus, c’est six mètres plus loin de nos soldats.'],
     ['La stabilité de Miller, tu y crois ?','J’y crois tant qu’elle colle aux essais.','Elle colle presque.','Presque, c’est le début d’une découverte.'],
-    ['Tu as vu la lunette ×6 ? On voit les moustaches des Bèè.','Les Bèè n’ont pas de moustaches.','Avec ×6, si.','… Je veux regarder.'],
+    ['Tu as vu la lunette ×6 ? On compte les cornes des Bèè à trois cents mètres.','Et eux ne nous voient pas venir.','C’est tout l’intérêt.','Alors je veux la même sur toutes nos armes.'],
     ['La dérive, c’est le vent ou la rotation ?','Les deux. Plus la Terre qui tourne.','La Terre aussi ?','À cette distance, tout compte.'],
   ],
 };
 
+// les réponses aux répliques qui sont des questions (clé : la réplique telle qu'écrite)
+export const ANSWERS={
+  'Encore une idée ?':['Oui. Et celle-là, c’est la bonne.','Toujours. C’est mon métier.','La dernière était un essai. Celle-ci est sérieuse.'],
+  'Tu penses à quel levier ?':['D’abord {lever}.','Je commence par {lever}, on verra ensuite.','Je ne sais pas encore : je vais tout essayer.'],
+  'Qui commence ?':['Moi. J’ai des chiffres frais.'],
+};
+// une réponse quand une question est restée en l'air
+export const REPONSE=['Bonne question. Je te réponds après ce calcul.','Hmm… laisse-moi réfléchir.','Oui, je crois.','Peut-être bien. On verra à l’essai.','Je te montrerai ma feuille.'];
+// l'avis qu'on donne quand un collègue montre ses chiffres
+export const AVIS=['Ça me paraît bon.','Je pousserais un peu plus loin.','Hmm. Vérifie la pression avant de conclure.','Joli. Continue.','C’est propre. La reine aimera.','Je n’aurais pas osé. Bravo.'];
 // une question sur l'avancement d'une piste, et les réponses qui lui vont
 export const QA=[
   ['Tu en es où, {a} ?',['Essai {n}. Et ce n’est pas fini.','J’avance : {fx}.','Sur {goal}. Ça résiste.','Presque. Encore un ou deux calculs.']],

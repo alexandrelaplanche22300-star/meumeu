@@ -14,7 +14,7 @@
 import {BUILDINGS,INNOV,UNITS} from './data.js';
 import {derive} from './ballistics.js';
 import {deriveArmor} from './armor.js';
-import {LAB_KIND,LAB_SEATS,DOM_ROLE,GRADES,gradeOf,MEETINGS,BLOCKS,TALK,talkLine,METRIC_ART,SCENES,QA} from './researchdata.js';
+import {LAB_KIND,LAB_SEATS,DOM_ROLE,GRADES,gradeOf,MEETINGS,BLOCKS,TALK,talkLine,METRIC_ART,SCENES,QA,ANSWERS,REPONSE,AVIS} from './researchdata.js';
 import {ROLES,GOALS,EYES,PARAMS,descEdit,analyze,artPush,applyEdit,presentLines,progressLines,effects,fxTxt,newLead,thinkStep,burst,defectsSeen,goalsFor,rebaseLead,ideaTitle,proposalOf,debate,merge,conflictOf,keysOf,leverOfEdit,LEVER_NAME,shortTry,concludeLine,metricOk,KEYNUMS} from './techaxes.js';
 
 const SCHOOL=4,STUDY_H=24,TICK=.1,LOG_MAX=300,BASE_STAFF=.35,CHAIRS=8,LEADS_MAX=60,WAVES=3;
@@ -174,13 +174,16 @@ export const RESEARCH={
       const b0=this.building(P.b0);if(b0&&b0.done&&!b0.ruin&&this.rand()<THINK.bureau*h)this.thinkOne(P,this.pseudoOf(P),null,P.p,true);}},
 
   // ---------- les conversations : ce qu'ils se disent au travail et à la pause (s.research.talk ; la vue les montre au rythme de la lecture) ----------
-  talkAdd(b,lines,pid=null){const R=this.s.research;R.talk??=[];R.tid??=1;let t=this.s.t;for(const l of lines){if(!l?.text)continue;R.talk.push({id:R.tid++,t,b:b.id,by:l.by,to:l.to??null,text:l.text,k:l.k||'talk',pid});t+=.02;}
+  talkAdd(b,lines,pid=null){const R=this.s.research;R.talk??=[];R.tid??=1;R.cid??=1;const cid=R.cid++;lines=lines.filter(l=>l?.text);
+    const last=lines.at(-1);if(last&&last.to!=null&&/\?\s*$/.test(last.text)&&this.unit(last.to)?.k==='savant')lines.push({by:last.to,to:last.by,text:REPONSE[Math.floor(this.rand()*REPONSE.length)],k:last.k==='pause'?'pause':'talk'});
+    let t=this.s.t;for(const l of lines){R.talk.push({id:R.tid++,cid,t,b:b.id,by:l.by,to:l.to??null,text:l.text,k:l.k||'talk',pid});t+=.02;}
+    (R.talkUntil??={})[b.id]=this.s.t+lines.length*.85;
     if(R.talk.length>240)R.talk.splice(0,R.talk.length-240);},
   // l'entente de deux savants (−1 rivaux … +1 amis) : les débats la font et la défont
   aff(a,b){return this.unit(a)?.sci?.aff?.[b]||0;},
   affAdd(a,b,v){if(!(a>0)||!(b>0)||a===b)return;for(const [x,y] of [[a,b],[b,a]]){const u=this.unit(x);if(!u?.sci)continue;u.sci.aff??={};u.sci.aff[y]=+Math.max(-1,Math.min(1,(u.sci.aff[y]||0)+v)).toFixed(3);}},
-  talkTick(h,sleep){for(const b of this.labs()){const here=this.s.units.filter(u=>u.inLab===b.id&&u.k==='savant'&&u.hp>0&&!u.sci.meet);if(!here.length)continue;
-      if(this.rand()>(here.length>1?.08:.035)*(sleep?.15:1)*(h/.1))continue;
+  talkTick(h,sleep){const U=this.s.research.talkUntil||{};for(const b of this.labs()){if(this.s.t<(U[b.id]||0))continue;const here=this.s.units.filter(u=>u.inLab===b.id&&u.k==='savant'&&u.hp>0&&!u.sci.meet);if(!here.length)continue;
+      if(this.rand()>(here.length>1?.3:.06)*(sleep?.2:1)*(h/.1))continue;
       // qui parle : celui qui vient de penser, d'abord ; à qui : un collègue du même programme, d'abord
       const recent=here.filter(u=>u.sci.think&&this.s.t-u.sci.think.t<1.5);const A=(recent.length?recent:here)[Math.floor(this.rand()*(recent.length||here.length))];
       const others=here.filter(u=>u!==A).sort((x,z)=>Number(z.sci.pid===A.sci.pid)-Number(x.sci.pid===A.sci.pid)||x.id-z.id);const B=others.length?others[Math.floor(this.rand()*Math.min(2,others.length))]:null;
@@ -196,7 +199,9 @@ export const RESEARCH={
       if(L.st==='impasse'&&!L.told){L.told=true;const ls=[say(A,'impasse',vars,'talk',B)];if(B)ls.push(say(B,'impasse_rep',vars,'talk',A));return {lines:ls,pid:P.id};}
       // une piste toute neuve : l'idée (ou l'inspiration, la refonte, l'intuition)
       if(L.steps<=3&&!L.toldNew){L.toldNew=true;const ib=L.inspiredBy>0?this.unit(L.inspiredBy):null;const key=ib&&ib!==A?'inspire':L.bold?'idee_radicale':L.origin==='intuition'?'intuition':'idee';
-        const ls=[say(A,key,{...vars,b:(ib||B)?.name},'idee',ib||B)];if(B)ls.push(say(B,key==='idee_radicale'?'idee_radicale_rep':key==='inspire'&&ib===B?'inspire_rep':'idee_rep',vars,'talk',A));return {lines:ls,pid:P.id};}
+        const ls=[say(A,key,{...vars,b:(ib||B)?.name},'idee',ib||B)];if(B){ls.push(say(B,key==='idee_radicale'?'idee_radicale_rep':key==='inspire'&&ib===B?'inspire_rep':'idee_rep',vars,'talk',A));const an=ANSWERS[ls.at(-1).text];
+          if(an){const VV={...V,...vars},ok=an.filter(t=>[...t.matchAll(/\{(\w+)\}/g)].every(m=>VV[m[1]]!=null&&VV[m[1]]!==''));const t=ok[Math.floor(rnd()*ok.length)];if(t)ls.push({by:A.id,to:B.id,text:t.replace(/\{(\w+)\}/g,(m,k)=>String(VV[k])),k:'talk'});}}
+        return {lines:ls,pid:P.id};}
       // un essai : à voix haute, ou devant un collègue qui regarde avec les yeux de son métier
       if(H){const ls=[say(A,T.lab&&L.exp>0&&rnd()<.45?'essai_banc_'+A.sci.role:'essai',vars,'calcul',B),say(A,H.ok?'mieux':'pire',vars,'calcul')];if(!B||rnd()<.25)return {lines:ls,pid:P.id};
         let bad=null,D0=null;try{D0=derive(p);const D1=derive(applyEdit(p,L.edits));bad=effects(D0,D1).find(f=>!f.good&&EYES[B.sci.role]?.includes(f.k)&&metricOk(f.k,D0)&&Math.abs(f.rel)>.05);}catch(e){}
@@ -204,17 +209,14 @@ export const RESEARCH={
           if(!ok)L.notes.unshift(`${B.name} m’a fait voir : ${fxTxt(bad).toLowerCase()}.`);this.affAdd(A.id,B.id,ok?-.04:.03);}
         else if(rnd()<.3){const E=(EYES[B.sci.role]||[]).filter(m=>!D0||metricOk(m,D0));const m=E[Math.floor(rnd()*E.length)];ls.push(say(B,'question',{...vars,metric:METRIC_ART[m]||null},'talk',A));ls.push(say(A,'repond_ok',vars,'talk',B));}
         else if(rnd()<.45){const VV={...V,...vars},fill=t=>{const s=t.replace(/\{(\w+)\}/g,(m,k)=>String(VV[k]));return s.charAt(0).toUpperCase()+s.slice(1);},ok=t=>[...t.matchAll(/\{(\w+)\}/g)].every(m=>VV[m[1]]!=null&&VV[m[1]]!=='');
-          const Ps=QA.filter(([q,as])=>ok(q)&&as.some(ok));const pr=Ps[Math.floor(rnd()*Ps.length)];if(pr){const as=pr[1].filter(ok);ls.push({by:B.id,to:A.id,text:fill(pr[0]),k:'talk'});ls.push({by:A.id,to:B.id,text:fill(as[Math.floor(rnd()*as.length)]),k:'talk'});}}
+          const Ps=QA.filter(([q,as])=>ok(q)&&as.some(ok));const pr=Ps[Math.floor(rnd()*Ps.length)];if(pr){const as=pr[1].filter(ok);ls.push({by:B.id,to:A.id,text:fill(pr[0]),k:'talk'});const ans=fill(as[Math.floor(rnd()*as.length)]);ls.push({by:A.id,to:B.id,text:ans,k:'talk'});if(/egarde|feuille|Volontiers/.test(ans))ls.push({by:B.id,to:A.id,text:AVIS[Math.floor(rnd()*AVIS.length)],k:'talk'});}}
         else{ls.push(say(B,H.ok?'encourage':'console',vars,'talk',A));this.affAdd(A.id,B.id,.02);}
         return {lines:ls,pid:P.id};}
       if(!B)return {lines:[say(A,'monologue',vars,'calcul')],pid:P.id};}
     // la pause : une scène (chaque réplique répond à la précédente)
     {const sc=this.sceneMake(A,B,C);if(sc)return sc;}
     const live=this.s.research.programs.filter(x=>['actif','lancement','suivi','pret'].includes(x.st)&&x.kind==='arme');const Q=live.length?live[Math.floor(rnd()*live.length)]:null;
-    if(!B)return {lines:[say(A,'monologue',{},'talk')],pid:Q?.id};
-    if(Q&&rnd()<.55){const left=Math.round(Q.tasks.reduce((s,t)=>s+Math.max(0,t.work-t.done),0)),blk=Q.tasks.find(t=>t.block)?.block?.why||null;
-      return {lines:[say(A,'cafe_prog',{prog:Q.name,left:left?left+' heure'+(left>1?'s':''):null,block:blk},'pause',B),say(B,'cafe_rep',{},'pause',A)],pid:Q.id};}
-    return {lines:[say(A,'cafe',{},'pause',B),say(B,'cafe_rep',{},'pause',A)],pid:null};},
+    return {lines:[say(A,'monologue',{},'talk')],pid:Q?.id};},
   // une scène de pause : le thème selon ce qui se passe (la reine, la dernière décision, un programme, une arme adoptée, les Bèè, la nuit, une
   // rivalité, une amitié, le métier, un grade), puis une scène du thème dont tous les champs sont connus, pas déjà jouée récemment
   sceneMake(A,B,C){if(!B)return null;const R=this.s.research,rnd=()=>this.rand(),hr=this.hour(),live=R.programs.filter(x=>['actif','lancement','suivi','pret'].includes(x.st)&&x.kind==='arme');
@@ -224,7 +226,7 @@ export const RESEARCH={
     const S=this.savants().filter(u=>u!==A&&u!==B&&u!==C),g=gradeOf(A.sci.xp),f=this.aff(A.id,B.id);
     const V={A:A.name,B:B.name,C:C?.name||null,c:S.length?S[Math.floor(rnd()*S.length)].name:null,prog:Q?.name||null,left:(n=>n?n+' heure'+(n>1?'s':''):null)(Q?Math.round(Q.tasks.reduce((s,t)=>s+Math.max(0,t.work-t.done),0)):0),block:blk,
       last:app?short(app.title).toLowerCase():null,arme:ado?.name||null,grade:g>=2?GRADES[g].name.toLowerCase():null};
-    const W=[['vie',4],['reine',2],['beee',this.atWar?3:1.5],['metier_'+A.sci.role,3],['prog',Q?3:0],['bloque',blk?4:0],['apres_reunion',app?4:0],['adoptee',ado?3:0],
+    const W=[['vie',3],['reine',3],['guerre',this.atWar?6:4],['beee',this.atWar?3:1.5],['metier_'+A.sci.role,3],['prog',Q?3:0],['bloque',blk?4:0],['apres_reunion',app?4:0],['adoptee',ado?3:0],
       ['nuit',hr>=21||hr<6?4:0],['rival',f<-.25?5:0],['ami',f>.25?4:0],['grade',g>=2?1:0]].filter(([k,w])=>w>0&&SCENES[k]?.length);
     const has=s=>s.every(l=>[...l.matchAll(/\{(\w+)\}/g)].every(m=>V[m[1]]!=null&&V[m[1]]!==''));R.sceneUsed??=[];
     for(let k=0;k<4;k++){let tot=W.reduce((s,[,w])=>s+w,0),x=rnd()*tot,th=W[0][0];for(const [n,w] of W){x-=w;if(x<=0){th=n;break;}}
@@ -261,7 +263,8 @@ export const RESEARCH={
   meetSeg(M,phase,from,per=.07,min=.25){M.phase=phase;M.seg={from,to:M.script.length,t0:this.s.t,dur:Math.max(min,(M.script.length-from)*per)};},
   // le tour de table : la conception (ou l'avancement), ce qu'on a mesuré de ce qu'on avait annoncé, ce qui bloque, les pistes en cours
   meetOpen(P,b){const M=P.meet;M.who=this.meetWho(P,b);const say=this.sayer(M),from=M.script.length;
-    if(M.type==='lancement'){const an=this.analyzeDesign(M.p);for(const l of presentLines(M.p,an,P.name))say(l.role,l.text);}
+    if(M.type==='lancement'){const an=this.analyzeDesign(M.p);for(const l of presentLines(M.p,an,P.name))say(l.role,l.text);
+      const o=M.who.filter(w=>w.id>0);for(let k=0;k<Math.min(2,o.length);k++){const w=o[Math.floor(this.rand()*o.length)];say(w.role,talkLine('presentation_reac',{},()=>this.rand()),w.id,'parole');}}
     else if(M.type==='variante'){const D=derive(M.p);say('ingenieur',`« ${P.name} » est en service. Voici ce qu’on a trouvé pour la rendre meilleure.`);
       for(const v of (D.verdicts||[]).filter(v=>v.tone==='bad').slice(0,3))say('physicien',`Encore : ${v.t.charAt(0).toLowerCase()+v.t.slice(1)}.`);}
     else for(const l of progressLines(P))say(l.role,l.text);
@@ -270,7 +273,7 @@ export const RESEARCH={
       else say(a.role,`« ${short(a.title)} » : ${a.byName} annonçait ${fxTxt(worst.e).toLowerCase()} ; mesuré : ${fxTxt(worst.r).toLowerCase()}.`,a.by>0&&this.unit(a.by)?a.by:undefined,'calcul');}
     if(M.focus){const t=P.tasks.find(x=>x.ax===M.focus);if(t?.block)say(t.role,`${t.label} : bloqué — ${t.block.why}.`);}
     const live=P.leads.filter(L=>LIVE.has(L.st)),mure=live.filter(L=>L.st==='mure').length;if(live.length)say('physicien',`${live.length} piste${live.length>1?'s':''} en cours dans les carnets, dont ${mure} mûre${mure>1?'s':''}.`);
-    this.meetSeg(M,'tour',from);},
+    this.meetSeg(M,'tour',from,M.type==='lancement'?.14:.08,.5);},
   // la phase suivante
   meetNext(P,b){const M=P.meet;if(M.phase==='tour')this.meetPropose(P,b);else if(M.phase==='propositions')this.meetDebate(P,b);else this.meetDecision(P,b);},
   // les propositions : chacun refait ses calculs au tableau, et présente ce qu'il tient — pistes mûres, et parfois une idée en l'air
@@ -326,7 +329,7 @@ export const RESEARCH={
     if(M.type==='revue'&&!M.wave)for(const t of P.tasks)if(t.block&&this.rand()<.7){t.block=null;this.pev(P,`La revue a débloqué : ${t.label.toLowerCase()}.`,'good');}
     M.phase='decision';M.deadline=this.s.t+MEETINGS[M.type].wait;M.seg={from:M.script.length,to:M.script.length,t0:this.s.t,dur:1};
     this.emit({type:'decision',pid:P.id,b:b.id,n:M.props.length,wave:M.wave+1});
-    this.rlog(b,`${MEETINGS[M.type].name} de « ${P.name} »${M.wave?` (vague ${M.wave+1})`:''} : ${M.props.length} proposition${M.props.length>1?'s':''} attendent la décision de la reine.`,'warn',null,true);},
+    this.rlog(b,`${MEETINGS[M.type].name} de « ${P.name} »${M.wave?` (vague ${M.wave+1})`:''} : ${M.props.length} proposition${M.props.length>1?'s attendent':' attend'} la décision de la reine.`,'warn',null,true);},
   // la réunion qui se tient dans un bâtiment (pour la vue) : le programme, la réunion, la réplique en cours
   meetingAt(b){for(const P of this.s.research.programs){const M=P.meet;if(!M||M.b!==b.id)continue;let idx=-1;const S=M.seg;
       if(S&&M.phase!=='rassemblement'){const n=S.to-S.from;idx=M.phase==='decision'||n<=0?M.script.length-1:S.from+Math.min(n-1,Math.floor((this.s.t-S.t0)/S.dur*n));}
@@ -370,7 +373,7 @@ export const RESEARCH={
     if(!M.props.length){this.meetEnd(P,{decided:true});return {ok:true,text:`${chosen.length} retenue${chosen.length>1?'s':''} — plus rien sur la table`};}
     this.meetSeg(M,'application',from,.08,.35);return {ok:true,text:`${chosen.length} retenue${chosen.length>1?'s':''} : la conception change`};},
   // la reine (le joueur) assiste : on la tient à jour tant que la fenêtre de réunion est ouverte (sinon il s'en va au bout d'une demi-heure)
-  attendMeeting(pid,on){const P=this.program(pid),M=P?.meet;if(!M)return;if(on){M.kingT=this.s.t;if(!M.king){M.king=true;const say=this.sayer(M);say('ingenieur','La reine Meumeu entre ; tout le monde se lève. Elle prend place au bout de la table.','reine','decision');
+  attendMeeting(pid,on){const P=this.program(pid),M=P?.meet;if(!M)return;if(on){M.kingT=this.s.t;if(!M.king){M.king=true;M.shown=Math.max(M.shown??-1,M.script.length-4);const say=this.sayer(M);say('ingenieur','La reine Meumeu entre ; tout le monde se lève. Elle prend place au bout de la table.','reine','decision');
       const w=(M.who||[]).find(x=>x.id>0);if(w)say(w.role,['Majesté !','Majesté, nous vous attendions.','Votre Majesté nous honore : la conception est sur la table.','Majesté, nous avons beaucoup calculé.'][Math.floor(this.rand()*3)],w.id,'parole');}}
     else if(M.king){M.king=false;}},
   closeMeeting(pid){const P=this.program(pid);if(!P?.meet)return {ok:false,why:['pas de réunion en cours']};if(P.meet.phase==='decision')return this.decide(pid,[],{close:true});
@@ -433,7 +436,7 @@ export const RESEARCH={
     if(P.kind==='arme'&&t.ax!=='dossier'&&t.ax!=='essai'&&D)artPush(this.s.research.art,P.p,D,t.ax);
     t.res=t.ax==='essai'&&D?`${Math.round(D.v0)} m/s au chronographe, ${D.moa.toFixed(1).replace('.',',')} MOA`:t.ax==='tube'&&D?`épreuve tenue à ${Math.round(D.P*1.25)} MPa`:'';
     for(const id of t.ids){const u=this.unit(id);if(u?.sci){u.sci.task=null;u.sci.bub={k:'fini',t:this.s.t};}}t.ids=[];
-    this.pev(P,`Fait : ${t.label}${t.res?' — '+t.res:''}.`,'good');this.rlog(b,`« ${P.name} » : ${t.label.toLowerCase()} — fait.`,'info');},
+    this.pev(P,`Fait : ${t.label}${t.res?' — '+t.res:''}.`,'good');this.rlog(b,`« ${P.name} » : ${t.label.charAt(0).toLowerCase()+t.label.slice(1)} — fait.`,'info');},
 
   // ---------- le pas de la recherche (toutes les 0,1 h de jeu) ----------
   researchTick(dt){this.resT=(this.resT||0)+dt;if(this.resT<TICK)return;const h=this.resT;this.resT=0;const R=this.s.research,s=this.s;
@@ -453,7 +456,7 @@ export const RESEARCH={
         if(M.phase==='rassemblement'){const here=M.ids.filter(id=>this.where(this.unit(id))===b);for(const id of M.ids){const u=this.unit(id);if(u&&u.k==='savant'&&this.where(u)!==b&&u.task?.kind!=='lab')this.sendTo(u,b,{meet:true});}
           if(here.length>=M.ids.length||s.t-M.t0>2)this.meetOpen(P,b);}
         else if(M.phase==='decision'){if(M.king)M.deadline=Math.max(M.deadline,s.t+.5);if(s.t>=M.deadline){this.decide(P.id,[],{absent:true});continue;}}
-        else if(s.t>=M.seg.t0+M.seg.dur)this.meetNext(P,b);
+        else if(s.t>=M.seg.t0+M.seg.dur&&!(M.king&&(M.shown??-1)<M.seg.to-1))this.meetNext(P,b);   // (la reine présente : on attend qu'elle ait tout entendu)
         if(P.meet)for(const id of P.meet.ids){const u=this.unit(id);if(u&&this.where(u)===b)u.sci.act=P.meet.phase==='decision'?'attente':'reunion';}}
       if(P.st==='lancement')continue;   // (rien ne commence avant la décision du lancement)
       this.assignAll(P);let left=0,all=0;

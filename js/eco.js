@@ -50,14 +50,14 @@ export const ECO={
 
   // ---------- les usines ----------
   productsOf(b){const B=BUILDINGS[b.k];if(!B.factory)return [];const L=Object.keys(PRODUCTS).filter(k=>madeAt(k,b.k));
-    if(B.arsenal)L.unshift(...this.designsOf(b.f).map(d=>'m:'+d.id));
+    if(B.arsenal)L.unshift(...[...this.designsOf(b.f),...this.designsOf(b.f,'engin')].map(d=>'m:'+d.id));
     if(B.manufacture)L.push(...this.designsOf(b.f).map(d=>'a:'+d.id),...this.armorsOf(b.f).map(a=>'p:'+a.id));
     return L;},
   productName(k){if(!k)return 'rien';return PRODUCTS[k]?.name||this.goodName(k);},
   // un lot : ce qu'il prend, ce qu'il donne, ses heures de travail ; tool : l'outillage à faire d'abord
   recipe(b,key){const P=PRODUCTS[key];
     if(P){const r={key,in:{...P.in},out:{...P.out},hours:P.hours};if(key==='carburant')r.in.bois=+(r.in.bois*this.mod('carburant_bois')).toFixed(2);return r;}
-    if(key.startsWith('m:')){const d=this.design(key.slice(2));if(!d||d.status!=='adopte')return null;const c=crateCost(d.p);for(const k of ['fer','plomb','cuivre'])if(c[k])c[k]=+(c[k]*this.mod('fer_munitions')).toFixed(2);
+    if(key.startsWith('m:')){const d=this.design(key.slice(2));if(!d||(d.status!=='adopte'&&d.status!=='engin'))return null;const c=crateCost(d.p);for(const k of ['fer','plomb','cuivre'])if(c[k])c[k]=+(c[k]*this.mod('fer_munitions')).toFixed(2);
       // les Bèè, à court de plomb ou de cuivre, font des balles à noyau de fer et des douilles d'acier laqué (moins bonnes, mais elles tirent)
       // la production de masse bèè : des cartouches chargées au plus juste (40 % de poudre en moins)
       if(b.f==='beee'&&c.poudre)c.poudre=+(c.poudre*.6).toFixed(3);

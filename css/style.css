@@ -364,3 +364,5 @@ body.labmode .buildbar{display:none}
 .rtalk{display:flex;flex-direction:column;gap:2px;max-height:220px;overflow:auto}.rtalk p{margin:0;font-size:12px;border-left:3px solid var(--c);padding-left:6px}.rtalk p b{color:var(--c)}.rtalk p small{color:var(--muted)}
 .rtalk .k-objection{background:color-mix(in srgb,var(--red) 8%,transparent)}.rtalk .k-conclusion{background:color-mix(in srgb,var(--good) 12%,transparent);font-weight:700}.rtalk .k-idee{background:color-mix(in srgb,var(--gold) 14%,transparent)}.rtalk .k-pause{opacity:.8;font-style:italic}
 .rhist{margin:2px 0;padding-left:18px;font-size:11.5px}.rhist li.ok{color:var(--good)}.rhist li.ko{color:var(--muted)}.rhist small{color:var(--muted)}.rcalc{grid-column:1/-1}
+/* (V12.7) le profil d'une conception : l'arme en 3D sur son plateau, la munition en coupe ; « passer » les répliques d'une réunion */
+.rprofil{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start}.rprofil img{display:block;flex:1 1 220px;min-width:0;max-width:440px;height:auto;border-radius:8px}.rm-skip{align-self:flex-end;position:sticky;top:0}

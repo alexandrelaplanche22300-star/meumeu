@@ -269,7 +269,7 @@ export const BEEE_AI={
        reçoit d'abord un camp-relais à mi-chemin (relay), la colonie vient ensuite */
     const KM=this.mapK||1,anchors=all.concat(KM>1?this.beeeBuildings('camp').filter(b=>b.done&&!b.ruin).map(b=>[b.i,b.j]):[]);
     for(const c of this.beeeCadastre()){if(c.fail>t)continue;const dcc=Math.min(...all.map(([x,y])=>distance(x,y,c.i,c.j)));if(dcc<SPACE*KM)continue;const dc=Math.min(...anchors.map(([x,y])=>distance(x,y,c.i,c.j)));
-      c.relay=KM>1&&dc>SUPPLY_HOP&&dc<=SUPPLY_HOP*2&&(LV<1||B.conq);if(!c.relay&&dc>SUPPLY_HOP+38*LV)continue;   // avec le rail, une colonie n'a plus à coller à sa mère : de 58 cases (niveau 0) à 250 (niveau 5)
+      c.relay=!!(KM>1&&dc>SUPPLY_HOP&&dc<=SUPPLY_HOP*2&&(LV<1||B.conq));   /* (V12.7 : un booléen — l’objet de conquête y entrait, et la sauvegarde bouclait : site → relay → conquête → site) */ if(!c.relay&&dc>SUPPLY_HOP+38*LV)continue;   // avec le rail, une colonie n'a plus à coller à sa mère : de 58 cases (niveau 0) à 250 (niveau 5)
       if(!c.relay&&dc>SUPPLY_HOP&&(LV<1||B.conq))continue;   // au-delà de la portée des porteurs : seulement par une conquête ferroviaire (une à la fois)
       c.dcity=dc;   // pas plus loin que la portée des porteurs (60 cases) : une colonie hors de portée n'était jamais approvisionnée (mesuré : chantiers abandonnés après 5 à 7 jours avec 34 à 49 bois livrés)
       const dm=ours.reduce((a,b)=>Math.min(a,distance(b.i,b.j,c.i,c.j)),999);if(dm<55)continue;

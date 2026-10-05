@@ -9,7 +9,8 @@
 // confiance, son origine, les objections et les soutiens, ce qu'elle coûte au programme. Le commandement en retient plusieurs par vague ; la conception
 // change aussitôt, les savants recalculent ce qui reste et rebondissent — jusqu'à trois vagues.
 import {BUILDINGS,INNOV,UNITS} from './data.js';
-import {derive,fmt} from './ballistics.js';
+import {derive,fmt,CONSTRUCTIONS} from './ballistics.js';
+import {GunViewer} from './gun3d.js';
 import {layout,drawWeapon,drawRound} from './gunart.js';
 import {LAB_KIND,LAB_SEATS,GRADES,gradeOf,MEETINGS,MEET_PHASES} from './researchdata.js';
 import {ROLES,GOALS,AXES,nums,metricOk,confOf,ideaTitle,applyEdit,conflictOf,leverOk,LEVER_NAME,rangeOf,wallF} from './techaxes.js';
@@ -32,6 +33,25 @@ export function portrait(p,p0=null,w=340,h=80){const key=JSON.stringify([p,p0,w,
     const o={bx:8+(D.rocket?10:0),ay:heavy?h*.42:h*.5,s,ground:h-3,t:0};
     if(D0){x.save();x.globalAlpha=.24;drawWeapon(x,D0,{...o,G:G0});x.restore();}drawWeapon(x,D,{...o,G});drawRound(x,D,w-rw-4,6,rw,h-12,{compact:true,labels:false});url=cv.toDataURL();}catch(e){console.error(e);}
   PIC.set(key,url);if(PIC.size>160)PIC.delete(PIC.keys().next().value);return url;}
+
+// le profil d'une conception, comme dans le concepteur : l'arme en 3D sur son plateau, avec ses servants Meumeu (GunViewer), et la munition en coupe
+let GV=null;const SNAP=new Map();
+const keep=(M,k,v)=>{M.set(k,v);if(M.size>80)M.delete(M.keys().next().value);return v;};
+export function snap3d(p,w=440,h=200){GV??=new GunViewer();const key=JSON.stringify(p)+'|'+w+'x'+h+'|'+(GV.meumeu?1:0);if(SNAP.has(key))return SNAP.get(key);let url='';
+  try{const D=derive(p),dpr=2,cv=document.createElement('canvas');cv.width=w*dpr;cv.height=h*dpr;const x=cv.getContext('2d');x.scale(dpr,dpr);
+    const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,'#26343c');g.addColorStop(1,'#151f26');x.fillStyle=g;x.fillRect(0,0,w,h);
+    GV.auto=false;GV.lastTouch=performance.now();GV.az=-.62;GV.el=.2;GV.zoom=1;GV.draw(x,w,h,D,0);
+    x.fillStyle='rgba(220,232,236,.85)';x.font='11px system-ui,sans-serif';x.fillText(`${D.have==='epaule'?'à l’épaule':D.have==='bipied'?'sur bipied':D.have==='trepied'?'sur trépied':'sur affût'} · ${D.crew} servant${D.crew>1?'s':''} · ${Math.round(D.mass*1000)} g chargée`,8,14);
+    url=cv.toDataURL('image/png');}catch(e){console.error(e);}
+  return keep(SNAP,key,url);}
+export function cutaway(p,w=440,h=150){const key='c'+JSON.stringify(p)+'|'+w+'x'+h;if(SNAP.has(key))return SNAP.get(key);let url='';
+  try{const D=derive(p),dpr=2,cv=document.createElement('canvas');cv.width=w*dpr;cv.height=h*dpr;const x=cv.getContext('2d');x.scale(dpr,dpr);
+    const bg=x.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#10283a');bg.addColorStop(1,'#0b1c29');x.fillStyle=bg;x.fillRect(0,0,w,h);
+    x.strokeStyle='rgba(140,190,225,.08)';for(let q=0;q<w;q+=14){x.beginPath();x.moveTo(q,0);x.lineTo(q,h);x.stroke();}for(let q=0;q<h;q+=14){x.beginPath();x.moveTo(0,q);x.lineTo(w,q);x.stroke();}
+    drawRound(x,D,6,18,w-12,h-22);const g=v=>v<1?Math.round(v*1000)+' mg':fmt(v,v<10?1:0)+' g';
+    x.fillStyle='rgba(200,230,250,.9)';x.font='11px ui-monospace,Consolas,monospace';x.fillText(`${D.name} · ${(CONSTRUCTIONS[D.p.cons]?.name||'').toLowerCase()} · balle ${g(D.m)} · poudre ${g(D.p.c)} · ${Math.round(D.P)} MPa`,8,13,w-16);
+    url=cv.toDataURL('image/png');}catch(e){console.error(e);}
+  return keep(SNAP,key,url);}
 
 export function researchUI({world,view,ui,say,esc,ico,costHtml,hours,buildingPane,audio,open,close,draft}){
   const R=()=>ui.R??={tab:'programmes',role:'ingenieur',cand:0,sel:null,confirm:null,picks:{},openP:{}};
@@ -91,7 +111,7 @@ export function researchUI({world,view,ui,say,esc,ico,costHtml,hours,buildingPan
     if(P.kind==='arme'&&(P.st==='actif'||P.st==='lancement'||P.st==='suivi'||P.st==='pret'))acts.push(`<label class="small rtog"><input type="checkbox" data-rsel="variants:${P.id}" ${P.variants!==false?'checked':''}> variantes après l’adoption</label>`);
     if(P.st==='actif'||P.st==='lancement')acts.push(`<button class="small ${conf?'bad':'ghost'}" data-r="abandon:${P.id}">${conf?'Confirmer l’abandon ?':'Abandonner'}</button>`);
     return `<article class="rprog st-${P.st}"><header><span class="rst">${ST[P.st]||P.st}${P.parent?' · prototype':''}</span><b>${esc(P.name)}</b><button class="x" data-r="fold:${P.id}">${openP?'▾':'▸'}</button></header>
-      ${P.kind==='arme'?`<img class="rpic" src="${portrait(P.p)}" alt="">${numsHtml(P.p)}${ribbon(P)}`:''}${meet}
+      ${P.kind==='arme'?`<div class="rprofil"><img class="r3d" src="${snap3d(P.p)}" alt=""><img class="rcut" src="${cutaway(P.p)}" alt=""></div>${numsHtml(P.p)}${ribbon(P)}`:''}${meet}
       ${openP?`<div class="rtasks">${P.tasks.map(t=>taskRow(P,t)).join('')}</div>
       ${P.kind==='arme'?`<h3 class="rsub">Directives</h3>${dirHtml(P)}<h3 class="rsub">Les carnets <small>${(P.leads||[]).filter(x=>x.st==='exploration'||x.st==='mure').length} pistes vivantes</small></h3><div class="rleads">${leadsHtml(P)}</div>`:''}
       <div class="rteam">${team.map(u=>`<span class="rwho" style="--c:${roleCol(u.sci.role)}"><button class="link" data-r="sel:${u.id}">${esc(u.name)}</button> <small>${ROLES[u.sci.role].ico} ${GRADES[gradeOf(u.sci.xp)].name}</small></span>`).join('')||'<span class="quiet small">l’équipe du bureau seule</span>'}</div>
@@ -152,15 +172,17 @@ export function researchUI({world,view,ui,say,esc,ico,costHtml,hours,buildingPan
     if(!M){const last=P.meetings.at(-1);return `<header class="mhead"><div><b>« ${esc(P.name)} »</b><small>pas de réunion en cours</small></div><button class="ghost" data-act="modal-off">Fermer</button></header><div class="mbody">${last?`<p>Dernière réunion : ${esc(MEETINGS[last.type]?.name||last.type)}, ${clock(last.t)} — ${last.waves} vague${last.waves>1?'s':''}, ${last.seen||0} propositions, retenues : ${last.chosen.length?last.chosen.map(t=>esc(short(t))).join(' ; '):'aucune'}.</p>`:''}<img class="rpic" src="${portrait(P.p)}" alt="">${numsHtml(P.p)}</div>`;}
     const b=w.building(M.b),sel=picks(P.id,M);const who=(M.who||[]).map(x=>`<span class="rwho" style="--c:${roleCol(x.role)}">${ROLES[x.role]?.ico||''} ${esc(x.name)}</span>`).join('');
     const PH=['rassemblement','tour','propositions','debat','decision'];const cur=M.phase==='application'?4:PH.indexOf(M.phase);
-    const script=M.script.slice(-40).reverse().map(l=>`<p class="k-${l.k}" style="--c:${roleCol(l.role)}"><b>${esc(nameOf(l.by))}</b> ${esc(l.text)}</p>`).join('');
+    // (en direct : une réplique de plus quand on a eu le temps de lire la précédente ; « Passer » montre tout)
+    {const pc=(R().pace??={})[P.id]??={next:0},t=performance.now()/1000;M.shown??=M.script.length-1;if(M.shown<M.script.length-1&&t>=pc.next){M.shown++;const l=M.script[M.shown];pc.next=t+Math.min(6,Math.max(2.2,1+(l?.text.length||20)*.045));}}
+    const script=M.script.slice(0,(M.shown??M.script.length-1)+1).slice(-40).reverse().map(l=>`<p class="k-${l.k}" style="--c:${roleCol(l.role)}"><b>${esc(nameOf(l.by))}</b> ${esc(l.text)}</p>`).join('');
     const props=M.props.map((c,i)=>card(P,M,c,i,sel)).join('');
-    if(R().mini){const l=M.script.at(-1);return `<header class="mhead"><div><b>👑 ${esc(MEETINGS[M.type].name)} — « ${esc(P.name)} »</b><small>${esc(MEET_PHASES[M.phase]||M.phase)}${M.phase==='decision'?` · ${M.props.length} proposition${M.props.length>1?'s':''} attendent votre décision`:''}${l?` · <b>${esc(nameOf(l.by))}</b> : ${esc(l.text)}`:''}</small></div><button data-r="mini:0">Rouvrir la réunion</button><button class="ghost" data-act="modal-off">Quitter</button></header>`;}
+    if(R().mini){const l=M.script[M.shown??M.script.length-1];return `<header class="mhead"><div><b>👑 ${esc(MEETINGS[M.type].name)} — « ${esc(P.name)} »</b><small>${esc(MEET_PHASES[M.phase]||M.phase)}${M.phase==='decision'?` · ${M.props.length} proposition${M.props.length>1?'s':''} attendent votre décision`:''}${l?` · <b>${esc(nameOf(l.by))}</b> : ${esc(l.text)}`:''}</small></div><button data-r="mini:0">Rouvrir la réunion</button><button class="ghost" data-act="modal-off">Quitter</button></header>`;}
     return `<header class="mhead"><div><b>${esc(MEETINGS[M.type].name)} — « ${esc(P.name)} »</b><small>${esc(AU[b?.k]||'')} · vague ${M.wave+1} sur 3 · vous présidez : la reine siège au bout de la table</small></div><button class="ghost" data-r="mini:1" title="Réduire la fenêtre : la réunion dans la vue recherche">👑 Voir la table</button><button class="ghost" data-act="modal-off">Fermer</button></header>
       <div class="mbody rmeet">
         <div class="rribbon">${PH.map((k,i)=>`<span class="${i<cur?'done':i===cur?'cur':''}">${esc(MEET_PHASES[k])}${k==='decision'&&M.wave?` (vague ${M.wave+1})`:''}</span>`).join('')}${M.phase==='application'?'<span class="cur">On redessine</span>':''}</div>
-        <div class="rm-top"><figure class="rm-design"><img class="rpic" src="${portrait(M.p,M.chosen.length&&M.p0?M.p0:null)}" alt="">${numsHtml(M.p)}<figcaption class="small quiet">Autour de la table : ${who||'personne encore'}</figcaption>
+        <div class="rm-top"><figure class="rm-design"><div class="rprofil"><img class="r3d" src="${snap3d(M.p)}" alt=""><img class="rcut" src="${cutaway(M.p)}" alt=""></div>${M.chosen.length&&M.p0?`<img class="rpic" src="${portrait(M.p,M.p0)}" alt="" title="la conception nouvelle sur l’ancienne">`:''}${numsHtml(M.p)}<figcaption class="small quiet">Autour de la table : ${who||'personne encore'}</figcaption>
           ${M.chosen.length?`<p class="small"><b>Déjà retenu :</b> ${M.chosen.map(c=>esc(short(c.title))).join(' ; ')}</p>`:''}</figure>
-          <div class="rm-talk">${script||'<p class="quiet">On se rassemble…</p>'}</div></div>
+          <div class="rm-talk">${(M.shown??0)<M.script.length-1?`<button class="small ghost rm-skip" data-r="mskip:${P.id}">▸▸ Passer (${M.script.length-1-(M.shown??0)} répliques)</button>`:''}${script||'<p class="quiet">On se rassemble…</p>'}</div></div>
         ${M.phase==='decision'?`<div class="rm-bar"><span>Retenez une ou plusieurs propositions compatibles : elles s’appliquent aussitôt à la conception, et l’équipe rediscute de ce qui reste. <b>${sel.length} sélectionnée${sel.length>1?'s':''}</b> · le chef de projet tranchera dans ${hours(Math.max(0,M.deadline-w.s.t))}</span>
           <button data-r="mdecide:${P.id}" ${sel.length?'':'disabled'}>Retenir la sélection</button><button class="ghost" data-r="mclose:${P.id}">${M.chosen.length?'Clore la réunion':'Ne rien retenir'}</button></div>`:`<p class="rm-bar quiet">${esc(MEET_PHASES[M.phase]||M.phase)}… la décision viendra après le débat.</p>`}
         <div class="rm-cards">${props||'<p class="quiet">Pas encore de proposition sur la table.</p>'}</div></div>`;}
@@ -196,6 +218,7 @@ export function researchUI({world,view,ui,say,esc,ico,costHtml,hours,buildingPan
       // la réunion : retenir (une vague), clore, voir une proposition dans le concepteur
       if(k==='mpick'){const P=w.program(+a);if(!P?.meet)return;const L=picks(P.id,P.meet),i=+c;const at=L.indexOf(i);if(at>=0)L.splice(at,1);else L.push(i);return;}
       if(k==='mdecide'){const P=w.program(+a);if(!P?.meet)return;const L=picks(P.id,P.meet).slice();const r=w.decide(P.id,L);ok(r);S.picks[P.id]=null;return;}
+      if(k==='mskip'){const P=w.program(+a);if(P?.meet)P.meet.shown=P.meet.script.length-1;return;}
       if(k==='mdeep'){ok(w.deepenProp(+a,+c));return;}
       if(k==='mclose'){const r=w.closeMeeting(+a);ok(r);return;}
       if(k==='mdraft'){const P=w.program(+a),pr=P?.meet?.props[+c];if(!pr)return;let p;try{p=applyEdit(P.meet.p,pr.edits);}catch(e){return;}close?.();draft?.(p,`${P.name} — ${short(pr.title).slice(0,40)}`);return;}},

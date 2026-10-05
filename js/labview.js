@@ -78,9 +78,13 @@ export const LABVIEW={
   labPaced(b,MA,now){const W=this.world,Q=this.labQ??=new Map();let q=Q.get(b.id);const meet=!!MA&&MA.M.phase!=='rassemblement',key=meet?'m'+MA.P.id+':'+MA.M.t0:'t';
     if(!q||q.key!==key){q={key,i:meet?Math.max(0,MA.M.script.length-3):0,last:meet?0:((W.s.research.talk||[]).filter(l=>l.b===b.id).at(-1)?.id??0),next:0,cur:null};Q.set(b.id,q);}
     if(now<q.next)return q.cur;
+    if(meet&&MA.M.king){const l=MA.M.script[MA.M.shown??-1]||null;if(l!==q.cur){q.cur=l;}q.next=now+.25;return q.cur;}
     if(meet){const S=MA.M.script;if(S.length-q.i>7)q.i=S.length-5;if(q.i>=S.length){if(now>q.next+2)q.cur=null;return q.cur;}q.cur=S[q.i++];}
-    else{const T=(W.s.research.talk||[]).filter(l=>l.b===b.id&&l.id>q.last&&l.t<=W.s.t+.001&&W.s.t-l.t<3);if(T.length>6)T.splice(0,T.length-4);if(!T.length){if(now>q.next+2)q.cur=null;return q.cur;}q.cur=T[0];q.last=T[0].id;}
-    q.next=now+Math.min(6,Math.max(2.4,1+q.cur.text.length*.045));return q.cur;},
+    else{let T=(W.s.research.talk||[]).filter(l=>l.b===b.id&&l.id>q.last&&l.t<=W.s.t+.001);
+      // (une conversation commencée se lit jusqu'au bout ; en retard, on saute des conversations ENTIÈRES, jamais le milieu d'une)
+      if(T.length&&T[0].cid!==q.cur?.cid){const cids=[...new Set(T.map(l=>l.cid))];if(cids.length>2)T=T.filter(l=>l.cid===cids.at(-1));}
+      if(!T.length){if(now>q.next+2)q.cur=null;return q.cur;}q.cur=T[0];q.last=T[0].id;}
+    q.next=now+Math.min(6.5,Math.max(2.6,1+q.cur.text.length*.05));return q.cur;},
   // par-dessus la scène : le monde assombri autour, le flux, les noms, les icônes, les bulles, les bandeaux des bâtiments
   labOverlay(){if(!this.lab||!this.g3)return;const ctx=this.ctx,W=this.world,dpr=this.dpr,z=this.z(),now=performance.now()/1000,b0=W.building(this.lab.b);if(!b0)return;
     const cw=this.canvas.width,ch=this.canvas.height,[w0,h0]=W.sizeOf(b0),c0=this.toScreen(b0.i+w0/2,b0.j+h0/2),R=(w0+h0)*TW/2*z*.62;
