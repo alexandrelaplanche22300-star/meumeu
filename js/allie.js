@@ -16,9 +16,9 @@ const d2=(a,b,c,d)=>Math.hypot(a-c,b-d);
 const up=u=>u&&u.hp>0&&u.h?.state!=='hors'&&u.h?.state!=='mort';
 /* (V12.5) les cartouches demandent plomb, cuivre et poudre (salpêtre + charbon) : sans ces mines ni la poudrerie, l'allié vivait sur son stock de départ —
    mesuré : 0 à 4 caisses de cartouches par ville à J30-J40, ses escouades « décrochent : trop de pertes » */
-const ORDER_MAIN=['camp','atelier','moulin','grenier','four','mine:pierre','moulin','mine:fer','mine:charbon','caserne','entrepot','moulin','arsenal','manufacture','mine:plomb','mine:cuivre','mine:salpetre','poudrerie','hopital','tour','tour','moulin','caserne'];
+const ORDER_MAIN=['camp','atelier','moulin','grenier','four','mine:pierre','moulin','mine:fer','mine:charbon','caserne','entrepot','moulin','arsenal','manufacture','mine:plomb','mine:cuivre','mine:salpetre','labo','hopital','tour','tour','moulin','caserne'];
 const ORDER_TOWN=['camp','moulin','atelier','mine:fer','mine:charbon','tour','moulin','caserne'];
-const PRODUCT={four:'charbon',atelier:'pieces',arsenal:'m:mle1',manufacture:'a:mle1',poudrerie:'poudre'};
+const PRODUCT={four:'charbon',atelier:'pieces',arsenal:'m:mle1',manufacture:'a:mle1',labo:'poudre'};   // (V12.7 : le laboratoire de chimie fait la poudre des Meumeu)
 const MAKER={pieces:'atelier',charbon:'four',fer:'mine:fer',pierre:'mine:pierre'};
 const MAXC=6;
 
@@ -234,7 +234,7 @@ export const ALLIE={
     let T=R.target!=null&&this.building(R.target);if(T&&BUILDINGS[T.k]?.bunker)T=null;
     // (jamais un ouvrage de béton : le fusil n'y fait rien — mesuré : le raid allait d'un Tobrouk à l'autre sans en abattre un ; il les contourne)
     if(!T||T.ruin){const known=this.s.buildings.filter(b=>b.f==='beee'&&!b.ruin&&!BUILDINGS[b.k]?.bunker&&(I[b.id]||this.visibleAt('meumeu',b.i+1,b.j+1))&&d2(b.i,b.j,cx,cy)<220);
-      const rank=b=>b.k==='centre'?0:['caserne','arsenal','manufacture','poudrerie','mine','gare','camp','atelier','four'].includes(b.k)?1:2;
+      const rank=b=>b.k==='centre'?0:['caserne','arsenal','manufacture','labo','mine','gare','camp','atelier','four'].includes(b.k)?1:2;
       // (les petites cibles — camps, maisons — seulement en passant, à 40 cases : un camp de côte se relève aussitôt, le raid y piétinait)
       T=known.filter(b=>rank(b)<2||d2(b.i,b.j,cx,cy)<40).sort((a,z)=>rank(a)-rank(z)||d2(a.i,a.j,cx,cy)-d2(z.i,z.j,cx,cy))[0]||null;
       R.target=T?.id??null;if(T)this.log('Front',`Les troupes alliées débarquées marchent sur ${T.k==='centre'?'une ville bèè':'un bâtiment bèè'}.`,'info');}

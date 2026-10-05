@@ -2,7 +2,7 @@
 // (cadences de tir, vol des balles, hémorragies). Une heure de jeu dure HOUR_REAL secondes à 1× : c'est aussi le nombre de
 // secondes de combat qu'elle contient. Les positions sont en cases (x = i, y = j) ; une case vaut TILE_M mètres pour la balistique.
 // Deux civilisations sur la même carte. Tout est un objet placé ; les stocks sont dans les dépôts, les munitions en caisses.
-import {SITE_RANGE,HOUR_REAL,DAY,NIGHT,MAP_N,RADIUS,CARRY,GAP,TERRAIN,T,RES,RARE,ORE_LEFT,NODES,BUILDINGS,LINES,UNITS,BLASTS,VEHICLES,PRODUCTS,LIMIT_OF,FRET,BOMB,FLAK,FIRE,BEEE,START,NAMES,CITY_NAMES,BEEE_CITIES,VEHICLE_NAMES,INNOV,DOMAINS} from './data.js';
+import {SITE_RANGE,HOUR_REAL,DAY,NIGHT,MAP_N,RADIUS,CARRY,GAP,TERRAIN,T,RES,RARE,ORE_LEFT,NODES,BUILDINGS,LINES,UNITS,BLASTS,VEHICLES,PRODUCTS,LIMIT_OF,FRET,BOMB,FLAK,FIRE,BEEE,START,NAMES,CITY_NAMES,BEEE_CITIES,VEHICLE_NAMES,INNOV,DOMAINS,madeAt} from './data.js';
 import {ECO} from './eco.js';
 import {generate,rng} from './gen.js';
 import {Pather} from './path.js';
@@ -32,6 +32,7 @@ import {ALLIE} from './allie.js';
 import {AIRCRAFT} from './air.js';
 import {BEEE_FORT} from './fortif.js';
 import {RESEARCH} from './research.js';
+import {artInit} from './techaxes.js';
 const UNLOCK_H=3;
 import {bunkerPlan} from './bunkerdata.js';
 // Le chemin d'un train : les centres des cases, et à chaque virage à angle droit un quart de cercle (rayon : une demi-case) —
@@ -45,7 +46,7 @@ export function railCurve(cells,N){const P=cells.map(k=>[k%N+.5,((k/N)|0)+.5,k])
     for(let q=1;q<=6;q++){const t=a0+da*q/6;out.push([cx+Math.cos(t)*.5-.5,cy+Math.sin(t)*.5-.5,b[2]]);}}
   return out;}
 
-export const SAVE_VERSION=12;   // (V12.6 : la recherche — s.research, les savants dans b.staff ; une sauvegarde d'avant est écartée au chargement)
+export const SAVE_VERSION=13;   // (V12.7 : la recherche — s.research.art, les programmes ; les savants sont des unités du monde ; une sauvegarde d'avant est écartée au chargement)
 const sum=o=>Object.values(o||{}).reduce((a,b)=>a+b,0);
 const d2=(ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -71,8 +72,9 @@ export class World{
     const s=this.s={v:SAVE_VERSION,seed,map:G.mode,genV:G.version,t:7,solar:7,solarSettings:{...SOLAR_DEFAULT},nextId:1,units:[],buildings:[],vehicles:[],shots:[],falls:[],tracks:[],log:[],rails:{},walls:{},sacs:{},mines:{},pistes:{},craters:[],corpses:[],squads:[],
       designs:Object.fromEntries(DEFAULT_DESIGNS.map(d=>[d.id,JSON.parse(JSON.stringify(d))])),armors:Object.fromEntries(DEFAULT_ARMORS.map(d=>[d.id,JSON.parse(JSON.stringify(d))])),smokes:[],groundFires:[],
       nodes:G.nodes,fauna:[],beee:{cities:[],waves:0,anger:0,tension:0,phase:'war'},won:null,lost:null,cityN:0,squadN:0,
-      innov:{prac:{},next:{},ideas:[],done:[],order:INNOV.filter(x=>!x.sci).map(x=>x.id).sort(()=>this.rand()-.5)},   /* (V12.6 : les savantes à part, research.js sciOrder — la suite aléatoire de la partie est celle d'avant) */
-      research:{projects:[],aff:{},log:[],nid:1,boost:{}}};this.remod();   /* (V12.6) la recherche : projets, ententes entre savants, carnet, percées (research.js) */
+      innov:{prac:{},next:{},ideas:[],done:[],order:INNOV.map(x=>x.id).sort(()=>this.rand()-.5)},
+      research:{art:{},programs:[],log:[],nid:1}};this.remod();   /* (V12.7) la recherche : l'état de l'art, les programmes, le carnet (research.js, techaxes.js) */
+    s.research.art=artInit(Object.values(s.designs).filter(d=>d.f==='meumeu'));   // (ce que prouvent nos armes de départ)
     s.fert=G.fert.slice();s.fertSpots=G.blobs.map(b=>({i:b.i,j:b.j,r:b.r}));
     s.beee.warDay=1;s.beee.nextWave=BEEE.firstRaid*DAY;s.fog=true;   // le brouillard de guerre, par défaut
     this.grids();
@@ -110,7 +112,7 @@ export class World{
     const at2=this.buildSpot(F,'moulin',ci-8,cj-10,0,22),mill2=at2?this.addBuilding(F,'moulin',at2[0],at2[1],true):null;
     if(mill2)for(const u of idle().slice(0,4))u.task={kind:'work',b:mill2.id};
     this.startMines=this.placeMines(F,ci,cj,['salpetre','plomb','cuivre','fer','charbon']);
-    for(const k of ['poudrerie','arsenal','manufacture']){const at=this.buildSpot(F,k,ci,cj,7,26);if(at)this.addBuilding(F,k,at[0],at[1],true);}
+    for(const k of ['labo','arsenal','manufacture']){const at=this.buildSpot(F,k,ci,cj,7,26);if(at)this.addBuilding(F,k,at[0],at[1],true);}   // (V12.7 : le laboratoire de chimie fait la poudre)
     this.log(CITY_NAMES[0],`Départ établi : deux moulins, ${this.startMines.length} mines en service (${this.startMines.join(', ')||'aucune'}), grenier, atelier, bureau d'études, caserne, entrepôt, et un arsenal, une manufacture d'armes et une usine chimique à l'arrêt. Quatre soldats gardent la capitale; les Bèè restent une menace de campagne.`,'good');
   }
   // Une case libre pour un bâtiment, en spirale autour de (x,y) entre les rayons r0 et r1.
@@ -261,7 +263,7 @@ export class World{
   designsOf(f,status='adopte'){return Object.values(this.s.designs).filter(d=>d.f===f&&(!status||d.status===status));}
   goodName(k){if(k.startsWith('p:')){const a=this.s.armors[k.slice(2)];return a?a.name:'Protection';}if(k.startsWith('m:')){const d=this.design(k.slice(2));return `Munitions ${d?d.name:'?'}`;}if(k.startsWith('a:')){const d=this.design(k.slice(2));return d?d.name:'Arme';}return RES[k]?.name||k;}
   // proposer un prototype au bureau d'études : il se paie, il prend du temps, puis il est adopté
-  canPropose(b,p){const why=[];if(!b||b.k!=='armurerie'||!b.done)why.push('un bureau d’études');else if(b.proto)why.push('un prototype est déjà en cours');const D=derive(p);
+  canPropose(b,p){const why=[];if(!b||b.k!=='armurerie'||!b.done)why.push('un bureau d’études');else if(this.activePrograms().some(P=>P.kind==='arme'&&P.b0===b.id))why.push('un programme est déjà en cours dans ce bureau');const D=derive(p);
     if(CONSTRUCTIONS[p.cons].minD&&p.d<CONSTRUCTIONS[p.cons].minD)why.push(`${CONSTRUCTIONS[p.cons].name.toLowerCase()} : ${CONSTRUCTIONS[p.cons].minD} mm de calibre au moins`);
     if(p.fuse==='fusant'&&p.d<8&&CONSTRUCTIONS[p.cons].he)why.push('une fusée fusante : 8 mm de calibre au moins');
     if(D.overload)why.push('trop lourde pour son affût : trépied, roues ou plus de servants');
@@ -269,30 +271,31 @@ export class World{
     if(b){const pay=this.canPay(b.f,b.i+1,b.j+1,protoCost(p));if(!pay.ok)why.push(`il manque : ${pay.miss.join(', ')}`);}return {ok:!why.length,why,D};}
   propose(b,name,p){const r=this.canPropose(b,p);if(!r.ok)return r;this.pay(b.f,b.i+1,b.j+1,protoCost(p));const id='d'+this.id();
     // une seule pièce par attache : ce qui est enregistré est ce que le dessin montre et ce que la balistique compte
-    this.s.designs[id]={id,f:b.f,name:name||`Modèle ${Object.keys(this.s.designs).length}`,status:'prototype',p:{...JSON.parse(JSON.stringify(p)),mods:fitMods(p.mods)},origin:b.id};b.proto={id,left:PROTO_HOURS};
-    this.log(this.cityName(b),`Prototype en fabrication : ${this.s.designs[id].name} (${r.D.name}).`,'good');return {ok:true,id,text:`Prototype lancé : ${this.s.designs[id].name}`};}
+    this.s.designs[id]={id,f:b.f,name:name||`Modèle ${Object.keys(this.s.designs).length}`,status:'prototype',p:{...JSON.parse(JSON.stringify(p)),mods:fitMods(p.mods)},origin:b.id};
+    // (V12.7) la conception devient un programme : analysée, découpée en tâches, présentée en réunion de lancement (research.js)
+    const Pg=this.launchProgram(b,this.s.designs[id]);return {ok:true,id,text:`Programme lancé : ${this.s.designs[id].name} — ${Pg.tasks.length} tâches ; réunion de lancement`};}
 
   // ---------- les protections ----------
   armorOf(id){const A=id&&this.s.armors[id];return A?{A,D:deriveArmor(A.a)}:null;}
   armorsOf(f,status='adopte'){return Object.values(this.s.armors).filter(a=>a.f===f&&(!status||a.status===status));}
-  proposeArmor(b,name,a){if(!b||b.k!=='armurerie'||!b.done)return {ok:false,why:['un bureau d’études']};if(b.proto||b.protoA)return {ok:false,why:['un prototype est déjà en cours']};const D=deriveArmor(a);
+  proposeArmor(b,name,a){if(!b||b.k!=='armurerie'||!b.done)return {ok:false,why:['un bureau d’études']};if(this.activePrograms().some(P=>P.kind==='protection'&&P.b0===b.id))return {ok:false,why:['une protection est déjà en programme dans ce bureau']};const D=deriveArmor(a);
     const cost=Object.fromEntries(Object.entries(D.cost).map(([k,v])=>[k,+(v*3).toFixed(1)]));const p=this.canPay(b.f,b.i+1,b.j+1,cost);if(!p.ok)return {ok:false,why:[`il manque : ${p.miss.join(', ')}`]};
-    this.pay(b.f,b.i+1,b.j+1,cost);const id='p'+this.id();this.s.armors[id]={id,f:b.f,name:name||`Protection ${Object.keys(this.s.armors).length}`,status:'prototype',a:JSON.parse(JSON.stringify(a))};b.protoA={id,left:PROTO_HOURS_ARMOR};
-    this.log(this.cityName(b),`Prototype de protection : ${this.s.armors[id].name} (${Math.round(D.mass*1000)} g).`,'good');return {ok:true,id,text:`Prototype lancé : ${this.s.armors[id].name} (${PROTO_HOURS_ARMOR} h)`};}
+    this.pay(b.f,b.i+1,b.j+1,cost);const id='p'+this.id();this.s.armors[id]={id,f:b.f,name:name||`Protection ${Object.keys(this.s.armors).length}`,status:'prototype',a:JSON.parse(JSON.stringify(a))};
+    this.launchArmor(b,this.s.armors[id]);return {ok:true,id,text:`Programme lancé : ${this.s.armors[id].name}`};}
   // ---------- les choses ----------
   addUnit(f,k,x,y,o={}){const D=f==='beee'?BEEE.units[k]:UNITS[k];const u={id:this.id(),f,k,x,y,hp:1,max:1,task:null,path:null,carry:null,cool:0,dir:'se',fx:1,fy:0,anim:'idle',post:'debout',supp:0,xp:0};
     if(D.img){u.hp=D.hp;u.max=D.hp;u.w=o.w||(f==='meumeu'?'canon_mle1':'bee_canon');const W=this.W(u.w),rounds=Math.max(0,Math.floor(o.rounds??0));u.mag=Math.min(W.p.mag,rounds);u.pouch=rounds-u.mag;u.shells=0;}else{u.h=newHealth();if(D.choc){u.h.vit=D.choc.vit;u.h.tough=D.choc.tough;}}
     if(D.arm){u.w=o.w||(typeof D.arm==='string'?D.arm:'mle1');const W=this.W(u.w);if(o.rounds!=null){const rounds=Math.max(0,Math.floor(o.rounds));u.mag=Math.min(W.p.mag,rounds);u.pouch=rounds-u.mag;}else{u.mag=W.p.mag;u.pouch=Math.min(W.carry,W.p.mag*8);}}
     if(D.medic)u.kits=D.kits;if(D.tents)u.tents=D.tents;if(D.smoke)u.smoke=D.smoke;
     u.armor=o.armor??null;u.plates={};
-    if(k==='villageois'||D.medic||D.arm){const used=new Set(this.s.units.map(x=>x.name));for(const b of this.s.buildings)for(const L of [b.inside,b.staff,b.hide,b.wardList,b.pass])if(L)for(const x of L)used.add(x.name);u.name=NAMES.find(n=>!used.has(n))||'Meumeu '+u.id;if(f==='beee')u.name='Bèè '+u.id;}
+    if(k==='villageois'||D.medic||D.arm){const used=new Set(this.s.units.map(x=>x.name));for(const b of this.s.buildings)for(const L of [b.inside,b.hide,b.wardList,b.pass])if(L)for(const x of L)used.add(x.name);u.name=NAMES.find(n=>!used.has(n))||'Meumeu '+u.id;if(f==='beee')u.name='Bèè '+u.id;}
     this.s.units.push(u);this.uIndex?.set(u.id,u);return u;}
   addBuilding(f,k,i,j,done=false,size=null,rot=0){const B=BUILDINGS[k];const b={id:this.id(),f,k,i,j,done,progress:done?1:0,hp:done?B.hp:B.hp*.1,max:B.hp,queue:[],fire:0,ruin:false};if(k==='enclos'&&size)b.size=[...size];if(B.bunker){b.rot=rot;b.size=size?[...size]:this.bunkerSize(B.bunker,rot);}
     if(B.store){b.stock={};b.no=this.s.buildings.filter(x=>x.f===f&&x.k===k).length+1;b.prio=k==='tente'?4:3;b.want=k==='tente'?{sante:6}:k==='centre'?{vivres:80}:k==='grenier'?{vivres:120,ble_moulu:30}:{};}
     // ceux qui forment (caserne, fonderie, hôpital) gardent une réserve à leur dépôt : ce qu'il faut pour les prochains
     if(B.stock0)b.need=f==='beee'?Object.fromEntries(Object.entries(B.stock0).map(([key,n])=>[key.replace('m:mle1','m:bee_fusil').replace('a:mle1','a:bee_fusil'),n])):{...B.stock0};if(B.ward)b.wardList=[];
     // une usine neuve : sa première production (le joueur la change), son plafond, et l'outillage du fusil de base
-    if(B.factory){const first=(f==='meumeu'?{arsenal:'m:mle1',manufacture:'a:mle1'}:{arsenal:'m:bee_fusil',manufacture:'a:bee_fusil'})[k];b.prod=first||Object.keys(PRODUCTS).find(p=>PRODUCTS[p].at===k)||null;b.limit=b.prod?LIMIT_OF(b.prod):0;if(B.manufacture)b.tooled={[f==='meumeu'?'mle1':'bee_fusil']:true};}
+    if(B.factory){const first=(f==='meumeu'?{arsenal:'m:mle1',manufacture:'a:mle1'}:{arsenal:'m:bee_fusil',manufacture:'a:bee_fusil'})[k];b.prod=first||Object.keys(PRODUCTS).find(p=>madeAt(p,k))||null;b.limit=b.prod?LIMIT_OF(b.prod):0;if(B.manufacture)b.tooled={[f==='meumeu'?'mle1':'bee_fusil']:true};}
     this.s.buildings.push(b);this.bIndex?.set(b.id,b);this.stamp(b,b.id);return b;}
   addVehicle(f,k,home){const used=new Set(this.s.vehicles.map(v=>v.name));const V=VEHICLES[k];const [w,h]=BUILDINGS[home.k].size;
     const v={id:this.id(),f,k,name:VEHICLE_NAMES.find(n=>!used.has(n))||k+' '+this.s.nextId,x:home.i+w/2,y:home.j+h+.3,home:home.id,base:home.id,at:home.id,route:null,cargo:{},state:'idle',hp:V.hp||50,max:V.hp||50,pass:[],alt:0,
@@ -324,7 +327,7 @@ export class World{
   cityFoodRate(c){const m=c._food;if(m&&this.s.t-m.t<.25&&m.t<=this.s.t)return m.v;const v=this.cityFoodRate0(c);Object.defineProperty(c,'_food',{value:{t:this.s.t,v},writable:true,configurable:true,enumerable:false});return v;}
   cityFoodRate0(c){let rate=0;for(const u of this.s.units)if(u.f===c.f&&alive(u)&&this.homeOf(u)===c)rate+=u.k==='villageois'||u.k==='savant'?FOOD_CIVIL:FOOD_SOLDIER;
     for(const v of this.s.vehicles)if(v.f===c.f&&v.k==='porteur'&&v.u&&this.homeOf(v.u)===c)rate+=FOOD_CIVIL;
-    for(const b of this.s.buildings)if((b.inside?.length||b.staff?.length)&&b.f===c.f&&this.cityOf(b)===c)rate+=(b.inside?.length||0)*FOOD_SOLDIER+(b.staff?.length||0)*FOOD_CIVIL;return rate*(c.f==='beee'?BEEE.frugal||1:MEUMEU_FRUGAL*this.mod('ration'));}
+    for(const b of this.s.buildings)if(b.inside?.length&&b.f===c.f&&this.cityOf(b)===c)rate+=b.inside.length*FOOD_SOLDIER;return rate*(c.f==='beee'?BEEE.frugal||1:MEUMEU_FRUGAL);}
   rationTick(c,dt){c.rationT=(c.rationT||0)+dt;if(c.rationT<1)return;
     while(c.rationT>=1){c.rationT-=1;const need=this.cityFoodRate(c),got=Math.min(need,c.stock.vivres||0);c.stock.vivres=(c.stock.vivres||0)-got;c.ration=need?got/need:1;
       if(c.ration<.5&&c.rationWarn!==this.day){c.rationWarn=this.day;this.log(c.city,`Rations basses : ${Math.round(c.ration*100)} % des besoins couverts. La croissance ralentit jusqu'au ravitaillement.`,'warn');}}}
@@ -498,7 +501,7 @@ export class World{
 
   // ---------- les ordres du joueur ----------
   targetAt(x,y,f='meumeu'){const N=this.N;const i=Math.floor(x),j=Math.floor(y);
-    const en=this.s.units.filter(u=>alive(u)&&(u.f===f||this.s.fog===false||this.spotted(u,f))&&d2(u.x,u.y,x,y)<.7).sort((a,b)=>d2(a.x,a.y,x,y)-d2(b.x,b.y,x,y))[0];if(en)return {type:'unit',id:en.id};
+    const en=this.s.units.filter(u=>alive(u)&&u.inLab==null&&(u.f===f||this.s.fog===false||this.spotted(u,f))&&d2(u.x,u.y,x,y)<.7).sort((a,b)=>d2(a.x,a.y,x,y)-d2(b.x,b.y,x,y))[0];if(en)return {type:'unit',id:en.id};
     // un véhicule de combat : sous le curseur, dans son emprise
     for(const v of this.s.vehicles){const V=VEHDEF[v.k];if(!V||(v.f!==f&&this.s.fog!==false&&!this.vehSeen(f,v)))continue;const c=Math.cos(v.h),s=Math.sin(v.h),lx=(x-v.x)*c+(y-v.y)*s,ly=-(x-v.x)*s+(y-v.y)*c;if(Math.abs(lx)<V.long/2+.2&&Math.abs(ly)<V.large/2+.2)return {type:'vehicle',id:v.id};}
     const beast=this.s.fauna?.find(a=>a.alive&&d2(a.x,a.y,x,y)<.7);if(beast)return {type:'fauna',id:beast.id};
@@ -719,7 +722,7 @@ export class World{
     const cost={...D.cost};if(UNITS[k]?.arm){const d=this.design(w||'mle1');if(!d||d.status!=='adopte')why.push('une arme adoptée');else cost['a:'+d.id]=1;if(armor){const ar=this.s.armors[armor];if(!ar||ar.status!=='adopte')why.push('une protection adoptée');else cost['p:'+armor]=1;}}
     const pay=this.canPay(b.f,b.i+1,b.j+1,cost);if(!pay.ok)why.push('il manque : '+pay.miss.join(', '));return {ok:!why.length,why,cost,draftId:draft?.id??null};}
   train(b,k,w=null,armor=null,role='tireur'){const r=this.canTrain(b,k,w,armor);if(!r.ok)return r;const D=UNITS[k]||VEHICLES[k]||{name:VEHDEF[k].name,hours:VEHDEF[k].heures};this.pay(b.f,b.i+1,b.j+1,r.cost);b.queue.push({k,left:D.hours,w:w||'mle1',armor:UNITS[k]?.arm?armor:null,role:UNITS[k]?.arm&&role==='munitions'?'munitions':'tireur',...(r.draftId!=null?{draftId:r.draftId}:{})});return {ok:true,text:D.name+(role==='munitions'&&UNITS[k]?.arm?' · porteur de munitions':'')+(r.draftId!=null?' — un civil mobilisé':'')+' en préparation'};}
-  pop(f){const cap=this.s.buildings.filter(b=>b.f===f&&!b.ally&&b.done&&BUILDINGS[b.k].pop).reduce((a,b)=>a+BUILDINGS[b.k].pop,0);const used=this.s.units.filter(u=>u.f===f&&!u.ally).reduce((a,u)=>a+(UDEF(u).pop||1),0)+this.s.buildings.filter(b=>b.f===f&&!b.ally).reduce((a,b)=>a+(b.inside?.length||0)+(b.staff?.length||0),0)+this.s.vehicles.filter(v=>v.f===f&&!v.ally&&v.k==='porteur').length;return {cap,used};}
+  pop(f){const cap=this.s.buildings.filter(b=>b.f===f&&!b.ally&&b.done&&BUILDINGS[b.k].pop).reduce((a,b)=>a+BUILDINGS[b.k].pop,0);const used=this.s.units.filter(u=>u.f===f&&!u.ally).reduce((a,u)=>a+(UDEF(u).pop||1),0)+this.s.buildings.filter(b=>b.f===f&&!b.ally).reduce((a,b)=>a+(b.inside?.length||0),0)+this.s.vehicles.filter(v=>v.f===f&&!v.ally&&v.k==='porteur').length;return {cap,used};}
 
   // S'équiper à la caserne : un fusil (la conception adoptée dont il y a le plus au dépôt), ses munitions, une protection s'il y en a
   enlist(u,b){const have=this.have(b.f,b.i+1,b.j+1);const guns=this.designsOf(b.f).filter(d=>d.status==='adopte'&&(have['a:'+d.id]||0)>=1).sort((a,z)=>(have['a:'+z.id]||0)-(have['a:'+a.id]||0));
@@ -970,6 +973,7 @@ export class World{
       case 'enlist':{const b=this.building(T0.b);if(!b||!b.done||b.ruin){u.task=null;return;}const [w,h]=this.sizeOf(b);if(!this.go(u,b.i+w/2,b.j+h+.7,[b.i,b.j,w,h]))return;
         this.enterBarracks(u,b);return;}
       case 'lab':return this.labWalkTick(u,T0);   // (V12.6) un savant ou un élève va d'un bâtiment de recherche à un autre
+      case 'labwork':return this.labWorkTick(u,T0);   // (V12.7) il travaille dedans
       case 'gather':return this.gatherTick(u,T0,dt);
       case 'deposit':{const b=this.building(T0.b);if(!b||!u.carry){u.task=null;return;}this.deliverTo(u,b);return;}
       case 'build':case 'repair':{const b=this.building(T0.b);if(!b||(T0.kind==='build'&&b.done)||(T0.kind==='repair'&&(b.ruin||!b.done||(b.hp>=b.max-.5&&!b.fire)))){u.task=null;return;}
@@ -1464,9 +1468,6 @@ export class World{
             (u.h.log??=[]).push({t:this.s.t,what:'sort de la tente'+(u.task?' : il part vers l’hôpital':' : il reprend son poste'),by:''});}}}
       else{const rate=B.ward>4?1:.4;for(const u of [...b.wardList]){if(heal(u.h,dt*rate)){b.wardList.splice(b.wardList.indexOf(u),1);this.discharge(b,u);}}}}
     if(!b.done)return;
-    if(b.protoA){b.protoA.left-=dt*this.protoRate(b);b.working=true;if(b.protoA.left<=0){const a=this.s.armors[b.protoA.id];if(a){a.status='adopte';this.log(this.cityName(b),`Protection adoptée : ${a.name}. La manufacture peut la fabriquer.`,'good');this.emit({type:'design',id:a.id});}b.protoA=null;}}
-    // le bureau d'études : le prototype avance
-    if(b.proto){b.proto.left-=dt*this.protoRate(b);b.working=true;if(b.proto.left<=0){const d=this.design(b.proto.id);if(d){d.status='adopte';this.log(this.cityName(b),`Prototype réussi : ${d.name} est adopté. La manufacture et l’arsenal peuvent le fabriquer.`,'good');this.emit({type:'design',id:d.id});}b.proto=null;}}
     const q=b.queue[0];if(q){q.left-=dt;if(q.left<=0){if(q.draftId!=null){let draft=this.unit(q.draftId);if(!draft||draft.k!=='villageois'||!alive(draft)){draft=this.draftCandidate(b,q);if(!draft){q.left=1;b.why='attend un civil mobilisable';return;}q.draftId=draft.id;}this.s.units.splice(this.s.units.indexOf(draft),1);this.uIndex.delete(draft.id);}b.queue.shift();const [w,h]=this.sizeOf(b);
       if(UNITS[q.k]||(b.f==='beee'&&BEEE.units[q.k])){const u=this.addUnit(b.f,q.k,b.i+w/2+(this.rand()-.5)*w,b.j+h+.7,{w:q.w,rounds:0,armor:q.armor});if(b.ally)u.ally=true;if(q.role==='munitions')this.setRole(u,'munitions');const centre=this.cityOf(b)||this.centreOf(b);u.home=centre?.id??null;if(UNITS[q.k]?.arm&&(b.k==='caserne'||b.k==='caserne_elite'))u.homeBarracks=b.id;this.resupply(u,!!u.homeBarracks);
         const enemyCity=b.f==='beee'&&centre&&this.s.beee.cities.find(c=>c.centre===centre.id);if(enemyCity){u.city=enemyCity.id;if(u.k!=='villageois'){const a=this.rand()*Math.PI*2,r=5+this.rand()*3;u.task={kind:'guard',tx:enemyCity.x+Math.cos(a)*r,ty:enemyCity.y+Math.sin(a)*r};}}
@@ -1538,16 +1539,13 @@ export class World{
     return out;}
   nearCity(u){const c=this.s.buildings.filter(b=>b.k==='centre'&&b.f===u.f).sort((a,z)=>d2(a.i,a.j,u.x,u.y)-d2(z.i,z.j,u.x,u.y))[0];return c&&d2(c.i,c.j,u.x,u.y)<30?c.city:'Campagne';}
   unhide(b){const [w,h]=this.sizeOf(b);for(const u of b.hide){u.x=b.i+this.rand()*w;u.y=b.j+h+.5;this.shelterBack(u);this.s.units.push(u);this.uIndex.set(u.id,u);}b.hide=[];b.hideT=0;}
-  collapse(b){const B=BUILDINGS[b.k];const [w,h]=this.sizeOf(b);if(BUILDINGS[b.k].shelter)this.shelterLost(b);if(b.staff?.length||b.meet)this.labCollapse(b);b.ruin=true;b.done=false;b.progress=.2;b.hp=b.max*.2;b.fire=Math.max(b.fire,2);b.queue=[];b.batch=null;b.paid={...B.cost};
+  collapse(b){const B=BUILDINGS[b.k];const [w,h]=this.sizeOf(b);if(BUILDINGS[b.k].shelter)this.shelterLost(b);if(BUILDINGS[b.k].lab||b.k==='armurerie')this.labCollapse(b);b.ruin=true;b.done=false;b.progress=.2;b.hp=b.max*.2;b.fire=Math.max(b.fire,2);b.queue=[];b.batch=null;b.paid={...B.cost};
     for(const v of this.s.vehicles)if(v.job&&(v.job.to===b.id||v.job.from===b.id)&&v.job.phase==='src')v.job=null;
     if(b.stock){for(const k of Object.keys(b.stock)){b.stock[k]-=b.stock[k]*.7;}}
     // les blessés de l'hôpital, les passagers : ceux qui étaient dedans
     if(b.wardList?.length){for(const u of b.wardList)u.hp=0;b.wardList=[];this.log(this.cityName(b),`${B.name} s’est effondré sur ses blessés.`,'bad');}
     if(b.pass){for(const u of b.pass)u.hp=0;b.pass=[];}
     for(const u of this.s.units)if(u.task?.b===b.id&&u.task.kind==='work')u.task=null;
-    if(b.proto){const d=this.design(b.proto.id);if(d)d.status='perdu';b.proto=null;}
-    // une protection en étude est perdue avec son bureau, comme une arme (avant, elle restait « prototype » pour toujours)
-    if(b.protoA){const a=this.s.armors[b.protoA.id];if(a)a.status='perdu';b.protoA=null;}
     // la manufacture tombe : l'outillage est perdu ; les plans aussi, sauf s'ils sont aux archives d'une autre ville
     // une manufacture tombe : son outillage est perdu. Les plans survivent tant qu'une autre manufacture tient, ou des archives loin de celle-ci.
     if(b.k==='manufacture'){b.tooled={};const other=this.s.buildings.some(m=>m!==b&&m.f===b.f&&m.k==='manufacture'&&m.done&&!m.ruin);const arch=this.s.buildings.some(a=>a.f===b.f&&a.k==='archives'&&a.done&&d2(a.i,a.j,b.i,b.j)>=20);
@@ -1794,15 +1792,14 @@ export class World{
     else{const home=this.s.beee.cities.find(c=>!c.fallen);if(home)u.task={kind:'guard',tx:home.x+(this.rand()-.5)*8,ty:home.y+(this.rand()-.5)*8};}}
   // ---------- les innovations ----------
   // ce qu'une innovation adoptée multiplie ; les soins sont réglés dans health.js
-  // (V12.6) une percée (research.js) accroît de moitié l'effet d'une innovation : ×1,3 devient ×1,45, ×0,75 devient ×0,625
-  remod(){const m={},B=this.s.research?.boost||{};for(const id of this.s.innov?.done||[]){const I=INNOV.find(x=>x.id===id);if(I)for(const [k,v] of Object.entries(I.mod))m[k]=(m[k]||1)*(1+(v-1)*(B[id]||1));}this.mods=m;MED.tq=m.garrot||1;MED.plasma=m.plasma||1;MED.sepsis=m.antiseptique||1;}
+  remod(){const m={};for(const id of this.s.innov?.done||[]){const I=INNOV.find(x=>x.id===id);if(I)for(const [k,v] of Object.entries(I.mod))m[k]=(m[k]||1)*v;}this.mods=m;MED.tq=m.garrot||1;MED.plasma=m.plasma||1;MED.sepsis=m.antiseptique||1;}
   mod(k){return this.mods?.[k]||1;}
   practice(dom,x){if(!dom)return;const P=this.s.innov.prac;P[dom]=(P[dom]||0)+x;}
   // Toutes les deux heures : un domaine assez pratiqué donne une idée à un Meumeu qui y travaille (au plus six en attente)
   innovTick(dt){const I=this.s.innov;I.clock=(I.clock||0)+dt;if(I.clock<2)return;I.clock=0;if(I.ideas.length>=6)return;
     for(const dom of Object.keys(DOMAINS)){const need=I.next[dom]||14;if((I.prac[dom]||0)<need)continue;
       const order=[...I.order,...INNOV.map(x=>x.id).filter(x=>!I.order.includes(x))];   // (les parties enregistrées avant une découverte neuve la reçoivent en fin de liste)
-      const id=order.find(x=>{const d=INNOV.find(y=>y.id===x);return d&&d.dom===dom&&!I.done.includes(x)&&!d.sci&&!I.ideas.some(y=>y.id===x)&&!this.s.research.projects.some(P=>P.st==='actif'&&P.ref===x)&&(d.needs||[]).every(n=>I.done.includes(n));});if(!id){I.next[dom]=1e9;continue;}
+      const id=order.find(x=>{const d=INNOV.find(y=>y.id===x);return d&&d.dom===dom&&!I.done.includes(x)&&!I.ideas.some(y=>y.id===x)&&!this.s.research.programs.some(P=>(P.st==='actif'||P.st==='lancement')&&P.kind==='idee'&&P.ref===x)&&(d.needs||[]).every(n=>I.done.includes(n));});if(!id){I.next[dom]=1e9;continue;}
       I.next[dom]=need*1.9;const who=this.inventor(dom);I.ideas.push({id,who,t:this.s.t});const X=INNOV.find(y=>y.id===id);
       this.log(who?this.nearCity(who):'Recherche',`${who?.name||'Un Meumeu'} a une idée : ${X.name}.`,'good');this.emit({type:'idea',id,who:who?.name,x:who?.x,y:who?.y});if(I.ideas.length>=6)break;}}
   inventor(dom){const T={bois:['tree'],pierre:['rock'],vivres:['bush']};const us=this.s.units.filter(u=>u.f==='meumeu'&&u.name&&active(u));

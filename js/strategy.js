@@ -129,7 +129,7 @@ export const STRATEGY={
   defendersAt(x,y){let seen=0,works=0;for(const I of Object.values(this.s.beee.known||{})){if(typeof I!=='object'||I.ruin||this.t-I.t>DAY*3)continue;if(Math.hypot(I.x-x,I.y-y)<35){seen=Math.max(seen,I.troops);works+=I.defense;}}
     // (et les pertes que leur a coûtées ce secteur : ce qui les a tués était là, même s'ils ne l'ont pas vu)
     const lost=(this.s.beee.lossAt||[]).filter(p=>this.t-p.t<DAY*3&&Math.hypot(p.x-x,p.y-y)<45).length;return Math.max(seen,Math.ceil(lost*.35))+works;},
-  beeePlanRaid(from,guard,aimed=[],small=false){const avail=guard.length;if(avail<4)return null;const weights={centre:5,gare:7,mine:5,arsenal:6,poudrerie:6,entrepot:5,camp:3,moulin:4,atelier:4,manufacture:5,caserne:4,tour:1};
+  beeePlanRaid(from,guard,aimed=[],small=false){const avail=guard.length;if(avail<4)return null;const weights={centre:5,gare:7,mine:5,arsenal:6,poudrerie:6,labo:6,centre_recherche:6,armurerie:5,entrepot:5,camp:3,moulin:4,atelier:4,manufacture:5,caserne:4,tour:1};   // (V12.7 : la recherche meumeu — ses savants, ses programmes — est une cible)
     /* (V12.5) seulement une cible sur la même terre : sur la carte mer, les colonnes visaient l'autre rive et restaient « en rassemblement » des semaines
        (mesuré : 230 à 510 soldats immobiles, jusqu'à 22 jours) — la mer, c'est l'affaire de la flotte (amphibee.js) */
     const L=this.landComp(),N=this.N,home=L[Math.floor(from.y)*N+Math.floor(from.x)];

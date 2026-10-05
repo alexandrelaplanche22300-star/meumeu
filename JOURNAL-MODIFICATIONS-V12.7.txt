@@ -1,0 +1,96 @@
+OBERKOMMANDO DER MEUMEU — JOURNAL DES MODIFICATIONS V12.7 (la recherche refaite autour des conceptions du joueur)
+Base : V12.6 (commit 98191bb « La recherche (V12.6) : savants, projets d'un bâtiment à l'autre, réunions, vue recherche toit ouvert »).
+Le fonctionnement complet : RECHERCHE-V12.7-FONCTIONNEMENT.txt. Le contexte du projet : CONTEXTE-PROJET.txt.
+==========================================================================================================
+
+PHASE A — les savants dans le monde, trois métiers, le laboratoire de chimie (validée : 34 tests identiques avant/après ; commitée avec la
+phase B dans le commit V12.7)
+- Les savants deviennent des unités de s.units (u.inLab, tâche 'labwork' dedans, 'lab' en marchant) au lieu de b.staff.
+- Trois métiers (ingénieur, chimiste, physicien) au lieu des disciplines et traits ; l'ancien métier du villageois ne compte plus.
+- labo = Laboratoire de chimie (3×3, produit poudre/explosifs) ; l'usine chimique réservée aux Bèè ; allié et assistant posent un labo.
+- Les 18 découvertes savantes (INNOV sci) retirées ; l'ordre des idées d'ouvriers rétabli.
+
+PHASE B — LES PROGRAMMES, L'ÉTAT DE L'ART, LE CARNET DE PISTES, LES RÉUNIONS PAR VAGUES (cette session)
+
+js/techaxes.js (NOUVEAU)
+  - ROLES, AXES de l'état de l'art (tube, calibre, charge, mécanisme, cadence, projectile, explosif, remplissage, fusée d'obus, coque,
+    portée, moteur, étages, guidage, optique, infrarouge, silencieux, affût ; problèmes stabilité et surcharge), FIXED (dossier, essai).
+  - artInit / artPush / artOf ; analyze(p,art) → tâches chiffrées ; thinkOf ; presentLines / progressLines (ce qu'on dit en réunion).
+  - KEYNUMS (+ 'rpm' Cadence), nums (gardé sur D._nums), effects, fxTxt, roleOf, merit ; rangeOf gardé sur D._rng et calculé sur 4 angles
+    (flight) au lieu de la table complète (22 ms → <1 ms pour un obusier).
+  - PARAMS (12 paramètres continus, fiche continue kit et ancien modèle) ; variant ; applyEdit (paramètres, muzzle, sight, carriage,
+    material, champs simples fill/shell/fuse/guide/stages).
+  - LE CARNET DE PISTES (remplace STUDIES et brainstorm, supprimés) : metricOk, GOALS, EYES, CHOICES, LEVER_OK, leverOk, leverOfEdit,
+    LEVER_NAME, descEdit, gainOf, ROLE_W, leadScore(D0,D1,goal,dir,bold), newLead, confOf, BOUNDS / ADD / ABS / RADICAL / BOLD_LEVERS,
+    thinkStep (méthodique : leviers non essayés d'abord ; sens inverse après un échec ; bornes ; calibre ancré sur ctx.d0), burst, believe,
+    defectsSeen, goalsFor, rebaseLead, ideaTitle, proposalOf (« idée en l'air » si confiance < 0,45), debate (objections filtrées par
+    metricOk), keysOf, conflictOf, merge (compromis / combinaison, synergie = ce que chaque but gagne à l'ensemble).
+
+js/research.js (RÉÉCRIT)
+  - Programmes : launchProgram (leads, lid, dir, lastMeet), createVariant (les pistes vivantes suivent, d0), reshape, adopt, abandon.
+  - Directives : setPriority, setFrozen.
+  - Réflexion : pseudoOf (l'équipe du bureau), whoOf, boldOf, fillsCtx(P) (explosifs connus, calibre d'origine), thinkProgram (un savant
+    libre rejoint de lui-même un programme), openLead (défaut, directive, intuition, reprise, inspiration ; raisonnable ou radicale selon
+    l'audace), inspire, thinkOne, thinkTick (taux selon le lieu, la tâche, la nuit ; en attente de décision on griffonne).
+  - Réunions : callMeeting (lancement : ingénieurs du bureau + un physicien et un chimiste libres ; p, p0), meetWho, sayer, meetSeg,
+    meetOpen (tour de table), meetNext, meetPropose (calcul au tableau ; jumeaux fusionnés), addProps, sayProp, meetDebate (objections,
+    soutiens, CONTRE-PROPOSITIONS, compromis, combinaisons), meetDecision, meetingAt, recalcProp, dropProp, decide(pid,picks,{close,absent})
+    par VAGUES (application, recalcul, rebonds, débat des nouvelles cartes, jusqu'à 3), closeMeeting, callReview, meetEnd (refus, retour au
+    carnet, rebase des pistes, finale → prête, variante → prototype), closeMeet (interruption).
+  - researchTick : réunions (phases, attente), tâches, revue à mi-chemin, revue quand ≥ 3 pistes mûres, finale, variantes, réflexion.
+js/researchdata.js : MEETINGS (wait 6/5/5/8 h, textes), MEET_PHASES (nouveau) ; SAYS ; plus de DISC/PHASES/TRAITS/WORK_K.
+js/research-ui.js (RÉÉCRIT) : portrait(p,p0) (l'arme proposée sur l'ancienne en transparence + la munition), onglets Programmes / Savants /
+  École / État de l'art / Carnet / Bâtiment, directives, carnets, meetModal (la réunion, les cartes, barres d'estimation ±), actions
+  meet / adopt / review / abandon / prio / freeze / idea / drop / role / cand / train / mpick / mdecide / mclose / mdraft ; change('variants').
+js/labview.js (RÉÉCRIT) : bulles de réunion (réplique en cours sur celui qui la dit, couleur selon le genre) et de pensée (u.sci.think),
+  labBubble (plusieurs lignes), labFlow (programmes reliés, savants en chemin), bandeaux (tâches, réflexion, réunion, école, production).
+js/scene3d.js : LAB_WANT refait (activité 'reflexion', labo 'ouvrier'/'cuve', plus d'usine) ; labFigures depuis les unités u.inLab,
+  l'orateur = la réplique en cours (meetingAt), il gesticule, les autres le regardent ; addUnit ignore u.inLab ; labDraw.spk.
+js/labs3d.js : le laboratoire de chimie : cuve de cuivre, condenseur, tonneaux, postes 'cuve' et 'ouvrier' (à la place de la 2e paillasse) ;
+  l'intérieur de l'usine chimique supprimé.
+js/world.js : import artInit ; SAVE_VERSION 13 ; s.research={art,programs,log,nid} ; canPropose (un programme d'arme par bureau) ;
+  propose → launchProgram ; proposeArmor → launchArmor ; case 'labwork' ; labCollapse ; targetAt ignore u.inLab (sinon un clic sur un
+  bâtiment de recherche sélectionnait un savant caché à l'intérieur).
+js/view.js : drawUnit, unitAt ignorent u.inLab ; la sélection au cadre ne prend ni les savants, ni les élèves, ni les unités dedans.
+js/ui.js : researchUI reçoit open / close / draft ; modale 'reunion' ; rafraîchie en direct ; un clic data-r redessine aussi la modale ;
+  rui.change reçoit l'élément ; évènements 'decision' (alerte + Assister, cor) et 'meeting' ; panneau d'un bâtiment de recherche (u.inLab,
+  programmes en cours) ; import nettoyé (MODN, unlockName n'existent plus).
+js/designer.js : « Lancer le programme », liste des tâches du programme (programPreview), message « N tâches, X heures-savants » ;
+  PROTO_HOURS n'est plus importé.
+js/explosive.js : flight exporté.
+js/data.js, js/eco.js, js/persistence.js (v13), js/strategy.js, js/allie.js : voir phase A.
+css/style.css : bloc (V12.7) — rrole, rv-call (pulsante), rprog, rpic, rnums, rribbon, rmeetline, rtasks/rtask, rsub, rdir, rleads/rlead,
+  rthink, ridea, rtog, mbox.reunion, rmeet, rm-top, rm-design, rm-talk (k-objection, k-soutien, k-prop, k-decision, k-compromis), rm-bar,
+  rm-cards, rcard (on, off, bold), rkind, rc-pic, rc-ch, rc-fx, rfx, rbar, rerr, rc-conf, rc-why, rc-obj, rc-sup, rc-cost, rc-notes, dz-prog.
+test/recherche.mjs : R1–R12 réécrits pour les programmes (R3, R7 à remettre à jour pour les pistes).
+test/_outils_captures/recherche_save.mjs, recherche_vue.cjs : réécrits pour la v13 (voir le fonctionnement, § 9).
+
+LE ROI MEUMEU (fin de session)
+assets3d/meumeu_roi.json (NOUVEAU, généré) ; test/_outils_captures/roi_meumeu.cjs (le générateur), modele_page.cjs (capture d'un modèle) ;
+_cape.html (page de dev, exclue de la construction ; _modele.html, celle du soldat, inchangée) ; scene3d : MODEL_NAMES + 'meumeu_roi', P.roi, KING, la figure du roi en réunion,
+  LAB_WANT.roi ; labs3d : le fauteuil du bout de la table devient le poste 'roi' ; research : attendMeeting (M.king, M.kingT, réplique,
+  salut, l'échéance repoussée), closeMeeting à tout moment (entre deux vagues aussi), labExit → act 'marche' ; ui.js : renderModal tient
+  world.attendMeeting à jour et met #modal en .rmini ; research-ui : bandeau réduit, « Voir la table », « Assister » fait voler la caméra ;
+  labview : nom du roi en or, clic ignoré ; css : #modal.rmini. index.html : V12.7.
+TESTS : test/recherche.mjs R1–R12 tous PASS (R3 : critère « deux métiers » ; R5 : la réunion suivante quelle que soit sa phase ; R6 : on
+  clôt la revue de variantes après la première vague ; R7 : un physicien creuse sa piste « stabilité »).
+
+ERREURS PAYÉES PENDANT LA SESSION (à ne pas refaire)
+- Insérer une ligne entre deux branches « else if » coupe la chaîne : le « else if » suivant se rattache au nouvel « if » (M.seg nul en
+  rassemblement → plantage). Placer les lignes communes AVANT la chaîne.
+- La couronne placée sur la moyenne du sommet de la tête : décalée (le toupet est asymétrique) — la centrer sur l'axe du visage.
+- La cape centrée sur l'axe du corps de l'élite partait en traîne derrière : garder le calage dos contre dos, puis plaquer.
+- Études figées (STUDIES) : trop linéaire — rejeté par le joueur ; remplacé par les pistes.
+- La portée utile d'un fusil (D.eff) dépend de la VISÉE (erreur de l'œil, lunette, affût), pas de la poudre : les leviers de la portée
+  directe sont lunette, ogive, tube, affût — un chimiste n'y peut presque rien (impasse normale).
+- Un pas multiplicatif reste bloqué à 0 (culot 0) : ogive et culot à pas ADDITIFS.
+- Un pas réduit à chaque échec sans changer de sens = le chercheur s'enlise : après un échec, il essaie l'autre sens.
+- La fiche borne/arrondit (charge, remplissage) : relire la valeur réellement prise et réessayer si rien n'a bougé.
+- Le recul d'une pièce sur roues, la perforation d'un obus explosif, la stabilité d'une fusée : sans objet (metricOk).
+- L'arme lourde : seulement pour une arme portée par un seul soldat ; ailleurs, pas un défaut.
+- Sans bornes absolues, les décisions successives font dériver (obus de 15 calibres, calibre qui fond) : ABS et ancrage sur d0.
+- Gain de stabilité : seule l'insuffisance compte (Sg ≥ 1,9 ne gagne rien) — sinon « réduire Sg de 5 à 1,9 » semblait un gain.
+- arcTable complète dans nums : 22 ms par calcul d'obusier — rangeOf sur 4 angles et mis en cache sur la conception.
+- La réutilisation d'un nom de variable déstructurée dans une affectation (const c=…props[+c]) : ReferenceError (zone morte).
+- ui.js importait MODN/unlockName supprimés : le jeu ne se chargeait plus (« does not provide an export named »).
+- targetAt trouvait le savant caché au centre du bâtiment : le clic n'ouvrait pas la vue recherche.

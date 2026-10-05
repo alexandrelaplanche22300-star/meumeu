@@ -56,7 +56,7 @@ export const BUILDING_MODEL={
   centre:[':centre',1.0,0],camp:[':camp',1.0,0],maison:[':maison',1.0,0],ferme:[':ferme',1.0,0],grenier:[':grenier',1.0,0],atelier:[':atelier',1.0,0],four:[':four',1.0,0],mine:[':mine',1.0,0],gare:[':gare',1.0,0],entrepot:[':entrepot',1.0,0],labo:[':labo',1.0,0],caserne:[':caserne',1.0,0],caserne_elite:[':caserne_elite',1.0,0],poudrerie:[':poudrerie',1.0,0],arsenal:[':arsenal',1.0,0],armurerie:[':armurerie',1.0,0],manufacture:[':manufacture',1.0,0],garage:[':garage',1.0,0],hopital:[':hopital',1.0,0],tente:[':tente',1.0,0],archives:[':archives',1.0,0],fonderie:[':fonderie',1.0,0],
   moulin:['windmill',.8,0],barge:[':barge_chantier',1.0,0],grande_barge:[':grande_barge_chantier',1.0,0],bateau_bee:[':bateau_chantier',1.0,2],tour:[':tour',.8,0]};
 export const OUTCROP_MODEL={fer:'rocky_outcrop',charbon:'lava_rock',pierre:'stone_rock_pile',cuivre:'crystal_rock',plomb:'rock_formation',salpetre:'multicolored_crystal_pile',or:'rock_with_gold_veins'};
-export const MODEL_NAMES=[...new Set([...Object.values(BUILDING_MODEL).map(b=>b[0]).filter(n=>n[0]!==':'),...Object.values(OUTCROP_MODEL),'meumeu','meumeu_soldat','plush_cow_knight','goat_plush_toy','meumeu_chercheur','gewehr_43_rifle','heavy_machine_gun','assault_rifle','vintage_military_jeep_logistic_unarmed','vintage_military_logistic_jeep_with_gun','ww2_locomotive','ww2_wagon','armored_car','stone_rock_pile','silbervogel_bomber_3d_model',...Object.values(VEHDEF).map(V=>V.modele).filter(n=>n&&n[0]!==":")])];
+export const MODEL_NAMES=[...new Set([...Object.values(BUILDING_MODEL).map(b=>b[0]).filter(n=>n[0]!==':'),...Object.values(OUTCROP_MODEL),'meumeu','meumeu_soldat','plush_cow_knight','goat_plush_toy','meumeu_chercheur','meumeu_roi','gewehr_43_rifle','heavy_machine_gun','assault_rifle','vintage_military_jeep_logistic_unarmed','vintage_military_logistic_jeep_with_gun','ww2_locomotive','ww2_wagon','armored_car','stone_rock_pile','silbervogel_bomber_3d_model',...Object.values(VEHDEF).map(V=>V.modele).filter(n=>n&&n[0]!==":")])];
 
 // ---- petites géométries de code : arbres, buisson (couleurs de sommets)
 const colored=(g,hex)=>{const c=new THREE.Color(hex);const n=g.attributes.position.count,a=new Float32Array(n*3);for(let i=0;i<n;i++){a[3*i]=c.r;a[3*i+1]=c.g;a[3*i+2]=c.b;}g.setAttribute('color',new THREE.BufferAttribute(a,3));return g;};
@@ -96,11 +96,12 @@ function meumeuRig(M){const g=M?.geo;if(!g?.index)return null;const P=g.attribut
   return {body,bras};}
 // (V12.6) la vue recherche : les postes que cherche chacun selon ce qu'il fait, dans l'ordre de préférence (les genres de postes : labs3d.js)
 const LAB_WANT={
-  centre_recherche:{consulte:['maitre','table','bureau'],etude:['ecole'],cours:['maitre'],reunion:['table'],orateur:['orateur'],travail:['bureau','maitre','table'],affecte:['bureau'],pause:['cafe','fenetre'],dort:['bureau','table'],attente:['livres','fenetre','bureau'],oisif:['livres','fenetre','cafe','bureau']},
-  labo:{consulte:['balance','hotte','etagere'],travail:['paillasse','hotte','balance'],affecte:['paillasse'],pause:['evier','etagere'],dort:['paillasse'],attente:['etagere','evier','balance'],oisif:['etagere','balance','evier','hotte']},
-  armurerie:{consulte:['maquette','plans'],travail:['planche','maquette'],affecte:['planche','maquette'],pause:['plans'],dort:['planche'],attente:['plans','maquette'],oisif:['plans','maquette']},
-  poudrerie:{consulte:['pupitre','condenseur'],travail:['cuve','condenseur','pupitre'],affecte:['cuve','condenseur','pupitre'],ouvrier:['ouvrier'],pause:['pupitre'],dort:['pupitre'],attente:['pupitre'],oisif:['pupitre','condenseur']}};
+  centre_recherche:{roi:['roi','orateur','table'],etude:['ecole'],cours:['maitre'],reunion:['table','orateur','roi'],orateur:['orateur'],travail:['bureau','maitre','table'],reflexion:['maitre','bureau','fenetre','livres'],pause:['cafe','fenetre'],dort:['bureau','table'],attente:['livres','fenetre','bureau'],oisif:['livres','fenetre','cafe','bureau']},
+  labo:{travail:['paillasse','hotte','balance','cuve'],reflexion:['balance','paillasse','etagere','hotte'],ouvrier:['ouvrier','cuve'],pause:['evier','etagere'],dort:['paillasse'],attente:['etagere','evier','balance'],oisif:['etagere','balance','evier','hotte']},
+  armurerie:{travail:['planche','maquette'],reflexion:['planche','plans','maquette'],pause:['plans'],dort:['planche'],attente:['plans','maquette'],oisif:['plans','maquette']}};
 const wrap=a=>((a+PI)%(2*PI)+2*PI)%(2*PI)-PI;
+// le roi Meumeu (le joueur en réunion) : une figure de la vue recherche, sans unité dans le monde
+const KING={id:'roi',k:'roi',name:'Le roi Meumeu',sci:null};
 const CYL=(r0,r1,h,seg=6)=>new THREE.CylinderGeometry(r1,r0,h,seg);
 const ANIMAL_GEO={
   biche:()=>{const c=0xb58a5a,d=0x8a6238;const g=[colored(at(new THREE.SphereGeometry(.32,8,6).scale(1.5,.8,.8),0,.62,0),c),colored(at(CYL(.07,.1,.5).rotateZ(-.55),.42,.92,0),c),colored(at(new THREE.SphereGeometry(.13,8,6).scale(1.3,1,.9),.62,1.12,0),d),colored(at(new THREE.SphereGeometry(.05,5,4),-.45,.72,0),0xf0e6d6)];
@@ -200,6 +201,7 @@ export class Scene3D{
     this.pools.soldat=this.M.meumeu_soldat?mk('meumeu_soldat',{cap:1200,anim:ch('meumeu_soldat')}):this.pools.meumeu;
     this.pools.choc=this.M.plush_cow_knight?mk('plush_cow_knight',{cap:400,anim:ch('plush_cow_knight')}):this.pools.soldat;this.pools.bee=mk('goat_plush_toy',{cap:1500,anim:ch('goat_plush_toy')});
     this.pools.chercheur=this.M.meumeu_chercheur?mk('meumeu_chercheur',{cap:400,anim:ch('meumeu_chercheur')}):null;   // (V12.6) le savant en blouse
+    this.pools.roi=this.M.meumeu_roi?mk('meumeu_roi',{cap:4,anim:ch('meumeu_roi')}):null;   // (V12.7) le roi Meumeu : le joueur, quand il assiste à une réunion
     this.pools.obus3d=new Pool(PROJ_GEO.obus(),{cap:300});this.scene.add(this.pools.obus3d.mesh);this.pools.fusee3d=new Pool(PROJ_GEO.fusee(),{cap:300});this.scene.add(this.pools.fusee3d.mesh);
     this.booms=[];this.boomGeo={ball:new THREE.IcosahedronGeometry(1,2),ring:new THREE.RingGeometry(.86,1,56).rotateX(-PI/2),dome:new THREE.SphereGeometry(1,16,8,0,PI*2,0,PI/2)};
     this.pools.fusil=mk('gewehr_43_rifle',{cap:1500});this.pools.mg=mk('heavy_machine_gun',{cap:200});
@@ -378,13 +380,14 @@ export class Scene3D{
   liftsTick(dt){if(!this.lifts?.length)return;for(const L of this.lifts){L.t+=dt;const k=Math.min(1,L.t/.7);L.g.position.y=k*k*2.6;L.g.traverse(o=>{if(o.isMesh)o.material.opacity=1-k;});}
     for(const L of this.lifts.filter(L=>L.t>=.7)){this.scene.remove(L.g);L.g.traverse(o=>{if(o.isMesh)o.material.dispose();});}this.lifts=this.lifts.filter(L=>L.t<.7);}
   labFigures(view,b,M,dtc){const W=view.world,P=this.pools,[w,h]=W.sizeOf(b),cx=b.i+w/2,cz=b.j+h/2,now=performance.now()/1000;
-    const F=this.labFig??=new Map(),SEAT=this.labSeat??=new Map(),meet=b.meet,st=M.st,WANT=LAB_WANT[b.k]||{};
-    const people=[];for(const u of b.staff||[])people.push({u,act:u.k!=='savant'?'etude':meet&&meet.ids.includes(u.id)&&u.sci.act==='reunion'?(meet.speaker===u.id?'orateur':'reunion'):u.sci.act||'oisif'});
+    const F=this.labFig??=new Map(),SEAT=this.labSeat??=new Map(),MA=W.meetingAt?.(b),meet=MA?.M||null,spk=meet&&meet.phase!=='decision'?MA.line?.by??null:null,st=M.st,WANT=LAB_WANT[b.k]||{};
+    const people=[];for(const u of W.s.units){if(u.inLab!==b.id||!(u.hp>0))continue;const inMeet=!!(meet&&u.sci?.meet&&meet.ids.includes(u.id));people.push({u,act:u.k!=='savant'?'etude':inMeet?'reunion':u.sci?.act||'oisif',spk:inMeet&&spk===u.id});}
+    if(meet?.king)people.unshift({u:KING,act:'roi',spk:spk==='roi'});
     for(const u of this.labWorkers?.get(b.id)||[])people.push({u,act:'ouvrier'});
-    const order=['orateur','reunion','cours','etude','travail','consulte','affecte','ouvrier','pause','dort','attente','oisif'];people.sort((a,z)=>order.indexOf(a.act)-order.indexOf(z.act)||a.u.id-z.u.id);
+    const order=['roi','orateur','reunion','cours','etude','travail','reflexion','ouvrier','pause','dort','attente','oisif'];people.sort((a,z)=>order.indexOf(a.act)-order.indexOf(z.act)||a.u.id-z.u.id);
     // le poste : d'abord le genre préféré (il change parfois : on va au tableau, à la hotte) ; garder le sien s'il convient ; sinon le plus proche libre
     const taken=new Set();
-    for(const p of people){let kinds=WANT[p.act]||WANT.oisif||[];const id=p.u.id;
+    for(const p of people){let kinds=WANT[p.act]||(p.act==='roi'?['table','orateur']:null)||WANT.oisif||[];const id=p.u.id;
       if(p.act==='travail'&&b.k==='centre_recherche'&&Math.sin(now*.05+id*2.1)>.8)kinds=['maitre',...kinds.filter(k=>k!=='maitre')];
       if(p.act==='travail'&&b.k==='labo'&&Math.sin(now*.06+id*1.3)>.85)kinds=['hotte','balance',...kinds];
       if((p.act==='oisif'||p.act==='attente')&&Math.sin(now*.04+id*3.3)>.5)kinds=[...kinds.slice(1),kinds[0]];
@@ -406,7 +409,7 @@ export class Scene3D{
       const bub=u.sci?.bub;if(bub&&bub.t!==f.bubSim){f.bubSim=bub.t;f.bubT=now;f.bubK=bub.k;}const ev=f.bubT>0&&now-f.bubT<2.4?f.bubK:null;
       let yaw=f.yaw,y=0,sy=1,pitch=0,roll=0;const act=p.act,sit=!moving&&!!S?.sit;
       if(!moving&&S){let want=Math.atan2(S.f[0],S.f[1]);
-        if(act==='reunion'&&meet){const sp=F.get(meet.speaker);if(sp&&sp.b===b.id)want+=wrap(Math.atan2(sp.x-f.x,sp.z-f.z)-want)*.45;}
+        if(act==='reunion'&&meet){const sp=spk!=null&&spk!==u.id?F.get(spk):null;if(sp&&sp.b===b.id)want+=wrap(Math.atan2(sp.x-f.x,sp.z-f.z)-want)*.45;}
         else if(act==='orateur')want+=Math.sin(now*.7+u.id)*.6;
         else if(act==='cours')want+=Math.sin(now*.22+u.id)>.75?PI:Math.sin(now*.9)*.35;   // il se tourne vers le tableau, puis vers les élèves
         else if(act==='pause'){const o=people.find(q=>q!==p&&q.act==='pause'&&F.get(q.u.id)?.b===b.id);if(o){const g=F.get(o.u.id);want=Math.atan2(g.x-f.x,g.z-f.z);}}
@@ -415,14 +418,15 @@ export class Scene3D{
         if(act==='dort')pitch=.45;
         else if(act==='etude'||(S.sit&&(act==='travail'||act==='affecte')))pitch=.1+.08*Math.sin(now*2.2+u.id);
         else if(act==='travail'||act==='affecte'||act==='ouvrier'){roll=.05*Math.sin(now*1.6+u.id);pitch=.06+.05*Math.sin(now*2.9+u.id*.7);}
-        else if(act==='orateur'||act==='cours')roll=.05*Math.sin(now*2+u.id);
+        else if(act==='orateur'||act==='cours'||p.spk){roll=.07*Math.sin(now*2.4+u.id);pitch=-.05+.05*Math.sin(now*3.1+u.id);}
+        else if(act==='reflexion'){const up=Math.sin(now*.45+u.id*1.9)>.35;pitch=up?-.14:.1+.06*Math.sin(now*2.6+u.id);roll=up?.05*Math.sin(now*.9+u.id):0;}
         else if(act==='reunion')pitch=.04*Math.sin(now*1.3+u.id);}
       if(sit)sy=.78;
       if(ev==='eureka'||ev==='fini'){const k=now-f.bubT;y+=Math.abs(Math.sin(k*9))*.13*(1-k/2.4);yaw+=k*6;}
       if(ev==='accident')roll+=Math.sin(now*23+u.id)*.14;
-      const sav=u.k==='savant',Hk=sav?.42:.4,Mk=sav?mod:'meumeu',sc=Hk/this.M[Mk].ext[1],pool=sav?(P.chercheur||P.meumeu):P.meumeu;
-      pool.add(f.x,.08+y,f.z,yaw,sc,sc*sy,sc,{tint:sav?null:0xf4efe2,ph:f.ph,amp:moving?1:0,pitch,roll});
-      out.push({u,b:b.id,x:f.x,z:f.z,top:.08+y+Hk*sy+.03,act,ev,k:S?.k||null,moving});}}
+      const king=u.k==='roi'&&!!P.roi,sav=u.k==='savant',Hk=king?.47:sav?.42:.4,Mk=king?'meumeu_roi':sav?mod:'meumeu',sc=Hk/this.M[Mk].ext[1],pool=king?P.roi:sav?(P.chercheur||P.meumeu):P.meumeu;
+      pool.add(f.x,.08+y,f.z,yaw,sc,sc*sy,sc,{tint:king||sav?null:0xf4efe2,ph:f.ph,amp:moving?1:0,pitch,roll});
+      out.push({u,b:b.id,x:f.x,z:f.z,top:.08+y+Hk*sy+.03,act,ev,k:S?.k||null,moving,spk:!!p.spk});}}
   // le chemin d'un poste à l'autre : le chemin d'accès du poste quitté (à rebours), l'allée, le chemin d'accès du nouveau poste, le poste
   labPath(M,from,to){const A=M.aisle,on=p=>A?(A.z!=null?[p[0],A.z]:[A.x,p[1]]):null,pts=[];const back=from.via?[...from.via].reverse():[];pts.push(...back);
     const ex=back.length?back[back.length-1]:[from.x,from.z],t0=to.via?.length?to.via[0]:[to.x,to.z];if(A){pts.push(on(ex),on(t0));}pts.push(...(to.via||[]),[to.x,to.z]);
@@ -498,7 +502,7 @@ export class Scene3D{
     this.shellCarrier.clear();
     for(const g of s.units){if(!g.w||!(g.reload>0)||!(g.reloadTotal>1.4)||g.hp<=0)continue;const Wg0=this.designOf(W,g.w);if(!Wg0||!(Wg0.crew>1))continue;
       const sv=W.servants(g).sort((a,z)=>Math.hypot(a.x-g.x,a.y-g.y)-Math.hypot(z.x-g.x,z.y-g.y))[0];if(sv)this.shellCarrier.set(sv.id,{g,W:Wg0});}
-    const addUnit=u=>{if(u.x<i0-3||u.x>i1+3||u.y<j0-3||u.y>j1+3)return;if(hideU.has(u.id))return;
+    const addUnit=u=>{if(u.x<i0-3||u.x>i1+3||u.y<j0-3||u.y>j1+3)return;if(hideU.has(u.id)||u.inLab!=null)return;
       if(fog&&u.f!=='meumeu'&&!W.spotted(u,'meumeu',.5))return;
       const bee=u.f==='beee';const down=u.h?.state==='hors'||u.hp<=0;
       let fx=u.fx,fy=u.fy;if(fx==null){const d=u.dir||'se';[fx,fy]=d==='se'?[1,0]:d==='sw'?[0,1]:d==='ne'?[0,-1]:[-1,0];}

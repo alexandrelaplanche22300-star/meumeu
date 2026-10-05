@@ -7,7 +7,7 @@
 //    va le chercher au dépôt qui en a de trop le plus commode, et le livre. Un dépôt garde ce qu'il demande lui-même ;
 //    seule une demande de priorité plus haute peut le lui prendre.
 // Tout ici vaut pour les deux camps : l'état-major bèè s'en servira comme nous. Les méthodes sont posées sur World.
-import {BUILDINGS,PRODUCTS,VEHICLES,RADIUS,RES,FRET,LIMIT_OF,familyOf,BEEE} from './data.js';
+import {BUILDINGS,PRODUCTS,VEHICLES,RADIUS,RES,FRET,LIMIT_OF,familyOf,BEEE,madeAt} from './data.js';
 import {crateCost,weaponCost,weightOf} from './designs.js';
 import {derive} from './ballistics.js';
 import {deriveArmor} from './armor.js';
@@ -49,7 +49,7 @@ export const ECO={
   linkedTo(d){const o={sup:[],out:[],site:[]};for(const b of this.s.buildings){if(b.f!==d.f)continue;if(b.sup===d.id&&this.takesIn(b))o.sup.push(b);if(b.out===d.id&&this.givesOut(b))o.out.push(b);if(b.site===d.id&&!b.done&&!b.ruin)o.site.push(b);}return o;},
 
   // ---------- les usines ----------
-  productsOf(b){const B=BUILDINGS[b.k];if(!B.factory)return [];const L=Object.keys(PRODUCTS).filter(k=>PRODUCTS[k].at===b.k);
+  productsOf(b){const B=BUILDINGS[b.k];if(!B.factory)return [];const L=Object.keys(PRODUCTS).filter(k=>madeAt(k,b.k));
     if(B.arsenal)L.unshift(...this.designsOf(b.f).map(d=>'m:'+d.id));
     if(B.manufacture)L.push(...this.designsOf(b.f).map(d=>'a:'+d.id),...this.armorsOf(b.f).map(a=>'p:'+a.id));
     return L;},
@@ -97,8 +97,7 @@ export const ECO={
       if(miss.length){b.why=`attend au dépôt d’approvisionnement : ${miss.map(([k,v])=>`${+(v-(sup.stock[k]||0)).toFixed(1)} ${this.goodName(k).toLowerCase()}`).join(', ')}`;return;}
       for(const [k,v] of Object.entries(R.in)){const q=Math.min(v,Math.max(0,sup.stock[k]||0));sup.stock[k]=(sup.stock[k]||0)-q;if(v-q>1e-9)this.take(b.f,fx,fy,k,v-q,RADIUS);}b.batch={...R,out:{...R.out},done:0};}
     const c=this.coalRate(b)*n*dt;if(c>0){if((sup.stock.charbon||0)<c){const [fx,fy]=this.bc(b);if(this.take(b.f,fx,fy,'charbon',c,RADIUS)<c-1e-9){b.why='machines froides : plus de charbon au dépôt d’approvisionnement ni à côté';b.cold=true;return;}}else sup.stock.charbon-=c;}b.cold=false;
-    // (V12.6) labBoost : les chimistes libres de l'atelier pilote de l'usine chimique, et ses innovations
-    b.batch.done+=n*dt*this.mod(B.factory.mod)*this.labBoost(b);b.why=null;b.working=true;this.practice(b.k==='poudrerie'?'chimie':B.factory.mod==='soins'?'soins':B.factory.mod==='armement'?'armement':B.factory.mod==='briques'?'construction':'atelier',dt*n);
+    b.batch.done+=n*dt*this.mod(B.factory.mod);b.why=null;b.working=true;this.practice(b.k==='poudrerie'||b.k==='labo'?'chimie':B.factory.mod==='soins'?'soins':B.factory.mod==='armement'?'armement':B.factory.mod==='briques'?'construction':'atelier',dt*n);
     if(b.batch.done>=b.batch.hours)this.factoryDeliver(b,out);},
   factoryDeliver(b,out){const bt=b.batch;
     if(bt.tool){b.tooled??={};b.tooled[bt.tool]=true;b.batch=null;this.log(this.cityName(b),`${BUILDINGS[b.k].name} outillée pour ${this.design(bt.tool)?.name||'?'}.`,'good');return;}

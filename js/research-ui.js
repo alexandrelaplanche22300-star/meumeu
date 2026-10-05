@@ -1,122 +1,170 @@
-// Le panneau de la vue recherche (V12.6) : ce que le joueur gère quand le toit est ouvert. Six onglets —
-//  Projets : les projets en cours (leurs étapes d'un bâtiment à l'autre, l'équipe, les évènements) et les propositions (lancer un projet, en choisissant
-//            l'équipe) ;
-//  Savants : l'école (former un villageois dans une discipline) et chaque savant (grade, caractère, moral, fatigue, ce qu'il fait, où ; l'affecter) ;
-//  Réunions : convoquer un remue-méninges, un point d'avancement, un colloque, un séminaire ;
-//  Carnet : le carnet de laboratoire (tout ce qui s'est passé) ;  Savoir : la pratique de chaque domaine, l'arbre, ce qui est adopté ;
-//  Bâtiment : le panneau ordinaire du bâtiment (la production de l'usine chimique, le concepteur du bureau d'études…).
-// Le choix d'une équipe, d'une discipline, des convoqués reste dans ui.R (le panneau est redessiné souvent).
-import {BUILDINGS,INNOV,DOMAINS,UNITS} from './data.js';
-import {DISC,DOM_DISC,DOM_PHASES,PHASES,LAB_KIND,LAB_SEATS,GRADES,gradeOf,TRAITS,MEETINGS,WORK_K} from './researchdata.js';
-import {FILLS} from './explosive.js';
-import {KIT_PRESETS} from './kitdata.js';
+// Le panneau de la recherche (V12.7) : ce que le joueur dirige quand la vue recherche est ouverte, et la fenêtre de réunion.
+//  Programmes : chaque conception en développement — son dessin et ses chiffres, la réunion en cours (« Assister »), les tâches et qui y travaille,
+//               les directives du commandement (ce qui est prioritaire, ce à quoi on ne touche plus), les carnets (les pistes de chaque savant, vivantes,
+//               mûres, abandonnées), « conception terminée », les variantes ; les petits programmes ; les idées des ouvriers ;
+//  Savants : chacun — son métier, son grade, ce qu'il fait, où, ce à quoi il pense ;  École : former des savants des trois métiers ;
+//  État de l'art : ce que nos armes ont prouvé ;  Carnet : tout ce qui s'est passé ;  Bâtiment : le panneau ordinaire du bâtiment.
+// LA RÉUNION (meetModal) : les phases, la conception sur la table, ce qui se dit, et les PROPOSITIONS — chacune avec la conception proposée dessinée sur
+// l'ancienne (en transparence), ce qu'elle change, ce que son auteur en estime (avec sa marge d'erreur : il peut se tromper, ne pas voir un effet), sa
+// confiance, son origine, les objections et les soutiens, ce qu'elle coûte au programme. Le commandement en retient plusieurs par vague ; la conception
+// change aussitôt, les savants recalculent ce qui reste et rebondissent — jusqu'à trois vagues.
+import {BUILDINGS,INNOV,UNITS} from './data.js';
+import {derive,fmt} from './ballistics.js';
+import {layout,drawWeapon,drawRound} from './gunart.js';
+import {LAB_KIND,LAB_SEATS,GRADES,gradeOf,MEETINGS,MEET_PHASES} from './researchdata.js';
+import {ROLES,GOALS,AXES,nums,metricOk,confOf,ideaTitle,applyEdit,conflictOf,leverOk,LEVER_NAME,rangeOf,wallF} from './techaxes.js';
 
-export const MODN={gather_tree:'coupe du bois',gather_rock:'taille de pierre',gather_bush:'cueillette',gather_ore:'extraction à la main',ferme:'moulins',mine:'mines',atelier:'ateliers',carburant_bois:'bois par carburant',cap_porteur:'charge des portettes',cap_train:'charge des trains',vit_train:'vitesse des trains',
-  construction:'vitesse de construction',charbon_machines:'charbon des machines',briques:'briqueteries',tender:'tender des locomotives',mur:'solidité des murs',fer_munitions:'fer par caisse',armement:'arsenal et manufacture',napalm:'durée des flaques incendiaires',tir:'précision',garrot:'durée d’un garrot',plasma:'plasma',brancard:'vitesse des brancardiers',antiseptique:'vitesse de l’infection',chirurgie:'vitesse de la chirurgie',creneaux:'tireurs par tour',couvert:'protection des murs',
-  ration:'vivres mangés',recherche:'vitesse de la recherche',formation:'vitesse de l’école',poudrerie:'production de l’usine chimique'};
-export const unlockName=k=>{const [t,id]=k.split(':');return t==='fill'?`explosif « ${FILLS[id]?.name||id} »`:t==='preset'?`modèle « ${KIT_PRESETS.find(P=>P.id===id)?.design.name||id} »`:k;};
-const ACT={consulte:'vient jeter un regard neuf sur une équipe bloquée',etude:'étudie',cours:'fait cours aux élèves',reunion:'en réunion',orateur:'parle en réunion',travail:'travaille',affecte:'presse la production',pause:'à la pause',dort:'s’est endormi',attente:'attend son équipe',oisif:'sans projet',marche:'en chemin'};
-const AU={centre_recherche:'au centre de recherche',labo:'au laboratoire',armurerie:'au bureau d’études',poudrerie:'à l’usine chimique'};
+const ACT={etude:'étudie',cours:'fait cours',reunion:'en réunion',travail:'travaille',reflexion:'réfléchit',dort:'dort',attente:'attend',oisif:'sans programme',marche:'en chemin'};
+const AU={centre_recherche:'au centre de recherche',labo:'au laboratoire de chimie',armurerie:'au bureau d’études'};
+const KIND={piste:'Piste',idee:'Idée en l’air',rebond:'Rebond',compromis:'Compromis',combinaison:'Combinaison',contre:'Contre-proposition'};
+const ST={lancement:'Lancement',actif:'En développement',pret:'Prête',suivi:'En service — variantes',fini:'Close',abandon:'Abandonnée'};
+const LEAD_ST={exploration:'en cours',mure:'mûre',proposee:'sur la table',retenue:'retenue',refusee:'refusée',impasse:'impasse',caduque:'caduque'};
+const LEVERS=['calibre','balle','tube','paroi','pas','charge','vivacite','ogive','culot','cadence','remplissage','moteur','ailettes','frein','lunette','affut','material','coque','fusee','explosif','gyro','etages'];
+const short=t=>String(t).replace(/^(Refonte — )?Pour [^:]+: /,'');
+const dist=m=>m>=1000?`${fmt(m/1000,1)} km`:`${Math.round(m)} m`;
 
-export function researchUI({world,view,ui,say,esc,ico,costHtml,hours,buildingPane,audio}){
-  const R=()=>ui.R??={tab:'projets',disc:'chimie',cand:0,team:{},mt:'remue',mids:null,mpid:null,sel:null,confirm:null};
+// le dessin d'une conception (et, en transparence, celle qu'elle remplace) : l'arme, pièce par pièce, et sa munition en coupe
+const PIC=new Map();
+export function portrait(p,p0=null,w=340,h=80){const key=JSON.stringify([p,p0,w,h]);if(PIC.has(key))return PIC.get(key);let url='';
+  try{const D=derive(p),G=layout(D),D0=p0?derive(p0):null,G0=D0?layout(D0):null;const dpr=2,cv=document.createElement('canvas');cv.width=w*dpr;cv.height=h*dpr;const x=cv.getContext('2d');x.scale(dpr,dpr);
+    const rw=Math.round(w*.24),gw=w-rw-16,RH=E=>Math.max((E.Dc||E.p.d*1.45)*3.2+6,E.p.d*3),heavy=D.have==='trepied'||D.crew>1;
+    const L=Math.max(G.Lw*1.06+(D.rocket?30:0),G0?G0.Lw*1.06+(D0.rocket?30:0):0),R=Math.max(RH(D),D0?RH(D0):0),s=Math.min(gw/L,(h-12)/(R*(heavy?7:4.6)));
+    const o={bx:8+(D.rocket?10:0),ay:heavy?h*.42:h*.5,s,ground:h-3,t:0};
+    if(D0){x.save();x.globalAlpha=.24;drawWeapon(x,D0,{...o,G:G0});x.restore();}drawWeapon(x,D,{...o,G});drawRound(x,D,w-rw-4,6,rw,h-12,{compact:true,labels:false});url=cv.toDataURL();}catch(e){console.error(e);}
+  PIC.set(key,url);if(PIC.size>160)PIC.delete(PIC.keys().next().value);return url;}
+
+export function researchUI({world,view,ui,say,esc,ico,costHtml,hours,buildingPane,audio,open,close,draft}){
+  const R=()=>ui.R??={tab:'programmes',role:'ingenieur',cand:0,sel:null,confirm:null,picks:{},openP:{}};
   const W=()=>world();
   const pct=x=>Math.round(Math.max(0,Math.min(1,x))*100);
   const gauge=(f,col)=>`<i class="gauge"><i style="width:${pct(f)}%${col?`;background:${col}`:''}"></i></i>`;
-  const dname=d=>DISC[d]?`<span class="rdisc" style="--c:${DISC[d].col}">${DISC[d].ico} ${DISC[d].name}</span>`:'';
   const clock=t=>`j${Math.floor(t/24)+1} ${String(Math.floor(t%24)).padStart(2,'0')}h${String(Math.floor((t%1)*60)).padStart(2,'0')}`;
-  const where=u=>{const w=W(),b=w.where(u);if(b)return AU[b.k];const T=u.task;if(T?.kind==='lab'){const tb=w.building(T.b);return tb?'en route '+AU[tb.k].replace(/^au /,'vers le ').replace(/^à l’/,'vers l’'):'en chemin';}return 'dehors';};
-  const nameOf=id=>W().sci(id)?.name||'?';
-  const free=()=>W().savants().filter(u=>!u.sci.pid);
-  const defIds=()=>{const S=R(),w=W();if(S.mt==='point')return w.project(S.mpid)?.team||[];const L=w.savants().filter(u=>!u.sci.meet),fr=L.filter(u=>!u.sci.pid);return (fr.length>=MEETINGS[S.mt].min?fr:L).slice(0,8).map(u=>u.id);};
-  // l'équipe proposée pour une idée : celle qu'on a choisie, sinon deux savants libres de la bonne discipline (les plus gradés), sinon les plus gradés
-  const teamFor=id=>{const S=R();if(S.team[id])return S.team[id].filter(uid=>free().some(u=>u.id===uid));const I=INNOV.find(x=>x.id===id),d=DOM_DISC[I?.dom];
-    const L=free().sort((a,z)=>Number(z.sci.disc===d)-Number(a.sci.disc===d)||z.sci.xp-a.sci.xp);return L.filter(u=>u.sci.disc===d).slice(0,2).map(u=>u.id).concat(L.some(u=>u.sci.disc===d)?[]:L.slice(0,1).map(u=>u.id));};
-  const etaIdea=(I,ids)=>{const w=W();let r=0;for(const id of ids){const u=w.sci(id);if(u)r+=w.skill(u,DOM_DISC[I.dom],'theorie');}return r>0?I.hours*WORK_K/(r*w.mod('recherche')):Infinity;};
-  const fx=X=>`<p class="fx">${Object.entries(X.mod).map(([k,v])=>`<span>${esc(MODN[k]||k)} ${v>=1?'+':'−'}${Math.round(Math.abs(v-1)*100)} %</span>`).join('')}${(X.unlock||[]).map(k=>`<span class="new">ouvre : ${esc(unlockName(k))}</span>`).join('')}</p>`;
+  const role=r=>ROLES[r]?`<span class="rrole" style="--c:${ROLES[r].col}">${ROLES[r].ico} ${ROLES[r].name}</span>`:'';
+  const nameOf=id=>id==='roi'?'Le roi':id>0?(W().unit(id)?.name||'?'):'L’équipe du bureau';
+  const roleCol=r=>ROLES[r]?.col||'#ccc';
+  const where=u=>{const w=W(),b=w.where(u);if(b)return AU[b.k]||BUILDINGS[b.k].name;const T=u.task;if(T?.kind==='lab'){const tb=w.building(T.b);return tb?'en route '+(AU[tb.k]||'').replace(/^au /,'vers le ').replace(/^à l’/,'vers l’'):'en chemin';}return 'dehors';};
+  // les chiffres d'une conception (ce qui compte pour cette arme)
+  const numsHtml=p=>{let D;try{D=derive(p);}catch(e){return '';}const n=nums(D),L=[];const add=(k,lbl,v)=>{if(metricOk(k,D))L.push(`<span><small>${lbl}</small><b>${v}</b></span>`);};
+    add('range','Portée',dist(n.range));add('moa','Dispersion',`${fmt(n.moa,1)} MOA`);add('lethal','Éclats',`${fmt(n.lethal,1)} m`);add('blast','Souffle',`${fmt(n.blast,1)} m`);add('pen','Perce',`${fmt(n.pen,1)} mm`);
+    add('rk','Recul',`${fmt(D.recoil,1)} J`);add('Sg','Stabilité',fmt(D.Sg,2));add('P','Pression',`${Math.round(n.P)} MPa`);add('sustain','Cadence tenue',`${n.sustain}/${n.rpm}`);L.push(`<span><small>Masse</small><b>${n.mass<1?Math.round(n.mass*1000)+' g':fmt(n.mass,1)+' kg'}</b></span>`);
+    return `<div class="rnums"><span class="rname">${esc(D.name)}</span>${L.join('')}</div>`;};
+  // un effet estimé : la barre (centrée sur zéro), la marge d'erreur de son auteur
+  const fxBar=e=>{const r=Math.max(-1,Math.min(1,e.rel)),er=Math.min(1,e.err||0),a=50+Math.min(0,r)*50,wd=Math.abs(r)*50,ea=50+Math.max(-1,Math.min(1,r-er))*50,eb=50+Math.max(-1,Math.min(1,r+er))*50;
+    return `<div class="rfx ${e.good?'good':'bad'}"><span>${esc(e.name)}</span><i class="rbar"><i style="left:${a}%;width:${wd}%"></i><i class="rerr" style="left:${Math.min(ea,eb)}%;width:${Math.abs(eb-ea)}%"></i></i><b>${e.rel>0?'+':'−'}${Math.round(Math.abs(e.rel)*100)} %${e.err?`<small> ±${Math.round(e.err*100)}</small>`:''}</b></div>`;};
 
-  // ---------- l'en-tête : le bâtiment, les autres bâtiments de recherche, le résumé, les onglets ----------
-  function head(b){const w=W(),S=R(),L=w.labs();const sv=w.savants(),stu=w.sciAll().filter(u=>u.k!=='savant');const act=w.s.research.projects.filter(P=>P.st==='actif');
-    const nav=L.sort((a,z)=>Object.keys(LAB_KIND).indexOf(a.k)-Object.keys(LAB_KIND).indexOf(z.k)).map(x=>{const n=(x.staff||[]).length;return `<button class="small ${x.id===b.id?'':'ghost'}" data-r="go:${x.id}" title="${esc(w.cityName(x))}">${esc(BUILDINGS[x.k].name)} <small>${n}/${LAB_SEATS[x.k]}</small></button>`;}).join('');
-    const tabs=[['projets',`Projets (${act.length})`],['savants',`Savants (${sv.length})`],['reunions','Réunions'],['carnet','Carnet'],['savoir','Savoir'],['batiment','Bâtiment']];
+  // ---------- l'en-tête : le bâtiment, les autres bâtiments de recherche, les onglets ----------
+  function head(b){const w=W(),S=R(),L=w.labs(),sv=w.savants();const act=w.s.research.programs.filter(P=>['lancement','actif','pret','suivi'].includes(P.st));
+    const nav=L.sort((a,z)=>Object.keys(LAB_KIND).indexOf(a.k)-Object.keys(LAB_KIND).indexOf(z.k)).map(x=>{const n=w.s.units.filter(u=>u.inLab===x.id&&u.k==='savant').length;return `<button class="small ${x.id===b.id?'':'ghost'}" data-r="go:${x.id}" title="${esc(w.cityName(x))}">${esc(BUILDINGS[x.k].name)} <small>${n}/${LAB_SEATS[x.k]}</small></button>`;}).join('');
+    const waiting=act.filter(P=>P.meet?.phase==='decision');
+    const tabs=[['programmes',`Programmes (${act.length})`],['savants',`Savants (${sv.length})`],['ecole','École'],['art','État de l’art'],['carnet','Carnet'],['batiment','Bâtiment']];
     return `<section class="pane rv"><header class="rv-head"><div><small>Vue recherche · ${esc(w.cityName(b))}</small><b>${esc(BUILDINGS[b.k].name)}</b></div><button class="ghost small" data-r="close" title="Échap">✕ Fermer</button></header>
       <div class="rv-nav">${nav}</div>
-      <p class="small quiet">${sv.length} savant${sv.length>1?'s':''} · ${stu.length} élève${stu.length>1?'s':''} · ${act.length} projet${act.length>1?'s':''} en cours · ${w.s.innov.ideas.length} proposition${w.s.innov.ideas.length>1?'s':''} · ${w.s.innov.done.length} innovation${w.s.innov.done.length>1?'s':''}</p>
+      ${waiting.map(P=>`<button class="rv-call" data-r="meet:${P.id}">💬 ${esc(MEETINGS[P.meet.type].name)} de « ${esc(P.name)} » — ${P.meet.props.length} proposition${P.meet.props.length>1?'s':''} attendent votre décision · <b>Assister</b></button>`).join('')}
       <div class="seg tabs">${tabs.map(([k,n])=>`<button class="${S.tab===k?'on':''}" data-r="tab:${k}">${n}</button>`).join('')}</div></section>`;}
 
-  // ---------- Projets ----------
-  function projectCard(P){const w=W(),S=R(),team=P.team.map(id=>w.sci(id)).filter(Boolean),eta=w.projectEta(P);
-    const pipe=P.phases.map((ph,i)=>{const at=BUILDINGS[PHASES[ph.k].at].name;return `<div class="rph ${i<P.ph?'done':i===P.ph?'cur':''}"><span>${PHASES[ph.k].ico} ${PHASES[ph.k].name}${i<P.ph?' ✓':''}</span>${gauge(ph.done/ph.need,i<P.ph?'var(--good)':null)}<small>${esc(at)}</small></div>`;}).join('<span class="rarr">▸</span>');
-    const status=P.block?`<b class="bad">Bloqué : ${esc(P.block.why)}.</b> Un point d’avancement aide à s’en sortir.`:P.wait?`<span class="warn">${esc(P.wait)}</span>`:`à cette allure, encore ${isFinite(eta)?hours(eta):'?'}`;
-    const chips=team.map(u=>`<span class="rwho" style="--c:${DISC[u.sci.disc].col}">${u.id===P.lead?'★ ':''}<button class="link" data-r="sel:${u.id}">${esc(u.name)}</button> <small>${DISC[u.sci.disc].ico} ${GRADES[gradeOf(u.sci.xp)].name}</small>${u.id!==P.lead?`<button class="x" data-r="lead:${P.id}:${u.id}" title="Chef d’équipe">★</button>`:''}<button class="x" data-r="unassign:${u.id}" title="Retirer de l’équipe">×</button></span>`).join('');
-    const fr=free();const add=fr.length?`<select data-rsel="add:${P.id}"><option value="">+ ajouter un savant libre…</option>${fr.map(u=>`<option value="${u.id}">${esc(u.name)} — ${DISC[u.sci.disc].who}, ${GRADES[gradeOf(u.sci.xp)].name.toLowerCase()}</option>`).join('')}</select>`:'';
-    const conf=S.confirm===P.id;
-    return `<article class="rproj ${P.block?'blk':''}"><header>${dname(P.disc)}<b>${esc(P.name)}</b><small>${P.from?`idée de ${esc(P.from)}`:''}</small></header>
-      <div class="rpipe">${pipe}</div><p class="small">${status}</p><div class="rteam">${chips||'<span class="warn small">personne</span>'}</div>
-      <div class="row">${add}<button class="small ${P.block?'warn':'ghost'}" data-r="point:${P.id}" title="${esc(MEETINGS.point.text)}">Point d’avancement</button><button class="small ${conf?'bad':'ghost'}" data-r="abandon:${P.id}">${conf?'Confirmer l’abandon ?':'Abandonner'}</button></div>
-      <ul class="rev">${P.ev.slice(0,3).map(e=>`<li class="${e.tone}"><time>${clock(e.t)}</time> ${esc(e.txt)}</li>`).join('')}</ul></article>`;}
-  function ideaCard(x){const w=W(),S=R(),X=INNOV.find(y=>y.id===x.id);if(!X)return '';const ids=teamFor(x.id),fr=free(),C=w.labs().find(b=>b.k==='centre_recherche');const r=w.canStartProject(x.id,ids);
-    const have=C?w.have('meumeu',C.i+2,C.j+2):{};const path=(DOM_PHASES[X.dom]||['theorie','experience']).map(k=>PHASES[k].ico+' '+PHASES[k].name).join(' ▸ ');const eta=etaIdea(X,ids);
-    return `<article class="idea"><header><span class="dom">${esc(DOMAINS[X.dom])} · ${DISC[DOM_DISC[X.dom]].ico} ${DISC[DOM_DISC[X.dom]].name}${X.sci?' · savante':''}</span><b>${esc(X.name)}</b></header><p>${esc(X.text)}</p>${fx(X)}
-      ${X.needs?.length?`<p class="quiet small">demande : ${X.needs.map(n=>{const ok=w.s.innov.done.includes(n);return `<b class="${ok?'':'warn'}">${esc(INNOV.find(y=>y.id===n)?.name||n)}${ok?' ✓':''}</b>`;}).join(' · ')}</p>`:''}
-      <p class="small quiet">${path}</p>
-      <div class="rpick">${fr.length?fr.map(u=>`<button class="chip ${ids.includes(u.id)?'on':''}" data-r="tsel:${x.id}:${u.id}" title="${esc(DISC[u.sci.disc].who)}, ${esc(GRADES[gradeOf(u.sci.xp)].name.toLowerCase())}">${DISC[u.sci.disc].ico} ${esc(u.name)}</button>`).join(''):'<span class="quiet small">aucun savant libre</span>'}</div>
-      <div class="row between"><span class="costs">${costHtml(X.cost,have)}${ids.length&&isFinite(eta)?` · ≈ ${hours(eta)}`:''}</span><span><button class="small ghost" data-r="drop:${x.id}">Écarter</button> <button class="small" data-r="start:${x.id}" ${r.ok?'':'disabled'} title="${esc(r.why.join(', '))}">Lancer le projet</button></span></div>
-      ${x.who?`<small class="who">idée de <b>${esc(x.who.name||x.who)}</b>${x.src==='savant'?', savant':x.who.k?', '+esc(UNITS[x.who.k]?.name.toLowerCase()||''):''}</small>`:''}</article>`;}
-  function tabProjets(){const w=W(),act=w.s.research.projects.filter(P=>P.st==='actif'),done=w.s.research.projects.filter(P=>P.st==='fini').slice(-5).reverse();
-    const noCentre=!w.labs().some(b=>b.k==='centre_recherche');
-    return `<section class="pane"><h2>Projets en cours <small>une étape par bâtiment : théorie au centre, expériences au laboratoire, plans au bureau d’études, essai à l’usine chimique</small></h2>
-      ${act.map(projectCard).join('')||'<p class="quiet small">Aucun projet. Choisissez une proposition ci-dessous et son équipe.</p>'}</section>
-      <section class="pane"><h2>Propositions <small>${w.s.innov.ideas.length} — des ouvriers (la pratique) et des savants (réunions, rêveries)</small></h2>${noCentre?'<p class="warn small">Il faut un centre de recherche pour lancer un projet.</p>':''}
-      <div class="ideas">${w.s.innov.ideas.map(ideaCard).join('')||'<p class="quiet small">Pas de proposition : travaillez (les ouvriers ont des idées), ou réunissez les savants en remue-méninges.</p>'}</div></section>
-      ${done.length?`<section class="pane"><h2>Derniers aboutis</h2>${done.map(P=>`<p class="small"><b>${esc(P.name)}</b> — ${clock(P.t1)}, en ${hours(P.t1-P.t0)}${w.s.research.boost[P.ref]?' · <b class="good">percée</b>':''}</p>`).join('')}</section>`:''}`;}
+  // ---------- Programmes ----------
+  const STEPS=['lancement','taches','revue','essai','finale','pret','service'];
+  function ribbon(P){const done=P.tasks.filter(t=>t.done>=t.work).length,essai=P.tasks.find(t=>t.ax==='essai');const at=P.st==='lancement'?0:P.st==='pret'?5:P.st==='suivi'||P.st==='fini'?6:P.meet?.type==='finale'?4:essai&&essai.done>0?3:P.meetings.some(m=>m.type==='revue')?2:1;
+    const N={lancement:'Lancement',taches:`Tâches ${done}/${P.tasks.length}`,revue:'Revues',essai:'Essai de tir',finale:'Revue finale',pret:'Prête',service:'En service'};
+    return `<div class="rribbon">${STEPS.map((k,i)=>`<span class="${i<at?'done':i===at?'cur':''}">${N[k]}</span>`).join('')}</div>`;}
+  function taskRow(P,t){const team=t.ids.map(id=>W().unit(id)).filter(Boolean);const f=t.work?t.done/t.work:1;
+    return `<div class="rtask ${t.done>=t.work?'done':''} ${t.block?'blk':''}" style="--c:${roleCol(t.role)}"><div><span>${ROLES[t.role]?.ico||''} ${esc(t.label)}</span><small>${t.gap?esc(t.gap):''}</small></div>${gauge(f,t.done>=t.work?'var(--good)':t.block?'var(--red)':null)}
+      <small>${t.done>=t.work?`fait${t.res?' — '+esc(t.res):''}`:t.block?`<b class="bad">bloqué : ${esc(t.block.why)}</b>`:t.wait?`<span class="warn">${esc(t.wait)}</span>`:team.map(u=>esc(u.name)).join(', ')||'—'} · ${Math.round(t.done)}/${Math.round(t.work)} h</small></div>`;}
+  function leadsHtml(P){const w=W(),L=P.leads||[];if(!L.length)return '<p class="quiet small">Les carnets sont vides : les savants n’ont pas encore pensé à ce programme.</p>';
+    const live=L.filter(x=>x.st==='exploration'||x.st==='mure'||x.st==='proposee'),dead=L.filter(x=>!live.includes(x)).slice(-6).reverse();
+    const row=x=>`<div class="rlead st-${x.st}" style="--c:${roleCol(x.role)}"><b>${esc(nameOf(x.owner))}</b><span>${esc(GOALS[x.goal]?.name||x.goal)}${x.bold?' · <em>radicale</em>':''} — ${LEAD_ST[x.st]||x.st}</span>${gauge(confOf(x))}
+      <small>${esc(x.titleAt?short(x.titleAt):x.edits.length?short(ideaTitle(x,P.p)):'')}${x.notes[0]?` · <i>${esc(x.notes[0])}</i>`:''}</small></div>`;
+    return `${live.sort((a,z)=>(z.st==='mure')-(a.st==='mure')||z.score-a.score).map(row).join('')||'<p class="quiet small">Aucune piste vivante.</p>'}${dead.length?`<details><summary class="quiet small">${L.length-live.length} piste${L.length-live.length>1?'s':''} close${L.length-live.length>1?'s':''} (retenues, refusées, impasses)</summary>${dead.map(row).join('')}</details>`:''}`;}
+  function dirHtml(P){const w=W(),dir=P.dir||{prio:{},frozen:[]};let D;try{D=derive(P.p);}catch(e){return '';}
+    const goals=Object.keys(GOALS).filter(g=>metricOk(g,D)),levers=LEVERS.filter(l=>leverOk(l,P.p,D,{})||(dir.frozen||[]).includes(l));
+    return `<div class="rdir"><span class="quiet small">Priorités</span>${goals.map(g=>{const v=dir.prio?.[g]||0;return `<button class="chip ${v?'on':''} p${v}" data-r="prio:${P.id}:${g}" title="clic : normal → important → essentiel">${esc(GOALS[g].name)}${v?' '+'★'.repeat(v):''}</button>`;}).join('')}</div>
+      <details class="rdir"><summary class="quiet small">Ne pas toucher à… ${(dir.frozen||[]).length?`<b>${dir.frozen.map(l=>esc(LEVER_NAME(l))).join(', ')}</b>`:''}</summary>${levers.map(l=>`<button class="chip ${(dir.frozen||[]).includes(l)?'on bad':''}" data-r="freeze:${P.id}:${l}">${esc(LEVER_NAME(l))}</button>`).join('')}</details>`;}
+  function programCard(P){const w=W(),S=R(),M=P.meet,conf=S.confirm===P.id,openP=S.openP[P.id]??true;
+    const team=P.team.map(id=>w.unit(id)).filter(u=>u?.k==='savant');
+    const meet=M?`<div class="rmeetline ${M.phase==='decision'?'wait':''}"><span>💬 ${esc(MEETINGS[M.type].name)} — ${esc(MEET_PHASES[M.phase]||M.phase)}${M.wave?` (vague ${M.wave+1})`:''} ${AU[w.building(M.b)?.k]||''}${M.phase==='decision'?` · encore ${hours(Math.max(0,M.deadline-w.s.t))}`:''}</span><button class="small ${M.phase==='decision'?'':'ghost'}" data-r="meet:${P.id}">${M.phase==='decision'?'Assister et décider':'Écouter'}</button></div>`:'';
+    const acts=[];if(w.canAdopt(P))acts.push(`<button class="small" data-r="adopt:${P.id}">Conception terminée : adopter</button>`);
+    if(P.kind==='arme'&&!M&&P.st==='actif')acts.push(`<button class="small ghost" data-r="review:${P.id}">Convoquer une revue</button>`);
+    if(P.kind==='arme'&&(P.st==='actif'||P.st==='lancement'||P.st==='suivi'||P.st==='pret'))acts.push(`<label class="small rtog"><input type="checkbox" data-rsel="variants:${P.id}" ${P.variants!==false?'checked':''}> variantes après l’adoption</label>`);
+    if(P.st==='actif'||P.st==='lancement')acts.push(`<button class="small ${conf?'bad':'ghost'}" data-r="abandon:${P.id}">${conf?'Confirmer l’abandon ?':'Abandonner'}</button>`);
+    return `<article class="rprog st-${P.st}"><header><span class="rst">${ST[P.st]||P.st}${P.parent?' · prototype':''}</span><b>${esc(P.name)}</b><button class="x" data-r="fold:${P.id}">${openP?'▾':'▸'}</button></header>
+      ${P.kind==='arme'?`<img class="rpic" src="${portrait(P.p)}" alt="">${numsHtml(P.p)}${ribbon(P)}`:''}${meet}
+      ${openP?`<div class="rtasks">${P.tasks.map(t=>taskRow(P,t)).join('')}</div>
+      ${P.kind==='arme'?`<h3 class="rsub">Directives</h3>${dirHtml(P)}<h3 class="rsub">Les carnets <small>${(P.leads||[]).filter(x=>x.st==='exploration'||x.st==='mure').length} pistes vivantes</small></h3><div class="rleads">${leadsHtml(P)}</div>`:''}
+      <div class="rteam">${team.map(u=>`<span class="rwho" style="--c:${roleCol(u.sci.role)}"><button class="link" data-r="sel:${u.id}">${esc(u.name)}</button> <small>${ROLES[u.sci.role].ico} ${GRADES[gradeOf(u.sci.xp)].name}</small></span>`).join('')||'<span class="quiet small">l’équipe du bureau seule</span>'}</div>
+      <ul class="rev">${P.ev.slice(0,5).map(e=>`<li class="${e.tone}"><time>${clock(e.t)}</time> ${esc(e.txt)}</li>`).join('')}</ul>`:''}
+      ${acts.length?`<div class="row wrap">${acts.join('')}</div>`:''}</article>`;}
+  function tabProgrammes(){const w=W(),Rs=w.s.research;const live=Rs.programs.filter(P=>['lancement','actif','pret','suivi'].includes(P.st)).sort((a,z)=>(z.kind==='arme')-(a.kind==='arme')||z.t0-a.t0);
+    const done=Rs.programs.filter(P=>P.st==='fini'||P.st==='abandon').slice(-6).reverse();const ideas=w.s.innov.ideas;
+    return `<section class="pane"><h2>Programmes <small>une conception lancée au bureau d’études devient un programme ; ses savants y pensent, en discutent, proposent — vous tranchez</small></h2>
+      ${live.map(programCard).join('')||'<p class="quiet small">Aucun programme. Concevez une arme au bureau d’études, puis « Lancer le programme ».</p>'}</section>
+      ${ideas.length?`<section class="pane"><h2>Idées des ouvriers <small>la pratique : de petits programmes, sans réunion</small></h2>${ideas.map(x=>{const I=INNOV.find(y=>y.id===x.id);if(!I)return '';return `<div class="ridea"><div><b>${esc(I.name)}</b><small>${esc(I.text)}</small></div><button class="small" data-r="idea:${I.id}">Lancer</button><button class="x" data-r="drop:${I.id}" title="Écarter">✕</button></div>`;}).join('')}</section>`:''}
+      ${done.length?`<section class="pane"><h2>Clos</h2>${done.map(P=>`<p class="small"><b>${esc(P.name)}</b> — ${ST[P.st]} ${P.t1?clock(P.t1):''}${P.meetings?.length?` · ${P.meetings.length} réunion${P.meetings.length>1?'s':''}, ${P.applied.length} proposition${P.applied.length>1?'s':''} retenue${P.applied.length>1?'s':''}`:''}</p>`).join('')}</section>`:''}`;}
 
-  // ---------- Savants ----------
-  function trainBox(b){const w=W(),S=R(),C=b.k==='centre_recherche'?b:w.labs().find(x=>x.k==='centre_recherche');if(!C)return `<section class="pane"><h2>L’école</h2><p class="warn small">Il faut un centre de recherche : on y forme les savants.</p></section>`;
-    const cands=w.schoolCands(C,S.disc),c=cands[Math.min(S.cand,cands.length-1)]||null,r=w.canTrainSavant(C,S.disc,c?.u.id??null),T=w.teacherOf(C),stu=(C.staff||[]).filter(u=>u.k!=='savant'),walk=w.s.units.filter(u=>u.task?.kind==='lab'&&u.task.study&&u.task.b===C.id);
-    return `<section class="pane"><h2>L’école <small>${esc(w.cityName(C))} · 4 bancs</small></h2>
-      <div class="seg">${Object.entries(DISC).map(([k,D])=>`<button class="${S.disc===k?'on':''}" data-r="disc:${k}" style="--c:${D.col}">${D.ico} ${D.name}</button>`).join('')}</div>
-      ${c?`<p class="small">Élève : <b>${esc(c.u.name)}</b>${c.metier?`, ${esc(c.metier)}`:', sans métier'}${c.prat?` — <b class="good">praticien : il gardera son savoir-faire (+25 % en ${DISC[S.disc].name.toLowerCase()})</b>`:''} <button class="small ghost" data-r="cand:-1">◀</button><button class="small ghost" data-r="cand:1">▶</button> <small class="quiet">${Math.min(S.cand,cands.length-1)+1}/${cands.length}</small></p>`:'<p class="warn small">Pas de villageois disponible dans cette ville.</p>'}
-      <div class="row between"><span class="costs">${costHtml(UNITS.savant.cost,w.have('meumeu',C.i+2,C.j+2))} · 24 h d’école${T?` · <b class="good">${esc(T.u.name)} fait cours (×${T.k.toFixed(1)})</b>`:' · sans maître'}</span><button class="small" data-r="train:${C.id}" ${r.ok?'':'disabled'} title="${esc(r.why.join(', '))}">Envoyer à l’école</button></div>
-      ${stu.length||walk.length?`<div class="rstu">${stu.map(u=>`<div class="kv"><span>${DISC[u.sci.disc].ico} ${esc(u.name)} <small class="quiet">${esc(DISC[u.sci.disc].who)}</small></span><span style="flex:1;max-width:45%">${gauge(1-u.sci.study.left/u.sci.study.total)}</span><small>${hours(Math.max(0,u.sci.study.left))}</small></div>`).join('')}${walk.map(u=>`<div class="kv quiet small"><span>${esc(u.name)}</span><span>en route vers l’école</span></div>`).join('')}</div>`:''}</section>`;}
-  function savantCard(u,full){const w=W(),S=u.sci,g=gradeOf(S.xp),nx=GRADES[g+1],P=S.pid&&w.project(S.pid),b=w.where(u),D=DISC[S.disc];
-    const traits=S.traits.map(t=>`<span class="rtrait" title="${esc(TRAITS[t].text)}">${esc(TRAITS[t].name)}</span>`).join('')+(S.prat?`<span class="rtrait prat" title="Il a gardé le savoir-faire de son ancien métier : +25 % dans sa discipline.">Ancien ${esc(S.metier)}</span>`:'');
-    const act=S.act||'oisif';const L=w.labs().filter(x=>x!==b);
-    let more='';if(full){const others=w.savants().filter(o=>o!==u).map(o=>({o,a:w.aff(u,o)})).sort((a,z)=>z.a-a.a);const best=others[0],worst=others[others.length-1];
-      more=`<p class="small">${S.papers||0} publication${(S.papers||0)>1?'s':''} · savant depuis le ${clock(S.born)}${best&&best.a>.15?` · s’entend bien avec <b>${esc(best.o.name)}</b>`:''}${worst&&worst.a<-.2?` · <b class="warn">rival de ${esc(worst.o.name)}</b>`:''}</p>`;}
-    return `<article class="rsav ${R().sel===u.id?'on':''}" style="--c:${D.col}"><header><button class="link" data-r="sel:${u.id}"><b>${esc(u.name)}</b></button><span>${D.ico} ${esc(D.who)}</span><span class="rgrade">${GRADES[g].name}</span></header>
-      <div class="rbars"><label>moral ${gauge(S.mor,S.mor<.4?'var(--red)':null)}</label><label>fatigue ${gauge(S.fat,S.fat>.6?'var(--orange)':'#8a9aa0')}</label><label title="${nx?`${Math.floor(S.xp)} / ${nx.xp} pour ${nx.name.toLowerCase()}`:'au sommet'}">expérience ${gauge(nx?(S.xp-GRADES[g].xp)/(nx.xp-GRADES[g].xp):1,'var(--gold)')}</label></div>
-      <div class="rtraits">${traits}</div>
-      <p class="small">${esc(ACT[act]||act)} — ${esc(where(u))}${P?` · <b>${esc(P.name)}</b>${P.lead===u.id?' (chef)':''}`:''}</p>${more}
-      ${!S.pid&&L.length?`<select data-rsel="move:${u.id}"><option value="">Affecter…</option>${L.map(x=>`<option value="${x.id}" ${w.seatsFree(x)>0?'':'disabled'}>${esc(BUILDINGS[x.k].name)} — ${esc(w.cityName(x))} (${(x.staff||[]).filter(o=>o.k==='savant').length}/${LAB_SEATS[x.k]})</option>`).join('')}</select>`:''}</article>`;}
+  // ---------- Savants, école ----------
+  function savantCard(u){const w=W(),S=u.sci,g=gradeOf(S.xp),nx=GRADES[g+1],P=S.pid&&w.program(S.pid),T=S.think,sel=R().sel===u.id;const live=w.s.research.programs.flatMap(x=>x.leads||[]).filter(L=>L.owner===u.id&&(L.st==='exploration'||L.st==='mure'));
+    return `<article class="rsav ${sel?'on':''}" style="--c:${roleCol(S.role)}"><header><button class="link" data-r="sel:${u.id}"><b>${esc(u.name)}</b></button>${role(S.role)}<span class="rgrade">${GRADES[g].name}</span></header>
+      <label class="small quiet" title="${nx?`${Math.floor(S.xp)} / ${nx.xp} pour ${nx.name.toLowerCase()}`:'au sommet'}">expérience ${gauge(nx?(S.xp-GRADES[g].xp)/(nx.xp-GRADES[g].xp):1,'var(--gold)')}</label>
+      <p class="small">${esc(ACT[S.act]||S.act||'—')} — ${esc(where(u))}${P?` · <b>${esc(P.name)}</b>`:''}</p>
+      ${T&&w.s.t-T.t<6?`<p class="rthink">💭 ${esc(T.txt)}${T.good?' — <b class="good">mieux !</b>':''}</p>`:''}
+      ${sel?`<p class="small">${live.length} piste${live.length>1?'s':''} vivante${live.length>1?'s':''}${live.length?' : '+live.map(L=>esc(GOALS[L.goal]?.name||L.goal)+(L.st==='mure'?' (mûre)':'')).join(', '):''} · ${(S.bold??.5)>.6?'audacieux : beaucoup de refontes':(S.bold??.5)<.25?'prudent':'mesuré'} · ${S.papers||0} programme${(S.papers||0)>1?'s':''} abouti${(S.papers||0)>1?'s':''} · savant depuis le ${clock(S.born)}</p>`:''}</article>`;}
   function tabSavants(b){const w=W(),S=R(),L=w.savants().sort((a,z)=>Number(z.id===S.sel)-Number(a.id===S.sel)||Number(w.where(z)===b)-Number(w.where(a)===b)||z.sci.xp-a.sci.xp);
-    return trainBox(b)+`<section class="pane"><h2>Les savants <small>${L.length} · cliquez un savant dans le bâtiment pour sa fiche</small></h2>${L.map(u=>savantCard(u,u.id===S.sel)).join('')||'<p class="quiet small">Aucun savant : formez-en à l’école.</p>'}</section>`;}
+    return `<section class="pane"><h2>Les savants <small>${L.length} · trois métiers : ${Object.values(ROLES).map(r=>r.plural).join(', ')}</small></h2>${L.map(savantCard).join('')||'<p class="quiet small">Aucun savant : formez-en à l’école (onglet École).</p>'}</section>`;}
+  function tabEcole(b){const w=W(),S=R(),C=b.k==='centre_recherche'?b:w.labs().find(x=>x.k==='centre_recherche');if(!C)return `<section class="pane"><h2>L’école</h2><p class="warn small">Il faut un centre de recherche : on y forme les savants.</p></section>`;
+    const cands=w.schoolCands(C),c=cands[Math.min(S.cand,cands.length-1)]||null,r=w.canTrainSavant(C,S.role,c?.id??null),T=w.teacherOf(C);
+    const stu=w.s.units.filter(u=>u.sci&&u.k!=='savant'&&(u.inLab===C.id||(u.task?.kind==='lab'&&u.task.b===C.id)));
+    return `<section class="pane"><h2>L’école <small>${esc(w.cityName(C))} · 4 bancs · 24 h</small></h2>
+      <div class="seg">${Object.entries(ROLES).map(([k,D])=>`<button class="${S.role===k?'on':''}" data-r="role:${k}" style="--c:${D.col}">${D.ico} ${D.name}</button>`).join('')}</div>
+      <p class="small quiet">${esc(ROLES[S.role].name)} : ${esc(ROLES[S.role].what)} — ${esc(AU[ROLES[S.role].at]||'')}.</p>
+      ${c?`<p class="small">Élève : <b>${esc(c.name)}</b> <button class="small ghost" data-r="cand:-1">◀</button><button class="small ghost" data-r="cand:1">▶</button> <small class="quiet">${Math.min(S.cand,cands.length-1)+1}/${cands.length}</small></p>`:'<p class="warn small">Aucun villageois disponible.</p>'}
+      <div class="row between"><span class="costs">${costHtml(UNITS.savant.cost,w.have('meumeu',C.i+2,C.j+2))}${T?` · <b class="good">${esc(T.u.name)} fait cours (×${T.k.toFixed(1)})</b>`:' · sans maître'}</span><button class="small" data-r="train:${C.id}" ${r.ok?'':'disabled'} title="${esc(r.why.join(', '))}">Envoyer à l’école</button></div>
+      ${stu.length?`<div class="rstu">${stu.map(u=>`<div class="kv"><span>${ROLES[u.sci.role]?.ico||''} ${esc(u.name)}</span><span style="flex:1;max-width:45%">${u.sci.study?gauge(1-u.sci.study.left/u.sci.study.total):''}</span><small>${u.inLab===C.id&&u.sci.study?hours(Math.max(0,u.sci.study.left)):'en chemin'}</small></div>`).join('')}</div>`:''}</section>`;}
 
-  // ---------- Réunions ----------
-  function tabReunions(b){const w=W(),S=R(),C=b.k==='centre_recherche'?b:w.labs().find(x=>x.k==='centre_recherche');if(!C)return `<section class="pane"><h2>Réunions</h2><p class="warn small">Les réunions se tiennent autour de la grande table d’un centre de recherche.</p></section>`;
-    const M=C.meet;const all=w.savants();const D=MEETINGS[S.mt];
-    const ids=S.mids||defIds();
-    const act=w.s.research.projects.filter(P=>P.st==='actif');const r=w.canMeet(C,S.mt,ids,S.mpid);
-    const cur=M?`<section class="pane"><h2>En séance <small>${esc(MEETINGS[M.type].name)}</small></h2><p class="small">${M.ids.map(nameOf).map(esc).join(', ')}${M.wait?' — <span class="warn">on attend ceux qui arrivent</span>':''}</p>${gauge(1-M.left/M.total)}<div class="row"><button class="small ghost" data-r="mcancel:${C.id}">Lever la séance</button></div></section>`:'';
-    return cur+`<section class="pane"><h2>Convoquer <small>${esc(w.cityName(C))}</small></h2><div class="seg">${Object.entries(MEETINGS).map(([k,m])=>`<button class="${S.mt===k?'on':''}" data-r="mt:${k}">${m.name}</button>`).join('')}</div>
-      <p class="small quiet">${esc(D.text)} ${D.hours} h.</p>
-      ${S.mt==='point'?`<select data-rsel="mpid"><option value="">Quel projet ?</option>${act.map(P=>`<option value="${P.id}" ${P.id===S.mpid?'selected':''}>${esc(P.name)}${P.block?' (bloqué)':''}</option>`).join('')}</select>`:''}
-      <div class="rpick">${all.map(u=>`<button class="chip ${ids.includes(u.id)?'on':''}" data-r="mtog:${u.id}" ${u.sci.meet?'disabled title="déjà en réunion"':''}>${DISC[u.sci.disc].ico} ${esc(u.name)}</button>`).join('')||'<span class="quiet small">aucun savant</span>'}</div>
-      <div class="row between"><small class="quiet">${ids.length} convoqué${ids.length>1?'s':''} — leurs projets attendent pendant la séance</small><button class="small" data-r="meet:${C.id}" ${r.ok?'':'disabled'} title="${esc(r.why.join(', '))}">Convoquer</button></div></section>`;}
+  // ---------- État de l'art, carnet ----------
+  function tabArt(){const A=W().s.research.art,rows=[];
+    for(const ax of AXES){if(ax.type==='probleme')continue;const ks=Object.keys(A).filter(k=>k===ax.id||k.startsWith(ax.id+':'));for(const k of ks){const v=A[k];const sub=k.includes(':')?' — '+k.split(':')[1]:'';
+      rows.push(`<div class="kv"><span>${ROLES[ax.role]?.ico||''} ${esc(ax.name)}${esc(sub)}</span><b>${Array.isArray(v)?v.map(esc).join(', '):ax.unit==='m'?dist(v):fmt(v,v<10?2:0)+' '+esc(ax.unit||'')}</b></div>`);}}
+    return `<section class="pane"><h2>L’état de l’art <small>ce que nos armes adoptées ont prouvé — au-delà, chaque conception demande des tâches</small></h2>${rows.join('')||'<p class="quiet small">Rien encore.</p>'}</section>`;}
+  function tabCarnet(){const L=W().s.research.log;return `<section class="pane"><h2>Le carnet de laboratoire <small>${L.length} lignes</small></h2>${L.slice(0,150).map(l=>`<div class="logline ${l.tone}"><time>${clock(l.t)}</time>${l.where?`<b>${esc(l.where)}</b>`:''}${esc(l.txt)}</div>`).join('')||'<p class="quiet small">Rien encore.</p>'}</section>`;}
 
-  // ---------- Carnet, Savoir ----------
-  function tabCarnet(){const L=W().s.research.log;return `<section class="pane"><h2>Le carnet de laboratoire <small>${L.length} lignes</small></h2>${L.slice(0,120).map(l=>`<div class="logline ${l.tone}"><time>${clock(l.t)}</time>${l.where?`<b>${esc(l.where)}</b>`:''}${esc(l.txt)}</div>`).join('')||'<p class="quiet small">rien encore</p>'}</section>`;}
-  function tabSavoir(){const w=W(),I=w.s.innov,B=w.s.research.boost;
-    const doms=Object.entries(DOMAINS).map(([k,n])=>{const p=I.prac[k]||0,nx=I.next[k]||14;const left=INNOV.filter(x=>x.dom===k&&!x.sci&&!I.done.includes(x.id)).length,sci=INNOV.filter(x=>x.dom===k&&x.sci&&!I.done.includes(x.id)).length;return `<div class="dm"><span>${esc(n)}</span>${gauge(nx>=1e8?1:p/nx)}<small>${nx>=1e8?'plus d’idée par la pratique':left?`${left} par la pratique`:'pratique épuisée'}${sci?` · ${sci} pour les savants`:''}</small></div>`;}).join('');
-    return `<section class="pane"><h2>Ce qu’on pratique <small>à force de travailler, les ouvriers ont des idées ; les découvertes savantes ne viennent que des savants</small></h2><div class="doms">${doms}</div></section>
-      <section class="pane"><h2>L’arbre <small>ce qui demande une découverte préalable</small></h2>${INNOV.filter(x=>x.needs?.length).map(x=>{const st=I.done.includes(x.id)?'<b>acquise</b>':x.needs.every(n=>I.done.includes(n))?'<b class="good">à trouver</b>':'<b class="warn">verrouillée</b>';return `<div class="rtree"><b>${esc(x.name)}${x.sci?' ⚗':''}</b><span>${st}</span><small class="quiet">demande ${x.needs.map(n=>(I.done.includes(n)?'✓ ':'✗ ')+esc(INNOV.find(y=>y.id===n)?.name||n)).join(' · ')}</small></div>`;}).join('')}</section>
-      <section class="pane"><h2>Adoptées <small>${I.done.length}</small></h2><div class="ideas done">${I.done.map(id=>{const X=INNOV.find(y=>y.id===id);return X?`<article class="idea"><header><span class="dom">${esc(DOMAINS[X.dom])}${B[id]?' · <b class="good">percée ×1,5</b>':''}</span><b>${esc(X.name)}</b></header><p>${esc(X.text)}</p>${fx(X)}</article>`:'';}).join('')||'<p class="quiet small">aucune encore</p>'}</div></section>`;}
+  // ---------- la réunion ----------
+  const picks=(pid,M)=>{const S=R();const k=pid+':'+(M?.wave||0)+':'+(M?.props.length||0);if(S.picks[pid]?.k!==k)S.picks[pid]={k,L:[]};return S.picks[pid].L;};
+  function card(P,M,c,i,sel){const on=sel.includes(i),conflict=!on&&sel.some(j=>M.props[j]&&conflictOf(M.props[j],c));let p1=null;try{p1=applyEdit(M.p,c.edits);}catch(e){}
+    const why=c.origin==='defaut'?`A vu : ${c.why}`:c.origin==='directive'?'Directive du commandement':c.origin==='inspiration'?c.why:c.origin==='reprise'?'Reprend une idée refusée, autrement':c.origin==='compromis'||c.origin==='combinaison'||c.origin==='contre'?c.why:c.why?c.why.charAt(0).toUpperCase()+c.why.slice(1):'';
+    const also=c.also?.length?` · arrivé${c.also.length>1?'s':''} au même calcul : ${c.also.map(a=>esc(a.byName)).join(', ')}`:'';
+    return `<article class="rcard ${on?'on':''} ${conflict?'off':''} ${c.bold?'bold':''}" style="--c:${roleCol(c.role)}">
+      <header><span class="rkind">${c.bold?'Refonte radicale · ':''}${KIND[c.kind]||c.kind}</span><b>${esc(short(c.title))}</b><small>${ROLES[c.role]?.ico||''} ${esc(c.byName)} — ${esc(GRADES[c.grade]?.name.toLowerCase()||'')}${also}</small></header>
+      ${p1?`<img class="rc-pic" src="${portrait(p1,M.p,320,72)}" alt="">`:''}
+      <ul class="rc-ch">${(c.changes||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
+      <div class="rc-fx">${c.est.length?c.est.slice(0,7).map(fxBar).join(''):'<p class="quiet small">Il n’a rien chiffré.</p>'}</div>
+      <div class="rc-conf"><small>confiance</small>${gauge(c.conf,c.conf<.45?'var(--orange)':null)}<small>${c.steps} calcul${c.steps>1?'s':''}${c.exp?`, ${c.exp} au banc`:''}</small></div>
+      ${why?`<p class="rc-why">${esc(why)}</p>`:''}
+      ${(c.objections||[]).map(o=>`<p class="rc-obj"><b>${esc(o.byName)}</b> : ${esc(o.text)}</p>`).join('')}${(c.supports||[]).map(o=>`<p class="rc-sup"><b>${esc(o.byName)}</b> : ${esc(o.text)}</p>`).join('')}
+      <p class="rc-cost small">${c.dWork>0.5?`+${Math.round(c.dWork)} heures-savants`:c.dWork<-.5?`${Math.round(c.dWork)} heures-savants`:'sans travail de plus'}${c.newTasks?.length?' · nouveau : '+c.newTasks.map(esc).join(', ').toLowerCase():''}</p>
+      ${c.notes?.length?`<details class="rc-notes"><summary class="small quiet">Ses calculs</summary>${c.notes.map(n=>`<p class="small">${esc(n)}</p>`).join('')}</details>`:''}
+      <footer>${M.phase==='decision'?`<button class="small ${on?'':'ghost'}" data-r="mpick:${P.id}:${i}" ${conflict?'disabled title="touche la même chose qu’une proposition déjà retenue"':''}>${on?'✓ Retenue':'Retenir'}</button>`:''}<button class="small ghost" data-r="mdraft:${P.id}:${i}">Voir dans le concepteur</button></footer></article>`;}
+  function meetModal(pid){const w=W(),P=w.program(+pid);if(!P)return '';const M=P.meet;
+    if(!M){const last=P.meetings.at(-1);return `<header class="mhead"><div><b>« ${esc(P.name)} »</b><small>pas de réunion en cours</small></div><button class="ghost" data-act="modal-off">Fermer</button></header><div class="mbody">${last?`<p>Dernière réunion : ${esc(MEETINGS[last.type]?.name||last.type)}, ${clock(last.t)} — ${last.waves} vague${last.waves>1?'s':''}, ${last.seen||0} propositions, retenues : ${last.chosen.length?last.chosen.map(t=>esc(short(t))).join(' ; '):'aucune'}.</p>`:''}<img class="rpic" src="${portrait(P.p)}" alt="">${numsHtml(P.p)}</div>`;}
+    const b=w.building(M.b),sel=picks(P.id,M);const who=(M.who||[]).map(x=>`<span class="rwho" style="--c:${roleCol(x.role)}">${ROLES[x.role]?.ico||''} ${esc(x.name)}</span>`).join('');
+    const PH=['rassemblement','tour','propositions','debat','decision'];const cur=M.phase==='application'?4:PH.indexOf(M.phase);
+    const script=M.script.slice(-40).reverse().map(l=>`<p class="k-${l.k}" style="--c:${roleCol(l.role)}"><b>${esc(nameOf(l.by))}</b> ${esc(l.text)}</p>`).join('');
+    const props=M.props.map((c,i)=>card(P,M,c,i,sel)).join('');
+    if(R().mini){const l=M.script.at(-1);return `<header class="mhead"><div><b>👑 ${esc(MEETINGS[M.type].name)} — « ${esc(P.name)} »</b><small>${esc(MEET_PHASES[M.phase]||M.phase)}${M.phase==='decision'?` · ${M.props.length} proposition${M.props.length>1?'s':''} attendent votre décision`:''}${l?` · <b>${esc(nameOf(l.by))}</b> : ${esc(l.text)}`:''}</small></div><button data-r="mini:0">Rouvrir la réunion</button><button class="ghost" data-act="modal-off">Quitter</button></header>`;}
+    return `<header class="mhead"><div><b>${esc(MEETINGS[M.type].name)} — « ${esc(P.name)} »</b><small>${esc(AU[b?.k]||'')} · vague ${M.wave+1} sur 3 · vous présidez : le roi siège au bout de la table</small></div><button class="ghost" data-r="mini:1" title="Réduire la fenêtre : la réunion dans la vue recherche">👑 Voir la table</button><button class="ghost" data-act="modal-off">Fermer</button></header>
+      <div class="mbody rmeet">
+        <div class="rribbon">${PH.map((k,i)=>`<span class="${i<cur?'done':i===cur?'cur':''}">${esc(MEET_PHASES[k])}${k==='decision'&&M.wave?` (vague ${M.wave+1})`:''}</span>`).join('')}${M.phase==='application'?'<span class="cur">On redessine</span>':''}</div>
+        <div class="rm-top"><figure class="rm-design"><img class="rpic" src="${portrait(M.p,M.chosen.length&&M.p0?M.p0:null)}" alt="">${numsHtml(M.p)}<figcaption class="small quiet">Autour de la table : ${who||'personne encore'}</figcaption>
+          ${M.chosen.length?`<p class="small"><b>Déjà retenu :</b> ${M.chosen.map(c=>esc(short(c.title))).join(' ; ')}</p>`:''}</figure>
+          <div class="rm-talk">${script||'<p class="quiet">On se rassemble…</p>'}</div></div>
+        ${M.phase==='decision'?`<div class="rm-bar"><span>Retenez une ou plusieurs propositions compatibles : elles s’appliquent aussitôt à la conception, et l’équipe rediscute de ce qui reste. <b>${sel.length} sélectionnée${sel.length>1?'s':''}</b> · le chef de projet tranchera dans ${hours(Math.max(0,M.deadline-w.s.t))}</span>
+          <button data-r="mdecide:${P.id}" ${sel.length?'':'disabled'}>Retenir la sélection</button><button class="ghost" data-r="mclose:${P.id}">${M.chosen.length?'Clore la réunion':'Ne rien retenir'}</button></div>`:`<p class="rm-bar quiet">${esc(MEET_PHASES[M.phase]||M.phase)}… la décision viendra après le débat.</p>`}
+        <div class="rm-cards">${props||'<p class="quiet">Pas encore de proposition sur la table.</p>'}</div></div>`;}
 
   return {
-    pane(b){const S=R();const t=S.tab;let body='';try{body=t==='projets'?tabProjets():t==='savants'?tabSavants(b):t==='reunions'?tabReunions(b):t==='carnet'?tabCarnet():t==='savoir'?tabSavoir():buildingPane(b);}catch(e){console.error(e);body=`<p class="bad">${esc(e.message)}</p>`;}
+    pane(b){const S=R();const t=S.tab;let body='';try{body=t==='programmes'?tabProgrammes():t==='savants'?tabSavants(b):t==='ecole'?tabEcole(b):t==='art'?tabArt():t==='carnet'?tabCarnet():buildingPane(b);}catch(e){console.error(e);body=`<p class="bad">${esc(e.message)}</p>`;}
       return head(b)+body;},
-    // la modale du savoir (touche I quand aucun bâtiment de recherche n'existe encore)
-    modal(){return `<header class="mhead"><div><b>Le savoir des Meumeu</b><small>${W().s.innov.done.length} innovations · ${W().s.innov.ideas.length} propositions</small></div><button class="ghost" data-act="modal-off">Fermer</button></header><div class="mbody">${tabSavoir()}</div>`;},
+    // la fenêtre de la recherche, sans bâtiment de recherche (touche I) : les programmes et l'état de l'art
+    modal(){return `<header class="mhead"><div><b>La recherche des Meumeu</b><small>${W().s.research.programs.length} programmes · ${W().s.innov.done.length} innovations</small></div><button class="ghost" data-act="modal-off">Fermer</button></header><div class="mbody">${tabProgrammes()}${tabArt()}</div>`;},
+    meetModal,
     pick(uid){const S=R();S.sel=uid;S.tab='savants';},
     // ouvrir la vue recherche : le centre de recherche d'abord ; rend faux s'il n'y a pas de bâtiment de recherche (ou pas de 3D)
     open(tab=null){const L=W().labs();const b=L.find(x=>x.k==='centre_recherche')||L[0];if(!b||!view.g3)return false;if(tab)R().tab=tab;view.enterLab(b);return true;},
@@ -126,23 +174,25 @@ export function researchUI({world,view,ui,say,esc,ico,costHtml,hours,buildingPan
       if(k==='go'){const b=w.building(+a);if(b)view.enterLab(b);return;}
       if(k==='tab'){S.tab=a;return;}
       if(k==='sel'){S.sel=+a;view.labSel=+a;return;}
-      if(k==='start'){const r=w.startProject(a,teamFor(a));ok(r.ok?{ok:true,text:r.text}:r);if(r.ok)delete S.team[a];return;}
-      if(k==='tsel'){const cur=teamFor(a),uid=+c;S.team[a]=cur.includes(uid)?cur.filter(x=>x!==uid):[...cur,uid];return;}
-      if(k==='drop'){w.dropIdea(a);delete S.team[a];return;}
-      if(k==='unassign'){ok(w.assignSavant(+a,null));return;}
-      if(k==='lead'){ok(w.setLead(+a,+c));return;}
-      if(k==='abandon'){if(S.confirm!==+a){S.confirm=+a;return;}S.confirm=null;ok(w.abandonProject(+a));return;}
-      if(k==='point'){const P=w.project(+a);const C=w.labs().filter(b=>b.k==='centre_recherche').sort((x,z)=>Number(!!x.meet)-Number(!!z.meet))[0];if(!P||!C){say('Il faut un centre de recherche libre.','bad');return;}ok(w.meet(C,'point',P.team,P.id));return;}
-      if(k==='disc'){S.disc=a;S.cand=0;return;}
+      if(k==='fold'){S.openP[+a]=!(S.openP[+a]??true);return;}
+      if(k==='meet'){S.mini=false;const P=w.program(+a),b=P?.meet&&w.building(P.meet.b);if(b&&view.g3&&view.enterLab)view.enterLab(b);open?.('reunion',+a);return;}
+      if(k==='mini'){S.mini=a==='1';return;}
+      if(k==='adopt'){ok(w.adoptNow(+a));return;}
+      if(k==='review'){ok(w.callReview(+a));return;}
+      if(k==='abandon'){if(S.confirm!==+a){S.confirm=+a;return;}S.confirm=null;ok(w.abandonProgram(+a));return;}
+      if(k==='prio'){const P=w.program(+a);const v=((P?.dir?.prio?.[c]||0)+1)%3;ok(w.setPriority(+a,c,v));return;}
+      if(k==='freeze'){const P=w.program(+a);ok(w.setFrozen(+a,c,!(P?.dir?.frozen||[]).includes(c)));return;}
+      if(k==='idea'){ok(w.launchIdea(a));return;}
+      if(k==='drop'){w.s.innov.ideas=w.s.innov.ideas.filter(x=>x.id!==a);return;}
+      if(k==='role'){S.role=a;return;}
       if(k==='cand'){S.cand=Math.max(0,S.cand+(+a));return;}
-      if(k==='train'){const C=w.building(+a);const cands=C?w.schoolCands(C,S.disc):[];const c=cands[Math.min(S.cand,cands.length-1)];ok(w.trainSavant(C,S.disc,c?.u.id??null));S.cand=0;return;}
-      if(k==='mt'){S.mt=a;S.mids=null;return;}
-      if(k==='mtog'){const ids=S.mids||defIds();const uid=+a;S.mids=ids.includes(uid)?ids.filter(x=>x!==uid):[...ids,uid];return;}
-      if(k==='meet'){const C=w.building(+a);const ids=S.mids||defIds();const r=w.meet(C,S.mt,ids,S.mpid);ok(r);if(r.ok)S.mids=null;return;}
-      if(k==='mcancel'){const C=w.building(+a);if(C)w.cancelMeet(C,'levée');return;}},
-    change(arg,value){const w=W(),S=R(),[k,a]=String(arg).split(':');if(value===''||value==null)return;
-      if(k==='add'){const r=w.assignSavant(+value,+a);if(r.text)say(r.text,r.ok?'good':'bad');return;}
-      if(k==='move'){const r=w.moveSavant(+a,+value);if(r.text||!r.ok)say(r.text||r.why[0],r.ok?'good':'bad');return;}
-      if(k==='mpid'){S.mpid=+value;S.mids=null;return;}},
+      if(k==='train'){const C=w.building(+a);const cands=C?w.schoolCands(C):[];const u=cands[Math.min(S.cand,cands.length-1)];ok(w.trainSavant(C,S.role,u?.id??null));S.cand=0;return;}
+      // la réunion : retenir (une vague), clore, voir une proposition dans le concepteur
+      if(k==='mpick'){const P=w.program(+a);if(!P?.meet)return;const L=picks(P.id,P.meet),i=+c;const at=L.indexOf(i);if(at>=0)L.splice(at,1);else L.push(i);return;}
+      if(k==='mdecide'){const P=w.program(+a);if(!P?.meet)return;const L=picks(P.id,P.meet).slice();const r=w.decide(P.id,L);ok(r);S.picks[P.id]=null;return;}
+      if(k==='mclose'){const r=w.closeMeeting(+a);ok(r);return;}
+      if(k==='mdraft'){const P=w.program(+a),pr=P?.meet?.props[+c];if(!pr)return;let p;try{p=applyEdit(P.meet.p,pr.edits);}catch(e){return;}close?.();draft?.(p,`${P.name} — ${short(pr.title).slice(0,40)}`);return;}},
+    change(arg,value,el){const w=W(),[k,a]=String(arg).split(':');
+      if(k==='variants'){const r=w.setVariants(+a,!!el?.checked);if(r.text)say(r.text,r.ok?'good':'bad');return;}},
   };
 }

@@ -319,3 +319,44 @@ button.x{background:none;color:var(--muted);padding:0 3px;font-size:12px;font-we
 .rstu{display:flex;flex-direction:column;gap:3px}.rtree{display:flex;flex-wrap:wrap;gap:.2rem .7rem;align-items:baseline;padding:.3rem 0;border-bottom:1px solid color-mix(in srgb,var(--ink) 8%,transparent)}.rtree b{min-width:11rem}
 .seg button[style*="--c"].on{background:var(--c);color:#1a242a}
 body.labmode .buildbar{display:none}
+
+/* (V12.7) la recherche : les programmes, leurs directives et leurs carnets ; la réunion et ses propositions */
+.rrole{color:var(--c);font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:800}
+.rv-call{display:block;width:100%;text-align:left;background:color-mix(in srgb,var(--orange) 22%,var(--paper2));color:var(--ink);border:1px solid var(--orange);font-size:12.5px;animation:rvpulse 1.6s ease-in-out infinite}
+@keyframes rvpulse{50%{background:color-mix(in srgb,var(--orange) 38%,var(--paper2))}}
+.rprog{border:1px solid var(--line);border-radius:12px;padding:9px 10px;display:flex;flex-direction:column;gap:6px;background:var(--paper2)}.rprog.st-pret{border-color:var(--good)}.rprog.st-suivi{opacity:.92}
+.rprog header{display:flex;align-items:baseline;gap:8px}.rprog header b{font-size:14.5px;flex:1}.rst{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;font-weight:800;color:var(--orange2)}
+.rpic{display:block;width:100%;height:auto;max-height:90px;object-fit:contain;background:color-mix(in srgb,var(--ink) 4%,transparent);border-radius:8px}
+.rnums{display:flex;flex-wrap:wrap;gap:3px 10px;font-size:12px;align-items:baseline}.rnums span{display:flex;flex-direction:column;line-height:1.15}.rnums small{color:var(--muted);font-size:10px}.rnums .rname{font-weight:800;color:var(--teal)}
+.rribbon{display:flex;flex-wrap:wrap;gap:2px}.rribbon span{font-size:10.5px;padding:2px 7px;border-radius:9px;background:color-mix(in srgb,var(--ink) 7%,transparent);color:var(--muted)}.rribbon span.done{color:var(--good)}.rribbon span.cur{background:var(--teal);color:#fffaf0;font-weight:800}
+.rmeetline{display:flex;gap:8px;align-items:center;justify-content:space-between;font-size:12.5px;padding:5px 8px;border-radius:8px;background:color-mix(in srgb,var(--teal) 12%,transparent)}.rmeetline.wait{background:color-mix(in srgb,var(--orange) 20%,transparent);font-weight:700}
+.rtasks{display:flex;flex-direction:column;gap:5px}.rtask{border-left:3px solid var(--c);padding:2px 0 2px 7px;display:flex;flex-direction:column;gap:2px;font-size:12.5px}.rtask>div{display:flex;flex-direction:column}.rtask small{color:var(--muted);font-size:11px}.rtask.done{opacity:.6}.rtask.blk{background:color-mix(in srgb,var(--red) 8%,transparent)}
+.rsub{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--teal);margin:4px 0 0}.rsub small{text-transform:none;letter-spacing:0;color:var(--muted)}
+.rdir{display:flex;flex-wrap:wrap;gap:4px;align-items:center}.rdir .chip{cursor:pointer;font-size:11.5px}.rdir .chip.p2{background:var(--orange);color:#fffaf0}.rdir .chip.on.bad{background:var(--red)}details.rdir summary{cursor:pointer;width:100%}
+.rleads{display:flex;flex-direction:column;gap:4px}.rlead{display:grid;grid-template-columns:auto 1fr 54px;gap:1px 8px;align-items:center;border-left:3px solid var(--c);padding:2px 0 2px 7px;font-size:12px}.rlead small{grid-column:1/-1;color:var(--muted);font-size:11px}
+.rlead.st-mure{background:color-mix(in srgb,var(--gold) 16%,transparent)}.rlead.st-proposee{background:color-mix(in srgb,var(--teal) 12%,transparent)}.rlead.st-impasse,.rlead.st-caduque,.rlead.st-refusee{opacity:.55}.rlead.st-retenue span{color:var(--good)}
+.rthink{font-size:12px;font-style:italic;color:var(--teal);margin:0}
+.ridea{display:flex;gap:8px;align-items:center;font-size:12.5px;padding:4px 0;border-bottom:1px dotted var(--line)}.ridea>div{flex:1;display:flex;flex-direction:column}.ridea small{color:var(--muted)}
+.rtog{display:inline-flex;gap:4px;align-items:center}.row.wrap{flex-wrap:wrap}
+.mbox.reunion{width:min(1380px,100%)}
+.rmeet{gap:12px}.rm-top{display:grid;grid-template-columns:minmax(300px,1fr) minmax(300px,1.1fr);gap:12px}.rm-design{margin:0;display:flex;flex-direction:column;gap:6px}
+.rm-talk{max-height:230px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:6px 9px;background:var(--card);display:flex;flex-direction:column;gap:3px}
+.rm-talk p{margin:0;font-size:12.5px;border-left:3px solid var(--c);padding-left:7px}.rm-talk p b{color:var(--c);margin-right:4px}.rm-talk p:first-child{font-weight:700}
+.rm-talk .k-objection{background:color-mix(in srgb,var(--red) 9%,transparent)}.rm-talk .k-soutien{background:color-mix(in srgb,var(--good) 9%,transparent)}.rm-talk .k-prop{background:color-mix(in srgb,var(--gold) 14%,transparent)}.rm-talk .k-decision{background:color-mix(in srgb,var(--teal) 16%,transparent);font-weight:700}.rm-talk .k-compromis{background:color-mix(in srgb,var(--orange) 12%,transparent)}
+.rm-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--gold) 18%,transparent);font-size:12.5px}.rm-bar span{flex:1;min-width:260px}
+.rm-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.rcard{border:1px solid var(--line);border-top:4px solid var(--c);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;background:var(--card)}
+.rcard.on{outline:3px solid var(--good);background:color-mix(in srgb,var(--good) 7%,var(--card))}.rcard.off{opacity:.45}.rcard.bold{border-top-style:double;border-top-width:6px}
+.rcard header{display:flex;flex-direction:column;gap:1px}.rcard header b{font-size:13.5px}.rcard header small{color:var(--muted);font-size:11.5px}.rkind{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;font-weight:800;color:var(--c)}
+.rc-pic{width:100%;height:auto;background:color-mix(in srgb,var(--ink) 4%,transparent);border-radius:7px}
+.rc-ch{margin:0;padding-left:16px;font-size:12px}.rc-fx{display:flex;flex-direction:column;gap:2px}
+.rfx{display:grid;grid-template-columns:96px 1fr 70px;gap:6px;align-items:center;font-size:11.5px}.rfx b{text-align:right;font-variant-numeric:tabular-nums}.rfx b small{color:var(--muted);font-weight:600}
+.rbar{position:relative;height:9px;border-radius:4px;background:color-mix(in srgb,var(--ink) 8%,transparent)}.rbar::after{content:'';position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--muted)}
+.rbar>i{position:absolute;top:1px;bottom:1px;border-radius:3px}.rfx.good .rbar>i:first-child{background:var(--good)}.rfx.bad .rbar>i:first-child{background:var(--red)}.rbar>i.rerr{top:3px;bottom:3px;background:none;border-left:2px solid var(--ink);border-right:2px solid var(--ink);opacity:.45}
+.rc-conf{display:grid;grid-template-columns:auto 1fr auto;gap:6px;align-items:center}.rc-conf small{color:var(--muted);font-size:11px}
+.rc-why{font-size:12px;font-style:italic;margin:0}.rc-obj{font-size:11.5px;margin:0;color:var(--red)}.rc-sup{font-size:11.5px;margin:0;color:var(--good)}.rc-cost{margin:0;color:var(--muted)}
+.rc-notes p{margin:1px 0}.rcard footer{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
+.dz-prog{margin:4px 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px;font-size:12px}.dz-prog li{display:flex;justify-content:space-between;gap:6px}.dz-prog li small{color:var(--muted)}.dz-prog li.new span{font-weight:700}
+@media (max-width:900px){.rm-top{grid-template-columns:1fr}}
+/* (V12.7) la réunion réduite (« Voir la table ») : un bandeau en bas, la scène visible et cliquable autour */
+#modal.rmini{background:transparent;pointer-events:none;place-items:end center;padding-bottom:18px}#modal.rmini .mbox{pointer-events:auto;width:min(860px,100%)}#modal.rmini .mhead small b{color:var(--teal)}

@@ -1,0 +1,55 @@
+OBERKOMMANDO DER MEUMEU — CONTEXTE DU PROJET (pour reprendre le travail)
+==========================================================================================================
+
+LE JEU
+- Un jeu de stratégie en temps réel, JavaScript + Electron (Three.js pour la 3D). Les Meumeu (vaches en peluche) : le joueur, et un allié IA
+  qui a sa propre ville (partie haute). Les Bèè (chèvres) : l'ennemi IA. Économie, logistique (dépôts, porteurs, trains), villes, armée,
+  concepteur d'armes balistique (ballistics.js : derive(p) calcule tout d'une conception), engins, mer et débarquements, vision de nuit,
+  brouillard, et la RECHERCHE (V12.7 : RECHERCHE-V12.7-FONCTIONNEMENT.txt).
+
+OÙ EST LE CODE
+- Espace de travail V12.7 : « Oberkommando V12.7 Recherche\ » à la racine du dossier OKM — une application Electron dépliée : l'exe
+  « Oberkommando der Meumeu V12.7.exe » lit directement resources\jeu (pas besoin de reconstruire pour essayer une modification : relancer l'exe).
+- resources\jeu : le dépôt git local (branche master). Ne JAMAIS pousser (push) ; commits locaux terminés par
+  « Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com> ».
+- L'espace précédent : « Oberkommando V12.4 corrige ZQSD\ » (gardé tel quel, historique identique jusqu'à la V12.7).
+- js/ : le jeu ; css/style.css ; assets/, assets3d/ ; test/ : 170 tests *.mjs (Node), test/_saves/ (sauvegardes de test, 1,2 Go),
+  test/_outils_captures/ (banc de captures Electron : harness.cjs).
+- Documents : LISEZ-MOI.md, SUIVI-RECHERCHE.md, SUIVI-IA-MER.md, PLAN-REFONTE-MER.md, et les .txt de la V12.7.
+
+COMMENT TESTER (ce PC n'a pas Node)
+- L'Electron empaqueté sert de Node :
+    E="/c/Users/alexa/Downloads/oberkommando der meumeu OKM/oberkommando-v12.0/.runtime/electron.exe"
+    cd resources/jeu ; ELECTRON_RUN_AS_NODE=1 "$E" test/recherche.mjs
+  (l'exe du jeu lui-même marche aussi : ELECTRON_RUN_AS_NODE=1 « Oberkommando der Meumeu V12.7.exe » test/x.mjs)
+- Vérifier la syntaxe d'un module : le copier en .mjs puis ELECTRON_RUN_AS_NODE=1 "$E" --check copie.mjs
+- Banc de captures (le vrai jeu dans une fenêtre cachée) : SANS ELECTRON_RUN_AS_NODE,
+    OKM_ROOT="<…>/resources/jeu" OUT="<dossier>" "$E" test/_outils_captures/recherche_vue.cjs
+  Dans la page : window.__load(texte de sauvegarde), window.__step(n,dt), world(), view, ui, designer.
+- Régression : comparer un lot de tests avant / après (scratchpad regress.sh : <jeu> <sortie> <tests séparés par des virgules> [parallèles] [plafond]).
+- Lancer l'exe seulement si aucun processus Oberkommando n'est ouvert.
+
+LES RÈGLES DU JOUEUR (à respecter toujours)
+- Répondre en français, court et clair ; dire en une phrase ce qu'on fait à chaque étape (il s'inquiète après de longs silences).
+- Comprendre avant d'agir : reproduire, comparer aux anciennes versions, mesurer avant et après.
+- Pas de sous-agents : tout faire soi-même, un chantier après l'autre, ne pas s'arrêter trop tôt.
+- Pas de code de compatibilité pour les anciennes sauvegardes ; supprimer franchement ce qui est remplacé.
+- Ne jamais toucher aux modèles « Soldat camouflé » (meumeu_soldat) et « Élite à cape » (plush_cow_knight).
+- Une demande s'applique à la lettre ; « pareil » = la dernière consigne seulement.
+- Le joueur commande ses unités : pas d'IA sur les unités du joueur (exception : l'allié IA et sa ville ; les savants sont gérés par la
+  recherche).
+- Captures en conditions réelles : nuit, brouillard actif, vrai équipement ; jamais de décor arrangé.
+- Les fusées, l'artillerie lourde, les blindés sont réservés aux Meumeu.
+- Noter le contexte, les modifications, les fonctionnalités dans des fichiers texte ; un nouvel exe et un nouvel espace de travail à chaque
+  grande étape.
+
+CONSTRUIRE UN EXE PORTABLE (si besoin d'un seul fichier)
+- electron-builder via l'Electron empaqueté (voir la mémoire build-sans-node) : un eb.cjs (process.noAsar, process.defaultApp), un faux
+  npm.cmd en tête du PATH, ELECTRON_NO_ASAR=1, depuis la racine du projet : --win portable --publish never. Pour la ligne V12.4+, l'espace
+  de travail déplié (exe + resources\jeu) EST l'application : copier le dossier et renommer l'exe suffit.
+
+HISTORIQUE RÉCENT
+- V12.2 engins de combat ; V12.3 modèles générés par le code ; V12.4 corrige ZQSD (déplacements clavier) ; V12.5 refonte mer, plages,
+  assaut amphibie ; V12.6 première recherche (savants, projets par bâtiment, réunions, vue toit ouvert) ;
+  V12.7 la recherche autour des conceptions du joueur : programmes, état de l'art, carnet de pistes, réunions par phases et vagues,
+  directives, laboratoire de chimie qui produit et cherche, fenêtre de réunion avec dessins et estimations, flux visible.

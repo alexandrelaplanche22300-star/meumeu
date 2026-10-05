@@ -1,4 +1,4 @@
-// Les intérieurs des bâtiments de recherche (V12.6), pour la vue recherche : le toit enlevé, la maison de poupée. Les murs du fond (−X, −Z, à l'opposé
+// Les intérieurs des bâtiments de recherche (V12.6 ; V12.7 : le laboratoire de chimie produit, l'usine chimique n'est plus aux Meumeu), pour la vue recherche : le toit enlevé, la maison de poupée. Les murs du fond (−X, −Z, à l'opposé
 // de la caméra) restent hauts, avec leurs tableaux et leurs étagères ; ceux de devant (+X, +Z) sont coupés à hauteur de plinthe. Même repère que bldg3d.js
 // (une case = une unité, centré, +Z vers la caméra), à la taille exacte de l'empreinte. Chaque intérieur donne ses POSTES : où se tiennent les savants
 // (k : le genre de poste, x et z dans le repère du modèle, f : la direction du regard, sit : assis), et la porte.
@@ -80,7 +80,7 @@ function centreInterior(W,D){const B=new Build(),S=shell(B,W,D,{hb:.92});const s
   // la salle de réunion : la grande table, huit chaises, le tableau de liège
   board(B,1.25,1.1,D,{cork:true,y:.34,h:.42});{const L=at(B,1.25,-.72,0);legs(L,1.5,.6,.17);L.box(0,Y0+.17,0,1.56,.03,.64,C.wood);L.box(-.3,Y0+.2,.05,.14,.005,.1,C.paper).box(.35,Y0+.2,-.1,.12,.005,.1,C.paper).cyl(.05,Y0+.2,0,.04,.04,.06,C.brass,8);}
   const back=x=>[[.1,.17],[.1,-1.48],[x,-1.48]];for(const x of [.75,1.25,1.75]){chair(B,x,-1.22,1);P('table',x,-1.15,0,1,1,back(x));chair(B,x,-.22,3);P('table',x,-.29,0,-1,1);}
-  chair(B,.3,-.72,0);P('table',.37,-.72,1,0,1,[[.1,.17],[.1,-.72]]);chair(B,2.2,-.72,2);P('table',2.13,-.72,-1,0,1,[[2.3,.17],[2.3,-.72]]);P('orateur',1.25,-1.62,0,1,0,back(1.25));
+  chair(B,.3,-.72,0);P('roi',.37,-.72,1,0,1,[[.1,.17],[.1,-.72]]);chair(B,2.2,-.72,2);P('table',2.13,-.72,-1,0,1,[[2.3,.17],[2.3,-.72]]);P('orateur',1.25,-1.62,0,1,0,back(1.25));
   // six bureaux, en deux rangées, l'assis tourné vers la caméra de droite (+X)
   let n=0;for(const z of [.5,1.3])for(const x of [-1.6,-.75,.1]){desk(B,x,z,0,n++);const c=x<-1?-2.05:x<0?-1.25:-.4;P('bureau',x-.2,z,1,0,1,z>1?[[c,.17],[c,z]]:null);}
   // la bibliothèque, le long du mur de gauche (−X)
@@ -93,10 +93,15 @@ function centreInterior(W,D){const B=new Build(),S=shell(B,W,D,{hb:.92});const s
   P('fenetre',2.2,.17,1,0);P('fenetre',2.25,-1.45,1,.3,0,[[2.3,.17],[2.3,-1.45]]);plant(B,2.2,-1.65);plant(B,-2.2,-1.6);B.cyl(.62,Y0,1.72,.03,.03,.2,C.woodD,6);B.dome(.62,Y0+.25,1.72,.09,C.blue);B.dome(.62,Y0+.25,1.72,-.09,0x4f8f5a);
   return {geo:B.geo(),st,door:S.door,aisle:{z:.17}};}
 
-// ---------- le laboratoire (3 × 3) : deux paillasses, la hotte, les étagères de flacons, l'évier, la balance ----------
+// ---------- le laboratoire de chimie (3 × 3) : la paillasse, la hotte, les étagères de flacons, l'évier, la balance — et la production : la cuve de cuivre,
+// son condenseur, les tonneaux de poudre (les ouvriers y travaillent) ----------
 function laboInterior(W,D){const B=new Build(),S=shell(B,W,D,{floor:['tileA','tileB'],t:.375,hb:.84,door:[.6,.8]});const st=[];const P=(k,x,z,fx,fz,sit=0,via=null)=>st.push({k,x,z,f:[fx,fz],sit,via});
   bench(B,-.12,-.32,1.7,1,0);for(const x of [-.72,-.12,.5])P('paillasse',x,-.7,0,1,0,[[.9,-.7]]);
-  bench(B,-.42,.78,1.1,1,2);for(const x of [-.72,-.12])P('paillasse',x,.4,0,1,0,[[.9,.4]]);
+  {const x=-.55,z=.72;for(const [a,b] of [[-1,-1],[1,-1],[-1,1],[1,1]])B.box(x+a*.13,Y0,z+b*.13,.035,.08,.035,C.steelD);B.cyl(x,Y0+.08,z,.2,.2,.3,C.copper,14);B.cyl(x,Y0+.22,z,.21,.21,.02,C.brass,14);
+    B.dome(x,Y0+.38,z,.2,C.copper);B.cyl(x,Y0+.5,z,.04,.04,.1,C.steel,8);const g=new THREE.TorusGeometry(.05,.009,5,10);g.translate(x+.22,Y0+.3,z+.08);B.add(g,C.red);
+    const cx=-.05,cz=.95;B.cyl(cx,Y0,cz,.1,.1,.4,C.steel,12);B.dome(cx,Y0+.4,cz,.1,C.steel);for(let k=0;k<3;k++)B.cyl(cx,Y0+.08+k*.1,cz,.11,.11,.02,C.steelD,12);B.rod([x,Y0+.56,z],[cx,Y0+.5,cz],.018,C.copper);
+    for(const [a,b] of [[-1.15,1.15],[-1.15,.92],[-.92,1.18]])B.cyl(a,Y0,b,.08,.08,.18,0x4a4038,10);
+    P('cuve',-.55,.38,0,1,0,[[.9,.38]]);P('ouvrier',-.2,.55,-1,.3,0,[[.9,.55]]);P('ouvrier',-.88,.36,.3,1,0,[[.9,.3]]);P('ouvrier',.2,.95,-1,0,0,[[.9,.95]]);}
   // la hotte, au fond à droite
   {const x=1.0,z=-D/2+.3;B.box(x,Y0,z,.56,.24,.36,C.steelD);B.box(x,Y0+.24,z,.56,.02,.38,C.white);B.box(x,Y0+.26,z-.1,.56,.42,.16,C.steel);B.box(x,Y0+.3,z+.02,.5,.3,.01,C.glass);B.box(x,Y0+.68,z-.06,.6,.06,.26,C.steelD);
     B.cyl(x,Y0+.74,z-.08,.06,.06,.3,C.steel,8);B.cyl(x-.1,Y0+.26,z-.02,.03,.025,.08,C.green,8);P('hotte',x,z+.36,0,-1,0,[[.9,z+.36]]);}
@@ -120,21 +125,6 @@ function bureauInterior(W,D){const B=new Build(),S=shell(B,W,D,{floor:['plank','
   P('plans',-.02,-.8,0,-1,0,gap);shelf(B,-W/2+.2,.15,.5,.5,0,4);
   return {geo:B.geo(),st,door:S.door,aisle:{z:.03}};}
 
-// ---------- l'usine chimique (2 × 2) : l'atelier pilote — la cuve de cuivre, le condenseur, le pupitre et ses cadrans, les tonneaux de poudre ----------
-function usineInterior(W,D){const B=new Build(),S=shell(B,W,D,{floor:['concrete','concreteD'],t:.333,hb:.86,door:[.45,.7]});const st=[];const P=(k,x,z,fx,fz,sit=0,via=null)=>st.push({k,x,z,f:[fx,fz],sit,via});
-  // la cuve : sur ses pieds, une coupole, un trou d'homme, un volant rouge
-  {const x=-.4,z=-.38;for(const [a,b] of [[-1,-1],[1,-1],[-1,1],[1,1]])B.box(x+a*.16,Y0,z+b*.16,.04,.1,.04,C.steelD);B.cyl(x,Y0+.1,z,.25,.25,.36,C.copper,14);B.cyl(x,Y0+.27,z,.26,.26,.02,C.brass,14);
-    B.dome(x,Y0+.46,z,.25,C.copper);B.cyl(x,Y0+.6,z,.05,.05,.12,C.steel,8);B.cyl(x+.2,Y0+.2,z+.15,.06,.06,.02,C.steelD,8);const g=new THREE.TorusGeometry(.06,.01,5,10);g.translate(x+.27,Y0+.4,z+.12);B.add(g,C.red);}
-  // le condenseur, le serpentin, les tuyaux
-  {const x=.42,z=-.5;B.cyl(x,Y0,z,.13,.13,.48,C.steel,12);B.dome(x,Y0+.48,z,.13,C.steel);for(let k=0;k<4;k++)B.cyl(x,Y0+.08+k*.1,z,.14,.14,.02,C.steelD,12);
-    B.rod([-.4,Y0+.66,-.38],[.0,Y0+.74,-.45],.022,C.copper);B.rod([.0,Y0+.74,-.45],[x,Y0+.6,z],.022,C.copper);B.rod([x+.1,Y0+.1,z+.08],[x+.3,Y0+.1,z+.3],.02,C.steel);}
-  // le pupitre et ses cadrans
-  {const L=at(B,.42,.42,1);L.box(0,Y0,0,.42,.2,.22,C.steelD).box(0,Y0+.2,.02,.44,.1,.06,C.steel);for(let k=0;k<3;k++)L.cyl(-.13+k*.13,Y0+.25,-.02,.03,.03,.012,C.white,10);P('pupitre',.42,.12,0,1);}
-  // les tonneaux de poudre, des sacs de salpêtre
-  for(const [x,z] of [[-.66,.5],[-.66,.72],[-.44,.66]])B.cyl(x,Y0,z,.09,.09,.2,0x4a4038,10);for(let k=0;k<3;k++)B.box(-.2+k*.14,Y0,.78,.12,.08,.1,0xd8cfa8);
-  P('cuve',-.05,-.3,-1,0);P('condenseur',.42,-.22,0,-1);P('ouvrier',-.4,.3,-1,.3);P('ouvrier',-.08,.55,0,1);P('ouvrier',.0,.05,-.5,-1);
-  return {geo:B.geo(),st,door:S.door};}
-
-const MAKE={centre_recherche:centreInterior,labo:laboInterior,armurerie:bureauInterior,poudrerie:usineInterior};
+const MAKE={centre_recherche:centreInterior,labo:laboInterior,armurerie:bureauInterior};
 // les intérieurs, prêts pour la scène : { ':in_<bâtiment>': {ext, geo, st, door} }
 export function labInteriors(){const out={};for(const [k,mk] of Object.entries(MAKE)){const [W,D]=BUILDINGS[k].size;const m=mk(W,D);const b=m.geo.boundingBox;out[':in_'+k]={ext:[b.max.x-b.min.x,b.max.y,b.max.z-b.min.z],...m};}return out;}

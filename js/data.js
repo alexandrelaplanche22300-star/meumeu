@@ -118,21 +118,23 @@ export const BUILDINGS={
     why:'Un dépôt au bord de la voie. Si la voie rejoint déjà une gare, le chantier sert de tête de ligne : les trains y apportent le bois sans autre dépôt. Sinon, posez d’abord un camp-dépôt gratuit. On y construit les locomotives.'},
   entrepot:{name:'Entrepôt',sprite:'warehouse',big:true,size:[3,3],cost:{bois:80},hours:10,store:2500,hp:700,
     why:'Un grand dépôt, sans voie : au cœur d’un quartier d’usines, au pied d’une mine. Réglez sa priorité et ses demandes : le fret le remplit.'},
-  labo:{name:'Laboratoire',sprite:'still',size:[3,3],cost:{bois:80,pierre:70},hours:14,hp:500,lab:true,
-    why:'Paillasses, cornues, balances : les savants y mènent les expériences des projets d’agronomie, de géologie, de médecine et de chimie. Cinq places. Cliquez dessus : le toit s’ouvre sur la vue recherche.'},
+  // V12.7 : le laboratoire de chimie remplace l'usine chimique chez les Meumeu — ses ouvriers produisent poudre, explosifs, incendiaires ; ses chimistes y mènent
+  // les tâches de chimie des programmes (charges, chargement des obus, moteurs-fusées)
+  labo:{name:'Laboratoire de chimie',sprite:'still',size:[3,3],cost:{bois:80,pierre:90,pieces:12},hours:16,workers:3,hp:600,lab:true,factory:{coal:.15,mod:'armement'},
+    why:'Ses ouvriers produisent la poudre des cartouches, les explosifs, le mélange incendiaire (une production à la fois) ; ses chimistes (six places) y mènent les tâches de chimie des programmes : charges propulsives, chargement des obus, explosifs nouveaux, moteurs-fusées. Loin des maisons : ça saute. Cliquez dessus : le toit s’ouvre sur la vue recherche.'},
   // V12.6 : le centre de recherche — l'école des savants, leurs bureaux, le tableau noir, la salle de réunion
   centre_recherche:{name:'Centre de recherche',sprite:'research',size:[5,4],cost:{bois:120,pierre:140,pieces:20},hours:24,hp:900,lab:true,
-    why:'On y forme des savants (un villageois, des vivres, une journée d’école), on y fait la théorie des projets au tableau noir, on s’y réunit autour de la grande table. Dix places. Cliquez dessus : le toit s’ouvre sur la vue recherche.'},
+    why:'On y forme les savants (un villageois, des vivres, une journée d’école) : ingénieurs, chimistes, physiciens. Les physiciens y calculent trajectoires, tables de tir, stabilité, optique ; les programmes s’y réunissent autour de la grande table, où le commandement tranche entre les propositions des savants. Dix places. Cliquez dessus : le toit s’ouvre sur la vue recherche.'},
   caserne:{name:'Caserne',sprite:'school',size:[3,3],cost:{bois:60,pierre:50},stock0:{'a:mle1':4,'m:mle1':2,vivres:60,pieces:8},hours:12,hp:800,trains:['soldat'],
     why:'On y forme ceux qu’on y envoie : ils s’entraînent, puis sortent armés d’une conception adoptée. Un soldat devient commando par son équipement : charges, tenue camouflée, jumelles, arme. Loin des dépôts, le porteur de munitions ravitaille l’escouade.'},
   caserne_elite:{name:'Caserne d’élite',sprite:'school',size:[3,3],cost:{bois:90,pierre:110,fer:30,pieces:16},stock0:{vivres:60},hours:20,hp:1100,trains:['choc'],
     why:'On y forme la troupe de choc : un civil, des vivres pour une longue formation, puis l’arme et la protection choisies au dépôt.'},
-  poudrerie:{name:'Usine chimique',sprite:'motor',size:[2,2],cost:{bois:40,pierre:50,pieces:6},hours:10,workers:3,hp:350,factory:{coal:.15,mod:'armement'},
-    why:'Le salpêtre et le charbon, traités, broyés, mêlés : la poudre des cartouches, ou des explosifs (obus, charges de démolition). Une seule production à la fois. Loin des maisons : ça saute. Son atelier pilote reçoit trois savants : l’essai des projets de chimie, et des chimistes qui pressent la production.'},
+  poudrerie:{name:'Usine chimique',sprite:'motor',size:[2,2],cost:{bois:40,pierre:50,pieces:6},hours:10,workers:3,hp:350,factory:{coal:.15,mod:'armement'},faction:'beee',   /* (V12.7 : les Meumeu ont le laboratoire de chimie) */
+    why:'L’usine chimique bèè : le salpêtre et le charbon, traités, broyés, mêlés — la poudre des cartouches, ou des explosifs.'},
   arsenal:{name:'Arsenal',sprite:'chem',size:[2,2],cost:{bois:40,pierre:50,pieces:10},hours:10,workers:2,hp:500,arsenal:true,factory:{coal:.25,mod:'armement'},
     why:'Les munitions d’une conception adoptée — plomb pour les balles, cuivre pour les étuis, poudre, pièces : une seule production par arsenal. Tout part en caisses au dépôt de sortie.'},
   armurerie:{name:'Bureau d’études',sprite:'research',size:[2,2],cost:{bois:40,pierre:30,pieces:10},hours:12,hp:400,design:true,
-    why:'On y conçoit les armes : le calibre, l’ogive, la poudre, le canon, la culasse. Un prototype coûte des ressources et du temps ; adopté, il se fabrique. Trois planches à dessin pour les savants : les plans des projets de mécanique et de balistique, et des ingénieurs qui pressent les prototypes.'},
+    why:'On y conçoit les armes : le calibre, l’ogive, la poudre, le canon, la culasse. Lancée, une conception devient un programme : ses ingénieurs (cinq places) la présentent en réunion, en chiffrent les tâches, mènent tube, culasse, mécanisme, affût, puis l’essai de tir ; adoptée, elle se fabrique.'},
   manufacture:{name:'Manufacture d’armes',sprite:'foundry',size:[3,3],cost:{pierre:100,bois:40,pieces:30,fer:10},hours:20,workers:4,hp:900,manufacture:true,factory:{coal:.3,mod:'armement'},
     why:'Une usine d’armes, outillée pour un seul modèle (fusil ou protection) : changer de modèle, c’est refaire l’outillage (6 h). Quand la dernière tombe, les plans sont perdus — sauf des archives dans une autre ville.'},
   // le garage : les véhicules meumeu (jeeps, automitrailleuse, char, automoteur) — fer, pièces, et les armes montées prises au dépôt ; long à produire
@@ -159,12 +161,12 @@ export const BUILDINGS={
 };
 // V12.5 : les bunkers — dix-sept plans (bunkerdata.js), chacun un bâtiment « bk_<plan> » ; leur empreinte est celle du plan, tournée à la pose (b.rot)
 Object.assign(BUILDINGS,bunkerDefs());
-export const BUILD_ORDER=['camp','maison','moulin','grenier','atelier','four','mine','poudrerie','gare','entrepot','centre','caserne','arsenal','armurerie','manufacture','hopital','tente','archives','centre_recherche','fonderie','barge','grande_barge','hangar','tour',...BUNKER_IDS.map(bunkerKey)];
+export const BUILD_ORDER=['camp','maison','moulin','grenier','atelier','four','mine','labo','gare','entrepot','centre','caserne','arsenal','armurerie','manufacture','hopital','tente','archives','centre_recherche','fonderie','barge','grande_barge','hangar','tour',...BUNKER_IDS.map(bunkerKey)];
 // le menu de construction, par familles : ce qui fait vivre, ce qui relie, ce qui arme, ce qui soigne, ce qui défend
 export const BUILD_CATS=[
   {k:'vivre',name:'Vivre',hint:'ramasser, nourrir, fonder des villes',items:['camp','moulin','grenier','maison','centre']},
-  {k:'produire',name:'Produire',hint:'extraire, transformer : une usine, une production',items:['mine','four','atelier','poudrerie']},
-  {k:'chercher',name:'Chercher',hint:'savants, projets, réunions : le centre de recherche forme les savants ; théorie au centre, expériences au laboratoire, plans au bureau d’études, essais à l’usine chimique',items:['centre_recherche','labo','armurerie','poudrerie']},
+  {k:'produire',name:'Produire',hint:'extraire, transformer : une usine, une production',items:['mine','four','atelier','labo']},
+  {k:'chercher',name:'Chercher',hint:'savants, programmes, réunions : le centre de recherche forme les savants et réunit les programmes ; le bureau d’études conçoit, le laboratoire de chimie produit et développe',items:['centre_recherche','armurerie','labo']},
   {k:'relier',name:'Relier',hint:'camp-dépôt gratuit d’abord, puis mine, gare et fret',items:['camp','gare','entrepot'],lines:['rail']},
   {k:'armer',name:'Armer',hint:'concevoir, fabriquer, former',items:['armurerie','manufacture','arsenal','caserne','caserne_elite','garage','fonderie','barge','grande_barge','archives']},
   {k:'soigner',name:'Soigner',hint:'la chaîne des soins',items:['hopital','tente']},
@@ -206,7 +208,7 @@ export const UNITS={
     why:'Il suit l’armée avec une tente pliée : il la plante près du front et y opère. Sur place : drain thoracique, attelle, morphine, transfusion ; sous la tente : hémostase, ligature, suture. Il trie les blessés.'},
   // V12.6 : le savant, formé au centre de recherche à partir d'un villageois ; il vit dans les bâtiments de recherche (b.staff) et n'en sort que pour aller de l'un à l'autre
   savant:{name:'Savant',sheet:'meumeu_scientist',speed:8.5,cost:{vivres:40,pieces:6},hours:24,pop:1,savant:true,
-    why:'Un villageois formé au centre de recherche : une discipline, deux traits de caractère, un grade qui monte avec l’expérience. Il mène les projets, de la théorie à l’essai, et se réunit avec ses collègues.'},
+    why:'Un villageois formé au centre de recherche : ingénieur, chimiste ou physicien ; son grade monte avec l’expérience. Il mène les tâches des programmes dans son bâtiment, propose en réunion ce que ses calculs suggèrent — pas toujours juste.'},
   canon:{name:'Canon',img:'canon',speed:5,range:14,cd:9,vsB:3,dmg:45,hp:160,shell:true,crew:2,cost:{pieces:12,fer:6,bois:5,cuivre:1},hours:16,pop:1,
     why:'Pièce lourde coûteuse à fondre ; ses obus consomment des caisses d’explosifs acheminées par les dépôts.'},
 };
@@ -257,26 +259,6 @@ export const INNOV=[
   {id:'phosphore',dom:'chimie',era:2,name:'Le phosphore blanc',text:'Il brûle à l’air libre : un nuage blanc épais qui aveugle, et des particules incandescentes qui collent. Couvre une retraite, chasse une tour, brûle les peluches.',mod:{},needs:['amatol'],unlock:['fill:phosphore'],cost:{pieces:14,charbon:20,salpetre:15},hours:16},
   {id:'napalm',dom:'chimie',era:2,name:'Le napalm',text:'Un gel qui colle et qui dure : les flaques incendiaires brûlent deux fois plus longtemps et s’étalent davantage.',mod:{napalm:2},needs:['thermite','phosphore'],cost:{pieces:16,charbon:30,cuivre:6},hours:18},
   {id:'lanceflammes',dom:'chimie',era:3,name:'Le lance-flammes',text:'Un projecteur de gel enflammé à courte portée, porté à l’épaule : le bunker et la tranchée n’ont plus de secret. Nouveau modèle au bureau d’études.',mod:{},needs:['napalm'],unlock:['preset:flamethrower'],cost:{fer:25,pieces:18,cuivre:8},hours:20},
-  // ---- V12.6 : la recherche savante. Ces découvertes ne viennent jamais de la pratique : seuls les savants les proposent (remue-méninges, colloques,
-  // rêveurs à leur bureau). sci : réservée aux savants.
-  {id:'engrais',dom:'vivres',sci:true,name:'L’engrais au salpêtre',text:'Le salpêtre rend aux champs ce que le blé leur prend : les moulins donnent davantage.',mod:{ferme:1.3},needs:['assolement'],cost:{salpetre:12,vivres:20},hours:10},
-  {id:'ble_hybride',dom:'vivres',sci:true,name:'Le blé hybride',text:'Deux blés croisés, le plus robuste et le plus lourd : un épi plus gros sur la même terre.',mod:{ferme:1.25},needs:['engrais'],cost:{vivres:40,pieces:4},hours:14},
-  {id:'sylviculture',dom:'bois',sci:true,name:'La sylviculture',text:'On coupe les bons arbres au bon moment, on abat dans le bon sens : le bûcheron va bien plus vite.',mod:{gather_tree:1.3},needs:['scie'],cost:{bois:30,vivres:10},hours:8},
-  {id:'conserve',dom:'vivres',sci:true,name:'La boîte de conserve',text:'Des vivres stérilisés dans du fer-blanc : rien ne se gâte, on mange moins pour autant d’effort.',mod:{ration:.85},cost:{fer:6,pieces:8,vivres:30},hours:12},
-  {id:'prospection',dom:'mine',sci:true,name:'La prospection géologique',text:'On lit la roche avant de creuser : les mineurs suivent la veine au lieu de la chercher.',mod:{mine:1.2,gather_ore:1.3},needs:['boisage'],cost:{pieces:6,vivres:15},hours:10},
-  {id:'tir_de_mine',dom:'pierre',sci:true,name:'Le tir de mine',text:'Une charge bien placée abat la paroi d’un coup : carrières et mines avancent à grands pas.',mod:{mine:1.25,gather_rock:1.3},needs:['prospection'],cost:{explosifs:4,pieces:6},hours:10},
-  {id:'acier',dom:'mine',sci:true,name:'L’acier au creuset',text:'Un fer affiné, dur et souple : des étuis plus minces, des murs armés.',mod:{fer_munitions:.8,mur:1.25},needs:['coins'],cost:{fer:15,charbon:20},hours:14},
-  {id:'compound',dom:'atelier',sci:true,name:'La machine compound',text:'La vapeur sert deux fois, dans deux cylindres : moins de charbon, des machines plus vives.',mod:{charbon_machines:.75,atelier:1.15},needs:['economiseur'],cost:{fer:10,pieces:14},hours:14},
-  {id:'interchangeables',dom:'armement',sci:true,name:'Les pièces interchangeables',text:'Chaque pièce au calibre, sans ajustage : on monte les armes à la chaîne, on répare en échangeant.',mod:{armement:1.3,atelier:1.15},needs:['chaine'],cost:{pieces:20,fer:6},hours:16},
-  {id:'imprimerie',dom:'atelier',sci:true,name:'L’imprimerie de campagne',text:'Les savants publient et se lisent : la recherche avance plus vite, les élèves apprennent plus vite.',mod:{recherche:1.2,formation:1.25},cost:{pieces:12,bois:30},hours:10},
-  {id:'beton_arme',dom:'construction',sci:true,name:'Le béton armé',text:'Du ciment coulé sur des fers : des murs et des couverts qui encaissent les obus.',mod:{mur:1.4,couvert:1.25},needs:['mortier'],cost:{pierre:40,fer:12},hours:16},
-  {id:'tables_tir',dom:'tir',sci:true,name:'Les tables de tir',text:'La chute de la balle mesurée à chaque distance, recopiée dans un carnet : on vise juste du premier coup.',mod:{tir:1.12},needs:['hausse'],cost:{pieces:8},hours:10},
-  {id:'rayures',dom:'tir',sci:true,name:'L’étude des rayures',text:'Le pas des rayures accordé à l’ogive : la balle tourne juste, plus loin, plus droit, et le canon s’use moins.',mod:{tir:1.08,fer_munitions:.9},needs:['tables_tir'],cost:{fer:6,pieces:10},hours:14},
-  {id:'penicilline',dom:'soins',sci:true,name:'La moisissure qui soigne',text:'Une moisissure du pain arrête l’infection : la plaie ne pourrit presque plus.',mod:{antiseptique:.5},needs:['antiseptique'],cost:{vivres:20,sante:4},hours:16},
-  {id:'transfusion',dom:'soins',sci:true,name:'Les groupes sanguins',text:'On sait quel sang donner à qui : chaque trousse de plasma sauve davantage.',mod:{plasma:1.5},needs:['plasma_sec'],cost:{sante:6,pieces:4},hours:12},
-  {id:'anesthesie',dom:'soins',sci:true,name:'L’anesthésie à l’éther',text:'Le blessé dort, le chirurgien prend son temps sans en perdre : on opère plus vite et mieux.',mod:{chirurgie:1.5},needs:['suture'],cost:{sante:4,salpetre:2},hours:10},
-  {id:'colloidale',dom:'chimie',sci:true,name:'La poudre colloïdale',text:'La nitrocellulose gélifiée, laminée, découpée : l’usine chimique en sort un tiers de plus.',mod:{poudrerie:1.3},needs:['amatol'],cost:{salpetre:15,charbon:10},hours:12},
-  {id:'catalyse',dom:'chimie',sci:true,name:'La catalyse',text:'Un peu de métal dans la cuve, et la réaction va d’elle-même : l’usine chimique tourne plus vite pour moins de charbon.',mod:{poudrerie:1.25,charbon_machines:.9},needs:['colloidale'],cost:{cuivre:8,pieces:10,salpetre:10},hours:16},
 ];
 // Les étapes : ce qu'on fait d'habitude, dans l'ordre, pour se préparer avant la guerre. Rien n'est obligatoire.
 export const STEPS=[
@@ -286,7 +268,7 @@ export const STEPS=[
   {k:'charbon',name:'Une mine de charbon',hint:'Un filon noir brille près de la capitale : un camp à côté (un dépôt), puis Bâtir → Produire → Mine dessus. Le chantier commande ses matériaux au camp.'},
   {k:'charrette',name:'Des porteurs',hint:'Sur un dépôt : Affecter des porteurs. Choisissez combien (− / +), y compris zéro ou un : à pied, ils servent les dépôts voisins (60 cases) — la gare, le camp, l’usine.'},
   {k:'atelier',name:'Un atelier',hint:'Bâtir → Produire → Atelier : des pièces (choisissez sa production), du charbon pour ses machines.'},
-  {k:'labo',name:'Un centre de recherche',hint:'Bâtir → Chercher → Centre de recherche, puis formez-y des savants : ils mènent les idées des Meumeu jusqu’à l’innovation, du tableau noir au laboratoire. Cliquez sur le bâtiment : le toit s’ouvre.'},
+  {k:'labo',name:'Un centre de recherche',hint:'Bâtir → Chercher → Centre de recherche, puis formez-y des savants : ingénieurs, chimistes, physiciens. Chaque arme conçue au bureau d’études devient un programme qu’ils mènent, et dont ils discutent en réunion. Cliquez sur le bâtiment : le toit s’ouvre.'},
   {k:'hopital',name:'Un hôpital',hint:'Bâtir → Soigner → Hôpital : on y forme infirmiers et médecins.'},
   {k:'caserne',name:'Une caserne et six soldats',hint:'Bâtir → Armer → Caserne, puis Former des soldats (il faut des fusils au dépôt).'},
   {k:'arsenal',name:'Un arsenal qui tourne',hint:'Bâtir → Armer → Arsenal, deux villageois dedans : des munitions (plomb, cuivre, poudre, pièces), qu’on commande à son dépôt.'},
@@ -309,10 +291,10 @@ export const VEHICLES={
 export const PRODUCTS={
   pieces:{name:'Pièces',at:'atelier',in:{fer:1,bois:1},out:{pieces:2},hours:1.5,limit:80},
   charbon:{name:'Charbon de bois',at:'four',in:{bois:4},out:{charbon:1},hours:2,limit:80},
-  poudre:{name:'Poudre',at:'poudrerie',in:{salpetre:3,charbon:1},out:{poudre:4},hours:2,limit:60},
-  explosifs:{name:'Explosifs',at:'poudrerie',in:{salpetre:5},out:{explosifs:2},hours:9,limit:30},   // du salpêtre seul, mais lentement (la nitration, le séchage)
-  melange_inc:{name:'Mélange incendiaire',at:'poudrerie',in:{salpetre:2,charbon:2,cuivre:1},out:{melange_inc:2},hours:3,limit:20},
-  explosifs_brisants:{name:'Explosifs brisants',at:'poudrerie',in:{explosifs:2,salpetre:2,fer:1,pieces:1},out:{explosifs_brisants:1},hours:5,limit:16},
+  poudre:{name:'Poudre',at:['poudrerie','labo'],in:{salpetre:3,charbon:1},out:{poudre:4},hours:2,limit:60},
+  explosifs:{name:'Explosifs',at:['poudrerie','labo'],in:{salpetre:5},out:{explosifs:2},hours:9,limit:30},   // du salpêtre seul, mais lentement (la nitration, le séchage)
+  melange_inc:{name:'Mélange incendiaire',at:['poudrerie','labo'],in:{salpetre:2,charbon:2,cuivre:1},out:{melange_inc:2},hours:3,limit:20},
+  explosifs_brisants:{name:'Explosifs brisants',at:['poudrerie','labo'],in:{explosifs:2,salpetre:2,fer:1,pieces:1},out:{explosifs_brisants:1},hours:5,limit:16},
   // V12.5 : une mine (explosifs, fer, pièces) fondue et chargée à la manufacture d'armes ; les villageois la posent sur le terrain, elle explose sous l'ennemi
   mine:{name:'Mines',at:'manufacture',in:{explosifs:1,fer:2,pieces:1},out:{mine:1},hours:1.5,limit:60},
   sante:{name:'Fournitures médicales',at:'hopital',in:{pieces:2},out:{sante:4},hours:3,limit:12},
@@ -327,6 +309,8 @@ export const PRODUCTS={
   batterie:{name:'Batteries infrarouges',at:null,in:{plomb:5,cuivre:2,pieces:4,charbon:1},out:{batterie:1},hours:4,limit:6},
 };
 export const RECIPES=PRODUCTS;
+// (V12.7) une production peut se faire dans plusieurs bâtiments : la poudre à l'usine chimique bèè comme au laboratoire de chimie meumeu
+export const madeAt=(key,k)=>{const a=PRODUCTS[key]?.at;return Array.isArray(a)?a.includes(k):a===k;};
 export const LIMIT_OF=k=>PRODUCTS[k]?.limit??(k.startsWith('m:')?12:8);
 export const BOMB={dmg:110,radius:2.2,fall:.3,stick:3};   // stick : le chapelet s'étale sur ± stick cases autour de la cible
 export const FLAK={flight:.07,spread:1.3,hit:.9,dmg:22};

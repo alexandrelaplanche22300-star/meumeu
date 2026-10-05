@@ -15,7 +15,8 @@ import {FILLS,SHELLS,FUSES,ZB,arcTable,CHARGES} from './explosive.js';
 const TARGETS={nue:{name:'Sans protection',a:null},toile:{name:'Gilet de toile',a:{casque:['acier',0],plastron:['toile',5],dos:['toile',5],flancs:['toile',3]}},
   soie:{name:'Gilet balistique',a:{casque:['acier',.8],plastron:['soie',4],dos:['soie',4],flancs:['soie',3]}},acier:{name:'Plastron d’acier',a:{casque:['acier',1],plastron:['acier',1.2],dos:['acier',0],flancs:['acier',0]}},
   composite:{name:'Composite',a:{casque:['acier',1],plastron:['composite',2],dos:['composite',2],flancs:['soie',3]}}};
-import {LIMITS,crateCost,weaponCost,protoCost,PROTO_HOURS} from './designs.js';
+import {LIMITS,crateCost,weaponCost,protoCost} from './designs.js';
+const ROLE_ICO={ingenieur:'⚙',chimiste:'⚗',physicien:'∫'};
 import {rng} from './gen.js';
 import {PRESETS,FAMS,CHOICE,presetP} from './presets.js';
 
@@ -264,7 +265,7 @@ export class DesignerAncien{
           <h3>Les chiffres <small>face à ${esc(this.ref.name)}</small></h3><div id="dz-tab" class="dz-tab"></div>
           <h3>Le verdict</h3><ul id="dz-ver" class="dz-ver"></ul>
           <h3>Ce que ça coûte</h3><div id="dz-cost" class="dz-cost"></div>
-          <div class="dz-go"><button data-dz="go" id="dz-go">Lancer le prototype</button><p class="dz-say quiet small"></p></div>
+          <div class="dz-go"><button data-dz="go" id="dz-go">Lancer le programme</button><p class="dz-say quiet small"></p></div>
         </section></div></div>`;
     this.sync();this.applyView();}
   read(el){const numeric=el.id.startsWith('dz-num-'),id=el.id.replace(numeric?'dz-num-':'dz-','');if(numeric&&el.value==='')return;if(id==='name'){this.name=el.value;return;}if(!(id==='heavy'||id==='c'||id in LIMITS||id in this.p))return;this.detachKit();if(id==='heavy'){this.p.heavy=el.checked;this.help='heavy';}else if(id==='c'){this.p.c=numeric?+el.value:sToC(+el.value);this.help='c';}else{this.p[id]=numeric?Math.max(LIMITS[id][0],Math.min(LIMITS[id][1],+el.value)):+el.value;this.help=id;}this.sync();this.render();}
@@ -318,11 +319,12 @@ export class DesignerAncien{
       row('Dispersion de l’arme',D.moa,R.moa,'MOA',1,-1)+row('Arme chargée',D.mass*1000,R.mass*1000,'g',0,-1)+row('Recul ressenti',D.rk*SHOOTER,R.rk*SHOOTER,'J',2,-1)+row('Temps pour viser',D.aim,R.aim,'s',2,-1)+
       row('Cadence',D.rpm,R.rpm,'coups/min',0,1)+row('Vie du canon',D.life,R.life,'coups',0,1)+row('Portés par soldat',D.carry,R.carry,'coups',0,1)+row('Par caisse',D.perCrate,R.perCrate,'coups',0,1);
     $('dz-ver').innerHTML=D.verdicts.filter(v=>this.who!=='choc'||!v.t.startsWith('Arme lourde')).map(v=>`<li class="${v.tone}">${v.tone==='good'?'＋':v.tone==='bad'?'－':'·'} ${esc(v.t)}</li>`).join('')+(D.mountOk?'':D.need==='bipied'?`<li class="bad">－ L’épaule d’un soldat ne tient pas cette arme : bipied obligatoire — la troupe de choc, elle, la tient à l’épaule</li>`:`<li class="bad">－ L’épaule ne tient pas cette arme : trépied obligatoire</li>`)+(this.who==='choc'?`<li class="${heavyFor(D,.5)?'bad':'good'}">${heavyFor(D,.5)?'－ Lourde même pour l’élite':'＋ Pas lourde pour l’élite'} : ${Math.round(D.mass*500)} g ressentis (${Math.round(D.mass*1000)} g réels)</li><li class="good">＋ Troupe de choc : ${crewOf(D,.5)} servant${crewOf(D,.5)>1?'s':''} au lieu de ${D.crew} ; recul ressenti ${fmt((D.rk0||0)/2,2)} au lieu de ${fmt(D.rk0||0,2)} J/kg${!D.mountOk&&D.need==='bipied'?' ; tenue à l’épaule, sans bipied':''}</li>`:'');
-    const cc=crateCost(p),wc=weaponCost(p),pc=protoCost(p);const costs=o=>Object.entries(o).map(([k,n])=>`<span class="cost">${this.ico(k)}${fmt(n,n<1?2:1)}</span>`).join(' ');
-    $('dz-cost').innerHTML=`<div class="kv"><span>Une caisse (${D.perCrate} coups)</span><b>${costs(cc)}</b></div><div class="kv"><span>Une arme</span><b>${costs(wc)} · ${fmt(D.hoursW/2,1)} h</b></div><div class="kv"><span>Le prototype</span><b>${costs(pc)} · ${PROTO_HOURS} h</b></div>
-      <p class="quiet small">Adopté, il faut encore l’outillage de la manufacture (4 pièces, 1 fer, 6 h) — et le perdre si elle tombe.</p>`;
+    const cc=crateCost(p),wc=weaponCost(p),pc=protoCost(p),pv=W.programPreview?W.programPreview(p):{work:0,nov:0,tasks:[]};const costs=o=>Object.entries(o).map(([k,n])=>`<span class="cost">${this.ico(k)}${fmt(n,n<1?2:1)}</span>`).join(' ');
+    $('dz-cost').innerHTML=`<div class="kv"><span>Une caisse (${D.perCrate} coups)</span><b>${costs(cc)}</b></div><div class="kv"><span>Une arme</span><b>${costs(wc)} · ${fmt(D.hoursW/2,1)} h</b></div><div class="kv"><span>Le programme</span><b>${costs(pc)} · ${Math.round(pv.work)} heures-savants</b></div>
+      <ul class="dz-prog">${pv.tasks.map(t=>`<li class="${t.n>0?'new':''}"><span>${ROLE_ICO[t.role]||''} ${esc(t.label)}</span><small>${t.gap?esc(t.gap)+' · ':''}${Math.round(t.work)} h</small></li>`).join('')}</ul>
+      <p class="quiet small">Les savants en discutent en réunion de lancement et proposent des améliorations ; vous tranchez. Adoptée, il faut encore l’outillage de la manufacture (4 pièces, 1 fer, 6 h).</p>`;
     const bur=this.bureau();const can=bur?W.canPropose(bur,p):{ok:false,why:['un bureau d’études bâti (choisissez-le, puis « Concevoir »)']};const go=$('dz-go');go.disabled=!can.ok;go.title=can.ok?'':can.why.join(', ');
-    if(!can.ok)this.say(`Il faut : ${can.why.join(' · ')}`,'warn');else this.say(`Prêt : ${PROTO_HOURS} h au bureau d’études, puis adopté.`,'');
+    if(!can.ok)this.say(`Il faut : ${can.why.join(' · ')}`,'warn');else this.say(`Prêt : ${pv.tasks.length} tâches, ${Math.round(pv.work)} heures-savants${pv.nov>0?` — ${pv.tasks.filter(t=>t.n>0).length} au-delà de ce qu’on sait`:''}. Réunion de lancement au centre de recherche.`,'');
     this.draw(0);this.drawPrec(D);this.drawPen(D,R);this.drawGel(D);this.drawZone(D);this.shoot(D);}
   // ---------- le tir d'essai : la balle (ou la gerbe) entre dans un Bèè, à travers sa protection s'il en a une ----------
   shoot(D){const cv=this.host.querySelector('#dz-shot');if(!cv)return;const key=JSON.stringify([this.p,this.gelR,this.target]);if(key===this.shotKey)return;this.shotKey=key;

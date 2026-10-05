@@ -20,7 +20,7 @@ import {FixedClock} from './clock.js';
 import {resumeWorld} from './persistence.js';
 import {operationUI} from './operations-ui.js';
 import {VEHDEF} from './vehicules.js';
-import {researchUI,MODN,unlockName} from './research-ui.js';
+import {researchUI} from './research-ui.js';
 
 const $=s=>document.querySelector(s);
 // Une erreur de démarrage ne doit plus laisser une fenêtre muette : elle est
@@ -85,7 +85,7 @@ const view=new View($('#view'),world,{
   get pickStop(){return ui.pick?pickStop:null;}});
 const ops=operationUI({world:()=>world,view,ui,say,open:openModal,close:()=>{ui.modal=null;renderModal();},speed:setSpeed});
 // (V12.6) le panneau de la vue recherche
-const rui=researchUI({world:()=>world,view,ui,say,esc,ico,costHtml,hours,buildingPane:b=>buildingPane(b),audio});
+const rui=researchUI({world:()=>world,view,ui,say,esc,ico,costHtml,hours,buildingPane:b=>buildingPane(b),audio,open:(k,id)=>openModal(k,id),close:()=>{ui.modal=null;renderModal();},draft:(p,n)=>designer.showDraft(p,n)});
 const room=new XRoom($('#xroom'));const body3d=new BodyView();
 const xray=new XRay($('#xray'),{onGo:(x,y)=>view.lookAt(x,y),room,onFiche:id=>openFiche(id),hostL:$('#xrayL')});
 const designer=new Designer($('#dz'),{world:()=>world,
@@ -398,7 +398,7 @@ function buildingPane(b){if(b.f==='beee'&&world.s.fog!==false&&!world.visibleAt(
   if(!b.done)return h;
   const mine=world.designsOf('meumeu');
   // (V12.6) la recherche : un clic ouvre la vue recherche (le toit s'envole) ; ce bouton aussi, depuis la carte ou en 2D
-  if((B.lab||b.k==='armurerie'||b.k==='poudrerie')&&!view.lab){const n=(b.staff||[]).length;h+=`<section class="pane"><h2>Recherche <small>${n} savant${n>1?'s':''} ici</small></h2><div class="row"><button data-r="go:${b.id}" ${view.g3?'':'disabled title="la vue recherche demande la 3D"'}>Ouvrir la vue recherche</button></div><p class="quiet small">${world.s.innov.done.length} innovation${world.s.innov.done.length>1?'s':''} adoptée${world.s.innov.done.length>1?'s':''} · ${world.s.innov.ideas.length} proposition${world.s.innov.ideas.length>1?'s':''}.</p></section>`;}
+  if((B.lab||b.k==='armurerie')&&!view.lab){const n=world.s.units.filter(u=>u.inLab===b.id&&u.hp>0).length;h+=`<section class="pane"><h2>Recherche <small>${n} savant${n>1?'s':''} ici</small></h2><div class="row"><button data-r="go:${b.id}" ${view.g3?'':'disabled title="la vue recherche demande la 3D"'}>Ouvrir la vue recherche</button></div><p class="quiet small">${world.activePrograms().length} programme${world.activePrograms().length>1?'s':''} en cours · ${world.s.innov.done.length} innovation${world.s.innov.done.length>1?'s':''} adoptée${world.s.innov.done.length>1?'s':''}.</p></section>`;}
   if(B.factory)h+=factoryPane(b);else if(b.need)h+=reservePane(b);
   else if(B.makes||b.k==='mine'){const nd=b.k==='mine'&&world.s.nodes[b.ore];h+=nd?`<section class="pane"><div class="kv"><span>Filon</span><b>${ico(nd.res)} ${esc(RES[nd.res].name)} · ${n0(nd.left)} restant</b></div></section>`:'';
     // le moulin : le blé récolté, les vivres moulus, combien de bouches ça nourrit
@@ -529,8 +529,11 @@ function overviewPane(){const s=world.s;const cap=world.capital();const st=cap?.
 
 // ---------- les grandes fenêtres : santé, fiche médicale, idées, économie ----------
 function openModal(kind,id=null){ui.modal={kind,id};ui.modalHtml='';renderModal();}
-function renderModal(){const el=$('#modal');if(!ui.modal){if(!el.hidden){el.hidden=true;el.innerHTML='';}return;}
-  let body='';try{body={med:medModal,fiche:ficheModal,innov:()=>rui.modal(),eco:ecoModal,squad:squadModal,operation:id=>ops.modal(id)}[ui.modal.kind]?.(ui.modal.id)||'';}catch(e){console.error(e);body=`<p class="bad">${esc(e.message)}</p>`;}
+function renderModal(){const el=$('#modal');
+  {const pid=ui.modal?.kind==='reunion'?+ui.modal.id:null;if(ui.kingPid!=null&&ui.kingPid!==pid)world.attendMeeting?.(ui.kingPid,false);if(pid!=null)world.attendMeeting?.(pid,true);ui.kingPid=pid;
+    el.classList.toggle('rmini',pid!=null&&!!ui.R?.mini);}
+  if(!ui.modal){if(!el.hidden){el.hidden=true;el.innerHTML='';}return;}
+  let body='';try{body={med:medModal,fiche:ficheModal,innov:()=>rui.modal(),reunion:id=>rui.meetModal(id),eco:ecoModal,squad:squadModal,operation:id=>ops.modal(id)}[ui.modal.kind]?.(ui.modal.id)||'';}catch(e){console.error(e);body=`<p class="bad">${esc(e.message)}</p>`;}
   if(!body){ui.modal=null;el.hidden=true;return;}
   if(body!==ui.modalHtml){const box=el.querySelector('.mbody');const top=box?box.scrollTop:0;el.innerHTML=`<div class="mbox ${ui.modal.kind}" role="dialog">${body}</div>`;el.hidden=false;ui.modalHtml=body;const nb=el.querySelector('.mbody');if(nb)nb.scrollTop=top;
     const slot=el.querySelector('#f3dslot');if(slot)slot.appendChild(body3d.cv);}}
@@ -643,7 +646,7 @@ function evacuate(id){const e=world.unit(id);if(!e)return;const c=world.s.units.
 // ---------- les clics ----------
 document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b||b.closest('#dz')||b.closest('#hub')||b.closest('#xray')||b.closest('#xroom'))return;audio.init();const d=b.dataset;
   if(d.speed!==undefined){setSpeed(+d.speed);return;}
-  if(d.r!=null){rui.click(d.r);renderPanel(true);return;}   // (V12.6) la vue recherche
+  if(d.r!=null){rui.click(d.r);renderPanel(true);if(ui.modal){ui.modalHtml='';renderModal();}return;}   // (V12.6) la vue recherche
   if(d.op){ops.action(d.op);renderModal();renderPanel(true);return;}
   if(d.build){view.placing=view.placing===d.build?null:d.build;view.lining=null;ui.bbHtml='';say(view.placing?`${BUILDINGS[d.build].name} : choisissez la place (une case d’écart avec les autres). Clic droit : annuler.`:'');renderPanel(true);return;}
   if(d.line){view.lining=view.lining?.kind===d.line?null:{kind:d.line};view.placing=null;ui.bbHtml='';say(!view.lining?'':d.line==='gomme'?'Annuler un tracé : balayez les pointillés dorés d’une voie ou d’un mur prévus. Clic droit : fini.':`${LINES[d.line].name} : cliquez-glissez sur la carte${d.line==='rail'?' — droites et virages, en contournant les obstacles':''}. Maj : plusieurs tracés. Clic droit : fini.`);renderPanel(true);return;}
@@ -749,7 +752,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   renderPanel(true);});
 // le curseur du retard : chaque cran règle tout de suite les charges de la sélection (le panneau n'est redessiné qu'au lâcher)
 document.addEventListener('input',e=>{const r=e.target.closest?.('[data-fusev]');if(!r)return;const v=+r.value/6;for(const id of view.sel){const u=world.unit(id);if(u&&(u.charges>0||u.torch>0))u.fuse=v;}const l=document.getElementById('fuse-l');if(l)l.textContent=fuseTxt(v);});
-document.addEventListener('change',e=>{{const rs=e.target.closest?.('[data-rsel]');if(rs){rui.change(rs.dataset.rsel,rs.value);renderPanel(true);return;}}{const sk=e.target.closest?.('[data-skin]');if(sk){const b=world.building(+sk.dataset.skin);if(b)b.skin=sk.value;return;}}if(e.target.closest?.('[data-fusev]')){renderPanel(true);return;}const sr=e.target.closest('[data-sqr],[data-sqw],[data-sqa]');if(sr){const d=sr.dataset;const u=world.unit(+(d.sqr||d.sqw||d.sqa));if(u){const r=d.sqr?world.setRole(u,sr.value):d.sqw?world.rearm(u,sr.value):world.rearmor(u,sr.value||null);if(!r.ok)say(r.why[0],'bad');ui.modalHtml='';renderModal();renderPanel(true);}return;}
+document.addEventListener('change',e=>{{const rs=e.target.closest?.('[data-rsel]');if(rs){rui.change(rs.dataset.rsel,rs.value,rs);renderPanel(true);return;}}{const sk=e.target.closest?.('[data-skin]');if(sk){const b=world.building(+sk.dataset.skin);if(b)b.skin=sk.value;return;}}if(e.target.closest?.('[data-fusev]')){renderPanel(true);return;}const sr=e.target.closest('[data-sqr],[data-sqw],[data-sqa]');if(sr){const d=sr.dataset;const u=world.unit(+(d.sqr||d.sqw||d.sqa));if(u){const r=d.sqr?world.setRole(u,sr.value):d.sqw?world.rearm(u,sr.value):world.rearmor(u,sr.value||null);if(!r.ok)say(r.why[0],'bad');ui.modalHtml='';renderModal();renderPanel(true);}return;}
   const rk=e.target.closest('[data-relk]');if(rk){ui.relK=rk.value;renderPanel(true);}const rp=e.target.closest('[data-relp]');if(rp){ui.relP=rp.value;renderPanel(true);}
   const s=e.target.closest('[data-trainw]');if(s){ui.trainW[+s.dataset.trainw]=s.value;renderPanel(true);}const a=e.target.closest('[data-traina]');if(a){ui.trainA[+a.dataset.traina]=a.value;renderPanel(true);}const r=e.target.closest('[data-trainrole]');if(r){ui.trainRole[+r.dataset.trainrole]=r.value;renderPanel(true);}
   const t=e.target;const bd=world.building(view.selB);
@@ -838,7 +841,9 @@ function events(){for(const e of world.events.splice(0)){view.onEvent(e);const P
     case 'idea':audio.play('trained');alertBox(`<b>${esc(e.who||'Un Meumeu')} a une idée :</b> ${esc(INNOV.find(x=>x.id===e.id)?.name||'')} <button class="small" data-r="open:projets">Vue recherche</button>`,e.x,e.y,'good');break;
     case 'innov':audio.play('built');say(`${e.perc?'Percée ! ':''}Innovation adoptée : ${INNOV.find(x=>x.id===e.id)?.name}.`,'good');break;
     // (V12.6) la recherche : l'accident, l'eurêka, la sortie d'école
-    case 'labboom':audio.play('boom',P,e);alertBox(`<b>Accident ${{centre_recherche:'au centre de recherche',labo:'au laboratoire',armurerie:'au bureau d’études',poudrerie:'à l’usine chimique'}[world.building(e.b)?.k]||''} !</b> <button class="small" data-r="go:${e.b}">Voir</button>`,e.x,e.y,'warn');break;
+    case 'labboom':audio.play('boom',P,e);alertBox(`<b>Accident ${{centre_recherche:'au centre de recherche',labo:'au laboratoire de chimie',armurerie:'au bureau d’études'}[world.building(e.b)?.k]||''} !</b> <button class="small" data-r="go:${e.b}">Voir</button>`,e.x,e.y,'warn');break;
+    case 'decision':{const Pg=world.program(e.pid);if(!Pg)break;audio.play('horn');alertBox(`<b>${esc(Pg.name)} :</b> ${e.n} proposition${e.n>1?'s':''} attendent votre décision${e.wave>1?` (vague ${e.wave})`:''}. <button class="small" data-r="meet:${e.pid}">Assister</button>`,null,null,'warn');break;}
+    case 'meeting':{const Pg=world.program(e.pid);if(Pg&&e.kind==='lancement')say(`« ${Pg.name} » : réunion de lancement convoquée.`,'info');break;}
     case 'eureka':audio.play('trained');break;case 'graduate':{audio.play('trained');const u=world.sci(e.id);if(u)say(`${u.name} sort de l’école.`,'good');break;}
     case 'stop':if(e.kind==='train')audio.play('train',P);break;case 'takeoff':audio.play('takeoff',P);break;case 'rail-cut':audio.play('rail',P);if(P?.vol>.05)say('Une voie ferrée est coupée : il faut la reposer.','bad');break;
     case 'tension':audio.play('drums');alertBox(`<b>Frontière.</b> ${esc(e.text)}`,null,null,'warn');break;
@@ -890,7 +895,7 @@ function frame(now){const elapsed=Math.max(0,(now-last)/1000),dt=Math.min(.1,ela
     ui.catchup=simClock.debt>.5;
     const sp=900*dt;if(keys.has('arrowleft')||keys.has('q')||keys.has('a'))view.pan(-sp,0);if(keys.has('arrowright')||keys.has('d'))view.pan(sp,0);if(keys.has('arrowup')||keys.has('z')||keys.has('w'))view.pan(0,-sp);if(keys.has('arrowdown')||keys.has('s'))view.pan(0,sp);
     view.draw(dt*ui.speed);xray.step(dt);if(ui.modal?.kind==='fiche'){const f=findUnit(ui.modal.id);if(f)body3d.draw(f.u.h,dt,f.u.f);}if(now-miniAt>250){miniAt=now;view.drawMini(mini);ambience();}
-    topbar();renderPanel(false);if(ui.modal?.kind==='operation')renderModal();if(now-saveAt>30000){try{world.save();saveAt=now;}catch(e){saveAt=now;say('Sauvegarde automatique impossible : '+e.message,'bad');}}
+    topbar();renderPanel(false);if(ui.modal?.kind==='operation'||ui.modal?.kind==='reunion')renderModal();if(now-saveAt>30000){try{world.save();saveAt=now;}catch(e){saveAt=now;say('Sauvegarde automatique impossible : '+e.message,'bad');}}
   }catch(e){
     bootError({error:e});
     // La boucle continue et affiche le diagnostic sans mettre la partie en pause.

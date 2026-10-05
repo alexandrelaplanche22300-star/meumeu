@@ -451,7 +451,7 @@ export class View{
     ctx.save();if(!a.alive)ctx.filter='grayscale(.7) brightness(.65)';ctx.translate(q.x,q.y-bob);ctx.scale(a.fx<0?-1:1,1);
     if(a.kind==='lapin'){const frame=!a.alive?7:moving?[2,3,4,5][Math.floor(this.frame*1.4+a.id)%4]:Math.floor(this.frame*.12+a.id)%9===0?1:0;ctx.drawImage(im,(frame%4)*384,Math.floor(frame/4)*512,384,512,-w/2,-h*.86,w,h);}
     else ctx.drawImage(im,-w/2,-h*.86,w,h);ctx.restore();if(!a.alive){this.bar(q.x,q.y-h*.9,22*z,a.food/({belier:75,biche:38,lapin:14}[a.kind]||38),'#b88555');}}
-  drawUnit(u){if(this.g3?.labHidden?.has(u.id))return;const ctx=this.ctx,z=this.z(),W=this.world;const q=this.toScreen(u.x,u.y);const D=u.f==='beee'?BEEE.units[u.k]:UNITS[u.k];const size=(u.k==='villageois'?34:38)*z;const down=u.h?.state==='hors';
+  drawUnit(u){if(u.inLab!=null||this.g3?.labHidden?.has(u.id))return;const ctx=this.ctx,z=this.z(),W=this.world;const q=this.toScreen(u.x,u.y);const D=u.f==='beee'?BEEE.units[u.k]:UNITS[u.k];const size=(u.k==='villageois'?34:38)*z;const down=u.h?.state==='hors';
     if(this.zoom<.35&&!this.o3){ctx.fillStyle=down?'#8a1c1c':u.f==='beee'?'#e0503a':u.k==='villageois'?'#fff1c9':'#7fd3f0';ctx.fillRect(q.x-2*z*3,q.y-4*z*3,4*z*3,4*z*3);return;}
     if(u.f==='beee'&&!down&&!this.o3){ctx.strokeStyle='rgba(224,80,58,.75)';ctx.lineWidth=1.6*this.dpr;ctx.beginPath();ctx.ellipse(q.x,q.y,9*z,4.5*z,0,0,7);ctx.stroke();}
     if(u.h&&!this.o3){const lost=1-u.h.blood/BLOOD;if(down||lost>.06)this.pool(q.x,q.y,lost,z,u.id);}
@@ -1083,7 +1083,7 @@ export class View{
 
   // ---------- la souris ----------
   pos(e){const r=this.canvas.getBoundingClientRect();return [(e.clientX-r.left)*this.dpr,(e.clientY-r.top)*this.dpr];}
-  unitAt(sx,sy){const W=this.world,z=this.z();let best=null,bd=1e9;for(const u of W.s.units){if(u.f!=='meumeu'&&W.s.fog!==false&&!W.spotted(u,'meumeu'))continue;const q=this.toScreen(u.x,u.y);const dx=sx-q.x,dy=sy-(q.y-14*z);if(Math.abs(dx)<13*z&&dy>-20*z&&dy<18*z){const d=Math.hypot(dx,dy);if(d<bd){bd=d;best=u;}}}return best;}
+  unitAt(sx,sy){const W=this.world,z=this.z();let best=null,bd=1e9;for(const u of W.s.units){if(u.inLab!=null)continue;if(u.f!=='meumeu'&&W.s.fog!==false&&!W.spotted(u,'meumeu'))continue;const q=this.toScreen(u.x,u.y);const dx=sx-q.x,dy=sy-(q.y-14*z);if(Math.abs(dx)<13*z&&dy>-20*z&&dy<18*z){const d=Math.hypot(dx,dy);if(d<bd){bd=d;best=u;}}}return best;}
   vehicleAt(sx,sy){const W=this.world,z=this.z();for(const v of W.s.vehicles){if(v.f!=='meumeu'&&!this.fxVisible(v.x,v.y,v.f))continue;const q=this.toScreen(v.x,v.y,v.alt||0);if(Math.hypot(sx-q.x,sy-(q.y-15*z))<28*z)return v;}return null;}
   bind(){const cv=this.canvas;cv.addEventListener('contextmenu',e=>e.preventDefault());
     cv.addEventListener('pointerdown',e=>{const [sx,sy]=this.pos(e);cv.setPointerCapture(e.pointerId);this.drag={btn:e.button,x0:sx,y0:sy,px:e.clientX,py:e.clientY,moved:false,shift:e.shiftKey};
@@ -1113,7 +1113,7 @@ export class View{
       if(D.box){const {x0,y0,x1,y1}=D.box;const [a,b]=[Math.min(x0,x1),Math.max(x0,x1)],[c,d]=[Math.min(y0,y1),Math.max(y0,y1)];if(!D.shift){this.sel.clear();this.selVs.clear();}this.selB=null;this.selV=null;
         // (les engins de combat aussi : une colonne de blindés se choisit d'un cadre)
         for(const v of this.world.s.vehicles){if(v.f!=='meumeu'||v.ally||!VEHDEF[v.k]||v.hp<=0)continue;const q=this.toScreen(v.x,v.y);if(q.x>=a&&q.x<=b&&q.y-10*this.dpr>=c&&q.y-10*this.dpr<=d)this.selVs.add(v.id);}
-        const inBox=this.world.s.units.filter(u=>u.f==='meumeu'&&!u.ally).filter(u=>{const q=this.toScreen(u.x,u.y);return q.x>=a&&q.x<=b&&q.y-10*this.dpr>=c&&q.y-10*this.dpr<=d;});
+        const inBox=this.world.s.units.filter(u=>u.f==='meumeu'&&!u.ally&&u.inLab==null&&!u.sci).filter(u=>{const q=this.toScreen(u.x,u.y);return q.x>=a&&q.x<=b&&q.y-10*this.dpr>=c&&q.y-10*this.dpr<=d;});
         const mil=inBox.filter(u=>u.k!=='villageois');for(const u of (mil.length&&!D.shift?mil:inBox))this.sel.add(u.id);this.ui.changed();return;}
       if(D.moved&&D.btn!==2)return;
       if(this.zoning){this.ui.zoneAt?.(w,e.shiftKey);if(!e.shiftKey)this.zoning=false;this.ui.changed();return;}

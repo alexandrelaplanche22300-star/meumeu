@@ -79,7 +79,7 @@ export function charge(g,casing,p={}){const F=FILLS[p.fill]||FILLS.tolite,S=SHEL
 
 // Le tir courbe : on cherche l'angle (sous 45° pour un canon, au-dessus pour un mortier) qui porte à R mètres ; on renvoie le
 // temps de vol, l'angle, la vitesse à l'arrivée, et la portée maximale (à 45°, avec la traînée).
-function flight(v0,BC,deg,B=null){const a=deg*Math.PI/180;let x=0,y=0,vx=v0*Math.cos(a),vy=v0*Math.sin(a),t=0;const dt=v0>300||B?.004:.008;
+export function flight(v0,BC,deg,B=null){const a=deg*Math.PI/180;let x=0,y=0,vx=v0*Math.cos(a),vy=v0*Math.sin(a),t=0;const dt=v0>300||B?.004:.008;
   while(t<200){const v=Math.hypot(vx,vy)||1e-6;const k=.5*RHO_AIR*v*cdG7(v/C_SOUND)*(Math.PI/4)/BC;const th=B&&t<B.tr?B.a:0;vx+=(th*vx/v-k*vx)*dt;vy+=(th*vy/v-k*vy-G)*dt;x+=vx*dt;y+=vy*dt;t+=dt;if(y<0&&t>.05)break;}
   return {x,t,v:Math.hypot(vx,vy),fall:Math.atan2(-vy,vx)};}
 // les tables de tir : pour un mortier, plusieurs charges (des gargousses qu'on retire : 100 % à 15 % de la vitesse) ;
