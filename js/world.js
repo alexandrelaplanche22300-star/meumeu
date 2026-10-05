@@ -128,9 +128,9 @@ export class World{
     const more=this.placeMines(F,ci,cj,COMMON_ORES.filter(r=>!have.has(r)),2,110);
     const L=this.s.buildings.find(b=>b.f===F&&b.k==='labo'),A=this.s.buildings.find(b=>b.f===F&&b.k==='armurerie');
     const V=this.s.units.filter(u=>u.f===F&&u.k==='villageois'&&!u.task&&!u.ally);const posts={ingenieur:A,chimiste:L,physicien:C};let n=0;
-    for(const [role,xp] of [['ingenieur',90],['ingenieur',20],['chimiste',140],['chimiste',30],['physicien',80],['physicien',10]]){const u=V[n++];const b=posts[role];if(!u||!b)continue;
+    for(const [role,xp] of [['ingenieur',180],['ingenieur',90],['ingenieur',30],['ingenieur',5],['chimiste',140],['chimiste',70],['chimiste',30],['chimiste',0],['physicien',330],['physicien',80],['physicien',40],['physicien',20],['physicien',0]]){const u=V[n++];const b=posts[role];if(!u||!b)continue;
       u.k='savant';u.sci={role,xp,born:this.s.t,task:null,pid:null,papers:0,bold:+this.rand().toFixed(2)};this.labEnter(u,b);}
-    this.log(CITY_NAMES[0],`Partie de test de la recherche : centre de recherche, laboratoire de chimie, bureau d’études, four, fonderie, mines sur tous les filons${more.length?' (dont '+more.join(', ')+')':''}, six savants à leur poste. Concevez une arme au bureau d’études, puis « Lancer le programme ».`,'good');}
+    this.log(CITY_NAMES[0],`Partie de test de la recherche : centre de recherche, laboratoire de chimie, bureau d’études, four, fonderie, mines sur tous les filons${more.length?' (dont '+more.join(', ')+')':''}, treize savants à leur poste. Concevez une arme au bureau d’études, puis « Lancer le programme ».`,'good');}
   // Une case libre pour un bâtiment, en spirale autour de (x,y) entre les rayons r0 et r1.
   buildSpot(F,k,x,y,r0=4,r1=26){for(let r=r0;r<r1;r++)for(let a=0;a<48;a++){const i=Math.round(x+Math.cos(a/48*6.283)*r-BUILDINGS[k].size[0]/2),j=Math.round(y+Math.sin(a/48*6.283)*r-BUILDINGS[k].size[1]/2);if(this.canPlace(F,k,i,j).ok)return [i,j];}return null;}
   // Une mine en service sur le filon le plus proche de chaque ressource demandée (la mine d'abord : elle exige de l'espace autour

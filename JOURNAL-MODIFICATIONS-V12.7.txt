@@ -107,3 +107,11 @@ SUITE (2e partie de session) : LA REINE, LES MODÈLES DÉTAILLÉS, LES CONVERSAT
 - research-ui.js : talkHtml (Ce qu'ils se disent, conversations du Carnet, répliques d'un savant), histHtml (Ses calculs), « À creuser ».
 - css : rtalk, rhist, rcalc. Test recherche R1–R12 : PASS ; captures en jeu sans erreur de console.
 - Piège payé : un heredoc du shell a mangé les « \ » d'une expression régulière dans un correctif : écrire les correctifs avec l'outil d'écriture.
+
+SUITE 3 : DES DIALOGUES VIVANTS, PLUS DE SAVANTS
+- researchdata.js : SCENES (≈ 60 petites scènes en 14 thèmes : la reine, après une réunion, un programme, un blocage, une arme adoptée, les Bèè, la nuit,
+  la vie, un grade, rivaux, amis, le métier du chimiste / de l’ingénieur / du physicien) où chaque réplique répond à la précédente, à deux ou trois ;
+  QA : les questions sur une piste et LEURS réponses ; des dizaines de répliques de travail en plus (TALK.*.push).
+- research.js : sceneMake (thème selon ce qui se passe, scène dont tous les champs sont connus, pas rejouée parmi les 24 dernières) ; un troisième
+  savant dans la conversation ; les heures au singulier/pluriel.
+- world.js : la partie de test « Recherche » a 13 savants (4 ingénieurs, 4 chimistes, 5 physiciens, de l’assistant à la sommité).
