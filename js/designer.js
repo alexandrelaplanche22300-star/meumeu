@@ -113,7 +113,8 @@ export class DesignerAncien{
     host.addEventListener('change',e=>{if(e.target.id==='dz-follow'){this.follow=e.target.checked;try{localStorage.setItem('okm-dz-follow',this.follow?'1':'0');}catch(_){}}});
     this.view=(()=>{try{return localStorage.getItem('okm-dz-view')||'traj';}catch(e){return 'traj';}})();this.follow=(()=>{try{return localStorage.getItem('okm-dz-follow')!=='0';}catch(e){return true;}})();
     host.addEventListener('click',e=>{const b=e.target.closest('[data-dz]');if(!b)return;const [k,v]=b.dataset.dz.split(':');
-      if(k==='close'){if(this.onExit)this.onExit();else this.close();}else if(k==='p3d'){this.plan3d=!this.plan3d;try{localStorage.setItem('okm-plan3d',this.plan3d?'1':'0');}catch(e){}this.build();this.render();this.draw(0);}else if(k==='armor'){this.toArmor?.();}else if(k==='preset'){this.applyPreset(v);}else if(k==='blank'){this.blank();}else if(k==='gel'){this.gelR=+v;this.render();}else if(k==='tgt'){this.target=v;this.render();}else if(k==='shotmode'){if(this.shot)this.shot.mode=v;this.sync();}else if(k==='fire')this.fire();else if(k==='view'){this.setView(v,true);}else if(k==='who'){this.who=v;for(const x of this.host.querySelectorAll('[data-dz^="who:"]'))x.classList.toggle('on',x.dataset.dz==='who:'+v);this.render();}
+      if(k==='close'){if(this.engin){const cb=this.engin.onCancel;this.engin=null;this.close();cb?.();return;}if(this.onExit)this.onExit();else this.close();}else if(k==='p3d'){this.plan3d=!this.plan3d;try{localStorage.setItem('okm-plan3d',this.plan3d?'1':'0');}catch(e){}this.build();this.render();this.draw(0);}else if(k==='armor'){this.toArmor?.();}else if(k==='preset'){this.applyPreset(v);}else if(k==='blank'){this.blank();}else if(k==='gel'){this.gelR=+v;this.render();}else if(k==='tgt'){this.target=v;this.render();}else if(k==='shotmode'){if(this.shot)this.shot.mode=v;this.sync();}else if(k==='fire')this.fire();else if(k==='view'){this.setView(v,true);}else if(k==='who'){this.who=v;for(const x of this.host.querySelectorAll('[data-dz^="who:"]'))x.classList.toggle('on',x.dataset.dz==='who:'+v);this.render();}
+      else if(k==='go'&&this.engin){const cb=this.engin.onDone,p=JSON.parse(JSON.stringify(this.p));this.engin=null;this.close();cb?.(p);}
       else if(k==='go'){const r=this.propose(this.p,this.name);this.say(r.ok?r.text:r.why.join(' · '),r.ok?'good':'bad');if(r.ok){if(this.onExit)this.onExit();else this.close();}}
       else if(k==='cx'){const [,f,val]=b.dataset.dz.split(':');this.effStart('cons');this.detachKit();const cur=String(this.p.cons).startsWith('cx:')?cxParse(this.p.cons):{...CX0};cur[f]=['cxtr','cxinc','cxhe','cxn','cxs'].includes(f)?+val:val;this.p.cons=cxKey(cur);this.help='cons';this.build();this.render();this.fire();}
       else if(k==='mod'){this.effStart('mod-'+v);this.detachKit();this.p.mods=toggleMod(this.p.mods,v);this.help='mod-'+v;this.sync();this.render();this.fire();}
@@ -136,8 +137,10 @@ export class DesignerAncien{
   blank(){this.kitSynced=null;this.p={d:1.5,l:5,nose:'ogive',base:'plat',cons:'fmj',c:.02,L:100,twist:60,action:'verrou',rof:300,mag:1,feed:'interne',heavy:false,burn:1,wallx:1,jacket:1,core:0,hef:.3,fragm:4,zero:40,prop:'cartouche',fill:'tolite',shell:'lisse',fuse:'impact',mods:[],noseScale:1,boat:0,rocketBurn:1,nozzle:1,...CHOICE,feed:'interne'};
     this.name=`Conception ${Object.keys(this.world().s.designs).length+1}`;this.help='cons';this.shotKey='';this.build();this.render();this.fire();}
   applyPreset(k){this.kitSynced=null;const P=PRESETS[k];if(!P)return;this.p=presetP(k);this.name=P.name;this.help='cons';this.shotKey='';this.build();this.render();this.fire();}
-  load(id){const d=this.world().design(id)||this.world().design('mle1');this.ref=d;this.kitSynced=null;this.p=JSON.parse(JSON.stringify(d.p));this.p.burn??=1;this.p.noseScale??=1;this.p.boat??=d.p.base==='bt'?.3:0;this.p.rocketBurn??=1;this.p.nozzle??=1;this.p.mods=fitMods(this.p.mods);this.p.zero??=50;this.p.prop??='cartouche';this.p.fill??='tolite';this.p.shell??='lisse';this.p.fuse??='impact';this.p.fragm??=4;for(const [k,v] of Object.entries(CHOICE))this.p[k]??=v;
-    this.name=d.base?`${d.name.replace(/Mle \d+/,'')}Modèle ${Object.keys(this.world().s.designs).length}`.trim():`${d.name} (variante)`;this.build();this.render();this.fire();}
+  // (V12.8) l'arme d'un engin : retouchée ici, puis rendue à sa tourelle (onDone) — pas de programme, pas de prototype
+  editP(p,name,{onDone,onCancel}={}){this.engin={onDone,onCancel,p0:JSON.parse(JSON.stringify(p)),name};this.show(null);}
+  load(id){const E=this.engin?.p0?{id:'(engin)',name:this.engin.name,p:this.engin.p0,base:false,engin:true}:null;if(E)this.engin.p0=null;const d=E||this.world().design(id)||this.world().design('mle1');this.ref=d;this.kitSynced=null;this.p=JSON.parse(JSON.stringify(d.p));this.p.burn??=1;this.p.noseScale??=1;this.p.boat??=d.p.base==='bt'?.3:0;this.p.rocketBurn??=1;this.p.nozzle??=1;this.p.mods=fitMods(this.p.mods);this.p.zero??=50;this.p.prop??='cartouche';this.p.fill??='tolite';this.p.shell??='lisse';this.p.fuse??='impact';this.p.fragm??=4;for(const [k,v] of Object.entries(CHOICE))this.p[k]??=v;
+    this.name=d.engin?d.name:d.base?`${d.name.replace(/Mle \d+/,'')}Modèle ${Object.keys(this.world().s.designs).length}`.trim():`${d.name} (variante)`;this.build();this.render();this.fire();}
   say(t,tone){const el=this.host.querySelector('.dz-say');if(el){el.textContent=t;el.className='dz-say '+tone;}}
   // la page, une fois ; ensuite on ne change que les chiffres et les dessins
   build(){const p=this.p;const W=this.world();const ds=Object.values(W.s.designs).filter(d=>d.status!=='perdu'&&d.status!=='reference'&&d.status!=='engin'&&d.f!=='beee');
@@ -265,7 +268,7 @@ export class DesignerAncien{
           <h3>Les chiffres <small>face à ${esc(this.ref.name)}</small></h3><div id="dz-tab" class="dz-tab"></div>
           <h3>Le verdict</h3><ul id="dz-ver" class="dz-ver"></ul>
           <h3>Ce que ça coûte</h3><div id="dz-cost" class="dz-cost"></div>
-          <div class="dz-go"><button data-dz="go" id="dz-go">Lancer le programme</button><p class="dz-say quiet small"></p></div>
+          <div class="dz-go"><button data-dz="go" id="dz-go">${this.engin?'Monter sur l’engin':'Lancer le programme'}</button><p class="dz-say quiet small"></p></div>
         </section></div></div>`;
     this.sync();this.applyView();}
   read(el){const numeric=el.id.startsWith('dz-num-'),id=el.id.replace(numeric?'dz-num-':'dz-','');if(numeric&&el.value==='')return;if(id==='name'){this.name=el.value;return;}if(!(id==='heavy'||id==='c'||id in LIMITS||id in this.p))return;this.detachKit();if(id==='heavy'){this.p.heavy=el.checked;this.help='heavy';}else if(id==='c'){this.p.c=numeric?+el.value:sToC(+el.value);this.help='c';}else{this.p[id]=numeric?Math.max(LIMITS[id][0],Math.min(LIMITS[id][1],+el.value)):+el.value;this.help=id;}this.sync();this.render();}
@@ -323,7 +326,7 @@ export class DesignerAncien{
     $('dz-cost').innerHTML=`<div class="kv"><span>Une caisse (${D.perCrate} coups)</span><b>${costs(cc)}</b></div><div class="kv"><span>Une arme</span><b>${costs(wc)} · ${fmt(D.hoursW/2,1)} h</b></div><div class="kv"><span>Le programme</span><b>${costs(pc)} · ${Math.round(pv.work)} heures-savants</b></div>
       <ul class="dz-prog">${pv.tasks.map(t=>`<li class="${t.n>0?'new':''}"><span>${ROLE_ICO[t.role]||''} ${esc(t.label)}</span><small>${t.gap?esc(t.gap)+' · ':''}${Math.round(t.work)} h</small></li>`).join('')}</ul>
       <p class="quiet small">Les savants en discutent en réunion de lancement et proposent des améliorations ; vous tranchez. Adoptée, il faut encore l’outillage de la manufacture (4 pièces, 1 fer, 6 h).</p>`;
-    const bur=this.bureau();const can=bur?W.canPropose(bur,p):{ok:false,why:['un bureau d’études bâti (choisissez-le, puis « Concevoir »)']};const go=$('dz-go');go.disabled=!can.ok;go.title=can.ok?'':can.why.join(', ');
+    const bur=this.bureau();const can=bur?W.canPropose(bur,p):{ok:false,why:['un bureau d’études bâti (choisissez-le, puis « Concevoir »)']};const go=$('dz-go');go.disabled=!can.ok&&!this.engin;go.title=can.ok||this.engin?'':can.why.join(', ');
     if(!can.ok)this.say(`Il faut : ${can.why.join(' · ')}`,'warn');else this.say(`Prêt : ${pv.tasks.length} tâches, ${Math.round(pv.work)} heures-savants${pv.nov>0?` — ${pv.tasks.filter(t=>t.n>0).length} au-delà de ce qu’on sait`:''}. Réunion de lancement au centre de recherche.`,'');
     this.draw(0);this.drawPrec(D);this.drawPen(D,R);this.drawGel(D);this.drawZone(D);this.shoot(D);}
   // ---------- le tir d'essai : la balle (ou la gerbe) entre dans un Bèè, à travers sa protection s'il en a une ----------
@@ -617,6 +620,7 @@ export class Designer{
   // la conception en cours dans l'atelier (pas encore enregistrée), pour la nomenclature du catalogue ; null si l'atelier n'est pas affiché
   draft(){if(this.host.hidden||!this.host.querySelector('#designer')||!this.classic.p)return null;return {p:JSON.parse(JSON.stringify(this.classic.p)),name:this.classic.name};}
   show(fromId='mle1'){this.classic.show(fromId);}
+  editP(p,name,cb){this.classic.editP(p,name,cb);}
   close(){this.classic.close();}
 }
 

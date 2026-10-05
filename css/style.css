@@ -366,3 +366,27 @@ body.labmode .buildbar{display:none}
 .rhist{margin:2px 0;padding-left:18px;font-size:11.5px}.rhist li.ok{color:var(--good)}.rhist li.ko{color:var(--muted)}.rhist small{color:var(--muted)}.rcalc{grid-column:1/-1}
 /* (V12.7) le profil d'une conception : l'arme en 3D sur son plateau, la munition en coupe ; « passer » les répliques d'une réunion */
 .rprofil{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start}.rprofil img{display:block;flex:1 1 220px;min-width:0;max-width:440px;height:auto;border-radius:8px}.rm-skip{align-self:flex-end;position:sticky;top:0}
+
+/* V12.8 : le bureau des engins */
+.vz{height:calc(100vh - 32px);width:min(1560px,100%)}
+.vz .vz-body{display:grid;grid-template-columns:minmax(300px,360px) minmax(0,1fr) minmax(270px,330px);gap:12px;padding:10px 14px;min-height:0;flex:1;overflow:hidden}
+.vz-ctl,.vz-side{overflow:auto;min-height:0;padding-right:4px}
+.vz-ctl details{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:0 0 8px;padding:6px 10px}
+.vz-ctl summary{font-weight:800;cursor:pointer}
+.vz-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin:6px 0}
+.vz-card{background:color-mix(in srgb,var(--ink) 7%,transparent);color:var(--ink);text-align:left;padding:5px 7px;border-radius:8px;font-weight:600}
+.vz-card small{display:block;font-weight:400;color:var(--muted);font-size:10.5px}
+.vz-card.on{background:var(--teal);color:#fffaf0}.vz-card.on small{color:#e8f4f2}
+.vz-plate{border-top:1px dashed var(--line);padding-top:4px;margin-top:4px}
+.vz-item{border:1px solid var(--line);border-radius:8px;padding:5px 8px;margin:6px 0;background:var(--paper2)}
+.vz-item summary{font-weight:700}
+.vz-mid{display:grid;grid-template-rows:minmax(0,1.5fr) minmax(0,1fr);gap:8px;min-height:0}
+.vz-3d,.vz-top{position:relative;background:linear-gradient(#26343c,#151f26);border-radius:10px;overflow:hidden;min-height:0}
+.vz-3d canvas,.vz-top canvas{width:100%;height:100%;display:block;touch-action:none}
+.vz-tools{position:absolute;left:8px;top:8px;display:flex;gap:8px;align-items:center}.vz-tools small{color:#cfd8dc}
+.vz-top small{position:absolute;left:8px;bottom:6px;color:#cfd8dc}
+.vz-side h3{margin:2px 0}
+.vz-kv{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:2px 0;border-bottom:1px dotted var(--line)}.vz-kv b{text-align:right}
+.vz-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;margin:4px 0 8px}
+.vz-legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin:0 3px 0 8px;vertical-align:middle}
+.vz-side .bad{color:var(--red)}.vz-side .warn{color:var(--orange2)}.vz-side .good{color:var(--good)}

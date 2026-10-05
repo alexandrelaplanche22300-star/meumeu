@@ -21,6 +21,7 @@ import {resumeWorld} from './persistence.js';
 import {operationUI} from './operations-ui.js';
 import {VEHDEF} from './vehicules.js';
 import {researchUI} from './research-ui.js';
+import {EnginsBureau} from './engins-ui.js';
 
 const $=s=>document.querySelector(s);
 // Une erreur de démarrage ne doit plus laisser une fenêtre muette : elle est
@@ -98,6 +99,12 @@ designer.close=(orig=>function(){orig.call(this);if(ui.dzSpeed!=null){setSpeed(u
 function pauseForBureau(){if(ui.dzSpeed==null){ui.dzSpeed=ui.speed;setSpeed(0);}}
 function resumeAfterBureau(){if(ui.dzSpeed!=null&&designer.host.hidden){setSpeed(ui.dzSpeed);ui.dzSpeed=null;}renderPanel(true);}
 function openDesigner(from){pauseForBureau();designer.show(from);}
+// (V12.8) le bureau des engins : ses armes se retouchent au concepteur d'armes (mode engin) ; une conception enregistrée devient un prototype d'engin
+const engins=new EnginsBureau($('#vz'),{world:()=>world,
+  editWeapon:(p,name,onDone,onCancel)=>{designer.editP(p,name,{onDone:q=>{pauseForBureau();onDone(q);},onCancel:()=>{pauseForBureau();onCancel?.();}});},
+  save:(v,name)=>{const s=world.s;s.vdesigns??={};const id='e'+world.id();s.vdesigns[id]={id,f:'meumeu',name,status:'prototype',v,t:s.t};audio.play('built');say(`Conception d’engin enregistrée : ${name}.`,'good');return {ok:true,text:`« ${name} » enregistrée au bureau d’études.`};}});
+engins.close=(orig=>function(){orig.call(this);resumeAfterBureau();})(engins.close);
+function openEngins(){pauseForBureau();engins.show();}
 function openArmorer(from){pauseForBureau();armorer.show(from);}
 
 // ---------- les mots ----------
@@ -411,7 +418,7 @@ function buildingPane(b){if(b.f==='beee'&&world.s.fog!==false&&!world.visibleAt(
       <p class="quiet small">Il s’arrête quand son dépôt de sortie en a ${lim||'…'} (il en a ${n0(out?.stock[k0]||0)}).</p></section>`;}
     h+=linksPane(b);}
   if(B.design){const ds=Object.values(world.s.designs).filter(d=>d.f==='meumeu'&&!d.relance),nb=s=>ds.filter(d=>d.status===s).length;h+=`<section class="pane"><h2>Bureau d’études</h2>${b.proto?`<p>Prototype en fabrication : <b>${esc(world.design(b.proto.id)?.name)}</b> — encore ${hours(b.proto.left)}.</p>`:''}
-    <div class="row"><button data-act="design">Concevoir une arme</button><button data-act="armor">Concevoir une protection</button></div>${b.protoA?`<p>Protection en fabrication : <b>${esc(world.s.armors[b.protoA.id]?.name)}</b> — encore ${hours(b.protoA.left)}.</p>`:''}<div class="row"></div>
+    <div class="row"><button data-act="design">Concevoir une arme</button><button data-act="armor">Concevoir une protection</button><button data-act="engin">Concevoir un engin</button></div>${b.protoA?`<p>Protection en fabrication : <b>${esc(world.s.armors[b.protoA.id]?.name)}</b> — encore ${hours(b.protoA.left)}.</p>`:''}<div class="row"></div>
     <p class="quiet small">${nb('adopte')} conception${nb('adopte')>1?'s':''} adoptée${nb('adopte')>1?'s':''}${nb('prototype')?`, ${nb('prototype')} en étude`:''}${nb('perdu')?`, <span class="warn">${nb('perdu')} à relancer</span>`:''}.</p></section>`;}
   if(B.archives){const man=world.s.buildings.find(x=>x.f==='meumeu'&&x.k==='manufacture'&&!x.ruin);const far=man?Math.hypot(man.i-b.i,man.j-b.j):null;h+=`<section class="pane"><p>${man?(far>=20?`À ${Math.round(far)} cases de la manufacture : les plans sont à l’abri.`:`<span class="warn">Trop près de la manufacture (${Math.round(far)} cases) : une même bombe emporterait tout.</span>`):'Pas encore de manufacture.'}</p></section>`;}
   if(B.ward){const L=b.wardList||[];h+=`<section class="pane"><h2>${B.tent?'Sous la tente':'Blessés'} <small>${L.length}/${B.ward} lits${B.tent?' · on y opère, on y stabilise':B.ward<=4?' · un poste de secours : on y guérit lentement':''}</small></h2>${L.map(u=>{const tr=triage(u.h);return `<div class="kv"><span><i class="tri" style="background:${tr.c}"></i><a data-fiche="${u.id}">${esc(unitName(u))}</a></span><b>${Math.round(u.h.blood/BLOOD*100)} % de sang${needsSurgery(u.h)?' · <span class="bad">à opérer</span>':''}${u.h.legs||u.h.arms?` · os : ${Math.max(0,Math.round(72-(u.h.bone||0)))} h`:''}</b></div>`;}).join('')||`<p class="quiet small">${B.tent?'Personne. Les infirmiers y portent ceux qui tombent près d’ici ; un médecin y opère.':'Personne. Les soignants y ramènent ceux qui sont à terre ; les blessés qui le peuvent y viennent d’eux-mêmes.'}</p>`}
@@ -703,6 +710,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   else if(a==='dissolve'){const u=world.unit([...view.sel][0]);if(u?.sq){const n=world.squad(u.sq)?.name;world.dissolve(u.sq);say(`${n} dissoute.`);}}
   else if(a==='to-hosp'){const u=world.unit([...view.sel][0]);const hb=u&&(world.hospitalFor(u)||world.careFor(u));if(hb){u.task={kind:'hosp',b:hb.id};u.path=null;say(`${unitName(u)} va vers ${BUILDINGS[hb.k].name.toLowerCase()}.`);}else say('Aucun lit libre : une tente médicale, un hôpital, ou le poste de secours d’un centre-ville.','bad');}
   else if(a==='design')openDesigner('mle1');
+  else if(a==='engin')openEngins();
   else if(a==='armor')openArmorer('gilet');
   else if(a==='smoke'){const n=world.smokeOrder([...view.sel]);say(n?`${n} fumigène${n>1?'s':''} lancé${n>1?'s':''}.`:'Plus de fumigène.',n?'':'bad');}
   else if(a==='send-idle'){const bd=world.building(view.selB);const B=BUILDINGS[bd.k];const n=B.workers-world.workers(bd).length;const ids=world.idle().sort((p,q)=>Math.hypot(p.x-bd.i,p.y-bd.j)-Math.hypot(q.x-bd.i,q.y-bd.j)).slice(0,n).map(u=>u.id);const r=world.order(ids,{type:'building',id:bd.id});say(r.ok?r.text:r.why[0]);}
@@ -910,7 +918,7 @@ await loadManifest();
   const c=world.capital();if(c)view.lookAt(c.i+2,c.j+2);if(P.get('speed'))setSpeed(+P.get('speed'));if(P.get('at')){const [x,y,z]=P.get('at').split(',').map(Number);view.lookAt(x,y);if(z)view.zoom=z;}}
 try{setSpeed(ui.speed);renderPanel(true);}catch(e){bootError({error:e});}
 requestAnimationFrame(frame);
-window.world=()=>world;window.view=view;window.ui=ui;window.audio=audio;window.xray=xray;window.designer=designer;window.toggleCine=toggleCine;window.toggle3d=toggle3d;window.room=room;window.openModal=openModal;window.renderPanel=renderPanel;window.openFiche=id=>openFiche(id);
+window.world=()=>world;window.view=view;window.ui=ui;window.audio=audio;window.xray=xray;window.designer=designer;window.engins=engins;window.toggleCine=toggleCine;window.toggle3d=toggle3d;window.room=room;window.openModal=openModal;window.renderPanel=renderPanel;window.openFiche=id=>openFiche(id);
 // (V12.7) un démarrage commandé de l'extérieur : demarrage.json ({"partie":"recherche","id":"…"}) — une seule fois par id
 fetch('demarrage.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(d=>{if(!d?.partie||!d.id)return;let seen=null;try{seen=localStorage.getItem('okm-demarrage');}catch(e){}if(seen===d.id)return;try{localStorage.setItem('okm-demarrage',d.id);}catch(e){}
   if(d.partie==='recherche'){setWorld(new World(undefined,{map:'v2',assisted:true,sci:true}));say('Partie de test de la recherche : carte V2, jour 1, centre de recherche, six savants, mines sur tous les filons.','good');}}).catch(()=>{});
