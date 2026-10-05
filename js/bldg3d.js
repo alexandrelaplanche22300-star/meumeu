@@ -183,6 +183,8 @@ const MAKERS={
 // sur la façade (+Z) dès deux terrasses, et au sommet le corps du bâtiment, tout en pierre, sans couleurs ; un détail dit ce qu'il fait (cheminée,
 // silo, puits de mine, portique de gare, champs, croix de l'hôpital…). Les Bèè gardent leurs bâtiments ; le moulin et la tente gardent les leurs.
 const AZ={L:0xcdb68a,Ls:0xa8936a,Lt:0xe0cfa4,Sb:0x8a7a5c,dark:0x2e2822,bois:0x7a5a38,vert:0x6f8a3c};
+// (V12.7) la palette des bâtiments de recherche : pierre blanche, vert-de-gris, cuivre, verre, brique, bleu de plan
+const SCI={blanc:0xeee8da,blancD:0xd6cfbe,verd:0x5f9c8a,cuivre:0xc8784a,laiton:0xc9a240,acier:0x8a9094,verre:0x8fc8d8,verre2:0x6fb0c8,verreV:0xa6dca8,brique:0xa8553e,noir:0x2a2826,jaune:0xe8c030,creme:0xeadfc4,plan:0x3f6c9c};
 // les terrasses : n niveaux de h, de la taille de l'empreinte (W × D) au plus haut (×k) ; rend le dessus {y, w, d, z}
 function azBase(B,W,D,n,h=.22,k=.7){let y=.05,w=W*.94,d=D*.94,z=0;B.box(0,0,0,W,.05,D,0xb9ad8e);
   for(let i=0;i<n;i++){const f=n>1?1-(1-k)*i/(n-1):1,ww=W*.94*f,dd=D*.94*f,zz=-D*.03*i;
@@ -220,11 +222,59 @@ const AZTEC={
   garage:(W,D)=>{const B=new Build(),t=azBase(B,W,D,1,.16);azBlock(B,0,t.y,t.z-.1,W*.8,.7,D*.6,false);for(const x of [-.22,.22])B.box(x*W,t.y,t.z-.1+D*.3+.005,W*.3,.5,.03,AZ.dark);azFret(B,0,t.y+.62,t.z-.1+D*.3+.01,W*.76);return B.geo();},
   hopital:(W,D)=>{const B=new Build(),t=azBase(B,W,D,2,.16,.75);azBlock(B,0,t.y,t.z-.05,t.w*.85,.5,t.d*.72);const zf=t.z-.05+t.d*.36+.02;B.box(0,t.y+.18,zf,.26,.07,.03,AZ.Lt).box(0,t.y+.1,zf,.07,.24,.03,AZ.Lt);return B.geo();},
   archives:(W,D)=>{const B=new Build(),t=azBase(B,W,D,2,.16,.75);azBlock(B,0,t.y,t.z-.08,t.w*.75,.5,t.d*.6);for(let i=0;i<4;i++)B.box(-t.w*.3+i*t.w*.2,t.y,t.z-.08+t.d*.36,.07,.5,.07,AZ.Lt);return B.geo();},
-  centre_recherche:(W,D)=>{const B=new Build(),t=azBase(B,W,D,2,.15,.84);const bz=t.z-.05;azBlock(B,-t.w*.16,t.y,bz,t.w*.6,.5,t.d*.72,false);
-    azFret(B,-t.w*.16,t.y+.42,bz+t.d*.36+.01,t.w*.56);for(let i=0;i<5;i++)B.box(-t.w*.42+i*t.w*.13,t.y,bz+t.d*.36+.1,.08,.42,.08,AZ.Lt);B.box(-t.w*.16,t.y+.42,bz+t.d*.36+.1,t.w*.62,.05,.14,AZ.Ls);
-    B.box(-t.w*.16,t.y,bz+t.d*.36+.006,.26,.3,.03,AZ.dark);const ox=t.w*.3;B.cyl(ox,t.y,bz,.6,.56,.12,AZ.Ls,16);B.cyl(ox,t.y+.12,bz,.44,.42,.48,AZ.L,16);B.cyl(ox,t.y+.38,bz,.45,.45,.04,AZ.Lt,16);
-    B.dome(ox,t.y+.6,bz,.4,AZ.Ls);B.rod([ox+.1,t.y+.82,bz+.1],[ox+.42,t.y+1.02,bz+.36],.035,0x6a6a62);B.box(ox,t.y+.6,bz+.38,.12,.2,.05,AZ.dark);return B.geo();},
-  labo:(W,D)=>{const B=new Build(),t=azBase(B,W,D,2,.16,.75);azBlock(B,0,t.y,t.z-.05,t.w*.8,.45,t.d*.7);B.cyl(t.w*.25,t.y+.5,t.z-.1,.2,.22,.12,AZ.L,12);B.dome(t.w*.25,t.y+.62,t.z-.1,.2,AZ.Ls);return B.geo();},
+  // (V12.7) les bâtiments de recherche : à la taille de leur intérieur (les murs au bord de l'emprise, comme dans la vue recherche) et d'une
+  // silhouette qu'aucun autre bâtiment n'a — on les reconnaît de loin
+  // le centre de recherche : pierre blanche et pilastres vert-de-gris, verrière en dents de scie, observatoire à coupole de cuivre et sa lunette,
+  // horloge au fronton, paratonnerre à boule de cuivre
+  centre_recherche:(W,D)=>{const B=new Build(),w=W*.96,d=D*.96,H=.95,top=.06+H;B.box(0,0,0,W,.06,D,0xb9ad8e);
+    B.box(0,.06,0,w,H,d,SCI.blanc);B.box(0,.06,0,w*1.012,.2,d*1.012,AZ.Ls);B.box(0,top,0,w*1.03,.07,d*1.03,AZ.Lt);B.box(0,top+.07,0,w*.98,.05,d*.98,SCI.blancD);
+    for(let i=0;i<=6;i++){const x=-w/2+i*w/6;B.box(x,.06,d/2+.02,.1,H+.02,.06,SCI.verd);}
+    for(let i=0;i<6;i++){const x=-w/2+(i+.5)*w/6;if(i===2||i===3)continue;B.box(x,.36,d/2+.012,w/6*.6,.44,.02,SCI.verre);B.box(x,.8,d/2+.02,w/6*.7,.05,.03,AZ.Lt);B.box(x,.58,d/2+.022,.02,.44,.02,SCI.blancD);}
+    for(let j=0;j<4;j++){const z=-d/2+(j+.5)*d/4;B.box(w/2+.012,.36,z,.02,.44,d/4*.6,SCI.verre);B.box(w/2+.02,.8,z,.03,.05,d/4*.7,AZ.Lt);}
+    // la grande porte, son fronton, l'horloge
+    B.box(0,.06,d/2+.014,.5,.56,.03,AZ.dark);B.box(0,.62,d/2+.05,.74,.06,.1,AZ.Lt);B.gable(0,.68,d/2+.05,.74,.1,.2,SCI.verd,'x',.02);
+    B.box(0,top-.36,d/2+.03,.32,.32,.03,AZ.Lt);B.box(0,top-.34,d/2+.05,.26,.26,.02,0xf6f2e2);B.box(0,top-.21,d/2+.065,.02,.1,.01,AZ.dark);B.box(.03,top-.21,d/2+.065,.08,.02,.01,AZ.dark);
+    // la verrière : des sheds vitrés sur l'aile gauche
+    for(let i=0;i<4;i++){const x=-w/2+w*.06+(i+.5)*w*.5/4;B.gable(x,top+.12,-d*.04,w*.5/4*.96,d*.8,.34,i%2?SCI.verre:SCI.verre2,'z',.02);}
+    // l'observatoire : sa tour, sa coupole, la fente, la lunette
+    const ox=w*.27,oz=-d*.12;B.cyl(ox,top+.12,oz,.66,.66,.36,SCI.blanc,24);B.cyl(ox,top+.48,oz,.69,.69,.05,AZ.Lt,24);B.dome(ox,top+.53,oz,.62,SCI.verd);
+    B.box(ox,top+.62,oz+.36,.16,.46,.12,AZ.dark);B.rod([ox,top+.8,oz+.1],[ox+.1,top+1.28,oz+.6],.07,0x55554f);B.cyl(ox+.1,top+1.26,oz+.6,.08,.08,.04,0xd8c070,10);
+    // le paratonnerre, la boule de cuivre ; la cheminée et sa vapeur
+    const px=-w*.43,pz=-d*.36;B.rod([px,top+.12,pz],[px,top+1.35,pz],.025,0x5a5a56);B.dome(px,top+1.35,pz,.08,SCI.cuivre);B.dome(px,top+1.35,pz,-.08,SCI.cuivre);
+    for(const a of [0,2.1,4.2])B.rod([px,top+1.1,pz],[px+Math.cos(a)*.14,top+1.2,pz+Math.sin(a)*.14],.012,SCI.cuivre);
+    B.box(-w*.05,top+.12,-d*.38,.16,.5,.16,SCI.blancD);B.dome(-w*.05,top+.7,-d*.38,.1,0xf2f2ee);B.dome(-w*.02,top+.82,-d*.36,.13,0xeeeeea);
+    return B.geo();},
+  // le laboratoire de chimie : brique rouge, bande de danger, hublots verts ; sur le toit les cuves de cuivre et d'acier, les tuyaux, le grand ballon
+  // de verre, et deux hautes cheminées aux fumées colorées
+  labo:(W,D)=>{const B=new Build(),w=W*.96,d=D*.96,H=.85,top=.06+H;B.box(0,0,0,W,.06,D,0xb9ad8e);
+    B.box(0,.06,0,w,H,d,SCI.brique);B.box(0,.06,0,w*1.012,.14,d*1.012,0x3c3a36);
+    for(let i=0;i<14;i++){const x=-w/2+(i+.5)*w/14;B.box(x,.22,d/2+.01,w/14*.92,.06,.012,i%2?SCI.noir:SCI.jaune);}for(let i=0;i<14;i++){const z=-d/2+(i+.5)*d/14;B.box(w/2+.01,.22,z,.012,.06,d/14*.92,i%2?SCI.noir:SCI.jaune);}
+    for(const x of [-.32,0,.32]){B.box(x*w,.42,d/2+.012,.3,.3,.02,SCI.laiton);B.box(x*w,.44,d/2+.02,.24,.24,.02,SCI.verreV);}
+    for(const z of [-.3,0,.3]){B.box(w/2+.012,.42,z*d,.02,.3,.3,SCI.laiton);B.box(w/2+.02,.44,z*d,.02,.24,.24,SCI.verreV);}
+    B.box(0,top,0,w*1.02,.06,d*1.02,AZ.Lt);B.box(0,top+.06,0,w*.96,.04,d*.96,0x6c6862);B.box(w*.3,.06,d/2+.014,.3,.46,.03,AZ.dark);
+    // les cuves, les tuyaux
+    B.cyl(-w*.24,top+.1,-d*.2,.3,.3,.48,SCI.cuivre,16);B.dome(-w*.24,top+.58,-d*.2,.3,SCI.cuivre);B.cyl(-w*.24,top+.32,-d*.2,.31,.31,.04,SCI.laiton,16);
+    B.cyl(w*.1,top+.1,-d*.28,.2,.2,.34,SCI.acier,12);B.dome(w*.1,top+.44,-d*.28,.2,SCI.acier);
+    B.rod([-w*.24,top+.82,-d*.2],[w*.1,top+.6,-d*.28],.035,SCI.cuivre);B.rod([w*.1,top+.3,-d*.28],[w*.1,top+.3,d*.1],.03,SCI.acier);B.rod([w*.1,top+.3,d*.1],[-w*.15,top+.3,d*.2],.03,SCI.acier);
+    // le grand ballon de verre (une distillation sur le toit)
+    B.cyl(-w*.15,top+.1,d*.22,.05,.05,.12,SCI.laiton,8);B.dome(-w*.15,top+.42,d*.22,.22,SCI.verreV);B.dome(-w*.15,top+.42,d*.22,-.22,SCI.verreV);B.cyl(-w*.15,top+.62,d*.22,.05,.04,.24,SCI.verreV,8);
+    // les cheminées, leurs fumées
+    for(const [x,z,c] of [[w*.34,d*.22,0x9fe08a],[w*.36,-d*.3,0xc89ae8]]){B.cyl(x,top+.1,z,.09,.12,1.05,0x7a3a2a,10);B.cyl(x,top+1.15,z,.13,.13,.06,0x3c3a36,10);
+      B.dome(x,top+1.28,z,.12,c);B.dome(x+.06,top+1.42,z-.03,.15,c);B.dome(x+.14,top+1.58,z-.06,.17,c);}
+    return B.geo();},
+  // le bureau d'études : un atelier de dessin crème et bleu de plan, ses sheds vitrés (la lumière du nord sur les planches), ses grandes baies,
+  // un engrenage au fronton, une girouette en forme de fusil
+  armurerie:(W,D)=>{const B=new Build(),w=W*.96,d=D*.96,H=.8,top=.06+H;B.box(0,0,0,W,.06,D,0xb9ad8e);
+    B.box(0,.06,0,w,H,d,SCI.creme);B.box(0,.06,0,w*1.012,.14,d*1.012,AZ.Ls);B.box(0,top,0,w*1.03,.05,d*1.03,SCI.plan);
+    for(const x of [-.25,.25]){B.box(x*w,.28,d/2+.012,w*.36,.4,.02,SCI.verre);B.box(x*w,.48,d/2+.02,.02,.4,.02,SCI.plan);B.box(x*w,.7,d/2+.02,w*.4,.04,.03,SCI.plan);}
+    B.box(w/2+.012,.28,-d*.1,.02,.4,d*.55,SCI.verre);B.box(w/2+.02,.7,-d*.1,.03,.04,d*.6,SCI.plan);B.box(w/2+.014,.06,d*.3,.03,.5,.26,AZ.dark);
+    // l'engrenage
+    {const g=new THREE.TorusGeometry(.14,.045,6,16);g.translate(0,.62,d/2+.04);B.add(g,SCI.plan);for(let k=0;k<8;k++){const a=k/8*Math.PI*2;B.box(Math.cos(a)*.2,.62-.035+Math.sin(a)*.2,d/2+.04,.06,.07,.04,SCI.plan);}B.box(0,.585,d/2+.04,.07,.07,.05,0xd8c070);}
+    // les sheds vitrés
+    for(let i=0;i<3;i++){const x=-w/2+(i+.5)*w/3;B.gable(x,top+.05,0,w/3*.96,d*.9,.3,i%2?SCI.verre2:SCI.verre,'z',.02);}
+    // la girouette : un mât, un fusil en guise de flèche
+    B.rod([w*.38,top+.05,-d*.38],[w*.38,top+.85,-d*.38],.02,0x4a4a46);B.box(w*.38,top+.82,-d*.38,.42,.03,.035,0x3a3a36);B.box(w*.38-.12,top+.8,-d*.38,.14,.06,.04,0x7a5a38);
+    return B.geo();},
 };
 // les modèles aztèques, prêts pour la scène : { ':az_nom': {ext, geo} } ; le centre-ville, c'est la pyramide
 export function aztecModels(){const out={};for(const [k,mk] of Object.entries(AZTEC)){const [W,D]=BUILDINGS[k]?.size||[2,2];const geo=mk(W,D);const b=geo.boundingBox;out[':az_'+k]={ext:[b.max.x-b.min.x,b.max.y,b.max.z-b.min.z],geo};}return out;}

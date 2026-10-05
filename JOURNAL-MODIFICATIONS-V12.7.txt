@@ -115,3 +115,10 @@ SUITE 3 : DES DIALOGUES VIVANTS, PLUS DE SAVANTS
 - research.js : sceneMake (thème selon ce qui se passe, scène dont tous les champs sont connus, pas rejouée parmi les 24 dernières) ; un troisième
   savant dans la conversation ; les heures au singulier/pluriel.
 - world.js : la partie de test « Recherche » a 13 savants (4 ingénieurs, 4 chimistes, 5 physiciens, de l’assistant à la sommité).
+
+SUITE 4 : LES EXTÉRIEURS DES BÂTIMENTS DE RECHERCHE
+- bldg3d.js (AZTEC) : centre_recherche, labo, armurerie refaits à la taille de leur intérieur (murs au bord de l’emprise) et d’une silhouette à eux :
+  le centre (pierre blanche, pilastres vert-de-gris, verrière en sheds, observatoire à coupole et lunette, horloge, paratonnerre, vapeur), le
+  laboratoire de chimie (brique, bande de danger, hublots verts, cuves de cuivre et d’acier, tuyaux, ballon de verre, cheminées aux fumées verte et
+  violette), le bureau d’études (crème et bleu de plan, sheds vitrés, baies, engrenage, girouette-fusil). Palette SCI. Captures :
+  test/_outils_captures/exterieurs_recherche.cjs.
