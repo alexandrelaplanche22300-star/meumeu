@@ -180,7 +180,7 @@ export class World{
     // la grille par camp (mêmes carrés de 8) : chercher un ennemi ne parcourt plus ses propres camarades — mesuré à J33 (3 745 unités, 2 305 gardes bèè) :
     // le rappel de nearestEnemy et la détection prenaient 12 % du temps à écarter des alliés
     {const fc=g.fc??={meumeu:Array.from({length:M*M},()=>[]),beee:Array.from({length:M*M},()=>[])},fu=g.fu??={meumeu:[],beee:[]};for(const f in fu){for(const c of fu[f])c.length=0;fu[f].length=0;}
-     for(const u of this.s.units){if(!(u.hp>0))continue;const A=fc[u.f];if(!A)continue;const ci=Math.min(M-1,Math.max(0,Math.floor(u.x/C))),cj=Math.min(M-1,Math.max(0,Math.floor(u.y/C)));const c=A[cj*M+ci];if(!c.length)fu[u.f].push(c);c.push(u);}}
+     for(const u of this.s.units){if(!(u.hp>0)||u.inLab!=null)continue;/* (V12.7 : un savant au laboratoire n’est ni guetteur ni cible) */const A=fc[u.f];if(!A)continue;const ci=Math.min(M-1,Math.max(0,Math.floor(u.x/C))),cj=Math.min(M-1,Math.max(0,Math.floor(u.y/C)));const c=A[cj*M+ci];if(!c.length)fu[u.f].push(c);c.push(u);}}
     // la grille fine (une case) : l'écartement entre voisins (rayon 0,3) ne parcourt plus des carrés de 8 × 8 cases bondés de monde
     const F=this.ugf??=new Map();F.clear();const N=this.N;for(const u of this.s.units){if(!(u.hp>0))continue;const k=Math.floor(u.y)*N+Math.floor(u.x);const a=F.get(k);if(a)a.push(u);else F.set(k,[u]);}}
   // comme near, mais seulement les unités du camp f
@@ -966,20 +966,7 @@ export class World{
       case 'assault':{if(u.blockedBy!=null&&!this.wall[u.blockedBy])u.blockedBy=null;
         if(!this.atWar){if(this.go(u,T0.tx,T0.ty))u.task={kind:'guard',tx:T0.tx,ty:T0.ty};return;}
         const enemy=this.nearestEnemy(u,Math.max(this.sight(),this.engageRange(u)+2));
-        if(u.f==='beee'&&(u.w||D.img)){const range=this.engageRange(u),desired=Math.max(3.5,range*.92);
-          // à portée : on tire (sans reculer — reculer sous le feu, c'est ne plus tirer) ; sinon on s'approche jusqu'à portée
-          if(enemy){T0.sabotage=false;const dist=d2(u.x,u.y,enemy.x,enemy.y);
-            if(dist<=range&&this.engage(u,enemy))return;
-            const dx=enemy.x-u.x,dy=enemy.y-u.y,n=Math.hypot(dx,dy)||1;this.go(u,u.x+dx/n*Math.max(1,dist-desired),u.y+dy/n*Math.max(1,dist-desired));return;}
-          const target=this.building(T0.targetId)||this.nearestEnemyBuilding(u,range);
-          if(target&&target.f!==u.f&&!target.ruin&&this.distB(target,u.x,u.y)<=range*.98&&this.engage(u,target))return;
-          if(target&&target.f!==u.f&&!target.ruin){const [tw,th]=BUILDINGS[target.k].size,tx=target.i+tw/2,ty=target.j+th/2;
-            const [sx,sy]=T0.approach||[u.x,u.y],dx=sx-tx,dy=sy-ty,n=Math.hypot(dx,dy)||1,side=(u.id%5-2)*.55;
-            const stand=Math.max(Math.max(tw,th)/2+1,range*.93),safe=!BUILDINGS[target.k].defense&&!this.s.buildings.some(b=>b.f==='meumeu'&&b.done&&!b.ruin&&BUILDINGS[b.k].defense&&d2(b.i,b.j,tx,ty)<BUILDINGS[b.k].defense.range+3);
-            if(!D.img&&safe&&d2(u.x,u.y,tx,ty)<stand+.6)T0.sabotage=true;
-            const radius=T0.sabotage&&safe?Math.max(tw,th)/2+.65:stand,gx=tx+dx/n*radius-dy/n*side,gy=ty+dy/n*radius+dx/n*side;
-            if(d2(u.x,u.y,gx,gy)>.55){this.go(u,gx,gy);return;}u.anim='aim';this.face(u,tx-u.x,ty-u.y);return;}
-          this.beeeRetarget(u);return;}
+        if(u.f==='beee'&&(u.w||D.img)){this.beeeAssaultTick(u,T0,D,enemy);return;}
         // nos soldats obéissent : en marche, ils ripostent à ce qui est à portée (et s'arrêtent pour tirer), puis reprennent
         // la route de l'ordre ; ils ne partent ni à la poursuite, ni brûler ou saccager un bâtiment qu'on ne leur a pas désigné
         const e=this.nearestEnemy(u,this.engageRange(u));
@@ -1152,7 +1139,7 @@ export class World{
     const Lt=this.light();let gmax=Math.max(1,...act.map(u=>this.eyeProfile(u).max/Math.max(1,base)));
     for(const o of act){const D=o.scoutRole?{scout:1.5}:UDEF(o);const civ=!o.w&&!UDEF(o).img;const Wo=o.w?this.W(o.w):null;o._civ=civ;o._eye=(D.scout||1)*(civ?.45:1)*(o.post==='couche'?.9:1);
       // la lunette : son gain (de jour, et selon son objectif la nuit), dans un cône de ±22° autour de la visée (±35° immobile : il balaie)
-      const O=Wo?.optic;o._scope=O&&O.mag>1?O.night+(O.day-O.night)*Math.max(0,Math.min(1,(Lt-.15)/.45)):1;o._scC=t-(o.moved??-9)>.05?.82:.93;gmax=Math.max(gmax,o._eye*o._scope);
+      const O=Wo?.optic;o._scope=O&&O.mag>1?1+(O.day-1)*Math.max(0,Math.min(1,(Lt-.15)/.45)):1;o._scC=t-(o.moved??-9)>.05?.82:.93;gmax=Math.max(gmax,o._eye*o._scope);
       const alert=o.f==='beee'&&(o.task?.kind==='search'||alerts.some(a=>t-a.t<3&&d2(a.x,a.y,o.x,o.y)<a.r+14));o._wide=alert?2:o.task?.kind==='patrol'?1:0;
       const ir=night&&o.f==='meumeu'&&o.nvOn&&(o.irLeft??0)>0?Math.max(Wo?.ir?Wo.ir.range*(1+.2*Math.log2(Wo.optic?.mag||1)):0,o.bino||0):0;o._ir=ir;if(ir)gmax=Math.max(gmax,ir/Math.max(1,base)*o._eye);}
     for(const o of towers){o._eye=1.8;o._wide=1;o._ir=0;}
@@ -1161,7 +1148,7 @@ export class World{
     const CONE=[[1,.55,.22],[1,.72,.38],[1,.88,.62]];
     const cone=(o,e,d)=>{if(o.tower||o.fx==null||d<.01)return 1;const c=(o.fx*(e.x-o.x)+o.fy*(e.y-o.y))/d;const L=CONE[o._wide||0];return c>=.5?L[0]:c>=-.2?L[1]:L[2];};
     for(const f of ['meumeu','beee']){const tw=towers.filter(o=>o.f===f);if(!act.some(o=>o.f===f)&&!tw.length)continue;
-      for(const e of act){if(e.f===f)continue;const R=Math.max(1.6,base*this.sigOf(e));let best=Infinity,by=null;
+      for(const e of act){if(e.f===f||e.inLab!=null)continue;const R=Math.max(1.6,base*this.sigOf(e));let best=Infinity,by=null;
         const sg=R/Math.max(.01,base);
         const look=o=>{if(o.f!==f||!o.tower&&!active(o))return;const d=d2(o.x,o.y,e.x,e.y);const r=this.visualRange(o,e.x,e.y,sg);if(d>r)return;
           const q=d<Math.min(o._civ&&night?1.2:2,r*.35)?0:d/r;if(q<best&&(d<2||this.los(o.x,o.y,e.x,e.y))){best=q;by=o;if(q===0)return true;}};
@@ -1184,7 +1171,7 @@ export class World{
     const S=W.sup;let dB=W.dB;if(S){let R=S.R;const use=(u.supUse||0)+1;if(S.life)R*=1-(1-S.floor)*Math.min(1,(use-1)/S.life);if(S.wet)R*=use<=S.wet?S.wetK:1;dB=Math.max(W.actDb||100,Math.round(W.dB0-Math.min(38,R)));}
     const hear=Math.max(4,(dB-110)/1.6),crack=W.crackDb>dB+2?Math.max(4,(W.crackDb-110)/1.6):0;const see=this.sight()*.8;
     return !this.near(e.x,e.y,Math.max(hear,crack,see)+2,o=>o!==e&&o.f===e.f&&active(o)&&this.spotted(o,u.f)&&(d2(o.x,o.y,u.x,u.y)<hear||crack&&d2(o.x,o.y,e.x,e.y)<crack*.7||d2(o.x,o.y,e.x,e.y)<see&&this.los(o.x,o.y,e.x,e.y)));}
-  spotted(e,f,mem=.3){const m=e.spot?.[f];return m!=null&&this.s.t-m<=mem;}
+  spotted(e,f,mem=.3){if(e.inLab!=null)return false;const m=e.spot?.[f];return m!=null&&this.s.t-m<=mem;}
   nearestEnemy(u,r){let best=null,score=-Infinity;const D0=UDEF(u);this.nearF(u.x,u.y,r,u.f==='meumeu'?'beee':'meumeu',e=>{if(e.f===u.f||!active(e))return;const d=d2(e.x,e.y,u.x,u.y);if(d>r||!this.spotted(e,u.f)||!this.los(u.x,u.y,e.x,e.y))return;
       const armed=!!(e.w||UDEF(e).img),reach=d<=this.engageRange(u),threat=(armed?4:0)+(e.task?.kind==='attack'||e.task?.kind==='assault'?2:0)
         +(D0.sniper?(e.serve?4:0)+(e.w&&this.W(e.w).crew>1?5:0)+(UDEF(e).scout?3:0)+(UDEF(e).medic?2:0)+(e.k==='commando'?2:0):0);

@@ -7,7 +7,7 @@ export const PERCEPTION={
     const D=o.f==='beee'?BEEE.units[o.k]:UNITS[o.k],W=o.w?this.W(o.w):null,night=this.light()<.4;
     const civ=!o.w&&!D?.img&&!o.tower,eye=(o.tower?1.8:o.scoutRole?1.5:D?.scout||(D?.choc?1.15:1))*(civ?.45:1)*(o.h?.state==='hors'?.3:1);
     const O=W?.optic,blend=Math.max(0,Math.min(1,(this.light()-.15)/.45));
-    const scope=O?.mag>1?O.night+(O.day-O.night)*blend:1;
+    const scope=O?.mag>1?1+(O.day-1)*blend:1;   // (V12.7 : la nuit, une lunette ne fait pas voir plus loin — seuls l'infrarouge et les jumelles de nuit)
     const optic=this.sight()*eye*scope;
     const binocular=!night&&o.jum>0?o.jum:0;
     const nv=night&&o.nvOn&&(o.irLeft??0)>0?Math.max(W?.ir?.range||0,o.bino||0)*(1+.16*Math.log2(O?.mag||1))*eye:0;
