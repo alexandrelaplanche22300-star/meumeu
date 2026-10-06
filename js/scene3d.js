@@ -24,6 +24,10 @@ export const HK=Math.sqrt(2/3);
 // (le haut de la sélection, vers le corps) ; la main est son point le plus éloigné de l'épaule. Rend {body, arm:{geo,pivot,rest,len}} ou null.
 const SKIN_ARM={
   meumeu_soldat:(x,y,z,r,g,b,W,H)=>x<-W*.27&&y>H*.28&&y<H*.68,
+  // (V12.8) les modèles du joueur : le soldat classique (casque), le soldat protégé (casque et plaque balistique) — le bras droit seul, sans le flanc ;
+  // pour le protégé, la peau beige seulement (le gilet gris reste au corps). Règles vérifiées sur _modele.html (bras entier en rouge, rien d'autre).
+  meumeu_soldat_classique:(x,y,z,r,g,b,W,H)=>x<-W*.31&&y>H*.27&&y<H*.66,
+  meumeu_soldat_protege:(x,y,z,r,g,b,W,H)=>x<-W*.27&&y>H*.27&&y<H*.68&&r>.5&&r-b>.05,
   plush_cow_knight:(x,y,z,r,g,b)=>x<-.05&&x>-.16&&y>.15&&y<.3&&z>.08&&r>.6&&Math.abs(r-b)>.05,
   goat_plush_toy:(x,y,z,r,g,b,W,H)=>x<-W*.23&&y>H*.25&&y<H*.63};   // (V12.5 : les Bèè aussi tendent le bras droit avec une arme d'épaule)
 // (V12.5) boucher les ouvertures d'un maillage indexé : chaque boucle d'arêtes de bord (une arête d'un seul triangle) qui touche `edgeSet` reçoit un
@@ -58,7 +62,7 @@ export const BUILDING_MODEL={
   centre:[':centre',1.0,0],camp:[':camp',1.0,0],maison:[':maison',1.0,0],ferme:[':ferme',1.0,0],grenier:[':grenier',1.0,0],atelier:[':atelier',1.0,0],four:[':four',1.0,0],mine:[':mine',1.0,0],gare:[':gare',1.0,0],entrepot:[':entrepot',1.0,0],labo:[':labo',1.0,0],caserne:[':caserne',1.0,0],caserne_elite:[':caserne_elite',1.0,0],poudrerie:[':poudrerie',1.0,0],arsenal:[':arsenal',1.0,0],armurerie:[':armurerie',1.0,0],manufacture:[':manufacture',1.0,0],garage:[':garage',1.0,0],hopital:[':hopital',1.0,0],tente:[':tente',1.0,0],archives:[':archives',1.0,0],fonderie:[':fonderie',1.0,0],
   moulin:['windmill',.8,0],barge:[':barge_chantier',1.0,0],grande_barge:[':grande_barge_chantier',1.0,0],bateau_bee:[':bateau_chantier',1.0,2],tour:[':tour',.8,0]};
 export const OUTCROP_MODEL={fer:'rocky_outcrop',charbon:'lava_rock',pierre:'stone_rock_pile',cuivre:'crystal_rock',plomb:'rock_formation',salpetre:'multicolored_crystal_pile',or:'rock_with_gold_veins'};
-export const MODEL_NAMES=[...new Set([...Object.values(BUILDING_MODEL).map(b=>b[0]).filter(n=>n[0]!==':'),...Object.values(OUTCROP_MODEL),'meumeu','meumeu_soldat','plush_cow_knight','goat_plush_toy','meumeu_chercheur','meumeu_reine','gewehr_43_rifle','heavy_machine_gun','assault_rifle','ww2_locomotive','ww2_wagon','stone_rock_pile','silbervogel_bomber_3d_model',...Object.values(VEHDEF).map(V=>V.modele).filter(n=>n&&n[0]!==":")])];
+export const MODEL_NAMES=[...new Set([...Object.values(BUILDING_MODEL).map(b=>b[0]).filter(n=>n[0]!==':'),...Object.values(OUTCROP_MODEL),'meumeu','meumeu_soldat','meumeu_soldat_classique','meumeu_soldat_protege','plush_cow_knight','goat_plush_toy','meumeu_chercheur','meumeu_reine','gewehr_43_rifle','heavy_machine_gun','assault_rifle','ww2_locomotive','ww2_wagon','stone_rock_pile','silbervogel_bomber_3d_model',...Object.values(VEHDEF).map(V=>V.modele).filter(n=>n&&n[0]!==":")])];
 
 // ---- petites géométries de code : arbres, buisson (couleurs de sommets)
 const colored=(g,hex)=>{const c=new THREE.Color(hex);const n=g.attributes.position.count,a=new Float32Array(n*3);for(let i=0;i<n;i++){a[3*i]=c.r;a[3*i+1]=c.g;a[3*i+2]=c.b;}g.setAttribute('color',new THREE.BufferAttribute(a,3));return g;};
@@ -201,6 +205,7 @@ export class Scene3D{
     this.rig=meumeuRig(this.M.meumeu);if(this.rig){const mat=this.M.meumeu.mat||null;for(const [k,geo,anim] of [['corps',this.rig.body,ch('meumeu')],['brasD',this.rig.bras['-1'].geo,null],['brasG',this.rig.bras['1'].geo,null]]){const p=new Pool(geo,{cap:1200,anim,base:mat});this.pools[k]=p;this.scene.add(p.mesh);}}
     // V12.4 : les modèles donnés par le joueur — le soldat meumeu (casque compris) et la troupe de choc (chevalier à cape) ; à défaut, la peluche
     this.pools.soldat=this.M.meumeu_soldat?mk('meumeu_soldat',{cap:1200,anim:ch('meumeu_soldat')}):this.pools.meumeu;
+    this.pools.soldatC=this.M.meumeu_soldat_classique?mk('meumeu_soldat_classique',{cap:1200,anim:ch('meumeu_soldat_classique')}):null;this.pools.soldatP=this.M.meumeu_soldat_protege?mk('meumeu_soldat_protege',{cap:1200,anim:ch('meumeu_soldat_protege')}):null;   // (V12.8)
     this.pools.choc=this.M.plush_cow_knight?mk('plush_cow_knight',{cap:400,anim:ch('plush_cow_knight')}):this.pools.soldat;this.pools.bee=mk('goat_plush_toy',{cap:1500,anim:ch('goat_plush_toy')});
     this.pools.chercheur=this.M.meumeu_chercheur?mk('meumeu_chercheur',{cap:400,anim:ch('meumeu_chercheur')}):null;   // (V12.6) le savant en blouse
     this.pools.reine=this.M.meumeu_reine?mk('meumeu_reine',{cap:4,anim:ch('meumeu_reine')}):null;   // (V12.7) la reine Meumeu : le joueur, quand il assiste à une réunion
@@ -523,9 +528,11 @@ export class Scene3D{
       let fx=u.fx,fy=u.fy;if(fx==null){const d=u.dir||'se';[fx,fy]=d==='se'?[1,0]:d==='sw'?[0,1]:d==='ne'?[0,-1]:[-1,0];}
       const want=Math.atan2(fx,fy);let y=this.yaw.get(u.id);if(y==null)y=want;let dlt=((want-y+PI)%(2*PI)+2*PI)%(2*PI)-PI;y+=dlt*Math.min(1,dtc*12);this.yaw.set(u.id,y);
       // le modèle : la peluche pour les civils et les soignants, le soldat pour qui porte les armes (servants compris), le chevalier pour la troupe de choc
-      const mod=bee?'goat_plush_toy':u.k==='savant'&&this.M.meumeu_chercheur?'meumeu_chercheur':(u.k==='villageois'||u.k==='medecin'||u.k==='infirmier')?'meumeu':this.M[u.skin]?u.skin:u.k==='choc'?'plush_cow_knight':'meumeu';
+      // (V12.8) le soldat en tenue normale : le modèle « soldat classique » du joueur (casque) ; protégé (casque et plaque), le « soldat protégé »
+      let mod=bee?'goat_plush_toy':u.k==='savant'&&this.M.meumeu_chercheur?'meumeu_chercheur':(u.k==='villageois'||u.k==='medecin'||u.k==='infirmier')?'meumeu':this.M[u.skin]?u.skin:u.k==='choc'?'plush_cow_knight':'meumeu';
+      if(mod==='meumeu'&&!bee&&u.k!=='villageois'&&u.k!=='medecin'&&u.k!=='infirmier'&&u.k!=='savant')mod=u.armor&&this.M.meumeu_soldat_protege?'meumeu_soldat_protege':this.M.meumeu_soldat_classique?'meumeu_soldat_classique':'meumeu';
       const M0=this.M[mod]||this.M.meumeu,Hmod=M0.ext[1];
-      const H=u.k==='villageois'||u.k==='savant'?.92:u.k==='choc'?1.06:1.02;const sc=H/Hmod;const pool=bee?P.bee:mod==='plush_cow_knight'?P.choc:mod==='meumeu_soldat'?P.soldat:mod==='meumeu_chercheur'?P.chercheur:P.meumeu;const hx=Math.sin(y),hz=Math.cos(y);
+      const H=u.k==='villageois'||u.k==='savant'?.92:u.k==='choc'?1.06:1.02;const sc=H/Hmod;const pool=bee?P.bee:mod==='plush_cow_knight'?P.choc:mod==='meumeu_soldat'?P.soldat:mod==='meumeu_soldat_classique'?(P.soldatC||P.meumeu):mod==='meumeu_soldat_protege'?(P.soldatP||P.meumeu):mod==='meumeu_chercheur'?P.chercheur:P.meumeu;const hx=Math.sin(y),hz=Math.cos(y);
       let walking=u.anim==='walk'&&!down;
       // les servants suivent leur pièce par petits bonds : on lisse leur place à l'écran, et leur pas suit leur vitesse affichée
       let ux=u.x,uy=u.y;if(u.serve&&!down){const dp=(this.dpos??=new Map()),q=dp.get(u.id);if(q&&Math.hypot(q[0]-u.x,q[1]-u.y)<2){const k=Math.min(1,dtc*8);const nx=q[0]+(u.x-q[0])*k,ny=q[1]+(u.y-q[1])*k;const sp=Math.hypot(nx-q[0],ny-q[1])/Math.max(1e-3,dtc);q[0]=nx;q[1]=ny;ux=nx;uy=ny;walking=sp>.15;}else dp.set(u.id,[u.x,u.y]);}const ph=(u.walkPh||0)*2.4,amp=walking?1:0;

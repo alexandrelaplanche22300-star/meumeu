@@ -86,4 +86,13 @@ LA SCIENCE THERMOBARIQUE (demande du joueur : plusieurs variantes selon le méla
   enfermé : 4,5 occupants touchés par obus (tolite 1,5). Corrigé au premier essai : la postcombustion comptait à moitié (+4 % seulement), la coque
   mince rendait 4 × plus d'explosif ; le nuage était à l'échelle physique (0,7 m) devant un souffle de jeu de 4,3 m (T5 compare donc les morts).
 
+LES MODÈLES DE SOLDAT DU JOUEUR (6 octobre)
+- « meumeu soldat(1) » → assets3d/meumeu_soldat_classique.json ; « meumeu soldat protection ballistique » → meumeu_soldat_protege.json. Convertis
+  (outils/convertir.cjs, budget porté à 6 000 faces — l'option --budget ajoutée à la copie de travail) puis CUITS (outils/cuire.cjs : la texture
+  d'origine sur le modèle réduit, cases de 36 px, atlas 1980 × 1980) pour que les textures se voient.
+- Un soldat en tenue normale prend le modèle classique (casque) ; protégé (u.armor : casque et plaque), le modèle protégé ; villageois, médecins,
+  infirmiers, savants gardent la peluche ; « Soldat camouflé » et « Élite à cape » inchangés (les modèles meumeu_soldat et plush_cow_knight
+  ne sont pas touchés). Le bras droit tendu avec l'arme : SKIN_ARM, règles vérifiées sur _modele.html (bras entier, rien du flanc ni du gilet).
+- Capture : test/_outils_captures/pw_soldats.cjs (Chromium, sans Electron).
+
 RESTE DE L'ÉTAPE C : conduite (C1) ; efficacité de l'automitrailleuse (F1).
