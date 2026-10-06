@@ -35,11 +35,11 @@ if(on(1)){say('\n=== banc 1 : ramasser, bâtir ===');
   const q=W.train(cap,'villageois');run(W,5);say(`former un villageois : ${q.ok?'ok':q.why} · ${W.s.units.filter(u=>u.f==='meumeu').length} Meumeu`);}}
 
 if(on(2)){say('\n=== banc 2 : la logistique — porteurs, train ===');
-{const W=new World(3);const cap=W.capital();Object.assign(cap.stock,{bois:400,pierre:200,pieces:100,carburant:100});
+{const W=new World(3);const cap=W.capital();Object.assign(cap.stock,{bois:400,pierre:200,pieces:100,essence:100});
   const at=free(W,'camp',cap.i+2,cap.j+2,9,14);const camp=put(W,'meumeu','camp',at[0],at[1]);camp.stock.fer=40;W.setWant(cap,'fer',30);const r=W.addPorters(cap,2);run(W,24);const cart=W.s.vehicles.find(v=>v.k==='porteur')||{};
 
   say(`porteurs capitale ↔ camp à ${Math.round(Math.hypot(camp.i-cap.i,camp.j-cap.j))} cases : ${r.ok?r.n+' porteurs':r.why[0]} · 24 h plus tard : fer à la capitale ${fmt(cap.stock.fer||0,1)}, au camp ${fmt(camp.stock.fer||0,1)} · voyages ${cart.trips||0} ${cart.why?'('+cart.why+')':''}`);
-  const W2=new World(3);const c2=W2.capital();Object.assign(c2.stock,{bois:3000,pierre:2000,pieces:500,carburant:500});
+  const W2=new World(3);const c2=W2.capital();Object.assign(c2.stock,{bois:3000,pierre:2000,pieces:500,essence:500});
   let row=null;for(let dj=-6;dj<=8&&row==null;dj++){const j=c2.j+dj;let ok=true;for(let i=c2.i+6;i<c2.i+40;i++){const k=j*MAP_N+i;if(!(W2.G.terrain[k]>=T.sand&&W2.G.terrain[k]<=T.scrub)||W2.occ[k]>=0){ok=false;break;}}if(ok)row=j;}
   if(row==null)say('pas de rangée libre pour la voie de test');else{
     const cells=W2.lineCells(c2.i+6,row,c2.i+39,row);W2.planLine('meumeu','rail',cells);for(const k of Object.keys(W2.s.rails))W2.lineBuilt('rail',+k);

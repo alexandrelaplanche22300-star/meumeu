@@ -11,6 +11,7 @@ import {gunModel} from './gun3d.js';
 import {derive} from './ballistics.js';
 import {layout} from './gunart.js';
 import {VEHDEF} from './vehicules.js';
+import {enginModel} from './engins3d.js';
 import {buildingModels,aztecModels} from './bldg3d.js';
 import {labInteriors} from './labs3d.js';
 import {bunkerModels,bunkerDoorGeo,bunkerRoofGeo} from './bunker3d.js';
@@ -279,11 +280,12 @@ export class Scene3D{
       this.pools.caisse.add(bx+(gx-bx)*k,.30*H+(hh-.04*H-.30*H)*k,bz+(gz-bz)*k,yaw,.6,.6,.6,{tint:0x55603c});}}
   // Un véhicule de combat : la caisse et ses pièces sur leurs pivots (roues, tourelle, armes), à la longueur voulue (V.long cases), teinte meumeu.
   // Les armes portées par la tourelle tournent avec elle ; chaque roue tourne sur son essieu selon la distance parcourue.
-  vehicleGroup(V){const M=this.M[V.modele];if(!M?.parts)return null;const ax=V.avant[1]==='x'?0:2,sg=V.avant[0]==='+'?1:-1;const sc=V.long/M.ext[ax];
+  vehicleGroup(V){if(V.engin&&!this.M[V.modele]){try{this.M[V.modele]=enginModel(V.engin.v);}catch(e){console.warn('modèle d’engin',e);}}const M=this.M[V.modele];if(!M?.parts)return null;const ax=V.avant[1]==='x'?0:2,sg=V.avant[0]==='+'?1:-1;const sc=V.long/M.ext[ax];
     const root=new THREE.Group(),body=new THREE.Group();body.scale.setScalar(sc);root.add(body);const mat=M.mat?M.mat:this.tinted(0xe4e8cc);
     const mk=p=>{const g=new THREE.Group();g.position.set(...p.pivot);const m=new THREE.Mesh(p.geo,mat);m.castShadow=true;m.receiveShadow=true;m.position.set(-p.pivot[0],-p.pivot[1],-p.pivot[2]);m.userData.base=m.position.clone();g.userData.mesh=m;g.add(m);return g;};
     const parts={};for(const p of M.parts){if(p.name==='caisse'){const m=new THREE.Mesh(p.geo,mat);m.castShadow=true;m.receiveShadow=true;body.add(m);continue;}parts[p.name]=mk(p);}
     if(parts.tourelle){body.add(parts.tourelle);const T0=M.byName.tourelle.pivot;for(const k of ['armes','canon'])if(parts[k]){const Pk=M.byName[k].pivot;parts[k].position.set(Pk[0]-T0[0],Pk[1]-T0[1],Pk[2]-T0[2]);parts.tourelle.add(parts[k]);}}
+    for(const k of Object.keys(parts))if(/^tourelle\d+$/.test(k)){const n=k.slice(8),T0=M.byName[k].pivot,c=parts['canon'+n];body.add(parts[k]);if(c){const Pk=M.byName['canon'+n].pivot;c.position.set(Pk[0]-T0[0],Pk[1]-T0[1],Pk[2]-T0[2]);parts[k].add(c);}}   // (V12.8 : les tourelles d'un engin conçu)
     for(const g of Object.values(parts))if(!g.parent)body.add(g);
     const wheels=Object.keys(parts).filter(k=>k.startsWith('roue')).map(k=>{const bb=M.byName[k].geo.boundingBox;return {g:parts[k],r:Math.max(.02,(bb.max.y-bb.min.y)/2*sc)};});
     root.userData={parts,wheels,ax,sg,body,mat,sc};return root;}
@@ -324,13 +326,14 @@ export class Scene3D{
     if(V.nav==='eau'){const tt=performance.now()/1000+v.id*1.7;g.position.y=.02+.018*Math.sin(tt*1.6);g.rotation.z=.028*Math.sin(tt*1.25);g.rotation.x=.018*Math.sin(tt*1.05+1);if(U.parts.rampe)U.parts.rampe.rotation.z=-(v.ramp||0)*1.5;}
     const mt=(piece)=>v.mounts?.find(m=>V.armes.find(a=>a.id===m.id)?.piece===piece);
     if(U.parts.tourelle){const m=mt('tourelle');U.parts.tourelle.rotation.y=-(m?.yaw||0);const el=m?.el||0;for(const k of ['armes','canon'])if(U.parts[k]){if(U.ax===2)U.parts[k].rotation.x=-el*U.sg;else U.parts[k].rotation.z=el*U.sg;}}
+    for(const k in U.parts)if(/^tourelle\d+$/.test(k)){const m=mt(k);U.parts[k].rotation.y=-(m?.yaw||0);const c=U.parts['canon'+k.slice(8)];if(c){const el=m?.el||0;if(U.ax===2)c.rotation.x=-el*U.sg;else c.rotation.z=el*U.sg;}}
     for(const k in U.parts)if(k.startsWith('affut')){const m=mt(k),A=V.armes.find(a=>a.piece===k);if(A)U.parts[k].rotation.y=-((m?.yaw??A.repos??0)-(A.repos||0));}
     // (les tubes d'une casemate : chacun dans sa rotule, tous au même pointage)
     // (la hausse autour de l'axe du tube lui-même, puis la direction : l'ordre des rotations « direction en dernier »)
-    for(const k in U.parts)if(k.startsWith('canons')){const P=U.parts[k],m=mt('canons');P.rotation.order=U.ax===2?'YXZ':'YZX';P.rotation.y=-(m?.yaw||0);const el=m?.el||0;if(U.ax===2)P.rotation.x=-el*U.sg;else P.rotation.z=el*U.sg;}
+    for(const k in U.parts)if(k.startsWith('canons')){const P=U.parts[k],m=mt(k),A=V.armes.find(a=>a.piece===k);P.rotation.order=U.ax===2?'YXZ':'YZX';P.rotation.y=-((m?.yaw||0)-(A?.repos||0));const el=m?.el||0;if(U.ax===2)P.rotation.x=-el*U.sg;else P.rotation.z=el*U.sg;}
     // le recul : l'arme part en arrière le long de son axe (selon le calibre), puis revient en douceur ; deux tubes jumelés reculent ensemble
     const rk={};for(const m of v.mounts||[]){const key='v'+v.id+':'+m.id,kk=this.kicks.get(key);if(!kk)continue;kk.t+=dtc;rk[m.id]=kk.L*(kk.t<.04?kk.t/.04:Math.exp(-(kk.t-.04)/.18));if(kk.t>1)this.kicks.delete(key);}
-    for(const k in U.parts){const piece=k==='canon'||k==='armes'?'tourelle':k.startsWith('canons')?'canons':null;if(!piece)continue;let r=0;
+    for(const k in U.parts){const piece=k==='canon'||k==='armes'?'tourelle':/^canon\d+$/.test(k)?'tourelle'+k.slice(5):k.startsWith('canons')?k:null;if(!piece)continue;let r=0;
       for(const A of V.armes)if(A.piece===piece&&!(k==='canon'&&A.coax))r=Math.max(r,rk[A.id]||0);
       const M=U.parts[k].userData.mesh;if(!M)continue;M.position.copy(M.userData.base);if(r>0){const d=-r/U.sc*U.sg;if(U.ax===2)M.position.z+=d;else M.position.x+=d;}}
     // détruit : noirci
@@ -552,7 +555,7 @@ export class Scene3D{
       if(carry&&pose!=='down'){const res=u.carry.k,f=Math.min(1,u.carry.n/CARRY),cnt=1+Math.floor(f*2.99),h0=H*(pose==='crouch'?.38:.50);
         if(res==='bois'){for(let c=0;c<cnt;c++){const p=front((c-(cnt-1)/2)*.05,h0+c*.02,0);P.buche.add(p[0],p[1],p[2],y+PI/2+(c-1)*.12,1,1,1);}}
         else if(res==='vivres'){for(let c=0;c<cnt;c++){const p=front((c-(cnt-1)/2)*.17,h0-.06,0);P.sac.add(p[0],p[1],p[2],c*1.3,1,1,1,{tint:c%2?0xd9c79a:null});}}
-        else if(res==='poudre'||res==='explosifs'||res==='explosifs_brisants'||res==='melange_inc'||res==='carburant'){for(let c=0;c<Math.min(2,cnt);c++){const p=front((c-.5*(Math.min(2,cnt)-1))*.24,h0-.1,0);P.tonnelet.add(p[0],p[1],p[2],0,1,1,1,{tint:res==='carburant'?0x4a6a8a:res==='poudre'?0x6a6a6a:0xc85a3a});}}
+        else if(res==='poudre'||res==='explosifs'||res==='explosifs_brisants'||res==='melange_inc'||res==='essence'){for(let c=0;c<Math.min(2,cnt);c++){const p=front((c-.5*(Math.min(2,cnt)-1))*.24,h0-.1,0);P.tonnelet.add(p[0],p[1],p[2],0,1,1,1,{tint:res==='carburant'?0x4a6a8a:res==='poudre'?0x6a6a6a:0xc85a3a});}}
         else if(res==='pierre'||ORE_COL[res]){const col=ORE_COL[res]||'#8a8a80';const c0=new THREE.Color(res==='pierre'?'#b8b2a4':col);for(let c=0;c<cnt;c++){const p=front((c-(cnt-1)/2)*.12,h0-.02+c%2*.05,0);P.caillou.add(p[0],p[1],p[2],c*2.1,.2,.17,.2,{tint:c0.getHex()});}}
         else{for(let c=0;c<Math.min(3,cnt);c++){const p=front(0,h0-.05+c*.16,0);P.caisse.add(p[0],p[1],p[2],y,1,1,1,{tint:res==='sante'?0xeeeeee:null});}}}
       if(u.crates>0&&!down&&pose!=='down'){const n=Math.min(3,Math.ceil(u.crates));for(let c=0;c<n;c++){const p=front(0,H*.40+c*.17,0);P.caisse.add(p[0],p[1],p[2],y,1,1,1);}}

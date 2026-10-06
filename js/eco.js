@@ -56,7 +56,7 @@ export const ECO={
   productName(k){if(!k)return 'rien';return PRODUCTS[k]?.name||this.goodName(k);},
   // un lot : ce qu'il prend, ce qu'il donne, ses heures de travail ; tool : l'outillage à faire d'abord
   recipe(b,key){const P=PRODUCTS[key];
-    if(P){const r={key,in:{...P.in},out:{...P.out},hours:P.hours};if(key==='carburant')r.in.bois=+(r.in.bois*this.mod('carburant_bois')).toFixed(2);return r;}
+    if(P){const r={key,in:{...P.in},out:{...P.out},hours:P.hours};return r;}
     if(key.startsWith('m:')){const d=this.design(key.slice(2));if(!d||(d.status!=='adopte'&&d.status!=='engin'))return null;const c=crateCost(d.p);for(const k of ['fer','plomb','cuivre'])if(c[k])c[k]=+(c[k]*this.mod('fer_munitions')).toFixed(2);
       // les Bèè, à court de plomb ou de cuivre, font des balles à noyau de fer et des douilles d'acier laqué (moins bonnes, mais elles tirent)
       // la production de masse bèè : des cartouches chargées au plus juste (40 % de poudre en moins)

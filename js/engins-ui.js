@@ -8,7 +8,7 @@ import {derive} from './ballistics.js';
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fr=(x,d=1)=>(Math.round(x*10**d)/10**d).toString().replace('.',',');
 const KCOL={moteur:0x7a7f84,essence:0xd0583a,munitions:0xe8bf3a,equipage:0x4f9fd0,passager:0x5fb36a,soute:0xa07a48};
-const KNAME={moteur:'moteur',essence:'carburant',munitions:'munitions',equipage:'équipage',passager:'passagers',soute:'soute'};
+const KNAME={moteur:'moteur',essence:'essence',munitions:'munitions',equipage:'équipage',passager:'passagers',soute:'soute'};
 const PAINT=0x6e7350,PAINT_T=0x787d58,STEELC=0x55595c,TRACK=0x3a3a36,RUBBER=0x262626;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 // la couleur d'une épaisseur vue de face (mm de peluche, ligne de visée horizontale) : bleu mince → rouge épais

@@ -937,7 +937,7 @@ export class View{
     if(sel)this.tag(`${v.name}${v.why?' · '+v.why:''}`,top.x,top.y-10*z,v.why?'warn':'ink');}
   // Un train dessiné : la locomotive à vapeur (chaudière, cabine, cheminée qui fume, fanal la nuit), le tender de charbon, et
   // quatre wagons faits pour ce qu'ils portent — trémies de charbon, d'argile, de minerai ; plats de grumes, de briques, de caisses ;
-  // citerne de carburant ; wagons couverts pour les munitions et les pièces. Les voitures suivent la trace de la locomotive.
+  // citerne d’essence ; wagons couverts pour les munitions et les pièces. Les voitures suivent la trace de la locomotive.
   drawTrain(v,sel){const ctx=this.ctx,z=this.z(),W=this.world;const pts=[[v.x,v.y],...(v.trail||[])];
     const at=d=>{let left=d;for(let n=0;n<pts.length-1;n++){const [ax,ay]=pts[n],[bx,by]=pts[n+1];const L=Math.hypot(bx-ax,by-ay);if(left<=L){const t=L?left/L:0;return [ax+(bx-ax)*t,ay+(by-ay)*t,ax-bx,ay-by];}left-=L;}const l=pts[pts.length-1];return [l[0]-(v.dx||1)*(left),l[1]-(v.dy||0)*(left),v.dx||1,v.dy||0];};
     const keys=Object.entries(v.cargo||{}).filter(([,n])=>n>=.05).sort((a,b)=>b[1]-a[1]).map(([k])=>k);
@@ -967,7 +967,7 @@ export class View{
     const k=c.load;const bulk={charbon:'#16181a',argile:'#9a5a3a',pierre:'#8d8a84',fer:'#6d4a3a',sels:'#d0772c',soie:'#3aa39a',verre:'#6aa8d8'};
     if(!k||bulk[k]){// une trémie : parois basses, le chargement bombé dessus
       P(0,0,[c.h*.95,.14,.13,.36,'#5b4a3a']);if(k){const lvl=.2+.18*c.fill;P(0,0,[c.h*.85,.12,.13,lvl,bulk[k]]);if(c.fill>.5)P(0,0,[c.h*.55,.08,lvl,lvl+.06,bulk[k]]);}return;}
-    if(k==='carburant'){P(0,0,[c.h*.9,.11,.13,.35,'#d9d2c4']);P(0,0,[c.h*.9,.085,.35,.41,'#e8e2d6']);P(0,0,[.03,.115,.13,.42,'#c05a1c']);P(0,0,[.04,.04,.41,.46,'#555']);return;}
+    if(k==='essence'){P(0,0,[c.h*.9,.11,.13,.35,'#d9d2c4']);P(0,0,[c.h*.9,.085,.35,.41,'#e8e2d6']);P(0,0,[.03,.115,.13,.42,'#c05a1c']);P(0,0,[.04,.04,.41,.46,'#555']);return;}
     if(k==='bois'){P(0,0,[c.h*.95,.14,.13,.16,'#6b4a2e']);for(const s of [-1,0,1])P(0,s*.08,[c.h*.9,.035,.16,.16+.2*c.fill,'#8a5a34']);return;}
     if(k==='briques'){P(0,0,[c.h*.95,.14,.13,.16,'#6b4a2e']);for(const a of [-.5,.5])P(c.h*a*.9,0,[c.h*.35,.11,.16,.16+.24*c.fill,'#b5522f']);return;}
     // un wagon couvert : munitions, armes, pièces, vivres

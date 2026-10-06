@@ -42,7 +42,7 @@ export const RES={
   pierre:{name:'Pierre',icon:['p','outcrop_pale']},
   vivres:{name:'Vivres',icon:['r','common_food']},
   pieces:{name:'Pièces',icon:['r','common_mechanical-parts']},
-  carburant:{name:'Carburant',icon:['r','sels-de-brule_fuel-canister']},
+  essence:{name:'Essence',icon:['r','sels-de-brule_fuel-canister']},   // (V12.8 : l'essence — tirée du charbon au laboratoire de chimie ; elle fait rouler les engins)
   explosifs:{name:'Explosifs',icon:['r','chem_explosif']},
   melange_inc:{name:'Mélange incendiaire',icon:['r','chem_explosif']},
   explosifs_brisants:{name:'Explosifs brisants',icon:['r','chem_explosif']},
@@ -275,7 +275,7 @@ export const STEPS=[
   {k:'rail',name:'Une voie ferrée, deux gares, un train',hint:'Bâtir → Relier : tracez une voie, une gare à chaque bout, un train à la gare. Rattachez une mine lointaine à sa gare : le rail la relie.'},
   {k:'defense',name:'Deux tours et un mur',hint:'Bâtir → Défendre : des tours, un mur tracé devant la ville. La guerre vient.'},
   {k:'escouade',name:'Une escouade avec un médecin',hint:'Choisissez des soldats et un médecin, touche G.'}];
-// Les véhicules. cap : caisses ; speed : cases/h ; seats : passagers ; fuel : carburant pour cent cases.
+// Les véhicules. cap : caisses ; speed : cases/h ; seats : passagers ; fuel : essence pour cent cases.
 export const VEHICLES={
   charrette:{name:'Charrette',sprite:'hand-cart',cost:{bois:20,pieces:2},hours:3,cap:15,speed:13,
     why:'Sur terre, partout où marche un Meumeu. Lente.'},

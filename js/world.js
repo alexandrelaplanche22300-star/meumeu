@@ -73,7 +73,7 @@ export class World{
       designs:Object.fromEntries(DEFAULT_DESIGNS.map(d=>[d.id,JSON.parse(JSON.stringify(d))])),armors:Object.fromEntries(DEFAULT_ARMORS.map(d=>[d.id,JSON.parse(JSON.stringify(d))])),smokes:[],groundFires:[],
       nodes:G.nodes,fauna:[],beee:{cities:[],waves:0,anger:0,tension:0,phase:'war'},won:null,lost:null,cityN:0,squadN:0,
       innov:{prac:{},next:{},ideas:[],done:[],order:INNOV.map(x=>x.id).sort(()=>this.rand()-.5)},
-      research:{art:{},programs:[],log:[],nid:1}};this.remod();   /* (V12.7) la recherche : l'état de l'art, les programmes, le carnet (research.js, techaxes.js) */
+      research:{art:{},programs:[],log:[],nid:1}};this.remod();this.enginsSync?.();   /* (V12.7) la recherche : l'état de l'art, les programmes, le carnet (research.js, techaxes.js) */
     s.research.art=artInit(Object.values(s.designs).filter(d=>d.f==='meumeu'));   // (ce que prouvent nos armes de départ)
     s.fert=G.fert.slice();s.fertSpots=G.blobs.map(b=>({i:b.i,j:b.j,r:b.r}));
     s.beee.warDay=1;s.beee.nextWave=BEEE.firstRaid*DAY;s.fog=true;   // le brouillard de guerre, par défaut
@@ -755,7 +755,7 @@ export class World{
   setRoute(vid,a,b){const v=this.s.vehicles.find(x=>x.id===vid);const A=this.building(a),B=this.building(b);if(!v||!A||!B||a===b)return {ok:false,why:['deux arrêts différents']};if(A.f!==v.f||B.f!==v.f||A.ruin||B.ruin)return {ok:false,why:['deux arrêts de notre camp, non détruits']};
     const need=v.k==='train'?'station':v.k==='avion'?'airfield':'store';if(!BUILDINGS[A.k][need]||!BUILDINGS[B.k][need])return {ok:false,why:[v.k==='train'?'deux gares':v.k==='avion'?'deux aérodromes':'deux dépôts']};
     v.route={a,b,out:['guerre','vivres','industrie','materiaux'],back:['minerais','industrie']};v.mode='ligne';v.job=null;v.state='go';v.leg=0;v.path=null;return {ok:true,text:`${v.name} : ligne ${this.cityName(A)} ↔ ${this.cityName(B)}`};}
-  goodsOf(sets,at){const map={rare:RARE,materiaux:['bois','pierre','charbon'],minerais:['fer','cuivre','plomb','salpetre'],vivres:['vivres','grain','ble_moulu'],industrie:['pieces','carburant'],guerre:['poudre','explosifs','explosifs_brisants','melange_inc','sante','jumelles','jumelles_ir','tenue_camo',...Object.keys(at?.stock||{}).filter(k=>k.startsWith('m:')||k.startsWith('a:')||k.startsWith('p:'))]};return [...new Set(sets.flatMap(s=>map[s]||[]))];}
+  goodsOf(sets,at){const map={rare:RARE,materiaux:['bois','pierre','charbon'],minerais:['fer','cuivre','plomb','salpetre'],vivres:['vivres','grain','ble_moulu'],industrie:['pieces','essence'],guerre:['poudre','explosifs','explosifs_brisants','melange_inc','sante','jumelles','jumelles_ir','tenue_camo',...Object.keys(at?.stock||{}).filter(k=>k.startsWith('m:')||k.startsWith('a:')||k.startsWith('p:'))]};return [...new Set(sets.flatMap(s=>map[s]||[]))];}
   // Charger : dans l'ordre des familles choisies, mais sans qu'un seul bien prenne tout — au plus 40 % de la place au premier tour,
   // puis ce qui reste. Un convoi part mêlé : des munitions, des vivres, des pièces, du bois.
   capOf(v){return VEHICLES[v.k].cap*(v.k==='porteur'?this.mod('cap_porteur'):v.k==='train'?this.mod('cap_train'):1);}
@@ -781,12 +781,12 @@ export class World{
     const to=v.leg===0?B:A;
     if(v.state==='wait'){v.wait-=dt;if(v.wait<=0){v.state='go';v.path=null;}return;}
     const r=this.moveTo(v,to,dt);if(r==='blocked'){v.state='wait';v.wait=3;return;}if(r===true)this.arrive(v,to);}
-  // Aller jusqu'à un dépôt : vrai à l'arrivée, 'blocked' s'il n'y a pas de chemin, faux en route (ou en attente de charbon, de carburant).
+  // Aller jusqu'à un dépôt : vrai à l'arrivée, 'blocked' s'il n'y a pas de chemin, faux en route (ou en attente de charbon, d’essence).
   moveTo(v,to,dt){const V=VEHICLES[v.k];if(v.at===to.id&&v.state!=='fly')return true;
     if(v.k==='avion'){
       if(v.state!=='fly'){const from=this.building(v.at)||this.building(v.home);const tx=to.i+1,ty=to.j+1;const dist=d2(v.x,v.y,tx,ty);const fuel=Math.ceil(dist/100*V.fuel);
-        if(!from||(from.stock.carburant||0)<fuel){v.why=`attend ${fuel} carburant à ${from?this.cityName(from):'?'}`;return false;}
-        from.stock.carburant-=fuel;v.why=null;v.pass=(from.pass||[]).splice(0,V.seats);Object.assign(v,{state:'fly',at:null,ax:v.x,ay:v.y,bx:tx,by:ty,t:0,dur:dist/V.speed+.3,dest:to.id});this.emit({type:'takeoff',x:v.x,y:v.y});return false;}
+        if(!from||(from.stock.essence||0)<fuel){v.why=`attend ${fuel} essence à ${from?this.cityName(from):'?'}`;return false;}
+        from.stock.essence-=fuel;v.why=null;v.pass=(from.pass||[]).splice(0,V.seats);Object.assign(v,{state:'fly',at:null,ax:v.x,ay:v.y,bx:tx,by:ty,t:0,dur:dist/V.speed+.3,dest:to.id});this.emit({type:'takeoff',x:v.x,y:v.y});return false;}
       v.t+=dt;const q=Math.min(1,v.t/v.dur);v.x=v.ax+(v.bx-v.ax)*q;v.y=v.ay+(v.by-v.ay)*q;v.alt=4*Math.min(1,q/.12,(1-q)/.12);v.dx=v.bx-v.ax;v.dy=v.by-v.ay;
       if(q<1)return false;const [w,h]=BUILDINGS[to.k].size;v.alt=0;
       for(const u of v.pass){u.x=to.i+(this.rand()*w);u.y=to.j+h+.6;u.task=null;this.s.units.push(u);this.uIndex.set(u.id,u);}v.pass=[];v.state='go';v.at=to.id;return true;}
@@ -817,8 +817,8 @@ export class World{
     if(!found){F[fk]=this.s.t+1;for(const key of Object.keys(F))if(F[key]<this.s.t)delete F[key];return null;}const cells=[];for(let k=gk;k!==-1;k=from[k])cells.push(k);cells.reverse();return railCurve(cells,N);}
   bomb(vid,x,y){const v=this.s.vehicles.find(z=>z.id===vid);if(!v||v.k!=='bombardier')return {ok:false,why:['pas un bombardier']};if(v.state!=='idle')return {ok:false,why:['il est en vol']};
     const home=this.building(v.home);if(!home?.done)return {ok:false,why:['son aérodrome est en ruine']};const V=VEHICLES.bombardier;const dist=d2(v.x,v.y,x,y)*2;const fuel=Math.ceil(dist/100*V.fuel);
-    if((home.stock.carburant||0)<fuel)return {ok:false,why:[`${fuel} carburant à l’aérodrome`]};if((home.stock.explosifs||0)<V.bombs)return {ok:false,why:[`${V.bombs} caisses d’explosifs à l’aérodrome (les bombes)`]};
-    home.stock.carburant-=fuel;home.stock.explosifs-=V.bombs;if(!this.atWar)this.declareWar('meumeu');this.sortie(v,x,y);this.emit({type:'takeoff',x:v.x,y:v.y});return {ok:true,text:`${v.name} décolle vers la cible`};}
+    if((home.stock.essence||0)<fuel)return {ok:false,why:[`${fuel} essence à l’aérodrome`]};if((home.stock.explosifs||0)<V.bombs)return {ok:false,why:[`${V.bombs} caisses d’explosifs à l’aérodrome (les bombes)`]};
+    home.stock.essence-=fuel;home.stock.explosifs-=V.bombs;if(!this.atWar)this.declareWar('meumeu');this.sortie(v,x,y);this.emit({type:'takeoff',x:v.x,y:v.y});return {ok:true,text:`${v.name} décolle vers la cible`};}
   sortie(v,x,y){const L=d2(v.x,v.y,x,y)||1;const ux=(x-v.x)/L,uy=(y-v.y)/L;const ex=x+ux*(BOMB.stick+1),ey=y+uy*(BOMB.stick+1);
     Object.assign(v,{state:'out',tx:x,ty:y,ex,ey,ax:v.x,ay:v.y,t:0,dur:d2(v.x,v.y,ex,ey)/VEHICLES.bombardier.speed+.1,dropped:0});}
   bomberTick(v,dt){const V=VEHICLES.bombardier;if(v.state==='idle'||v.state==='down')return;

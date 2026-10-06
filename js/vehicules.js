@@ -7,6 +7,7 @@ import {TERRAIN,HOUR_REAL,BUILDINGS} from './data.js';
 import {ACTIONS as ACT,TILE_M as TILE,CONSTRUCTIONS} from './ballistics.js';
 import {fragDesign} from './designs.js';
 import {EXPO} from './explosive.js';
+import {vehDefOf} from './engins.js';
 const CONS_SHAPED=W=>CONSTRUCTIONS[W.p.cons]?.shaped,CONS_INC=W=>CONSTRUCTIONS[W.p.cons]?.inc;
 
 const D2R=Math.PI/180;
@@ -97,9 +98,17 @@ export const VEHICULES={
   vehDef(v){return VEHDEF[v.k];},
   isCombatVehicle(v){return !!VEHDEF[v?.k];},
   // Un véhicule neuf (à la sortie du garage) : caisse orientée, armes vides (on les charge au dépôt), personne à bord.
+  // (V12.8) les engins conçus au bureau des engins : chacun sa fiche (VEHDEF, sous l'identifiant de sa conception) et ses armes (des conceptions « engin »,
+  // invisibles au joueur) ; le garage ne propose qu'eux. Refait à chaque nouvelle partie, au chargement, et à chaque conception enregistrée.
+  enginsSync(){const s=this.s,VD=s.vdesigns||{};for(const k of Object.keys(VEHDEF))if(VEHDEF[k].engin&&!VD[k])delete VEHDEF[k];
+    for(const vd of Object.values(VD)){if(vd.status==='perdu'){delete VEHDEF[vd.id];continue;}try{VEHDEF[vd.id]=vehDefOf(vd);}catch(e){console.warn('engin',vd.name,e);continue;}
+      const reg=(id,p,name)=>{if(p)s.designs[id]={id,f:vd.f||'meumeu',name,status:'engin',p:JSON.parse(JSON.stringify(p))};};
+      vd.v.tourelles.forEach((T,i)=>{reg(vd.id+'_t'+i,T.arme,`${vd.name} — tourelle ${i+1}`);reg(vd.id+'_x'+i,T.coax,`${vd.name} — coaxiale ${i+1}`);});reg(vd.id+'_c',vd.v.mgCaisse,`${vd.name} — mitrailleuse de caisse`);}
+    BUILDINGS.garage.trains=Object.values(VD).filter(vd=>vd.status!=='perdu').map(vd=>vd.id);},
   addCombatVehicle(f,k,x,y,h=0){const V=VEHDEF[k];const v={id:this.id(),f,k,name:V.name+' '+(this.s.vehicles.filter(o=>o.k===k).length+1),x,y,h,spd:0,steer:0,yawRate:0,odo:0,
       hp:V.hp,max:V.hp,pass:[],crew:[],cargo:{},path:null,pi:0,goal:null,state:'idle',alt:0,comp:{},
       mounts:V.armes.map(a=>({id:a.id,yaw:a.garde??a.repos??0,el:0,w:a.w,mag:0,pouch:0,cool:0,reload:0,aimAt:null,target:null}))};
+    if(V.engin){v.fuel=V.engin.plein;for(let i=0;i<v.mounts.length;i++){const m=v.mounts[i],W=this.W(m.w),c=V.armes[i].coups||0;m.mag=Math.min(c,W?.p?.mag||1);m.pouch=c-m.mag;}}   // (un engin conçu sort du garage le plein fait, ses râteliers remplis : c'est dans son prix)
     this.s.vehicles.push(v);(this.cvs??=[]).push(v);return v;},
 
   // La sortie du garage : une place libre devant la porte (la face sud), le nez vers l'extérieur ; puis le point de ralliement s'il y en a un.
@@ -319,12 +328,12 @@ export const VEHICULES={
       // (sans cible : vers le tireur qui vient de frapper l'engin — mesuré, un affût au repos vers l'arrière mettait 0,8 h à tirer son premier coup
       // contre des fusiliers déjà en joue ; il tourne pendant qu'on le repère)
       const tg=main.target&&(main.target.isB?this.building(main.target.id):this.unit(main.target.id));
-      if(!tg){const T=v.threat;if(T&&this.s.t-T.t<.6&&!v.comp?.[piece]){const hf=A0.arc>=360?Math.PI:A0.arc/2*D2R,w0=clamp(wrap(T.a-v.h),-hf,hf),r0=A0.tour*D2R*this.dts;
+      if(!tg){const T=v.threat;if(T&&this.s.t-T.t<.6&&!v.comp?.[piece]){const hf=A0.arc>=360?Math.PI:A0.arc/2*D2R,w0=clamp(wrap(T.a-v.h-(A0.repos||0)),-hf,hf)+(A0.repos||0),r0=A0.tour*D2R*this.dts;
         const ny0=wrap(main.yaw+clamp(wrap(w0-main.yaw),-r0,r0));for(const i of idx)v.mounts[i].yaw=ny0;}continue;}
       const [tx,ty]=main.target.isB?(()=>{const [w,h]=this.sizeOf(tg);return [tg.i+w/2,tg.j+h/2];})():[tg.x,tg.y];
       // pointer : la pièce tourne à sa vitesse ; une casemate (débattement court) : la caisse pivote vers la cible si l'engin est arrêté
-      let want=wrap(Math.atan2(ty-from.by,tx-from.bx)-v.h);const half=A0.arc>=360?Math.PI:A0.arc/2*D2R;
-      if(Math.abs(want)>half){if(v.state!=='go'&&V.roues==='chenilles'&&!V.nav){const pr=V.pivot*D2R*this.dts;v.h=wrap(v.h+clamp(want,-pr,pr));want=wrap(Math.atan2(ty-from.by,tx-from.bx)-v.h);}want=clamp(want,-half,half);}
+      const R0=A0.repos||0;let want=wrap(Math.atan2(ty-from.by,tx-from.bx)-v.h-R0);const half=A0.arc>=360?Math.PI:A0.arc/2*D2R;   // (V12.8 : autour de la direction de repos — un sponson regarde son flanc)
+      if(Math.abs(want)>half){if(v.state!=='go'&&V.roues==='chenilles'&&!V.nav){const pr=V.pivot*D2R*this.dts;v.h=wrap(v.h+clamp(want,-pr,pr));want=wrap(Math.atan2(ty-from.by,tx-from.bx)-v.h-R0);}want=clamp(want,-half,half);}want+=R0;
       const rate=(v.comp?.[piece]?0:A0.tour*D2R)*this.dts;const err=wrap(want-main.yaw);const ny=wrap(main.yaw+clamp(err,-rate,rate));for(const i of idx)v.mounts[i].yaw=ny;
       const R=d2(tx,ty,from.bx,from.by);const el=Math.atan2((W0.at(R*TILE).drop||0),R*TILE)+(main.target.isB?.02:0);for(const i of idx)v.mounts[i].el+=(el-v.mounts[i].el)*Math.min(1,this.dts*2);
       if(Math.abs(wrap(want-ny))>.035||Math.abs(wrap(Math.atan2(ty-from.by,tx-from.bx)-v.h-ny))>.05)continue;
