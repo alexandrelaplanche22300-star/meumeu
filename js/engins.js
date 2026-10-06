@@ -344,8 +344,9 @@ export function exemple(id){const T=(f,a,o)=>({...newTurret(f,a),...o});let v;
     case 'geant':v=newVehicle('geant');v.tourelles=[T('boite','canon_lourd',{z:30,h:22}),T('cylindre','canon_court',{z:-40,x:-25}),T('cylindre','canon_court',{z:-40,x:25}),
         T('cone','mitrailleuse',{z:80,x:-28,D:18}),T('cone','mitrailleuse',{z:80,x:28,D:18}),T('dome','antichar',{z:-90})];
       v.racks=[{ti:0,n:60},{ti:1,n:60},{ti:2,n:60},{ti:3,n:2000},{ti:4,n:2000},{ti:5,n:60}];return v;
+    case 'automoteur':v=newVehicle('chenM');v.tourelles=[T('casemate','canon_lourd',{z:15,h:14,pl:{av:[10,35],fl:[4,10],ar:[3,0],toit:1.5}})];v.racks=[{ti:0,n:15},{ti:0,n:15}];return v;
     case 'losange':v=newVehicle('losange');v.tourelles=[T('sponson','canon_court',{z:0,x:-34}),T('sponson','canon_court',{z:0,x:34})];v.mgCaisse=HMG();v.racks=[{ti:0,n:60},{ti:1,n:60},{ti:'c',n:2000}];return v;
   }
   return newVehicle();}
 export const EXEMPLES={jeep:'Jeep de liaison',jeep_mg:'Jeep à mitrailleuse',rolls:'Voiture blindée 14-18',auto4:'Automitrailleuse de reconnaissance',auto8:'Automitrailleuse lourde 8×8',
-  camion:'Camion de ravitaillement',chenT:'Chenillette de transport',semi:'Semi-chenillé de transport',chenM:'Char moyen',t34:'Char moyen incliné',tigre:'Char lourd',geant:'Char géant à six tourelles',losange:'Char losange 14-18'};
+  camion:'Camion de ravitaillement',chenT:'Chenillette de transport',semi:'Semi-chenillé de transport',chenM:'Char moyen',t34:'Char moyen incliné',tigre:'Char lourd',geant:'Char géant à six tourelles',losange:'Char losange 14-18',automoteur:'Automoteur à casemate'};

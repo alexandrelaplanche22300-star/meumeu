@@ -23,5 +23,19 @@ OBERKOMMANDO DER MEUMEU — V12.8 « ENGINS » : LE JOURNAL DES MODIFICATIONS
   échouaient déjà avant. vehicules_garage G1, G2, G4, G5 échouent : le test commande l'ancien « char » et la jeep, que le garage ne propose plus
   (voulu) — à réécrire pour les engins conçus.
 
+- Retrait des anciens engins : les fiches jeep, jeep_mg, automitrailleuse, char, automoteur (vehicules.js), leurs canons canon_char_mle1 et
+  canon_auto_mle1 (designs.js), sept modèles (assets3d : jeeps, automitrailleuses, armored_*, guncarrier_casemate), la liste VEH_KINDS (figée au
+  chargement, elle ignorait les engins conçus), sept scripts test/_dbg_* qui ne servaient qu'à eux. Le garage ne propose que les conceptions.
+  Le dessin 3D : tout véhicule qui n'était ni engin ni train ni porteur recevait une jeep (lu dans le code) — chaque charrette et chaque avion
+  avait une jeep par-dessus ; retiré. Nouvel exemple du bureau : « Automoteur à casemate » (chenillé moyen, canon 28 mm, 2 × 15 obus).
+- Les tests de véhicules roulent avec des engins conçus (test/_engins_types.mjs, sous les anciens identifiants) ; critères recalés, chacun noté
+  dans son test avec la raison : équipage E5/E6 (la jeep à mitrailleuse conçue a 1 passager), garage G2/G4 (heures de la conception : 51 h, 23 h),
+  naval 14/17 (emprises : char lourd 2,4 × 1,4 ; une automitrailleuse conçue à 1,9 × 1,0). Résultats : équipage, garage, blindage : tout passe ;
+  naval : seul 16 échoue (échouait déjà avant) ; feu : F3 (déjà avant), F1 et F5 échouent ; conduite : C1 et C3 échouent.
+  * conduite : le test ne testait plus rien (VEH_KINDS vide → « tout passe », 0 µs par pas) ; il roule maintenant avec les engins conçus et
+    montre de vrais défauts : jeep à mitrailleuse 2 buts sur 4, automitrailleuse 4×4 à 3,8 cases du chemin en moyenne (avant : 0,4).
+  * feu F5 : un engin conçu à vide ne se recharge pas au dépôt (ses armes sont des conceptions « engin » dont aucun dépôt n'a les caisses).
+  * feu F1 : l'automitrailleuse conçue met 1 Bèè sur 8 hors de combat en 4 h (l'ancienne 8 sur 8) : à comprendre.
+
 RESTE DE L'ÉTAPE C : retirer les anciens VEHDEF terrestres et leurs modèles (jeep, jeep_mg, automitrailleuse, char, automoteur) ; réécrire
 vehicules_garage pour les engins conçus ; munitions des râteliers rechargées depuis les ressources.

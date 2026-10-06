@@ -137,9 +137,9 @@ export const BUILDINGS={
     why:'On y conçoit les armes : le calibre, l’ogive, la poudre, le canon, la culasse. Lancée, une conception devient un programme : ses ingénieurs (cinq places) la présentent en réunion, en chiffrent les tâches, mènent tube, culasse, mécanisme, affût, puis l’essai de tir ; adoptée, elle se fabrique.'},
   manufacture:{name:'Manufacture d’armes',sprite:'foundry',size:[3,3],cost:{pierre:100,bois:40,pieces:30,fer:10},hours:20,workers:4,hp:900,manufacture:true,factory:{coal:.3,mod:'armement'},
     why:'Une usine d’armes, outillée pour un seul modèle (fusil ou protection) : changer de modèle, c’est refaire l’outillage (6 h). Quand la dernière tombe, les plans sont perdus — sauf des archives dans une autre ville.'},
-  // le garage : les véhicules meumeu (jeeps, automitrailleuse, char, automoteur) — fer, pièces, et les armes montées prises au dépôt ; long à produire
-  garage:{name:'Garage',sprite:'foundry',size:[4,4],cost:{pierre:120,bois:70,fer:40,pieces:30},hours:24,hp:1100,trains:['jeep','jeep_mg','automitrailleuse','char','automoteur'],
-    why:'On y monte les véhicules : du fer, des pièces, et les armes qu’on y installe (prises au dépôt). Une jeep en une demi-journée ; un char, trois jours. Ils sortent sans équipage : envoyez-y des Meumeu.'},
+  // le garage : les engins conçus au bureau des engins (V12.8 : enginsSync remplit trains) — leur prix comprend leurs armes ; long à produire
+  garage:{name:'Garage',sprite:'foundry',size:[4,4],cost:{pierre:120,bois:70,fer:40,pieces:30},hours:24,hp:1100,trains:[],
+    why:'On y monte les engins conçus au bureau des engins : leur prix (acier, moteur, armes, premier plein, râteliers) et leurs heures découlent de la conception. Ils sortent le plein fait, sans équipage : envoyez-y des Meumeu.'},
   hopital:{name:'Hôpital',sprite:'lab',stock0:{vivres:40,sante:8},size:[3,3],cost:{bois:60,pierre:50,pieces:10},hours:14,hp:600,ward:12,workers:2,trains:['infirmier','medecin'],makesMed:true,factory:{coal:0,mod:'soins'},
     why:'On y opère et on y guérit tout à fait : le sang revient, les os se ressoudent en trois jours. On y forme infirmiers et médecins, on y fait les fournitures médicales avec des pièces.'},
   tente:{name:'Tente médicale',sprite:'tent',size:[2,2],cost:{bois:5,sante:1},hours:1.5,hp:120,ward:6,store:30,tent:true,

@@ -11,14 +11,17 @@
 // 10. une sauvegarde reprend une barge en mer, son équipage et sa route.
 // 12. la grande barge se construit sur la plage et part à l'eau, avec ses 950 points de vie ;
 // 13. elle prend un pilote, deux mitrailleurs et quarante soldats — pas un de plus ;
-// 14. l'automitrailleuse à canon est refusée par la barge (trop large) et acceptée par la grande ; deux sur le pont, une jeep de plus refusée (plus de place) ;
+// 14. l'automitrailleuse à canon est refusée par la barge (trop large) et acceptée par la grande ;
+//     (CORRECTION V12.8 : les engins sont conçus — le char lourd a l'emprise de l'ancienne automitrailleuse à canon, 2,4 × 1,4 ; en 17, une automitrailleuse
+//     4×4 conçue à l'emprise de l'ancienne (1,9 × 1,0) — mesuré : la 4×4 d'exemple (1,6 × 0,8) ne prend pas la place des soldats, la 8×8 la prend toute ;
+//     la jeep conçue, 1,1 × 0,7, tient encore à côté de 23 soldats : la barge pleine refuse donc l'automitrailleuse) deux sur le pont, une jeep de plus refusée (plus de place) ;
 // 15. la traversée : les deux véhicules et les quarante soldats débarquent sur la plage d'en face, les véhicules l'un devant l'autre, sur la terre ;
 // 16. la mitrailleuse lourde de la passerelle (son mitrailleur, des caisses dans la soute) tire sur des Bèè qui approchent de la barge échouée.
 const out={textContent:''};globalThis.document??={getElementById:()=>out};
 const {World}=await import('../js/world.js');const {T,TERRAIN}=await import('../js/data.js');const {VEHDEF}=await import('../js/vehicules.js');
 let ok=true;const check=(n,c,d='')=>{console.log((c?'OK  ':'ÉCHEC ')+n+(d?' — '+d:''));if(!c)ok=false;};
 const hours=(W,h,each=null)=>{for(let k=0;k<h*60;k++){W.update(1/60);if(each&&each())return;}};
-const W=new World(71,{map:'mer'});const N=W.N,ter=W.G.terrain,dc=W.G.dcoast;
+const {enginsDeTest}=await import('./_engins_types.mjs');const E8=await import('../js/engins.js');const W=enginsDeTest(new World(71,{map:'mer'}));const N=W.N,ter=W.G.terrain,dc=W.G.dcoast;
 // une plage : une case de sable à environ 3 cases de l'eau, côté ouest (i < 750) ou est (i > 750), vers le milieu de la hauteur
 const beach=(side,jy=750)=>{for(let dj=0;dj<200;dj++)for(const s of [1,-1]){const j=jy+dj*s;for(let i=side<0?560:940;side<0?i<760:i>740;i+=side<0?1:-1){const k=j*N+i;if(ter[k]===T.sand&&dc[k]>=2&&dc[k]<=4&&W.occ[k]<0)return [i,j];}}return null;};
 const west=beach(-1),east=beach(1);console.log('plages :',west,east);
@@ -72,6 +75,7 @@ const dHome=Math.hypot(barge.x-home[0],barge.y-home[1]);check('6. elle revient �
   const pax=W.addUnit('meumeu','soldat',barge.x,barge.y,{rounds:10}),pax2=W.addUnit('meumeu','soldat',barge.x,barge.y,{rounds:10});W.vehBoard(barge,pax);W.vehBoard(barge,pax2);const n0=barge.crew.length;
   barge.hp=1;W.vehDestroyed(barge,'test');check('8. coulée au large : tout le monde se noie',barge.drowned===n0&&n0>=2,`${barge.drowned}/${n0} noyés`);}
 // 9 : le véhicule sur le pont
+W.enginsSync();   // (V12.8 : la partie Wf ci-dessus a réinscrit le registre commun des engins sans les nôtres)
 {const b2=newBarge();check('9. une seconde barge à l\'eau',!!b2);if(b2){b2.ramp=1;b2.rampTo=1;const jeep=W.addCombatVehicle('meumeu','jeep',b2.x-2.4,b2.y,0);const [jx,jy]=W.nearestLand(jeep.x,jeep.y,5);jeep.x=jx;jeep.y=jy;
     const pilot=W.addUnit('meumeu','villageois',jx,jy,{});W.vehBoard(b2,pilot);const e=W.boatEmbark(b2,jeep);check('9. la jeep monte à bord',e.ok&&b2.cargoVehs?.includes(jeep.id),JSON.stringify(e.why||e.text));
     b2.rampTo=0;hours(W,2);W.vehMove(b2,east[0]+.5,east[1]+.5);hours(W,60,()=>b2.state==='idle'&&b2.spd<.1);
@@ -95,9 +99,9 @@ const dHome=Math.hypot(barge.x-home[0],barge.y-home[1]);check('6. elle revient �
     check('13. un pilote, deux mitrailleurs, quarante soldats ; le 44e refusé',R('conducteur')===1&&R('servant')===2&&R('passager')===40&&roles[43]===null,`${R('conducteur')} pilote, ${R('servant')} mitrailleurs, ${R('passager')} passagers, 44e : ${roles[43]}`);
     // les véhicules : une automitrailleuse à canon refusée par la petite barge, acceptée deux fois par la grande ; une jeep de trop
     const at=(dx)=>{const [x,y]=W.nearestLand(g.x-Math.cos(g.h)*(4+dx),g.y-Math.sin(g.h)*(4+dx),6);return [x,y];};
-    const small=W.s.vehicles.find(v=>v.k==='barge'&&v.hp>0&&!v.sunk);const c0=W.addCombatVehicle('meumeu','char',...at(0),g.h);let rs={ok:false,why:['pas de petite barge']};if(small){small.ramp=1;[c0.x,c0.y]=W.nearestLand(small.x-Math.cos(small.h)*3,small.y-Math.sin(small.h)*3,6);rs=W.boatEmbark(small,c0);}
+    const small=W.s.vehicles.find(v=>v.k==='barge'&&v.hp>0&&!v.sunk);const c0=W.addCombatVehicle('meumeu','char_lourd',...at(0),g.h);let rs={ok:false,why:['pas de petite barge']};if(small){small.ramp=1;[c0.x,c0.y]=W.nearestLand(small.x-Math.cos(small.h)*3,small.y-Math.sin(small.h)*3,6);rs=W.boatEmbark(small,c0);}
     check('14. la barge refuse l\'automitrailleuse à canon',!rs.ok&&/large|long/.test(rs.why[0]),JSON.stringify(rs.why||rs.text));
-    [c0.x,c0.y]=at(0);const e1=W.boatEmbark(g,c0);const c1=W.addCombatVehicle('meumeu','char',...at(1),g.h);const e2=W.boatEmbark(g,c1);const j=W.addCombatVehicle('meumeu','jeep',...at(2),g.h);const e3=W.boatEmbark(g,j);
+    [c0.x,c0.y]=at(0);const e1=W.boatEmbark(g,c0);const c1=W.addCombatVehicle('meumeu','char_lourd',...at(1),g.h);const e2=W.boatEmbark(g,c1);const j=W.addCombatVehicle('meumeu','jeep',...at(2),g.h);const e3=W.boatEmbark(g,j);
     check('14. deux automitrailleuses à canon sur le pont de la grande barge',e1.ok&&e2.ok&&g.cargoVehs.length===2,`${e1.text||e1.why} · ${e2.text||e2.why}`);
     check('14. une jeep de plus : plus de place',!e3.ok&&/place/.test(e3.why[0]),JSON.stringify(e3.why||e3.text));
     // 15 : la traversée et le débarquement
@@ -112,9 +116,9 @@ const dHome=Math.hypot(barge.x-home[0],barge.y-home[1]);check('6. elle revient �
     const m=g.mounts[0];let fired=0;const sh0=W.s.shots.length;hours(W,3,()=>{if(m.mag>0||W.s.shots.some(q=>q.by===g.id))fired=1;return W.s.shots.filter(q=>q.by===g.id).length>4;});const shots=W.s.shots.filter(q=>q.by===g.id).length;const hurt=B.filter(b=>b.hp<=0||b.h?.state&&b.h.state!=='ok').length;
     check('16. les mitrailleuses lourdes de la grande barge tirent sur les Bèè',(g.firedAt??-1)>0&&hurt>=1,`premier tir ${g.firedAt?.toFixed?.(2)} h, ${hurt}/6 Bèè touchés, coups en vol ${shots}, munitions ${m.mag}+${m.pouch}`);}}
 // 17 : la place du pont — une automitrailleuse à bord, la barge ne prend plus que les soldats qui tiennent à côté ; pleine de soldats, elle refuse un véhicule
-{const b=newBarge();if(b){b.ramp=1;const [x,y]=W.nearestLand(b.x-Math.cos(b.h)*3.2,b.y-Math.sin(b.h)*3.2,8);const am=W.addCombatVehicle('meumeu','automitrailleuse',x,y,b.h);const e=W.boatEmbark(b,am);
+{const b=newBarge();if(b){b.ramp=1;const [x,y]=W.nearestLand(b.x-Math.cos(b.h)*3.2,b.y-Math.sin(b.h)*3.2,8);const ex=E8.exemple('auto4');ex.L=95;ex.W=43;W.s.vdesigns.auto_barge={id:'auto_barge',f:'meumeu',name:'Automitrailleuse',status:'prototype',v:ex,t:0};W.enginsSync();const am=W.addCombatVehicle('meumeu','auto_barge',x,y,b.h);const e=W.boatEmbark(b,am);
   const men=[];for(let n=0;n<27;n++)men.push(W.addUnit('meumeu','soldat',x,y,{rounds:10}));men.forEach(u=>W.vehBoard(b,u));const pax=b.crew.filter(u=>u.vrole==='passager').length,cap=W.boatCap(b);
   check('17. avec une automitrailleuse à bord, seuls les soldats qui tiennent montent',e.ok&&pax===cap&&cap<24&&cap>0,`${pax} passagers, place pour ${cap}`);
-  const b2=newBarge();if(b2){b2.ramp=1;const [x2,y2]=W.nearestLand(b2.x-Math.cos(b2.h)*3,b2.y-Math.sin(b2.h)*3,8);for(let n=0;n<23;n++)W.vehBoard(b2,W.addUnit('meumeu','soldat',x2,y2,{rounds:10}));const j=W.addCombatVehicle('meumeu','jeep',x2,y2,b2.h);const e2=W.boatEmbark(b2,j);
-    check('17. pleine de soldats, la barge refuse une jeep',!e2.ok&&/encombré/.test(e2.why[0]),JSON.stringify(e2.why||e2.text));}}}
+  const b2=newBarge();if(b2){b2.ramp=1;const [x2,y2]=W.nearestLand(b2.x-Math.cos(b2.h)*3,b2.y-Math.sin(b2.h)*3,8);for(let n=0;n<23;n++)W.vehBoard(b2,W.addUnit('meumeu','soldat',x2,y2,{rounds:10}));const j=W.addCombatVehicle('meumeu','auto_barge',x2,y2,b2.h);const e2=W.boatEmbark(b2,j);
+    check('17. pleine de soldats, la barge refuse une automitrailleuse',!e2.ok&&/encombré/.test(e2.why[0]),JSON.stringify(e2.why||e2.text));}}}
 console.log(ok?'\nTOUT PASSE':'\nIL Y A DES ÉCHECS');

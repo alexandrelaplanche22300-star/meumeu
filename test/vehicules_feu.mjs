@@ -20,7 +20,7 @@ const out={textContent:''};globalThis.document??={getElementById:()=>out};
 const {World}=await import('../js/world.js');const {VEHDEF}=await import('../js/vehicules.js');
 const SEED=+(process.argv[2]||101);let fail=0,errs=0;const P=(ok,t,d)=>{if(!ok)fail++;console.log(`${ok?'PASS':'FAIL'}  ${t}  [${d}]`);};
 // un terrain dégagé, loin des villes : un monde neuf, la guerre déclarée, pas de brouillard
-const mk=()=>{const W=new World(SEED);W.s.fog=false;if(!W.atWar)W.declareWar('meumeu');WW=W;return W;};
+const {enginsDeTest}=await import('./_engins_types.mjs');const mk=()=>{const W=enginsDeTest(new World(SEED));W.s.fog=false;if(!W.atWar)W.declareWar('meumeu');WW=W;return W;};
 const open=(W,k,x0,y0)=>{const V=VEHDEF[k];for(let r=0;r<80;r++)for(let a=0;a<32;a++){const x=Math.floor(x0+Math.cos(a/32*6.283)*r)+.5,y=Math.floor(y0+Math.sin(a/32*6.283)*r)+.5;
   let ok=W.vehFits(V,x,y,0)&&!W.s.vehicles.some(o=>o.hp>0&&Math.hypot(o.x-x,o.y-y)<14);for(let q=0;ok&&q<12;q+=2)ok=W.vehFits(V,x+q,y,0)&&W.los(x,y,x+q,y);if(ok)return [x,y];}return null;};
 const crewUp=(W,v,n)=>{const us=W.s.units.filter(u=>u.f==='meumeu'&&u.hp>0&&!u.inVeh).slice(0,n);for(const u of us){u.x=v.x;u.y=v.y;W.vehBoard(v,u);}};

@@ -16,11 +16,6 @@ export const DEFAULT_DESIGNS=[
   // L'obusier et le lance-fusées Mle 1 restent des RÉFÉRENCES (tests, scénario « front ») que le joueur n'a pas ; les canons des engins ne
   // servent qu'aux engins (l'arsenal fait leurs obus)
   ...['meumeu','beee'].map(f=>({id:f==='meumeu'?'canon_mle1':'bee_canon',f,name:f==='meumeu'?'Obusier Mle 1':'Obusier bèè',status:f==='meumeu'?'reference':'adopte',base:true,p:kitToP(KIT_PRESETS.find(p=>p.id==='howitzer').design)})),
-  // les canons des véhicules meumeu (leur supériorité : les Bèè n'en ont pas) — tirés du kit « canon de campagne », la masse de l'obus à la mesure du
-  // calibre (le cube) : un canon de char de 16 mm en tourelle (obus explosif léger, contre les nids et les groupes), un canon d'assaut de 28 mm en
-  // casemate (presque l'obus de l'obusier, en tir tendu : contre les ouvrages)
-  {id:'canon_char_mle1',f:'meumeu',name:'Canon de char Mle 1',status:'engin',base:true,p:kitToP({...KIT_PRESETS.find(p=>p.id==='field').design,name:'Canon de char Mle 1',role:'En tourelle',caliberMm:16,barrelLengthCm:46,filler:.2,ogive:.45,coreDensity:6.4,meplat:.24,massG:60,caseLenCm:8,assignedCrew:2,carriage:'none'})},
-  {id:'canon_auto_mle1',f:'meumeu',name:'Canon d’assaut Mle 1',status:'engin',base:true,p:kitToP({...KIT_PRESETS.find(p=>p.id==='field').design,name:'Canon d’assaut Mle 1',role:'En casemate',caliberMm:28,barrelLengthCm:66,filler:.22,ogive:.42,coreDensity:6.3,meplat:.26,massG:320,caseLenCm:13,assignedCrew:2,carriage:'none'})},
   {id:'fusees_mle1',f:'meumeu',name:'Lance-fusées Mle 1',status:'reference',base:true,p:ROCKET_P(22,110,60,4,.3)},
   // l'armement lourd d'infanterie : une mitrailleuse lourde sur roues et bouclier (puissante, chère, trois servants : faite pour tenir une tranchée et
   // pour appuyer un assaut) et un fusil antichar à bipied (deux servants : il perce le blindage des voitures)

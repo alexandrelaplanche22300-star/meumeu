@@ -58,7 +58,7 @@ export const BUILDING_MODEL={
   centre:[':centre',1.0,0],camp:[':camp',1.0,0],maison:[':maison',1.0,0],ferme:[':ferme',1.0,0],grenier:[':grenier',1.0,0],atelier:[':atelier',1.0,0],four:[':four',1.0,0],mine:[':mine',1.0,0],gare:[':gare',1.0,0],entrepot:[':entrepot',1.0,0],labo:[':labo',1.0,0],caserne:[':caserne',1.0,0],caserne_elite:[':caserne_elite',1.0,0],poudrerie:[':poudrerie',1.0,0],arsenal:[':arsenal',1.0,0],armurerie:[':armurerie',1.0,0],manufacture:[':manufacture',1.0,0],garage:[':garage',1.0,0],hopital:[':hopital',1.0,0],tente:[':tente',1.0,0],archives:[':archives',1.0,0],fonderie:[':fonderie',1.0,0],
   moulin:['windmill',.8,0],barge:[':barge_chantier',1.0,0],grande_barge:[':grande_barge_chantier',1.0,0],bateau_bee:[':bateau_chantier',1.0,2],tour:[':tour',.8,0]};
 export const OUTCROP_MODEL={fer:'rocky_outcrop',charbon:'lava_rock',pierre:'stone_rock_pile',cuivre:'crystal_rock',plomb:'rock_formation',salpetre:'multicolored_crystal_pile',or:'rock_with_gold_veins'};
-export const MODEL_NAMES=[...new Set([...Object.values(BUILDING_MODEL).map(b=>b[0]).filter(n=>n[0]!==':'),...Object.values(OUTCROP_MODEL),'meumeu','meumeu_soldat','plush_cow_knight','goat_plush_toy','meumeu_chercheur','meumeu_reine','gewehr_43_rifle','heavy_machine_gun','assault_rifle','vintage_military_jeep_logistic_unarmed','vintage_military_logistic_jeep_with_gun','ww2_locomotive','ww2_wagon','armored_car','stone_rock_pile','silbervogel_bomber_3d_model',...Object.values(VEHDEF).map(V=>V.modele).filter(n=>n&&n[0]!==":")])];
+export const MODEL_NAMES=[...new Set([...Object.values(BUILDING_MODEL).map(b=>b[0]).filter(n=>n[0]!==':'),...Object.values(OUTCROP_MODEL),'meumeu','meumeu_soldat','plush_cow_knight','goat_plush_toy','meumeu_chercheur','meumeu_reine','gewehr_43_rifle','heavy_machine_gun','assault_rifle','ww2_locomotive','ww2_wagon','stone_rock_pile','silbervogel_bomber_3d_model',...Object.values(VEHDEF).map(V=>V.modele).filter(n=>n&&n[0]!==":")])];
 
 // ---- petites géométries de code : arbres, buisson (couleurs de sommets)
 const colored=(g,hex)=>{const c=new THREE.Color(hex);const n=g.attributes.position.count,a=new Float32Array(n*3);for(let i=0;i<n;i++){a[3*i]=c.r;a[3*i+1]=c.g;a[3*i+2]=c.b;}g.setAttribute('color',new THREE.BufferAttribute(a,3));return g;};
@@ -210,7 +210,7 @@ export class Scene3D{
     for(let k=0;k<3;k++){const p=new Pool(boulder(k+1),{cap:1400});this.pools['rock'+k]=p;this.scene.add(p.mesh);}
     this.M[':tour']={ext:[.9,1.8,.9],geo:TOWER_GEO()};Object.assign(this.M,buildingModels(),aztecModels(),bunkerModels(),labInteriors());this.M[':barge']=bargeModel();this.M[':grande_barge']=grandeBargeModel();this.M[':bateau_bee']=bateauModel();this.M[':barge_chantier']={ext:this.M[':barge'].ext,geo:this.M[':barge'].full};this.M[':grande_barge_chantier']={ext:this.M[':grande_barge'].ext,geo:this.M[':grande_barge'].full};this.M[':bateau_chantier']={ext:this.M[':bateau_bee'].ext,geo:this.M[':bateau_bee'].geo};this.doorGeo=bunkerDoorGeo();this.doorMat=new THREE.MeshStandardMaterial({color:0x50565a,roughness:.7,metalness:.4});
     for(const [res,name] of Object.entries(OUTCROP_MODEL)){this.pools['ore_'+res]=mk(name,{cap:300});}
-    this.pools.jeep=mk('vintage_military_jeep_logistic_unarmed',{cap:40});this.pools.loco=mk('ww2_locomotive',{cap:20});this.pools.wagon=mk('ww2_wagon',{cap:200});
+    this.pools.loco=mk('ww2_locomotive',{cap:20});this.pools.wagon=mk('ww2_wagon',{cap:200});
     this.ok=true;
   }
   static async create(){const M={};await Promise.all(MODEL_NAMES.map(async n=>{try{M[n]=await loadModel(n,'assets3d/');}catch(e){console.warn('modèle 3D manquant',n);}}));return new Scene3D(M);}
@@ -594,7 +594,7 @@ export class Scene3D{
     // les cadavres : à terre, assombris
     for(const c of s.corpses||[]){if(c.x<i0-3||c.x>i1+3||c.y<j0-3||c.y>j1+3)continue;const age=W.t-c.t;if(age>3*DAY)continue;const bee=c.f==='beee'||/bee/.test(c.sheet||'');const H=(c.k==='villageois'?.92:1.02);const sc=H/(bee?Hb:Hm);const y=c.dir==='se'?PI/2:c.dir==='sw'?0:c.dir==='ne'?PI:-PI/2;
       (bee?P.bee:P.meumeu).add(c.x,(bee?Hb:Hm)*sc*.2,c.y,y,sc,sc,sc,{tint:0x8a7a72,pitch:-PI/2});}
-    // les véhicules : le train suit la trace de sa locomotive (mêmes distances que le dessin 2D) ; le reste est une jeep
+    // les véhicules : les engins (générés par le code), le train qui suit la trace de sa locomotive (mêmes distances que le dessin 2D)
     const vseen=new Set();this.vlist=s.vehicles||[];
     for(const v of s.vehicles||[]){if(v.x<i0-8||v.x>i1+8||v.y<j0-8||v.y>j1+8)continue;if(v.alt>0)continue;
       if(fog&&v.f!=='meumeu'&&!view.fogVis?.[Math.floor(v.y)*N+Math.floor(v.x)])continue;
@@ -607,7 +607,7 @@ export class Scene3D{
           const along=M.ext[2]>=M.ext[0];const yaw=Math.atan2((dx||v.dx||1)/L,(dy||v.dy||0)/L)+(along?0:-PI/2)+(c.k==='loco'?PI:0);   // (le modèle de locomotive regarde vers −Z : on la retourne, la cheminée en tête)
           (c.k==='loco'?P.loco:P.wagon).add(x,0,y,yaw,sc,sc,sc,{tint:c.k==='tender'?0x6a6a66:null});}}
       else if(v.k==='porteur')continue;
-      else{const M=this.M.vintage_military_jeep_logistic_unarmed;const sc=1.2/M.ext[0];P.jeep.add(v.x,0,v.y,Math.atan2(v.dx??1,v.dy??0)-PI/2,sc,sc,sc);}}
+      }   // (la charrette et les avions sont dessinés plus haut ; jusqu'à la V12.8, chacun recevait en plus une jeep par-dessus)
     for(const [id,e] of this.vehs){if(vseen.has(id))continue;if(!s.vehicles.some(o=>o.id===id)){this.scene.remove(e.g);this.vehs.delete(id);}else e.g.visible=false;}
     // V12.4 : les obus et les fusées en vol, en 3D, à l'échelle des Meumeu (1 unité ≈ 0,29 m : un Meumeu de 30 cm mesure 1,02), orientés selon la tangente
     // de leur arc ; même courbe que la couche 2D (hauteur h → Y = h × 0,8165). Calibre d en mm : longueur ≈ 4,2 d (fusée : 7 d), avec un minimum visible.

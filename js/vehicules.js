@@ -1,4 +1,4 @@
-// Les véhicules de combat des Meumeu (leur supériorité technologique : les Bèè n'en ont pas) : jeeps, automitrailleuse, char, automoteur.
+// Les véhicules de combat des Meumeu (leur supériorité technologique : les Bèè n'en ont pas) : les engins conçus au bureau des engins (V12.8).
 // Ce fichier : leurs caractéristiques (VEHDEF) et leur conduite — le chemin (une grille à leur mesure : arbres, rochers et tranchées arrêtent les
 // roues, les chenilles passent en peinant), puis un pilote qui le suit comme un conducteur : il braque (rayon minimal des roues ; les chenilles
 // pivotent sur place), accélère, freine avant les virages serrés et avant l'arrivée, et ne rentre pas dans les autres véhicules.
@@ -25,32 +25,6 @@ const active=u=>u&&u.hp>0&&u.h?.state!=='hors';
 //  cout : des matières seulement (V12.5, demande du joueur) — les armes d'un engin viennent avec lui ; plus d'arme préfabriquée prise au stock
 //  (des mitrailleuses et canons à faire venir de l'arsenal pour chaque engin : un cauchemar logistique)
 export const VEHDEF={
-  jeep:{name:'Jeep',modele:'vintage_military_jeep_logistic_unarmed',avant:'+x',long:1.7,large:.85,roues:'roues',r:2.2,vmax:28,t0:2.2,frein:1.2,
-    blindage:{avant:[.15,0],flanc:[.12,0],arriere:[.12,0],dessus:[0,0]},hp:60,places:{servants:0,passagers:3},soute:10,armes:[],
-    cout:{fer:12,pieces:16,bois:4,cuivre:1},heures:10,
-    why:'Le transport rapide : un conducteur, trois passagers, dix caisses (munitions d’abord). Presque pas de blindage : de la tôle.'},
-  jeep_mg:{name:'Jeep à mitrailleuse',modele:'vintage_military_logistic_jeep_with_gun',avant:'+x',long:1.7,large:.85,roues:'roues',r:2.2,vmax:27,t0:2.4,frein:1.2,
-    blindage:{avant:[.15,0],flanc:[.12,0],arriere:[.12,0],dessus:[0,0]},hp:60,places:{servants:1,passagers:2},soute:6,
-    armes:[{id:'mg',piece:'affut',w:'mg_lourde_mle1',arc:360,tour:120,coups:900,repos:Math.PI,garde:0,pos:[-.46,0,.71],tube:.45}],
-    cout:{fer:14,pieces:18,bois:4,cuivre:1},heures:12,
-    why:'Une mitrailleuse lourde sur pivot à l’arrière (tout l’horizon), un tireur debout, deux passagers, six caisses. De la tôle : il faut tirer en mouvement et ne pas rester.'},
-  automitrailleuse:{name:'Automitrailleuse',modele:'vintage_armored_car',avant:'+z',long:1.9,large:1.0,roues:'roues',r:2.8,vmax:22,t0:3.2,frein:1.6,
-    blindage:{avant:[1.05,25],flanc:[.9,8],arriere:[.9,0],dessus:[.35,80],tourelle:[.9,35]},hp:140,places:{servants:1,passagers:2},soute:4,
-    armes:[{id:'mg1',piece:'tourelle',w:'mg_lourde_mle1',arc:360,tour:45,coups:1500,jumelle:true,pos:[-.41,.12,.9],tube:.42},{id:'mg2',piece:'tourelle',w:'mg_lourde_mle1',arc:360,tour:45,coups:1500,jumelle:true,pos:[-.41,-.12,.9],tube:.42}],
-    cout:{fer:55,pieces:42,cuivre:6,bois:4},heures:36,
-    why:'Deux mitrailleuses lourdes jumelées dans une tourelle en dôme. Le blindage arrête les balles de fusil et de mitrailleuse bèè ; le fusil antichar le perce.'},
-  char:{name:'Automitrailleuse à canon',modele:'armored_vehicle',avant:'+z',long:2.4,large:1.4,roues:'roues',r:3.0,vmax:18,t0:4.5,frein:2.2,   // (V12.4 : le modèle a quatre roues — c'est une automitrailleuse à canon, pas un char)
-    blindage:{avant:[3.6,35],flanc:[2.0,0],arriere:[1.6,0],dessus:[.8,85],tourelle:[3.0,20],tourelle_flanc:[2.0,10]},hp:260,places:{servants:2,passagers:0},soute:2,
-    armes:[{id:'canon',piece:'tourelle',w:'canon_char_mle1',arc:360,tour:30,coups:60,hausse:[-6,18],pos:[-.04,0,.94],tube:.7},{id:'coax',piece:'tourelle',w:'mg_lourde_mle1',arc:360,tour:30,coups:2000,coax:'canon',pos:[-.04,.12,.94],tube:.55}],
-    cout:{fer:120,pieces:85,cuivre:12,charbon:10},heures:70,
-    why:'Une automitrailleuse lourde, sur quatre roues : un canon court (obus explosifs contre les nids et les groupes) et une mitrailleuse coaxiale, en tourelle. L’avant incliné tient le fusil antichar bèè au-delà de quelques dizaines de mètres ; les flancs non.'},
-  // (V12.5 : UN canon, à l'avant (+z) — les deux tubes jumelés étaient les pots d'échappement du modèle, le véhicule roulait à l'envers ; signalé par le joueur.
-  //  Le tube tourne dans sa rotule, à la plaque avant de la casemate : 0,77 case devant le centre, 0,13 à droite de l'axe, comme le pivot du modèle)
-  automoteur:{name:'Automoteur à casemate',modele:'guncarrier_casemate',avant:'+z',long:2.6,large:1.45,roues:'chenilles',pivot:30,vmax:12,t0:5,frein:2.5,
-    blindage:{avant:[4.5,40],flanc:[1.6,0],arriere:[1.2,0],dessus:[.5,85]},hp:300,places:{servants:3,passagers:0},soute:2,
-    armes:[{id:'canon',piece:'canons',w:'canon_auto_mle1',arc:24,tour:8,coups:40,hausse:[-4,20],pos:[.77,.13,.97],tube:.27}],
-    cout:{fer:150,pieces:95,cuivre:10,charbon:12},heures:84,
-    why:'Un canon dans une casemate, à l’avant : ±12° de débattement — c’est la caisse qui pointe. Très épais devant, mince ailleurs. Pour casser les ouvrages bèè.'},
 };
 // V12.5 : la barge de débarquement (nav:'eau' : elle ne roule pas, elle navigue — voir naval.js). Une coque blindée à l'avant (la rampe relevée) et sur les flancs :
 // le fusil et la mitrailleuse bèè ne la percent pas, l'antichar si. Un pilote, vingt-quatre passagers, un véhicule sur le pont, soixante caisses.
@@ -87,7 +61,6 @@ VEHDEF.bateau_bee={name:'Bateau bèè',faction:'beee',nav:'eau',modele:':bateau_
   blindage:{avant:[.35,0],flanc:[.22,0],arriere:[.2,0],dessus:[0,0]},hp:150,places:{servants:0,passagers:16},soute:16,armes:[],
   cout:{bois:120},heures:14,   // (V12.5 : du bois seulement — les chantiers attendaient des pièces puis du fer venus de gares lointaines, à 0 % des jours entiers : aucune flotte avant J30)
   why:'Une coque de planches, une rampe de bois, seize soldats : la coque arrête à peine le fusil. Les Bèè en construisent des dizaines pour leurs grands assauts.'};
-export const VEH_KINDS=Object.keys(VEHDEF);
 const VEDF=v=>VEHDEF[v.k];
 // la vitesse sur chaque terrain (part de vmax) : les roues s'enlisent dans le sable et peinent dans la lande, les chenilles moins
 const TERRAIN_V={roues:{sand:.55,scrub:.7,dirt:1,grass:.95,meadow:.95},chenilles:{sand:.8,scrub:.85,dirt:1,grass:.95,meadow:.95}};
@@ -289,7 +262,7 @@ export const VEHICULES={
       const q=Math.min(want,o.cargo[k]);o.cargo[k]-=q;if(o.cargo[k]<=1e-6)delete o.cargo[k];give(q);if(want<=.05)break;}
     if(want>.05){const q=this.take(v.f,v.x,v.y,k,want,5);if(q>0)give(q);}
     if(v.fuel>got0&&v.dry){v.dry=false;v.why=null;}},
-  combatVehicleTick(v,dt){const V=VEHDEF[v.k];if(V.air){this.airTick(v,V,dt);return;}if(V.nav==='eau'){this.vehSouteSupply(v);this.boatTick(v,V,dt);if(V.armes.length&&v.hp>0){this.vehResupply(v,V);if(this.atWar)this.vehFire(v,V,dt);}return;}if(v.k==='char'&&v.name?.startsWith('Char léger'))v.name=v.name.replace('Char léger','Automitrailleuse à canon');if(v.hp<=0){v.spd=0;return;}this.vehSouteSupply(v);
+  combatVehicleTick(v,dt){const V=VEHDEF[v.k];if(V.air){this.airTick(v,V,dt);return;}if(V.nav==='eau'){this.vehSouteSupply(v);this.boatTick(v,V,dt);if(V.armes.length&&v.hp>0){this.vehResupply(v,V);if(this.atWar)this.vehFire(v,V,dt);}return;}if(v.hp<=0){v.spd=0;return;}this.vehSouteSupply(v);
     if(v.fire>0){v.fire-=dt;v.hp-=dt*35;if(v.hp<=0){this.vehDestroyed(v,'brûlé');return;}}
     if(v.comp?.moteur||v.comp?.train){if(v.state==='go'){v.state='idle';v.path=null;v.itin=null;}v.why=v.comp.moteur?'moteur détruit : immobilisé':'train de roulement brisé : immobilisé';}
     if(V.engin&&!(v.fuel>1e-6)){v.fuel=0;if(v.state==='go'){v.state='idle';v.path=null;v.itin=null;}v.dry=true;v.why=`à sec : il attend ${V.engin.carbu==='charbon'?'du charbon':'de l’essence'} (un dépôt à 5 cases, ou un engin ravitailleur à 3)`;}
