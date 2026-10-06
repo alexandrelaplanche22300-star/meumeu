@@ -317,7 +317,7 @@ export function vehDefOf(vd){const v=vd.v,D=deriveVeh(v),C=D.C,k=VEH_VIS/100;
     if(t.Ac)armes.push({id:'x'+i,piece:'tourelle'+i,w:vd.id+'_x'+i,arc:360,tour:Math.max(4,t.trav||20),coups:ammo('x'+i),coax:'t'+i,pos:[T.z*k,(T.x+2)*k,y],tube:.3});});
   if(v.mgCaisse)armes.push({id:'c',piece:'caisse',w:vd.id+'_c',arc:40,tour:40,coups:ammo('c'),pos:[(D.G.zN-6)*k,v.W*.22*k,(D.G.y0+v.H*.6)*k],tube:.32});
   const face=id=>{const f=D.G.faces.find(x=>x.id===id);return f?[f.t,f.a]:null;},t0=D.tur.find(t=>!t.F.ouverte)?.T;
-  return {name:vd.name,modele:':engin_'+vd.id,avant:'+z',long:D.long,large:D.large,roues:C.train==='roues'||C.train==='semi'?'roues':'chenilles',r:D.rmin||2,pivot:D.pivot||20,vmax:D.vmax,t0:D.t0,frein:D.frein,
+  return {name:vd.name,modele:':engin_'+vd.id,avant:'+z',long:D.long,large:D.large,haut:D.haut,roues:C.train==='roues'||C.train==='semi'?'roues':'chenilles',r:D.rmin||2,pivot:D.pivot||20,vmax:D.vmax,t0:D.t0,frein:D.frein,
     blindage:{avant:face('av')||[.3,0],flanc:face('flg')||face('flgh')||[.3,0],arriere:face('ar')||[.3,0],dessus:v.ouvert?[0,0]:[v.pl.toit,85],...(t0?{tourelle:[t0.pl.av[0],t0.pl.av[1]],tourelle_flanc:[t0.pl.fl[0],t0.pl.fl[1]]}:{})},
     hp:Math.round(40+6*Math.pow(D.mass,.8)),places:{servants:Math.max(0,D.crew.length-1),passagers:v.passagers||0},soute:v.soute||0,armes,
     cout:{...D.cout,...D.plein},heures:D.heures,faction:vd.f||'meumeu',

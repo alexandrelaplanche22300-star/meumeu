@@ -7,7 +7,8 @@ import {TERRAIN,HOUR_REAL,BUILDINGS} from './data.js';
 import {ACTIONS as ACT,TILE_M as TILE,CONSTRUCTIONS} from './ballistics.js';
 import {fragDesign} from './designs.js';
 import {EXPO} from './explosive.js';
-import {vehDefOf} from './engins.js';
+import {vehDefOf,deriveVeh,VEH_VIS} from './engins.js';
+import {platesAt,rayPlates,rayMods,inCone,shotRay,seatsOf} from './blindage3d.js';
 const CONS_SHAPED=W=>CONSTRUCTIONS[W.p.cons]?.shaped,CONS_INC=W=>CONSTRUCTIONS[W.p.cons]?.inc;
 
 const D2R=Math.PI/180;
@@ -371,7 +372,61 @@ export const VEHICULES={
   //  la non-perforation : la plaque arrête tout (étincelles)
   //  la perforation : la vitesse qui reste ; le projectile et des éclats de la plaque dans l'habitacle (les mêmes blessures que dehors) ; un obus
   //  explosif qui perce éclate dedans ; des organes touchés selon la face (moteur, train, tourelle, arme) ; parfois le feu ; les dégâts à la caisse
-  vehImpact(v,r,W,sh){const V=VEHDEF[v.k];if(v.hp<=0)return;const a=Math.atan2(v.y-sh.y0,v.x-sh.x0);
+  // (V12.8) LA BALISTIQUE 3D d'un engin conçu : le rayon du tir contre les vraies plaques de la conception (blindage3d.js) — l'angle d'incidence exact,
+  // le ricochet, la perforation (notre formule : W.pen(v) contre l'épaisseur vue t / cos i ; la charge creuse perce selon son calibre, pas sa vitesse),
+  // puis, s'il perce, son trajet dans l'habitacle : le Meumeu assis à ce poste, le râtelier (qui peut exploser), le moteur, l'essence (le feu) ; et le
+  // cône d'éclats arrachés à la face intérieure, chacun son rayon. Un tir qui ne rencontre aucune plaque est passé à côté.
+  vehImpact3D(v,V,r,W,sh){const D=deriveVeh(V.engin.v),kcm=100/(VEH_VIS*TILE);const a=Math.atan2(v.y-sh.y0,v.x-sh.x0),rel=wrap(a-v.h);
+    const yaw=[];V.armes.forEach((A,i)=>{const m=/^tourelle(\d+)$/.exec(A.piece||'');if(m)yaw[+m[1]]=v.mounts[i]?.yaw||0;});
+    const {O,d}=shotRay(rel,(r.ex||0)*kcm,(r.ey??(r.H||1)*.45)*kcm,(this.rand()-.5)*.03);const hits=rayPlates(O,d,platesAt(D,yaw));const ent=hits.find(h=>h.enter);
+    const hx=v.x-Math.cos(a)*.5,hy=v.y-Math.sin(a)*.5;
+    if(!ent){this.emit({type:'impact',x:v.x+Math.cos(a)*(.8+this.rand()),y:v.y+Math.sin(a)*(.8+this.rand()),hit:false,small:true,mat:'terre'});return 'manqué';}
+    // un équipage découvert (caisse ouverte, tourelle ouverte) : le haut du corps dépasse — touché avant toute plaque
+    const crew=(v.crew||[]).filter(u=>u.hp>0),seats=seatsOf(D,crew);const vel=r.v;
+    const pre=rayMods(O,d,D.mods.filter(m=>m.kind==='equipage'||m.kind==='passager'),0,ent.s)[0];
+    if(pre){const us=seats.get(pre.m.id)||[];const u=us[(this.rand()*us.length)|0];if(u){this.vehCrewHit(v,u,W.proj||W,vel,'balle par-dessus le bord',sh.by);v.hitAt=this.s.t;return 'découvert';}}
+    const P=ent.P,t=P.t||0,cosI=Math.max(.06,ent.cosI),obl=Math.acos(cosI),te=t/cosI,shaped=!!W.he?.shaped,pen=W.pen(vel),cal=W.p.d||2;const where=P.label||'la caisse';
+    v.hitAt=this.s.t;v.threat={a:Math.atan2(sh.y0-v.y,sh.x0-v.x),t:this.s.t};v.lastHit={face:P.id,t,obl:Math.round(obl/D2R),te:+te.toFixed(2),pen:+pen.toFixed(2),part:P.part};
+    const card=o=>({veh:v.id,vf:v.f,vname:v.name,shooter:sh.by,w:sh.w,R:sh.R,where,face:P.id,part:P.part,t,slope:P.a||0,obl:obl/D2R,te,pen,v:vel,cal,m:W.m||10,he:!!W.he,shaped,y:ent.X[1],...o});
+    if(t>0){// le ricochet : au-delà d'un angle critique (68° à 80° selon l'épaisseur rapportée au calibre) ; une charge creuse ne glisse qu'en rasant (fusée qui ne mord pas)
+      const crit=(68+12*Math.min(1,t/Math.max(.1,cal)))*D2R;const pr=shaped?(obl>78*D2R?.5:0):clamp((obl-crit+6*D2R)/(12*D2R),0,1)*(cal>t*3?.3:1);
+      if(this.rand()<pr){v.lastHit.out='ricochet';this.emit({type:'ricochet',x:hx,y:hy,veh:v.id,f:v.f,ang:a+Math.PI*.5*(this.rand()<.5?1:-1)*(.3+this.rand()*.4),v:vel,card:card({out:'ricochet'})});return 'ricochet';}
+      if(pen<=te){v.lastHit.out='arrêté';v.hp-=Math.min(.6,.5*(W.m||10)/1000*vel*vel/4000)+(shaped?4:0);this.emit({type:'plate',x:hx,y:hy,veh:v.id,mat:'acier',where,card:card({out:'arrêté'})});
+        // un obus explosif qui ne perce pas éclate contre la plaque : le souffle et les éclats dehors (l'équipage découvert, la caisse, les roues)
+        if(W.he&&!shaped)this.heBlast(hx,hy,W.he,sh.f,sh.by,{kind:'obus',w:sh.w,at:null});
+        return 'arrêté';}}
+    // percé : ce qui reste au projectile (la charge creuse : son jet, d'autant plus vif qu'il lui restait à percer)
+    v.lastHit.out='percé';const v2=shaped?Math.min(1500,500+1000*(1-te/Math.max(.01,pen))):t>0?vel*Math.sqrt(Math.max(0,1-(te/pen)**2)):vel;v.lastHit.v2=Math.round(v2);
+    const exit=hits.find(h=>!h.enter&&h.s>ent.s+.1),path=rayMods(O,d,D.mods,ent.s,exit?exit.s:ent.s+600);const seen=[];let vcur=v2,boom=null;
+    const proj=shaped?null:(W.proj||W),E=v=>.5*(W.m||10)/1000*v*v;
+    if(W.he&&!shaped){// l'obus explosif qui perce éclate dans l'habitacle : sa masse en morceaux, tout le monde à bord en reçoit ; un râtelier peut partir
+      v.hp-=40+E(v2)/30+W.he.g*3;const fm=Math.max(.05,(W.m||60)/30),fd=Math.max(1,cal/6);
+      for(const u of crew){const k=1+this.poisson(1.5);for(let n=0;n<k&&u.hp>0;n++)if(this.rand()<.6)this.vehCrewHit(v,u,fragDesign(fm*(.4+this.rand()*1.2),fd),700+this.rand()*400,'obus éclaté dans l’habitacle',sh.by);}
+      if(D.mods.some(m=>m.kind==='munitions')&&this.rand()<.35)boom=D.mods.find(m=>m.kind==='munitions');if(this.rand()<.35)v.fire=Math.max(v.fire||0,2);seen.push('l’obus éclate dedans');}
+    else for(const h of path){if(vcur<60)break;const m=h.m;
+      if(m.kind==='equipage'||m.kind==='passager'){const us=seats.get(m.id)||[];const u=us[(this.rand()*us.length)|0];seen.push(m.label+(u?'':' (vide)'));
+        if(u&&u.hp>0){this.vehCrewHit(v,u,shaped?fragDesign(.4+this.rand(),1.6):proj,vcur*(shaped?1:.9),shaped?'jet de la charge creuse':'balle à travers la tôle',sh.by);vcur*=shaped?.75:.45;}}
+      else if(m.kind==='munitions'){seen.push(m.label);const pd=shaped?.6:Math.min(.25,E(vcur)/2500);if(this.rand()<pd){boom=m;break;}vcur*=.4;}
+      else if(m.kind==='moteur'){seen.push('le moteur');(v.comp??={}).moteur=true;vcur*=.25;}
+      else if(m.kind==='essence'){seen.push(m.label);if(this.rand()<(shaped?.5:CONS_INC(W)?.6:.15))v.fire=Math.max(v.fire||0,2);vcur*=.6;}
+      else{seen.push(m.label);vcur*=.5;}}
+    // le cône d'éclats de la face intérieure : d'autant plus nombreux que la plaque était épaisse pour ce projectile ; plus large et plus dense pour un jet
+    const nf=shaped?Math.round(6+4*Math.min(3,(pen-te)/Math.max(.5,t))):t>0?Math.round(.5+3*(te/pen)*Math.min(2,1+t)):0,plug=7.85e-3*Math.PI*(cal/2)**2*te;let fhits=0;
+    for(let n=0;n<nf;n++){const dd=inCone(d,shaped?.8:.6,()=>this.rand());const h=rayMods(ent.X,dd,D.mods,.5,140)[0];if(!h)continue;const m=h.m,vf=v2*(.4+this.rand()*.5);
+      if(m.kind==='equipage'||m.kind==='passager'){const us=seats.get(m.id)||[];const u=us[(this.rand()*us.length)|0];if(u&&u.hp>0){fhits++;this.vehCrewHit(v,u,fragDesign(Math.max(.002,plug/Math.max(1,nf)*(.5+this.rand())),Math.max(.3,cal*(.15+this.rand()*.25))),vf,shaped?'éclat du jet':'éclat de blindage',sh.by);}}
+      else if(m.kind==='munitions'&&!boom&&this.rand()<(shaped?.12:.03))boom=m;else if(m.kind==='essence'&&this.rand()<.05)v.fire=Math.max(v.fire||0,1.5);}
+    if(!W.he)v.hp-=E(v2)/45+(shaped?30+(pen-te)*3:0);
+    // la tourelle percée : sa couronne se bloque parfois ; un tir dans le masque peut casser l'arme ; un flanc bas percé, le train de roulement
+    if(P.part==='tourelle'&&this.rand()<.25)(v.comp??={}).tourelle=true;
+    if(P.part==='tourelle'&&P.k==='av'&&this.rand()<.3){const ms=v.mounts.filter((m,i)=>V.armes[i].piece==='tourelle'+P.ti&&!m.broken);if(ms.length)ms[(this.rand()*ms.length)|0].broken=true;}
+    if(P.part==='caisse'&&/^fl/.test(P.id)&&ent.X[1]<D.G.y0+D.v.H*.35&&(shaped||E(vel)>150)&&this.rand()<.4)(v.comp??={}).train=true;
+    this.emit({type:'pierce',x:hx,y:hy,veh:v.id,where,card:card({out:'percé',v2,crew:crew.length,nf,fhits,path:seen.slice(0,6),boom:!!boom})});
+    if(boom){// le râtelier explose : l'engin est perdu, l'équipage avec lui (presque)
+      v.ammoBoom=true;for(const u of crew)if(u.hp>0)for(let k=0;k<3&&u.hp>0;k++)this.vehCrewHit(v,u,fragDesign(2+this.rand()*6,4),600+this.rand()*500,`les munitions ont explosé (${boom.label})`,sh.by);
+      this.emit({type:'boom',kind:'shell',x:v.x,y:v.y,f:v.f});this.log('Front',`${v.name} : ${boom.label.toLowerCase()} touché — les munitions explosent.`,v.f==='meumeu'?'bad':'good');v.hp=0;v.fire=Math.max(v.fire||0,6);}
+    if(v.fire>0&&!v.bailed&&v.hp>0){v.bailed=true;this.vehUnboard(v,'tous');this.log('Front',`${v.name} brûle : l’équipage saute à terre.`,'bad');}
+    if(v.hp<=0)this.vehDestroyed(v,boom?'munitions explosées':shaped?'charge creuse':'perforé');return 'percé';},
+  vehImpact(v,r,W,sh){const V=VEHDEF[v.k];if(v.hp<=0)return;if(V.engin)return this.vehImpact3D(v,V,r,W,sh);const a=Math.atan2(v.y-sh.y0,v.x-sh.x0);
     const tm=v.mounts.find((m,i)=>V.armes[i].piece==='tourelle');const tur=!!V.blindage.tourelle&&r.ey>r.H*.6;const ref=tur?v.h+(tm?.yaw||0):v.h;
     // la face : vu de trois quarts, un engin montre l'avant (ou l'arrière) et un flanc à la fois ; le coup tombe sur l'une ou l'autre au prorata de la
     // surface que chacune présente (largeur·|cos|, longueur·|sin|) — le flanc vu presque de profil est touché sous un angle rasant, et ricoche

@@ -11,6 +11,9 @@
 //   B8 (ajouté après le premier passage, écrit avant de le lancer : en 300 impacts, pas un ricochet — la face était prise par quadrant, l'obliquité
 //      horizontale ne dépassait jamais 45°) 200 balles de fusil bèè à 25 m, venant à 12° de l'axe de l'automitrailleuse (de face, un peu de côté) :
 //      au moins 15 % ricochent (le flanc vu presque de profil) et aucune ne perce ; 200 en plein flanc : aucun ricochet
+//      CORRECTION (V12.8, balistique 3D) : la face n'est plus tirée au sort selon les surfaces — le rayon frappe la plaque qu'il rencontre. Visées au
+//      centre, toutes les balles venues à 12° de l'axe frappent l'avant (200 arrêtées) ; les impacts se répartissent donc sur toute la silhouette
+//      présentée (ex au hasard sur sa largeur), et ce sont celles qui tombent sur le flanc, vu presque de profil, qui ricochent.
 //   B9 (ajouté avec l'explosion près d'un engin, écrit avant de le lancer) un obus éclate à 1 case du centre, 40 essais, 4 hommes neufs à bord à chaque
 //      essai : dans la jeep, au moins la moitié des touchés qu'auraient 4 hommes accroupis à terre au même endroit ; dans l'automitrailleuse, personne
 //      touché et la caisse perd des points ; un obus au contact du char (0,2 case de la caisse) : personne touché à bord
@@ -66,7 +69,7 @@ P(errs===0,'B7. aucune exception',`${errs}`);
 // B8 : l'incidence rasante
 {const W=mk();const c=W.capital();const p=open(W,'automitrailleuse',c.i+30,c.j+30);const Wf=W.W('bee_fusil');const shoot=(deg,dist)=>{const res={};const a=deg*Math.PI/180;
     for(let n=0;n<200;n++){const v=W.addCombatVehicle('meumeu','automitrailleuse',p[0],p[1],0);v.hp=1e9;const fl=Wf.at(dist*TILE_M);
-      W.vehImpact(v,{hit:true,veh:true,v:fl.v,ex:0,ey:.3*TILE_M,H:1.1*TILE_M},Wf,{x0:p[0]+Math.cos(a)*dist,y0:p[1]+Math.sin(a)*dist});const o=v.lastHit?.out||'?';res[o]=(res[o]||0)+1;W.s.vehicles.splice(W.s.vehicles.indexOf(v),1);}return res;};
+      const V=VEHDEF.automitrailleuse,hw=(Math.abs(Math.cos(a))*V.large+Math.abs(Math.sin(a))*V.long)/2*TILE_M;W.vehImpact(v,{hit:true,veh:true,v:fl.v,ex:(W.rand()*2-1)*hw*.95,ey:.3*TILE_M,H:1.1*TILE_M},Wf,{x0:p[0]+Math.cos(a)*dist,y0:p[1]+Math.sin(a)*dist});const o=v.lastHit?.out||'?';res[o]=(res[o]||0)+1;W.s.vehicles.splice(W.s.vehicles.indexOf(v),1);}return res;};
   const near=shoot(12,25/TILE_M),side=shoot(90,25/TILE_M);
   P((near.ricochet||0)>=30&&!near['percé']&&!side.ricochet,'B8. l’incidence rasante fait ricocher',`à 12° de l’axe ${JSON.stringify(near)} · plein flanc ${JSON.stringify(side)}`);}
 // B9 : un obus à côté d'un engin

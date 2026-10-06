@@ -95,4 +95,19 @@ LES MODÈLES DE SOLDAT DU JOUEUR (6 octobre)
   ne sont pas touchés). Le bras droit tendu avec l'arme : SKIN_ARM, règles vérifiées sur _modele.html (bras entier, rien du flanc ni du gilet).
 - Capture : test/_outils_captures/pw_soldats.cjs (Chromium, sans Electron).
 
+A1 — LA BALISTIQUE 3D SUR LES ENGINS CONÇUS (demande du joueur)
+- js/blindage3d.js : le tir est un rayon dans le repère de la caisse (cm de peluche) ; il frappe les VRAIES plaques de la conception (deriveVeh :
+  D.plates, normales, épaisseurs ; une tourelle tournée de son pointage) sous l'incidence exacte ; puis l'habitacle (D.mods) dans l'ordre ; le cône
+  d'éclats de la face intérieure, chacun son rayon. seatsOf : qui est assis où (conducteur, servants aux postes des armes, passagers aux bancs).
+- vehicules.js vehImpact3D (pour les engins conçus ; barges et avions gardent l'ancien calcul) : ricochet (angle critique selon épaisseur/calibre ;
+  la charge creuse ne glisse qu'en rasant), arrêt (l'obus explosif éclate alors contre la plaque, dehors), perforation (vitesse restante ; la
+  charge creuse perce selon son calibre, son jet d'autant plus vif qu'il restait à percer) ; dedans : le Meumeu du poste traversé, le râtelier
+  (explosion : la charge creuse 60 %, une balle selon son énergie), le moteur, l'essence (le feu) ; la tourelle (couronne, arme dans le masque),
+  le train (flanc bas). La fiche de l'engin donne enfin sa hauteur (haut), pour viser. La radiographie de la plaque dit le trajet dans l'habitacle.
+- test/blindage3d.mjs D1-D8 : tout passe (glacis à 60° frappé sous 60,0° ; tourelle tournée → son flanc ; fusil antichar bèè : perce la
+  chenillette, pas le char moyen ; le chargeur touché à son poste ; charge creuse 26 explosions de munitions sur 30, balle 2 sur 30 ; éclats 6
+  contre 1 ; tir rasant 18 ricochets sur 30). Corrigé au premier essai : D7 tirait presque perpendiculairement au flanc (erreur de géométrie du test).
+- Régression : vehicules_blindage B8 recalé (impacts répartis sur la silhouette au lieu du centre : la face n'est plus tirée au sort) ; radiographies,
+  engins_transport : tout passe ; vehicules_feu F1, F3 : comme avant.
+
 RESTE DE L'ÉTAPE C : conduite (C1) ; efficacité de l'automitrailleuse (F1).
