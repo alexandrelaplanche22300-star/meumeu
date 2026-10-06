@@ -2,7 +2,7 @@
 // CRITÈRES (fixés avant de lancer) :
 //   K1 ce que rien ne verrouille reste libre dès le départ (explosif « brisant », modèle « obusier ») ; thermite, phosphore, amatol et lance-flammes sont verrouillés
 //      et se débloquent en adoptant leur découverte
-//   K2 le laboratoire refuse une découverte dont les prérequis manquent (message qui nomme ce qui manque) et l'accepte quand ils sont là
+//   K2 un projet (V12.6 : la recherche des savants) refuse une découverte dont les prérequis manquent (message qui nomme ce qui manque) et ne le dit plus quand ils sont là
 //   K3 la pratique de la chimie monte quand une poudrerie travaille, et les idées respectent les prérequis (jamais « napalm » avant thermite ET phosphore)
 //   K4 la thermite incendie plus fort que le gel (rayon de feu ≥ 1,4 ×) avec moins de souffle que la tolite
 //   K5 un obus au phosphore laisse un nuage qui coupe la vue au travers, puis qui se dissipe
@@ -24,8 +24,8 @@ const mk=(seed=3)=>{const W=new World(seed,{assisted:true});return W;};
 {const W=mk();const lab=W.s.buildings.find(b=>b.f==='meumeu'&&b.k==='labo'&&b.done)||W.s.buildings.find(b=>b.f==='meumeu'&&/lab/.test(b.k));
   if(!lab){const at=W.buildSpot('meumeu','labo',W.capital().i+10,W.capital().j+10,0,20);if(at)W.addBuilding('meumeu','labo',at[0],at[1],true);}
   const cap=W.capital();Object.assign(cap.stock,{fer:500,pieces:500,charbon:500,cuivre:500,salpetre:500});
-  const r0=W.canDevelop('napalm');W.s.innov.done.push('thermite','phosphore');const r1=W.canDevelop('napalm');
-  P(!r0.ok&&r0.why.some(w=>/thermite/i.test(w)&&/phosphore/i.test(w))&&!r1.why.some(w=>/d\u2019abord/.test(w)),'K2. le laboratoire refuse sans prérequis et le dit',`sans : « ${r0.why.find(w=>/abord/.test(w))||r0.why[0]} » · avec : ${r1.ok?'accepté':r1.why.join(' ; ')}`);}
+  const r0=W.canStartProject('napalm',[]);W.s.innov.done.push('thermite','phosphore');const r1=W.canStartProject('napalm',[]);
+  P(!r0.ok&&r0.why.some(w=>/thermite/i.test(w)&&/phosphore/i.test(w))&&!r1.why.some(w=>/d\u2019abord/.test(w)),'K2. un projet refuse sans prérequis et le dit',`sans : « ${r0.why.find(w=>/abord/.test(w))||r0.why[0]} » · avec : ${r1.ok?'accepté':r1.why.join(' ; ')}`);}
 // K3
 {const W=mk(5);const cap=W.capital();
   const pou=W.s.buildings.find(b=>b.f==='meumeu'&&b.k==='poudrerie'&&b.done);pou.prod='poudre';Object.assign(cap.stock,{salpetre:400,charbon:400});

@@ -1,0 +1,5 @@
+// retire de la pièce « tour » du moulin les triangles choisis par une règle (même règle que la page _moulin.html)
+const fs=require('fs');const F=process.argv[2];const rule=new Function('t','return '+fs.readFileSync(process.argv[3],'utf8').trim());const J=JSON.parse(fs.readFileSync(F,'utf8'));const B=s=>Buffer.from(s,'base64');const part=J.parts.find(p=>p.n==='tour');
+const pb=B(part.p),p=new Int16Array(pb.buffer.slice(pb.byteOffset,pb.byteOffset+pb.length)),ib=B(part.i),idx=new Uint16Array(ib.buffer.slice(ib.byteOffset,ib.byteOffset+ib.length));const k=J.half/32767;const V=i=>[p[3*i]*k,p[3*i+1]*k,p[3*i+2]*k];
+const keep=[];let cut=0;for(let t=0;t<idx.length/3;t++){const v=[0,1,2].map(c=>V(idx[3*t+c]));const c=[0,1,2].map(a=>(v[0][a]+v[1][a]+v[2][a])/3);if(rule({cx:c[0],cy:c[1],cz:c[2],r:Math.hypot(c[0],c[2])})){cut++;continue;}keep.push(idx[3*t],idx[3*t+1],idx[3*t+2]);}
+part.i=Buffer.from(new Uint16Array(keep).buffer).toString('base64');J.tris-=cut;part.tris-=cut;fs.writeFileSync(F,JSON.stringify(J));console.log('triangles retirés',cut,'· tour',part.tris);

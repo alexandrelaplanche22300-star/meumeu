@@ -1,0 +1,9 @@
+// trois soldats meumeu isolés (au repos, en visée, accroupi), quatre angles, de près — pour juger la tenue de l'arme
+const {main}=require('./harness.cjs');const fs=require('fs');const path=require('path');const OUT=path.join(__dirname,'soldats');fs.mkdirSync(OUT,{recursive:true});
+main(async({run,wait,shot})=>{await wait(1500);await run(`(async()=>{const d=await (await fetch('test/_saves/mer301_j30.json')).text();return window.__load(d);})()`);
+  const at=await run(`(()=>{const w=world();w.s.fog=false;const cap=w.capital();const x0=cap.i-30,y0=cap.j+30;const S=w.s.units.filter(u=>u.f==='meumeu'&&u.k==='soldat'&&u.hp>0&&!u.inBarracks&&u.w).slice(0,3);
+    w.s.units=w.s.units.filter(u=>S.includes(u)||Math.hypot(u.x-x0,u.y-y0)>12);w.s.buildings=w.s.buildings.filter(b=>Math.hypot(b.i-x0,b.j-y0)>12);w.s.nodes.forEach(n=>{if(Math.hypot(n.i-x0,n.j-y0)<12)n.left=0;});
+    S.forEach((u,k)=>{u.x=x0;u.y=y0+k*1.8;u.fx=1;u.fy=0;u.task={kind:'guard',tx:u.x,ty:u.y,hold:true};u.path=null;u.anim=k===1?'aim':'idle';u.cool=k===1?5:0;u.post=k===2?'accroupi':'debout';u.reload=0;});return [x0,y0+1.8];})()`);
+  await run(`(async()=>{document.body.classList.add('nopanel');dispatchEvent(new Event('resize'));await view.set3d(true);document.querySelector('.speeds [data-speed="0"]')?.click();})();0;`);await wait(4000);
+  for(const [k,yaw] of [[0,0],[1,1.57],[2,3.14],[3,-.6]]){await run(`(()=>{view.yaw=${yaw};view.elev=.30;view.lookAt(${at[0]}-.7*Math.cos(${yaw})+.7*Math.sin(${yaw}),${at[1]}-.7*Math.cos(${yaw})-.7*Math.sin(${yaw}));view.zoom=4.6;const w=world();for(const u of w.s.units)if(u.task?.hold){u.anim=u.cool>0?'aim':'idle';}view.draw(.01);})();0;`);await wait(900);await run(`view.draw(.01);0;`);await wait(200);await shot((process.env.TAG||'seul')+'_'+k+'.png');}
+},{w:900,h:700,out:path.join(__dirname,'soldats')});

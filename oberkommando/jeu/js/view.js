@@ -10,8 +10,10 @@ import {Director} from './director.js';
 import {Scene3D} from './scene3d.js';
 import {KIT_PRESETS} from './kitdata.js';
 import {building,vehicle,resource,terrain,prop,sheet,drawFrame,fx,img} from './sprites.js';
+import {bunkerPlan} from './bunkerdata.js';
 import {BLOOD,BODY_H} from './body.js';
 import {bleedRate,triage} from './health.js';
+import {LABVIEW} from './labview.js';
 
 export const TW=64,TH=32;
 const ELEV0=Math.asin(.5);   // l'élévation de l'isométrie d'origine (30°)
@@ -29,7 +31,9 @@ export {icon};
 export class View{
   constructor(canvas,world,ui){this.canvas=canvas;this.ctx=canvas.getContext('2d');this.world=world;this.ui=ui;this.dir=new Director();this.cx=0;this.cy=0;this.zoom=.9;this.sx=0;this.sy=0;
     this.sel=new Set();this.selVs=new Set();this.selB=null;this.selV=null;this.placing=null;this.lining=null;this.hover=null;this.drag=null;this.parts=[];this.decals=[];this.marks=[];this.streaks=[];this.rings=[];this.waves=[];this.zoning=false;this.toppling=[];this.fx=[];this.frame=0;this.clock=0;this.shake=0;this.tiles=null;this.tinted=new Map();this.g3=null;this.o3=false;this.want3d=false;
-    this.bind();new ResizeObserver(()=>this.resize()).observe(canvas.parentElement);this.resize();}
+    // le cadre change de taille : on redessine TOUT DE SUITE (l'observateur passe avant l'affichage) — sinon le canevas, vidé par le changement de taille,
+    // s'affichait une image vide ou étirée dans le nouveau cadre : la carte « zoomait » une fraction de seconde
+    this.bind();new ResizeObserver(()=>{this.resize();try{this.draw(0);}catch(e){}}).observe(canvas.parentElement);this.resize();}
   resize(){const d=devicePixelRatio||1;const r=this.canvas.parentElement.getBoundingClientRect();this.canvas.width=Math.max(1,Math.round(r.width*d));this.canvas.height=Math.max(1,Math.round(r.height*d));this.dpr=d;}
   z(){return this.zoom*this.dpr;}
   // V12.4 : la caméra libre (3D) — azimut (yaw, 0 = l'isométrie d'origine, vue depuis +X+Z) et élévation (30° d'origine). La projection générale d'une caméra
@@ -78,11 +82,15 @@ export class View{
     x.putImageData(img,0,0);this.shadeCv=c;this.shS=s;}
   // Toute la carte en petit : pour le lointain et pour la minicarte.
   // (le sol en vraie texture : chaque case reçoit sa tuile, réduite ; faute de tuiles, sa couleur)
-  makeOverview(){const W=this.world,N=W.N,G=W.G;const s=this.tiles?14:8;const c=document.createElement('canvas');c.width=N*s;c.height=N*s/2;const x=c.getContext('2d');x.imageSmoothingEnabled=true;
-    for(let j=0;j<N;j++)for(let i=0;i<N;i++){const t=G.terrain[j*N+i];const px=(i-j+N)*s/2,py=(i+j)*s/4;
-      if(this.tiles){x.drawImage(this.tiles[t][(j&3)*4+(i&3)],px-s/2-.5,py-.5,s+1,s/2+1);continue;}
-      const [r,g,b]=TERRAIN[t].tint;const n=((i*7919+j*104729)%13)/13*.12+.94;x.fillStyle=`rgb(${r*n|0},${g*n|0},${b*n|0})`;
-      x.beginPath();x.moveTo(px,py);x.lineTo(px+s/2,py+s/4);x.lineTo(px,py+s/2);x.lineTo(px-s/2,py+s/4);x.closePath();x.fill();}
+  tileMeanOf(t){const C=this.tileMean??={};if(C[t])return C[t];let r=0,g=0,b=0,n=0;try{for(const cv of this.tiles[t].slice(0,4)){const d=cv.getContext('2d').getImageData(0,0,cv.width,cv.height).data;for(let k=0;k<d.length;k+=4)if(d[k+3]>200){r+=d[k];g+=d[k+1];b+=d[k+2];n++;}}}catch(e){}
+    return C[t]=n?[r/n,g/n,b/n]:TERRAIN[t].tint;}
+  makeOverview(){const W=this.world,N=W.N,G=W.G;const s=Math.max(4,Math.min(this.tiles?14:8,Math.floor(7600/N)));   // (12 px par case sur la carte de 600 : 7 200 px, sous la limite de 8 192 de la carte graphique ; à 6 px, les textures devenaient de la bouillie)   // (V12.4 : la carte de 600 cases faisait une image de 8 400 px, au-delà de ce que la carte graphique accepte : écran vide et saccades — jamais plus de ~3 800 px)
+    const c=document.createElement('canvas');c.width=N*s;c.height=N*s/2;const x=c.getContext('2d');x.imageSmoothingEnabled=true;/* (pas de flou : appliqué à chacune des 360 000 cases, il figeait le jeu au démarrage) */
+    // (V12.4) une image d'un pixel par case (la couleur moyenne de la texture de chaque terrain), posée en losange par UNE seule opération : la carte graphique
+    // l'agrandit et l'adoucit (lissage bilinéaire). Avant : 360 000 losanges dessinés un par un, plus un flou — plus de 2 s de gel au premier dézoom.
+    {const tiny=document.createElement('canvas');tiny.width=N;tiny.height=N;const tx=tiny.getContext('2d');const im=tx.createImageData(N,N),d=im.data;
+      for(let j=0;j<N;j++)for(let i=0;i<N;i++){const t=G.terrain[j*N+i];const [r,g,b]=this.tiles&&!TERRAIN[t].water&&t!==T.sand?this.tileMeanOf(t):TERRAIN[t].tint;   /* (V12.5) la mer et le sable gardent leur teinte propre */const n=((i*7919+j*104729)%13)/13*.1+.95;const k=(j*N+i)*4;d[k]=r*n;d[k+1]=g*n;d[k+2]=b*n;d[k+3]=255;}
+      tx.putImageData(im,0,0);x.save();x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.setTransform(s/2,s/4,-s/2,s/4,N*s/2,0);x.drawImage(tiny,0,0);x.restore();}
     this.overview=c;this.ovS=s;this.ovTex=!!this.tiles;}
   // Les forêts vues de haut : chaque arbre dessiné en petit sur une grande image, refaite quand des arbres tombent
   makeForest(){const W=this.world,N=W.N;const s=this.ovS;const trees=W.s.nodes.filter(n=>n.type==='tree'&&n.left>=1);const sig=trees.length;
@@ -98,6 +106,7 @@ export class View{
   sfx(name,x,y,{z=0,size=30,life=.3,ang=0,add=false,rise=0,grow=1,alpha=1,vx=0,vy=0,ground=false,f=null}={}){if(this.near(x,y)<=0||!this.fxVisible(x,y,f))return;this.fx.push({name,x,y,z,size,life,max:life,ang,add,rise,grow,alpha,vx,vy,ground,f});if(this.fx.length>600)this.fx.splice(0,this.fx.length-600);}
   screenAng(x0,y0,x1,y1){const a=this.toScreen(x0,y0),b=this.toScreen(x1,y1);return Math.atan2(b.y-a.y,b.x-a.x);}
   onEvent(e){if(this.g3&&e.type==='shot'&&e.by!=null)this.g3.kick(e.by,e);if(e.x!=null&&!this.fxVisible(e.x,e.y,e.f||e.vf))return;if(this.g3&&e.type==='boom')this.g3.boom?.(e);
+    if(e.type==='labboom'||e.type==='eureka'||e.type==='graduate')this.labOnEvent(e);
     if(this.dir.on)this.dir.note(e,this.clock,true);   // le réalisateur ne voit que ce que le joueur voit (la garde de brouillard est la ligne du dessus)
     if(e.type==='shot'&&e.by!=null){const u=this.world.unit(e.by);if(u?.w){const D=this.world.W(u.w),z=this.z(),q=this.toScreen(u.x,u.y),collective=D.crew>1||UDEF(u).img==='canon';let mx,my;
       if(collective){const bm=this.artilleryBitmap(D),a=Math.atan2(((u.fx||0)+(u.fy||0))*.5,(u.fx||0)-(u.fy||0)),L=(bm?.Lw||D.p.L)*38*z/300;mx=q.x+Math.cos(a)*L;my=q.y-5*z+Math.sin(a)*L;}
@@ -211,17 +220,17 @@ export class View{
   // ---------- dessiner ----------
   // une image : les Bèè au pas lent sont montrés en chemin (World.lodShow), puis remis à leur vraie place, quoi qu'il arrive pendant le dessin
   draw(dt){const back=this.world.lodShow?.()||[];try{return this.paintFrame(dt);}finally{for(const [u,x,y,ph] of back){u.x=x;u.y=y;u.walkPh=ph;}}}
-  paintFrame(dt){const ctx=this.ctx,W=this.world,s=W.s;this.frame+=dt*8;this.clock+=dt;if(this.dir.on)this.dir.tick(this,dt,this.clock,this.selCenter());this.shake=Math.max(0,this.shake-dt*1.8);this.sx=(Math.random()-.5)*this.shake*12;this.sy=(Math.random()-.5)*this.shake*9;
+  paintFrame(dt){const ctx=this.ctx,W=this.world,s=W.s;this.frame+=dt*8;this.clock+=dt;this.labTick(dt);if(this.dir.on)this.dir.tick(this,dt,this.clock,this.selCenter());this.shake=Math.max(0,this.shake-dt*1.8);this.sx=(Math.random()-.5)*this.shake*12;this.sy=(Math.random()-.5)*this.shake*9;
     if(!this.tiles)this.tiles=this.makeTiles();if(!this.overview)this.makeOverview();
-    const cw=this.canvas.width,ch=this.canvas.height,z=this.z();ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#1c1d14';ctx.fillRect(0,0,cw,ch);
+    const cw=this.canvas.width,ch=this.canvas.height,z=this.z();ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#4f6b2c';ctx.fillRect(0,0,cw,ch);
     // ce qui est à l'écran, en cases
-    const c0=this.toWorld(0,0),c1=this.toWorld(cw,0),c2=this.toWorld(0,ch),c3=this.toWorld(cw,ch);const N=W.N;
-    const i0=Math.max(0,Math.floor(Math.min(c0.x,c1.x,c2.x,c3.x))-2),i1=Math.min(N-1,Math.ceil(Math.max(c0.x,c1.x,c2.x,c3.x))+2),j0=Math.max(0,Math.floor(Math.min(c0.y,c1.y,c2.y,c3.y))-2),j1=Math.min(N-1,Math.ceil(Math.max(c0.y,c1.y,c2.y,c3.y))+2);
+    const c0=this.toWorld(0,0),c1=this.toWorld(cw,0),c2=this.toWorld(0,ch),c3=this.toWorld(cw,ch);const N=W.N;const mg=this.camFree()?6:2;
+    const i0=Math.max(0,Math.floor(Math.min(c0.x,c1.x,c2.x,c3.x))-mg),i1=Math.min(N-1,Math.ceil(Math.max(c0.x,c1.x,c2.x,c3.x))+mg),j0=Math.max(0,Math.floor(Math.min(c0.y,c1.y,c2.y,c3.y))-mg),j1=Math.min(N-1,Math.ceil(Math.max(c0.y,c1.y,c2.y,c3.y))+mg);
     this.vis=[i0,i1,j0,j1];
     // le sol (V12.4 : en caméra libre, dessiné en isométrique sous une transformation — groundPass)
     this.groundPass(true);
     if(this.tiles&&!this.ovTex)this.makeOverview();
-    if(this.zoom<.45||!this.tiles){const o=this.toScreen(0,0);const k=TW/2*z/(this.ovS/2);ctx.imageSmoothingEnabled=true;ctx.drawImage(this.overview,o.x-N*this.ovS/2*k,o.y,this.overview.width*k,this.overview.height*k);
+    if(true/* (V12.4, demande du joueur) le sol lissé à tous les zooms : bien plus lisible que les tuiles */||this.zoom<.45||!this.tiles){const o=this.toScreen(0,0);const k=TW/2*z/(this.ovS/2);ctx.imageSmoothingEnabled=true;ctx.drawImage(this.overview,o.x-N*this.ovS/2*k,o.y,this.overview.width*k,this.overview.height*k);
       if(!this.shadeCv)this.makeShade();const k2=TW/2*z/(this.shS/2);ctx.save();ctx.globalCompositeOperation='overlay';ctx.globalAlpha=.45;ctx.drawImage(this.shadeCv,o.x-N*this.shS/2*k2,o.y,this.shadeCv.width*k2,this.shadeCv.height*k2);ctx.restore();
       // les arbres, en petit et un peu transparents, pour voir les forêts et ce qu'elles cachent
       if(this.zoom<.3){this.makeForest();ctx.save();ctx.globalAlpha=.72;ctx.drawImage(this.forest,o.x-N*this.ovS/2*k,o.y,this.forest.width*k,this.forest.height*k);ctx.restore();}}
@@ -275,6 +284,8 @@ export class View{
       for(const u of s.units)if(u.h&&inView(u.x,u.y)&&seen(u)){const lost=1-u.h.blood/BLOOD,dn=u.h.state==='hors';if(dn||lost>.06){const q=this.toScreen(u.x,u.y);this.pool(q.x,q.y,lost,z,u.id);}}
       for(const c of s.corpses)if(inView(c.x,c.y)){const a=Math.max(0,Math.min(1,1-(W.t-c.t)/(3*DAY)));if(a>0){const q=this.toScreen(c.x,c.y);ctx.save();ctx.globalAlpha=.35+.65*a;this.pool(q.x,q.y,Math.max(.3,c.bl||.3),z,Math.round(c.x*97+c.y*31));ctx.restore();}}
       for(const b of s.buildings){const [w,h]=W.sizeOf(b);if(!inView(b.i+w/2,b.j+h/2,Math.max(w,h)/2+6))continue;this.groundDecor(b,w,h,z);}
+      // en 3D, le brouillard du SOL passe sous les modèles ; les modèles prennent celui de leur propre case dans la scène (scene3d.fog)
+      if(fog)this.drawFog();g3.fog(this,fog);
       g3.setCamera(this);g3.sync(this,dt,this.vis);ctx.drawImage(g3.render(),0,0);}
     for(const it of items)it.f();
     this.drawTracks(inView);
@@ -287,16 +298,16 @@ export class View{
       const q=this.toScreen(u.x,u.y);ctx.save();ctx.globalAlpha=.7;ctx.strokeStyle=u.f==='beee'?'#ff8060':'#ffd36a';ctx.lineWidth=1.3*this.dpr;
       ctx.beginPath();ctx.ellipse(q.x,q.y,9*z,4.5*z,0,0,7);ctx.stroke();
       ctx.beginPath();ctx.moveTo(q.x,q.y-41*z);ctx.lineTo(q.x,q.y-47*z);ctx.stroke();ctx.beginPath();ctx.arc(q.x,q.y-49*z,2.6*z,0,7);ctx.fillStyle=u.f==='beee'?'#ff8060':'#ffd36a';ctx.fill();ctx.restore();}
-    if(fog)this.drawFog();
+    if(fog&&!g3)this.drawFog();
     this.drawNight();
     if(fog)this.drawIntel();else this.drawHeard();
     this.stepParts(dt);this.drawShots();this.drawStreaks(dt);this.drawParts(false);this.drawSmokes();this.drawFx(dt);this.drawLogistics();this.drawFocus();
     for(const v of s.vehicles)if(v.alt>0&&inView(v.x,v.y,12))this.drawVehicle(v);
     this.drawCones();this.drawCharges();this.drawParts(true);this.drawLinks();
-    if(this.placing&&this.hover)this.drawGhost();if(this.lining?.cells)this.drawLinePlan();
+    this.drawPostMarkers();if(this.placing&&this.hover)this.drawGhost();if(this.lining?.cells)this.drawLinePlan();
     if(this.drag?.box){const {x0,y0,x1,y1}=this.drag.box;ctx.fillStyle='rgba(255,211,106,.12)';ctx.strokeStyle='#ffd36a';ctx.lineWidth=1.5*this.dpr;ctx.fillRect(Math.min(x0,x1),Math.min(y0,y1),Math.abs(x1-x0),Math.abs(y1-y0));ctx.strokeRect(Math.min(x0,x1),Math.min(y0,y1),Math.abs(x1-x0),Math.abs(y1-y0));}
     this.marks=this.marks.filter(m=>(m.age+=dt)<.6);for(const m of this.marks){const q=this.toScreen(m.x,m.y);ctx.strokeStyle=m.bad?`rgba(235,90,70,${1-m.age/.6})`:`rgba(255,211,106,${1-m.age/.6})`;ctx.lineWidth=2.5*this.dpr;ctx.beginPath();ctx.ellipse(q.x,q.y,(6+m.age*30)*z,(3+m.age*15)*z,0,0,7);ctx.stroke();}
-    this.drawZones(dt);this.drawCombatHud(dt);
+    this.labOverlay();this.drawZones(dt);this.drawCombatHud(dt);
     if(this.hover?.label&&!this.drag?.box)this.tag(this.hover.label,this.hover.sx+14*this.dpr,this.hover.sy+22*this.dpr,this.hover.tone||'ink',true);}
 
   drawCombatHud(dt){const ctx=this.ctx,z=this.z(),dpr=this.dpr,cw=this.canvas.width,ch=this.canvas.height,now=performance.now(),W=this.world;
@@ -333,16 +344,31 @@ export class View{
   // Les rails : deux files et des traverses, dans le sens des voisins. Les murs : des blocs de pierre, crénelés.
   drawLines(i0,i1,j0,j1){const W=this.world,ctx=this.ctx,N=W.N,z=this.z();
     this.drawRails(i0,i1,j0,j1);
-    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const t=W.s.trenches?.[j*N+i];if(!t)continue;
-      // V12.4 : les cases voisines se raccordent (pas de bord entre elles) — une fosse de 2 × 2 cases se voit comme UN trou, plus comme quatre
-      const T=W.s.trenches,nb=(di,dj)=>{const o=T[(j+dj)*N+i+di];return o&&o.f===t.f;},x0=nb(-1,0)?0:.12,x1=nb(1,0)?1:.85,y0=nb(0,-1)?0:.15,y1=nb(0,1)?1:.84;
-      const a=this.toScreen(i+x0,j+y0),b=this.toScreen(i+x1,j+y0),c=this.toScreen(i+x1,j+y1),d=this.toScreen(i+x0,j+y1);
-      ctx.save();ctx.globalAlpha=t.b?1:.42;ctx.fillStyle='#382c24';ctx.strokeStyle=t.f==='beee'?'#8f775a':'#a98a5b';ctx.lineWidth=3*z;
-      ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(c.x,c.y);ctx.lineTo(d.x,d.y);ctx.closePath();ctx.fill();
-      // le parapet : seulement sur les bords extérieurs de la fosse
-      ctx.beginPath();if(!nb(0,-1)){ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);}if(!nb(1,0)){ctx.moveTo(b.x,b.y);ctx.lineTo(c.x,c.y);}if(!nb(0,1)){ctx.moveTo(c.x,c.y);ctx.lineTo(d.x,d.y);}if(!nb(-1,0)){ctx.moveTo(d.x,d.y);ctx.lineTo(a.x,a.y);}ctx.stroke();
+    // V12.5 : les sacs de sable — un parapet bas en relief (dessus clair, deux faces plus sombres, des rangs de sacs en quinconce) ; en pointillés tant qu'il n'est pas posé
+    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const t=W.s.sacs?.[j*N+i];if(!t)continue;const T=W.s.sacs,nb=(di,dj)=>{const o=T[(j+dj)*N+i+di];return !!o&&o.f===t.f;};
+      if(t.t==='fosses'){   // V12.5 : une fosse — le fond du trou, un parapet de terre sur les bords extérieurs (les cases voisines se raccordent en boyau), l'ombre du bord haut
+        const x0=nb(-1,0)?0:.1,x1=nb(1,0)?1:.9,y0=nb(0,-1)?0:.1,y1=nb(0,1)?1:.9,A=this.toScreen(i+x0,j+y0),B=this.toScreen(i+x1,j+y0),C=this.toScreen(i+x1,j+y1),D=this.toScreen(i+x0,j+y1);
+        ctx.save();ctx.globalAlpha=t.b?1:.5;ctx.fillStyle=t.b?'#2c2218':'#5a4733';ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.lineTo(C.x,C.y);ctx.lineTo(D.x,D.y);ctx.closePath();ctx.fill();
+        const edge=(p,q,col,w)=>{ctx.strokeStyle=col;ctx.lineWidth=Math.max(1,w*z);ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke();};
+        if(t.b){if(!nb(0,-1)){edge(A,B,'#17110c',3);}if(!nb(-1,0)){edge(D,A,'#17110c',3);}if(!nb(0,1)){edge(C,D,t.f==='beee'?'#8f775a':'#a98a5b',4.5);}if(!nb(1,0)){edge(B,C,t.f==='beee'?'#8f775a':'#a98a5b',4.5);}}
+        else{ctx.setLineDash([4*z,3*z]);ctx.strokeStyle='#e8bf62';ctx.lineWidth=Math.max(1,1.5*z);ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.lineTo(C.x,C.y);ctx.lineTo(D.x,D.y);ctx.closePath();ctx.stroke();}
+        ctx.restore();continue;}
+      const hgt=(t.b?.42:.1)*TH*z,m=.08,A=this.toScreen(i+m,j+m),B=this.toScreen(i+1-m,j+m),C=this.toScreen(i+1-m,j+1-m),D=this.toScreen(i+m,j+1-m);
+      const col=t.f==='beee'?['#b9b69a','#908d74','#76735d']:['#d2bd8a','#a99660','#8c7b4d'];
+      ctx.save();ctx.globalAlpha=t.b?1:.45;const poly=(p,c)=>{ctx.fillStyle=c;ctx.beginPath();p.forEach((q,n)=>n?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.closePath();ctx.fill();};
+      const up=q=>({x:q.x,y:q.y-hgt});
+      if(!nb(0,1))poly([D,C,up(C),up(D)],col[1]);if(!nb(1,0))poly([C,B,up(B),up(C)],col[2]);   // les deux faces vues (bas-gauche, bas-droite)
+      poly([up(A),up(B),up(C),up(D)],col[0]);
+      if(t.b){ctx.strokeStyle='rgba(60,48,28,.45)';ctx.lineWidth=Math.max(1,z);ctx.beginPath();
+        for(let r=1;r<3;r++){const f=r/3;if(!nb(0,1)){const p=this.toScreen(i+m,j+1-m),q=this.toScreen(i+1-m,j+1-m);ctx.moveTo(p.x,p.y-hgt*f);ctx.lineTo(q.x,q.y-hgt*f);}if(!nb(1,0)){const p=this.toScreen(i+1-m,j+1-m),q=this.toScreen(i+1-m,j+m);ctx.moveTo(p.x,p.y-hgt*f);ctx.lineTo(q.x,q.y-hgt*f);}}
+        ctx.stroke();}
+      else{ctx.strokeStyle='#e8bf62';ctx.setLineDash([4*z,3*z]);ctx.lineWidth=Math.max(1,1.5*z);ctx.beginPath();[A,B,C,D].forEach((q,n)=>n?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.closePath();ctx.stroke();}
       ctx.restore();}
-    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const k=j*N+i;const w=W.wall[k];if(!w)continue;const built=Math.abs(w)===2;const mine=w>0;const c=this.toScreen(i+.5,j+.5);const hgt=(built?1.1:.15)*TH*z;
+    // V12.5 : les mines — un disque sombre à pointe rouge ; on ne voit que les siennes (et celles que l'ennemi a fait sauter près de nous)
+    if(W.s.mines)for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const m=W.s.mines[j*N+i];if(!m||(m.f!=='meumeu'&&!m.seen))continue;const p=this.toScreen(i+.5,j+.5),rx=TW*.17*z,ry=TH*.17*z;
+      ctx.save();ctx.globalAlpha=m.b?1:.45;ctx.fillStyle='#2b2a26';ctx.strokeStyle=m.f==='meumeu'?'#e8bf62':'#c0392b';ctx.lineWidth=Math.max(1,1.2*z);ctx.beginPath();ctx.ellipse(p.x,p.y,rx,ry,0,0,7);ctx.fill();if(!m.b)ctx.setLineDash([3*z,2*z]);ctx.stroke();
+      ctx.setLineDash([]);ctx.fillStyle='#d1462f';ctx.beginPath();ctx.ellipse(p.x,p.y-ry*.15,rx*.28,ry*.28,0,0,7);ctx.fill();ctx.restore();}
+    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const k=j*N+i;const w=W.wall[k];if(!w||Math.abs(w)===3)continue;const built=Math.abs(w)===2;const mine=w>0;const c=this.toScreen(i+.5,j+.5);const hgt=(built?1.1:.15)*TH*z;
       const top=mine?'#cbb893':'#6f7456',side=mine?'#9a8866':'#4c5040',side2=mine?'#b3a07c':'#5b6048';const a=this.toScreen(i,j),b=this.toScreen(i+1,j),cc=this.toScreen(i+1,j+1),d=this.toScreen(i,j+1);
       ctx.save();if(!built)ctx.globalAlpha=.5;ctx.fillStyle=side;ctx.beginPath();ctx.moveTo(d.x,d.y);ctx.lineTo(cc.x,cc.y);ctx.lineTo(cc.x,cc.y-hgt);ctx.lineTo(d.x,d.y-hgt);ctx.fill();
       ctx.fillStyle=side2;ctx.beginPath();ctx.moveTo(cc.x,cc.y);ctx.lineTo(b.x,b.y);ctx.lineTo(b.x,b.y-hgt);ctx.lineTo(cc.x,cc.y-hgt);ctx.fill();
@@ -350,6 +376,8 @@ export class View{
       if(built){ctx.fillStyle=side;for(const t of [.25,.75]){const q=this.toScreen(i+t,j+t);ctx.fillRect(q.x-3*z,q.y-hgt-5*z,6*z,5*z);}const wo=W.s.walls[k];if(wo&&wo.hp<LINES.mur.hp*.99)this.bar(c.x,c.y-hgt-10*z,22*z,wo.hp/LINES.mur.hp,'#bd4b3d');}ctx.restore();}}
   oreGlow(n){const ctx=this.ctx,z=this.z();const q=this.toScreen(n.i+.5,n.j+.5);const w=TW*1.7*z;const pulse=.5+.5*Math.sin(this.frame/3);const col=ORE_COL[n.res]||'#ffd36a';ctx.save();const g=ctx.createRadialGradient(q.x,q.y,0,q.x,q.y,w*.75);g.addColorStop(0,col);g.addColorStop(1,col+'00');ctx.globalAlpha=(.35+.25*pulse)*(n.left>0?1:.3);ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(q.x,q.y,w*.75,w*.34,0,0,7);ctx.fill();ctx.restore();}
   drawNode(n){const ctx=this.ctx,z=this.z();const q=this.toScreen(n.i+.5,n.j+.5);const W=this.world;
+    // un filon jamais vu ne montre ni son nom ni sa réserve (en 3D le brouillard ne recouvre plus les étiquettes)
+    if(n.type==='ore'&&W.s.fog!==false&&this.explored&&!this.explored[n.j*W.N+n.i])return;
     if(n.type==='ore'){const im=prop(OUTCROP[n.res]);const w=TW*1.7*z;const col=ORE_COL[n.res]||'#ffd36a';if(!this.o3)this.oreGlow(n);
       if(this.zoom>.45){const t=`${RES[n.res]?.name||n.res} · ${Math.round(n.left)}`;ctx.font=`600 ${Math.round(11*Math.min(1.6,Math.max(.8,z)))}px system-ui`;const tw=ctx.measureText(t).width;const ly=q.y-w*.62;ctx.fillStyle='rgba(12,18,22,.78)';ctx.fillRect(q.x-tw/2-5,ly-12,tw+10,16);ctx.fillStyle=col;ctx.fillRect(q.x-tw/2-5,ly-12,3,16);ctx.fillStyle='#e8eef0';ctx.textAlign='center';ctx.fillText(t,q.x+1,ly);ctx.textAlign='left';}
       if(!this.o3&&im&&!W.s.buildings.some(b=>b.ore===n.id))ctx.drawImage(im,q.x-w/2,q.y-w*.75,w,w);const ic=icon(n.res);if(ic&&this.zoom>.5)ctx.drawImage(ic,q.x-9*z,q.y-w*.9,18*z,18*z);return;}
@@ -423,7 +451,7 @@ export class View{
     ctx.save();if(!a.alive)ctx.filter='grayscale(.7) brightness(.65)';ctx.translate(q.x,q.y-bob);ctx.scale(a.fx<0?-1:1,1);
     if(a.kind==='lapin'){const frame=!a.alive?7:moving?[2,3,4,5][Math.floor(this.frame*1.4+a.id)%4]:Math.floor(this.frame*.12+a.id)%9===0?1:0;ctx.drawImage(im,(frame%4)*384,Math.floor(frame/4)*512,384,512,-w/2,-h*.86,w,h);}
     else ctx.drawImage(im,-w/2,-h*.86,w,h);ctx.restore();if(!a.alive){this.bar(q.x,q.y-h*.9,22*z,a.food/({belier:75,biche:38,lapin:14}[a.kind]||38),'#b88555');}}
-  drawUnit(u){const ctx=this.ctx,z=this.z(),W=this.world;const q=this.toScreen(u.x,u.y);const D=u.f==='beee'?BEEE.units[u.k]:UNITS[u.k];const size=(u.k==='villageois'?34:38)*z;const down=u.h?.state==='hors';
+  drawUnit(u){if(u.inLab!=null||this.g3?.labHidden?.has(u.id))return;const ctx=this.ctx,z=this.z(),W=this.world;const q=this.toScreen(u.x,u.y);const D=u.f==='beee'?BEEE.units[u.k]:UNITS[u.k];const size=(u.k==='villageois'?34:38)*z;const down=u.h?.state==='hors';
     if(this.zoom<.35&&!this.o3){ctx.fillStyle=down?'#8a1c1c':u.f==='beee'?'#e0503a':u.k==='villageois'?'#fff1c9':'#7fd3f0';ctx.fillRect(q.x-2*z*3,q.y-4*z*3,4*z*3,4*z*3);return;}
     if(u.f==='beee'&&!down&&!this.o3){ctx.strokeStyle='rgba(224,80,58,.75)';ctx.lineWidth=1.6*this.dpr;ctx.beginPath();ctx.ellipse(q.x,q.y,9*z,4.5*z,0,0,7);ctx.stroke();}
     if(u.h&&!this.o3){const lost=1-u.h.blood/BLOOD;if(down||lost>.06)this.pool(q.x,q.y,lost,z,u.id);}
@@ -549,7 +577,7 @@ export class View{
     const wedge=(x,y,r,fx,fy,cosMin)=>{const r2=r*r;const i0=Math.max(0,Math.floor(x-r)),i1=Math.min(N-1,Math.ceil(x+r)),j0=Math.max(0,Math.floor(y-r)),j1=Math.min(N-1,Math.ceil(y+r));for(let j=j0;j<=j1;j++){const dy=j+.5-y;for(let i=i0;i<=i1;i++){const dx=i+.5-x;const d2_=dx*dx+dy*dy;if(d2_<=r2&&(d2_<4||(dx*fx+dy*fy)/Math.sqrt(d2_)>=cosMin)){vis[j*N+i]=1;ex[j*N+i]=1;}}}};
     W.visibilityMask('meumeu',vis,ex);
     if(!this.fogCv){this.fogCv=document.createElement('canvas');}const cv=this.fogCv;if(cv.width!==N){cv.width=N;cv.height=N;this.fogImg=null;}
-    const x=cv.getContext('2d');const im=this.fogImg||(this.fogImg=x.createImageData(N,N));const d=im.data;for(let k=0;k<N*N;k++){const a=vis[k]?0:ex[k]?125:232;d[k*4]=6;d[k*4+1]=12;d[k*4+2]=18;d[k*4+3]=a;}x.putImageData(im,0,0);}
+    if(cv.width!==N||!this.fogImg)this.fogFilled=false;const x=cv.getContext('2d');const im=this.fogImg||(this.fogImg=x.createImageData(N,N));const d=im.data;const fy0=W.bounds?W.bounds[1]:0,fy1=W.bounds?W.bounds[3]:N;if(!this.fogFilled){for(let k=0;k<N*N;k++){d[k*4]=6;d[k*4+1]=12;d[k*4+2]=18;d[k*4+3]=232;}this.fogFilled=true;}for(let k=fy0*N;k<fy1*N;k++){const a=vis[k]?0:ex[k]?125:232;d[k*4]=6;d[k*4+1]=12;d[k*4+2]=18;d[k*4+3]=a;}x.putImageData(im,0,0);this.fogVer=(this.fogVer||0)+1;}
   // l'étiquette d'un renseignement : depuis quand
   intelTag(x,y,t0,extra){const ctx=this.ctx,W=this.world,dpr=this.dpr;const q=this.toScreen(x,y,2.2);const age=W.s.t-t0;const txt=`vu il y a ${age<1?'moins d’1 h':age<48?Math.round(age)+' h':Math.round(age/24)+' j'}${extra?' · '+extra:''}`;
     ctx.save();ctx.font=`600 ${9.5*dpr}px system-ui`;ctx.textAlign='center';const w=ctx.measureText(txt).width+8*dpr;ctx.fillStyle='rgba(10,16,22,.75)';ctx.fillRect(q.x-w/2,q.y-11*dpr,w,14*dpr);ctx.fillStyle='#cfd6da';ctx.fillText(txt,q.x,q.y);ctx.restore();}
@@ -575,10 +603,11 @@ export class View{
     const sec=Math.max(0,Math.round(A.age*HOUR_REAL)),when=sec<60?`il y a ${sec} s`:`il y a ${Math.floor(sec/60)} min ${String(sec%60).padStart(2,'0')}`;
     const p=A.pow,force=A.fresh<.35?'incertain':p<.3?'faible':p<.55?'moyen':p<.8?'fort':'très fort';
     const db=(A.kind==='tirs'||A.kind==='explosion')&&A.db?` ${Math.round(A.db)} dB`:'';
-    // une équipe en marche s'annonce comme telle : combien (à peu près) et à quelle distance (proche / moyenne / lointaine)
-    const team=A.kind==='pas'&&(A.team||1)>=3,size=A.team>=12?'FORMATION ≈'+A.team:A.team>=6?'ÉQUIPE ≈'+A.team:'PETITE ÉQUIPE ≈'+A.team,prox=(A.near??.5)>.66?'proche':(A.near??.5)>.33?'à moyenne distance':'lointaine';
-    if(team)return `${size} — ${CARD[k]} — ${prox} — ${when}`;
-    return `${A.lbl.toUpperCase()}${db} — ${CARD[k]} — ${force} — ${when}`;}
+    // (V12.7, le joueur : une distance et un angle approximatifs) — la distance estimée à l'oreille (±30 %), en mètres arrondis
+    const m=Math.max(0,(A.d||0)*4),dist='≈ '+Math.max(5,m<20?Math.round(m/5)*5:m<100?Math.round(m/10)*10:Math.round(m/25)*25)+' m';
+    // des pas : combien marchent ensemble (plus ils sont nombreux, plus on les entend de loin) — un seul, deux, une petite équipe, une équipe, beaucoup
+    if(A.kind==='pas'){const n=A.team||1,who=n>=12?'BEAUCOUP DE PAS — FORMATION ≈'+n:n>=6?'ÉQUIPE ≈'+n:n>=3?'PETITE ÉQUIPE ≈'+n:n===2?'PAS ≈2':'PAS';return `${who} — ${CARD[k]} — ${dist} — ${force} — ${when}`;}
+    return `${A.lbl.toUpperCase()}${db} — ${CARD[k]} — ${dist} — ${force} — ${when}`;}
   // Brouillard levé : ce que les Bèè savent. Chaque alerte est un CÔNE (direction entendue, jamais une position) ; les chercheurs
   // en fouille montrent le prochain point de leur balayage.
   drawDevCones(){const W=this.world,B=W.s.beee,ctx=this.ctx,z=this.z(),dpr=this.dpr,t=W.s.t;
@@ -591,16 +620,37 @@ export class View{
     for(const u of W.s.units){if(u.f!=='beee'||!(u.hp>0)||u.task?.kind!=='search'||u.task.scout||!u.task.pts)continue;
       const p=u.task.pts[u.task.i||0];if(!p)continue;const q0=this.toScreen(u.x,u.y),q1=this.toScreen(p[0],p[1]);
       ctx.save();ctx.strokeStyle='rgba(255,150,120,.55)';ctx.setLineDash([4*dpr,4*dpr]);ctx.lineWidth=1.2*dpr;ctx.beginPath();ctx.moveTo(q0.x,q0.y);ctx.lineTo(q1.x,q1.y);ctx.stroke();ctx.fillStyle='rgba(255,150,120,.9)';ctx.fillRect(q1.x-2*dpr,q1.y-2*dpr,4*dpr,4*dpr);ctx.restore();}}
-  // Le tube infrarouge : dans son faisceau, une image monochrome vert-jaune et granuleuse ; hors du faisceau, la nuit reste la nuit.
-  drawNir(){const W=this.world;if(W.light()>=.4)return;const ctx=this.ctx,dpr=this.dpr;
-    for(const id of this.sel){const u=W.unit(id);if(!u||u.f!=='meumeu'||!u.nvOn||!((u.irLeft??0)>0))continue;
+  // Le tube infrarouge (V12.5, demande du joueur) : de nuit, la partie du faisceau d'une arme infrarouge allumée qui va AU-DELÀ de la vue nue (la vue
+  // classique de nuit, lunette comprise — même calcul que la perception, World.eyeProfile) passe au filtre : l'image de la scène, désaturée, éclaircie comme
+  // par un intensificateur, teintée vert-gris, granuleuse (un grain qui bouge à chaque image). Là où l'œil voit déjà, l'image reste celle de la nuit ;
+  // hors du faisceau aussi. Tout est fait sur une copie de l'image, découpée par un masque (faisceaux moins vues nues) : les recouvrements entre soldats
+  // ne s'additionnent pas. Les jumelles infrarouges gardent leur voile léger.
+  drawNir(){const W=this.world;if(W.light()>=.4)return;const ctx=this.ctx,[i0,i1,j0,j1]=this.vis||[0,1e9,0,1e9];const beams=new Path2D(),naked=new Path2D(),bino=new Path2D();let nb=0,nir=0;
+    for(const u of W.s.units){if(u.f!=='meumeu'||!(u.hp>0)||!u.nvOn||!((u.irLeft??0)>0)||u.inVeh||u.inBarracks)continue;
       const Wd=u.w?W.W(u.w):null,ir=Wd?.ir;const range=ir?ir.range*(1+.2*Math.log2(Wd.optic?.mag||1)):(u.bino||0);if(!range)continue;
-      const beam=(ir?.beam||43)*Math.PI/180,a0=Math.atan2(u.fy??0,u.fx??1),pts=[[u.x,u.y]];
-      for(let k=0;k<=18;k++){const a=a0-beam/2+beam*k/18;pts.push([u.x+Math.cos(a)*range,u.y+Math.sin(a)*range]);}
-      ctx.save();ctx.beginPath();pts.forEach(([x,y],i)=>{const q=this.toScreen(x,y);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y);});ctx.closePath();
-      ctx.fillStyle='rgba(175,255,110,.11)';ctx.fill();ctx.clip();
-      ctx.fillStyle='rgba(215,255,150,.55)';for(let g=0;g<110;g++){const r=Math.random()*range,a=a0+(Math.random()-.5)*beam,q=this.toScreen(u.x+Math.cos(a)*r,u.y+Math.sin(a)*r);ctx.fillRect(q.x,q.y,1.6*dpr,1.6*dpr);}
-      ctx.restore();}}
+      if(u.x+range<i0||u.x-range>i1||u.y+range<j0||u.y-range>j1)continue;
+      const beam=(ir?.beam||43)*Math.PI/180,a0=Math.atan2(u.fy??0,u.fx??1),P=ir?beams:bino;let q=this.toScreen(u.x,u.y);P.moveTo(q.x,q.y);
+      for(let k=0;k<=12;k++){const a=a0-beam/2+beam*k/12;q=this.toScreen(u.x+Math.cos(a)*range,u.y+Math.sin(a)*range);P.lineTo(q.x,q.y);}P.closePath();
+      if(!ir){nb++;continue;}nir++;
+      // la vue nue de nuit de ce soldat (face, flancs, dos, et sa lunette dans l'axe), comme drawNightVision sans l'infrarouge
+      const E=W.eyeProfile(u),fx=u.fx??1,fy=u.fy??0,fl=Math.hypot(fx,fy)||1;
+      for(let k=0;k<48;k++){const a=k/48*Math.PI*2,dx=Math.cos(a),dy=Math.sin(a),c=(fx*dx+fy*dy)/fl,t=Math.max(0,Math.min(1,(c+.6)/1.3)),back=[.22,.38,.62][E.wide];
+        let r=E.base*(back+(1-back)*t*t*(3-2*t));if(c>=E.cos)r=Math.max(r,E.optic*Math.min(1,(c-E.cos)/.04+.6));r=Math.max(1.6,r);const p=this.toScreen(u.x+dx*r,u.y+dy*r);if(!k)naked.moveTo(p.x,p.y);else naked.lineTo(p.x,p.y);}naked.closePath();}
+    if(nb){ctx.save();ctx.fillStyle='rgba(175,255,110,.11)';ctx.fill(bino,'nonzero');ctx.restore();}
+    if(!nir)return;
+    // (touche V) les cônes classiques à la place du filtre : la partie du faisceau au-delà de la vue nue, en aplat vert léger cerné
+    if(this.nirClassic){ctx.save();ctx.clip(beams,'nonzero');const cv=this.canvas,inv=new Path2D();inv.rect(-1e5,-1e5,2e5,2e5);inv.addPath(naked);ctx.clip(inv,'evenodd');ctx.fillStyle='rgba(175,255,110,.13)';ctx.fill(beams,'nonzero');ctx.restore();
+      ctx.save();ctx.strokeStyle='rgba(175,255,110,.55)';ctx.lineWidth=1.2*this.dpr;ctx.stroke(beams);ctx.restore();return;}
+    const cv=this.canvas,Wc=cv.width,Hc=cv.height,T=this.nirCv??=document.createElement('canvas');if(T.width!==Wc||T.height!==Hc){T.width=Wc;T.height=Hc;}const t=T.getContext('2d'),M=ctx.getTransform();
+    t.setTransform(1,0,0,1,0,0);t.globalAlpha=1;t.globalCompositeOperation='copy';t.drawImage(cv,0,0);
+    t.globalCompositeOperation='saturation';t.fillStyle='#808080';t.fillRect(0,0,Wc,Hc);          // le noir et blanc
+    t.globalCompositeOperation='screen';t.fillStyle='rgba(70,82,66,.55)';t.fillRect(0,0,Wc,Hc);   // l'intensificateur : la nuit s'éclaircit
+    t.globalCompositeOperation='color';t.fillStyle='rgb(128,150,118)';t.fillRect(0,0,Wc,Hc);       // la teinte vert-gris (la luminance est gardée)
+    if(!this._nirNoise){const n=document.createElement('canvas');n.width=n.height=192;const g=n.getContext('2d'),im=g.createImageData(192,192);
+      for(let k=0;k<im.data.length;k+=4){const v=Math.random()*255;im.data[k]=im.data[k+1]=im.data[k+2]=v;im.data[k+3]=255;}g.putImageData(im,0,0);this._nirNoise=n;}
+    t.globalCompositeOperation='overlay';t.globalAlpha=.42;const ox=Math.random()*192,oy=Math.random()*192;t.translate(-ox,-oy);t.fillStyle=t.createPattern(this._nirNoise,'repeat');t.fillRect(0,0,Wc+192,Hc+192);   // le grain
+    t.globalAlpha=1;t.setTransform(M);t.globalCompositeOperation='destination-in';t.fill(beams,'nonzero');t.globalCompositeOperation='destination-out';t.fill(naked,'nonzero');   // le masque
+    ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.drawImage(T,0,0);ctx.restore();}
   // La couronne d'équipe : un anneau-compas autour du centre des soldats sélectionnés (haut de l'écran = nord). Chaque bruit est une marque sur
   // l'anneau : sa POSITION est la direction entendue, la LARGEUR de l'arc le flou (fin = on sait, large = on ne sait pas), l'ÉPAISSEUR et
   // l'opacité la force entendue, un pictogramme dit quoi et des points combien de soldats l'ont entendu. Un trait qui pulse est neuf (moins
@@ -702,6 +752,22 @@ export class View{
   // nos soldats choisis : ce qu'il voit — plein devant, moins sur les côtés, presque rien derrière — en trois limites : un
   // Meumeu debout, accroupi, couché (l'aplat : debout). Vert-gris : calme ; jaune : en ronde, il tourne la tête ; rouge : en alerte.
   // Autour de chacun de nos tireurs : jusqu'où s'entendra son prochain coup (et, pointillé, le claquement d'une balle supersonique).
+  // La nuit : ce que voit chacune de nos unités — sa vue nue tout autour (face, flancs, dos), sa lunette et son infrarouge dans l'axe.
+  // Même calcul que la perception (World.eyeProfile / visualRange), échantillonné sur 32 directions.
+  drawNightVision(){const W=this.world,s=W.s;if(!(W.light()<.7))return;const ctx=this.ctx,[i0,i1,j0,j1]=this.vis;let n=0;
+    // toutes les zones sont peintes, opaques, sur un calque à part : leurs recouvrements se fondent en une seule tache, posée ensuite en douceur
+    const cv=this.nvCv??=document.createElement('canvas');if(cv.width!==this.canvas.width||cv.height!==this.canvas.height){cv.width=this.canvas.width;cv.height=this.canvas.height;}
+    const x=cv.getContext('2d');x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,cv.width,cv.height);x.filter=`blur(${Math.round(6*this.dpr)}px)`;let any=false;
+    for(const u of s.units){if(u.f!=='meumeu'||!(u.hp>0)||u.h?.state==='hors'||u.inVeh||u.inBarracks)continue;if(u.k==='villageois'||u.k==='medecin'||u.k==='infirmier'||!u.w&&!u.serve)continue;if(u.x<i0-8||u.x>i1+8||u.y<j0-8||u.y>j1+8)continue;if(++n>260)break;
+      const P=W.eyeProfile(u),fx=u.fx??1,fy=u.fy??0,fl=Math.hypot(fx,fy)||1;const pts=[];let nv=false;
+      for(let k=0;k<48;k++){const a=k/48*Math.PI*2,dx=Math.cos(a),dy=Math.sin(a),c=(fx*dx+fy*dy)/fl;
+        // (les paliers du calcul — face, flancs, dos — adoucis en une courbe continue pour le dessin)
+        const t=Math.max(0,Math.min(1,(c+.6)/1.3)),back=[.22,.38,.62][P.wide];let r=P.base*(back+(1-back)*t*t*(3-2*t));
+        if(c>=P.cos)r=Math.max(r,P.optic*Math.min(1,(c-P.cos)/.04+.6));if(c>=P.nvCos&&P.nv>r){r=P.nv*Math.min(1,(c-P.nvCos)/.03+.5);nv=true;}if(u.lamp)r=Math.max(r,5);r=Math.max(1.6,r);
+        pts.push(this.toScreen(u.x+dx*r,u.y+dy*r));}
+      x.beginPath();for(let k=0;k<pts.length;k++){const p=pts[k],q=pts[(k+1)%pts.length],m=[(p.x+q.x)/2,(p.y+q.y)/2];if(!k)x.moveTo(m[0],m[1]);else x.quadraticCurveTo(p.x,p.y,m[0],m[1]);}
+      {const p=pts[0],q=pts[1];x.quadraticCurveTo(p.x,p.y,(p.x+q.x)/2,(p.y+q.y)/2);}x.closePath();x.fillStyle=nv?'rgb(140,255,170)':'rgb(255,236,180)';x.fill();any=true;}
+    x.filter='none';if(!any)return;ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=.24;ctx.globalCompositeOperation='lighter';ctx.drawImage(cv,0,0);ctx.restore();}
   drawCones(){const W=this.world,s=W.s;const sel=[];for(const id of this.sel){const u=W.unit(id);if(u&&u.f==='meumeu'&&u.hp>0)sel.push(u);}if(!sel.length)return;
     const night=W.light()<.4;if(!(this.cones||night&&sel.some(u=>u.holdFire||u.charges>0||u.scoutRole||u.camoSuit||u.task?.kind==='sabotage')))return;
     const ctx=this.ctx,z=this.z(),dpr=this.dpr,base=W.sight(),alerts=s.beee.alerts||[];const [i0,i1,j0,j1]=this.vis;
@@ -733,7 +799,7 @@ export class View{
       const rem=Math.max(0,c.t-s.t),m=Math.round(rem*60);const txt=m<1?'feu !':m<60?`${m} min`:`${Math.floor(m/60)} h ${String(m%60).padStart(2,'0')}`;const on=Math.sin(now/(rem<.34?90:rem<1?220:520))>0;
       ctx.save();ctx.fillStyle=on?'#ff3b2f':'#7a1a14';ctx.strokeStyle='rgba(10,8,6,.9)';ctx.lineWidth=1.5*dpr;ctx.beginPath();ctx.arc(q.x,q.y,Math.max(3,4*z),0,7);ctx.fill();ctx.stroke();
       ctx.font=`800 ${10*dpr}px system-ui`;ctx.textAlign='center';ctx.lineWidth=3*dpr;ctx.strokeText(`charge · ${txt}`,q.x,q.y-9*dpr);ctx.fillStyle=c.f==='meumeu'?'#ffd9a0':'#ff9a8a';ctx.fillText(`charge · ${txt}`,q.x,q.y-9*dpr);ctx.restore();}}
-  drawFog(){if(!this.fogCv)return;const ctx=this.ctx,z=this.z();const o=this.toScreen(0,0);ctx.save();ctx.setTransform(TW/2*z,TH/2*z,-TW/2*z,TH/2*z,o.x,o.y);ctx.imageSmoothingEnabled=true;ctx.drawImage(this.fogCv,0,0);ctx.restore();}
+  drawFog(){if(!this.fogCv)return;const ctx=this.ctx,z=this.z();const free=this.camFree();ctx.save();if(free)this.groundPass(true);const o=this.toScreen(0,0);const M=[TW/2*z,TH/2*z,-TW/2*z,TH/2*z,o.x,o.y];if(free)ctx.transform(...M);else ctx.setTransform(...M);ctx.imageSmoothingEnabled=true;ctx.drawImage(this.fogCv,0,0);ctx.restore();if(free)this.groundPass(false);}
   // La carte logistique (touche L) : chaque dépôt et ce qu'il attend sans l'avoir, les convois en route (porteurs, trains),
   // les voies coupées, les usines arrêtées ou sabotées, les soldats presque à sec. D'un coup d'œil : où la chaîne casse.
   drawLogistics(){if(!this.logi)return;const ctx=this.ctx,W=this.world,z=this.z(),dpr=this.dpr,cw=this.canvas.width,ch=this.canvas.height;const on=q=>q.x>-40&&q.y>-40&&q.x<cw+40&&q.y<ch+40;
@@ -871,7 +937,7 @@ export class View{
     if(sel)this.tag(`${v.name}${v.why?' · '+v.why:''}`,top.x,top.y-10*z,v.why?'warn':'ink');}
   // Un train dessiné : la locomotive à vapeur (chaudière, cabine, cheminée qui fume, fanal la nuit), le tender de charbon, et
   // quatre wagons faits pour ce qu'ils portent — trémies de charbon, d'argile, de minerai ; plats de grumes, de briques, de caisses ;
-  // citerne de carburant ; wagons couverts pour les munitions et les pièces. Les voitures suivent la trace de la locomotive.
+  // citerne d’essence ; wagons couverts pour les munitions et les pièces. Les voitures suivent la trace de la locomotive.
   drawTrain(v,sel){const ctx=this.ctx,z=this.z(),W=this.world;const pts=[[v.x,v.y],...(v.trail||[])];
     const at=d=>{let left=d;for(let n=0;n<pts.length-1;n++){const [ax,ay]=pts[n],[bx,by]=pts[n+1];const L=Math.hypot(bx-ax,by-ay);if(left<=L){const t=L?left/L:0;return [ax+(bx-ax)*t,ay+(by-ay)*t,ax-bx,ay-by];}left-=L;}const l=pts[pts.length-1];return [l[0]-(v.dx||1)*(left),l[1]-(v.dy||0)*(left),v.dx||1,v.dy||0];};
     const keys=Object.entries(v.cargo||{}).filter(([,n])=>n>=.05).sort((a,b)=>b[1]-a[1]).map(([k])=>k);
@@ -884,7 +950,8 @@ export class View{
     for(let k=0;k<6;k++){const age=((this.clock*(moving?1.4:.5))+k/6)%1;const cO=this.o3?.9:.35,cH=this.o3?2.3:1.45;const q=this.toScreen(L0.x+ux*cO-ux*age*(moving?1.2:.2),L0.y+uy*cO-uy*age*(moving?1.2:.2),cH+age*(moving?1.1:1.5));
       ctx.fillStyle=`rgba(${moving?'62,62,64':'120,120,122'},${(1-age)*(moving?.38:.22)})`;ctx.beginPath();ctx.arc(q.x,q.y,(2.5+age*7)*z,0,7);ctx.fill();}
     if(W.isNight()){const q=this.o3?this.toScreen(L0.x+ux*1.5,L0.y+uy*1.5,1.0):this.toScreen(L0.x+ux*.55,L0.y+uy*.55,.5);const g=ctx.createRadialGradient(q.x,q.y,0,q.x,q.y,26*z);g.addColorStop(0,'rgba(255,226,140,.8)');g.addColorStop(1,'rgba(255,226,140,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(q.x,q.y,26*z,0,7);ctx.fill();}
-    if(sel||this.zoom>.8||v.why){const q=this.toScreen(v.x,v.y,1.5);this.tag(`${v.name}${v.why?' · '+v.why:''}`,q.x,q.y-10*z,v.why?'warn':'ink');}}
+    // (un train en panne dit pourquoi — mais pas de loin : vue d'ensemble, une douzaine d'étiquettes se recouvraient en travers de la carte)
+    if(sel||this.zoom>.8||v.why&&this.zoom>.4){const q=this.toScreen(v.x,v.y,1.5);this.tag(`${v.name}${v.why?' · '+v.why:''}`,q.x,q.y-10*z,v.why?'warn':'ink');}}
   drawCar(c,v,moving){const {x,y,dx,dy}=c;const L=Math.hypot(dx,dy)||1;const ux=dx/L,uy=dy/L,px=-uy,py=ux;const WS=1.6,HS=1.5;const P=(a,b,[len,wid,h0,h1,col])=>this.prism(x+ux*a+px*b*WS,y+uy*a+py*b*WS,ux,uy,len,wid*WS,h0*HS,h1*HS,col);const ctx=this.ctx,z=this.z();
     // le châssis et les roues
     const wheel=(a,s)=>{const q=this.toScreen(x+ux*a+px*s*.2,y+uy*a+py*s*.2,.08);ctx.fillStyle='#161a1c';ctx.beginPath();ctx.ellipse(q.x,q.y,4.6*z,3.4*z,0,0,7);ctx.fill();ctx.fillStyle='#6d6f71';ctx.beginPath();ctx.ellipse(q.x,q.y,1.6*z,1.2*z,0,0,7);ctx.fill();};
@@ -900,7 +967,7 @@ export class View{
     const k=c.load;const bulk={charbon:'#16181a',argile:'#9a5a3a',pierre:'#8d8a84',fer:'#6d4a3a',sels:'#d0772c',soie:'#3aa39a',verre:'#6aa8d8'};
     if(!k||bulk[k]){// une trémie : parois basses, le chargement bombé dessus
       P(0,0,[c.h*.95,.14,.13,.36,'#5b4a3a']);if(k){const lvl=.2+.18*c.fill;P(0,0,[c.h*.85,.12,.13,lvl,bulk[k]]);if(c.fill>.5)P(0,0,[c.h*.55,.08,lvl,lvl+.06,bulk[k]]);}return;}
-    if(k==='carburant'){P(0,0,[c.h*.9,.11,.13,.35,'#d9d2c4']);P(0,0,[c.h*.9,.085,.35,.41,'#e8e2d6']);P(0,0,[.03,.115,.13,.42,'#c05a1c']);P(0,0,[.04,.04,.41,.46,'#555']);return;}
+    if(k==='essence'){P(0,0,[c.h*.9,.11,.13,.35,'#d9d2c4']);P(0,0,[c.h*.9,.085,.35,.41,'#e8e2d6']);P(0,0,[.03,.115,.13,.42,'#c05a1c']);P(0,0,[.04,.04,.41,.46,'#555']);return;}
     if(k==='bois'){P(0,0,[c.h*.95,.14,.13,.16,'#6b4a2e']);for(const s of [-1,0,1])P(0,s*.08,[c.h*.9,.035,.16,.16+.2*c.fill,'#8a5a34']);return;}
     if(k==='briques'){P(0,0,[c.h*.95,.14,.13,.16,'#6b4a2e']);for(const a of [-.5,.5])P(c.h*a*.9,0,[c.h*.35,.11,.16,.16+.24*c.fill,'#b5522f']);return;}
     // un wagon couvert : munitions, armes, pièces, vivres
@@ -930,7 +997,7 @@ export class View{
         if(sh.kind==='shell'||sh.kind==='hshell'){const design=sh.w&&W.design(sh.w),p=design?.p,cal=p?.d||8,sz=Math.max(3.5,Math.min(14,cal*.5))*z;
           // V12.4 : la trajectoire se voit — une traînée (fumée de la charge, air chaud) sur l'arc déjà parcouru, plus épaisse et plus longue avec le calibre
           {const H=hh=>(sh.kind==='hshell'?Math.min(14,Math.max(1.5,sh.top||3)):3)*4*hh*(1-hh)+.5*(1-hh),n=14,back=Math.min(q,.18+Math.min(.5,cal/120));ctx.save();ctx.lineCap='round';
-            for(let m=this.o3?2:0;m<n;m++){const q0=q-back*(m+1)/n,q1=q-back*m/n;if(q0<0)break;   // en 3D, la traînée commence derrière l'obus (il est dans la scène)const pa=this.toScreen(sh.x0+(sh.x1-sh.x0)*q0,sh.y0+(sh.y1-sh.y0)*q0,H(q0)),pb=this.toScreen(sh.x0+(sh.x1-sh.x0)*q1,sh.y0+(sh.y1-sh.y0)*q1,H(q1));
+            for(let m=this.o3?2:0;m<n;m++){const q0=q-back*(m+1)/n,q1=q-back*m/n;if(q0<0)break;   /* en 3D, la traînée commence derrière l'obus (il est dans la scène) */const pa=this.toScreen(sh.x0+(sh.x1-sh.x0)*q0,sh.y0+(sh.y1-sh.y0)*q0,H(q0)),pb=this.toScreen(sh.x0+(sh.x1-sh.x0)*q1,sh.y0+(sh.y1-sh.y0)*q1,H(q1));
               const f=1-m/n;ctx.strokeStyle=`rgba(225,218,200,${.5*f})`;ctx.lineWidth=Math.max(1,sz*.55*(.4+.6*f));ctx.beginPath();ctx.moveTo(pa.x,pa.y);ctx.lineTo(pb.x,pb.y);ctx.stroke();}
             if(cal>=20&&!this.o3){ctx.globalCompositeOperation='lighter';ctx.strokeStyle='rgba(255,190,110,.55)';ctx.lineWidth=Math.max(1,sz*.18);const q0=Math.max(0,q-.04),pa=this.toScreen(sh.x0+(sh.x1-sh.x0)*q0,sh.y0+(sh.y1-sh.y0)*q0,H(q0));ctx.beginPath();ctx.moveTo(pa.x,pa.y);ctx.lineTo(a.x,a.y);ctx.stroke();}
             ctx.restore();}
@@ -949,7 +1016,7 @@ export class View{
   drawNight(){const L=this.world.light();if(L>=.999)return;const ctx=this.ctx,z=this.z();if(!this.nightCv)this.nightCv=document.createElement('canvas');const n=this.nightCv;if(n.width!==this.canvas.width||n.height!==this.canvas.height){n.width=this.canvas.width;n.height=this.canvas.height;}
     const x=n.getContext('2d');x.globalCompositeOperation='source-over';x.clearRect(0,0,n.width,n.height);x.fillStyle=`rgba(8,14,40,${(1-L)*.6})`;x.fillRect(0,0,n.width,n.height);x.globalCompositeOperation='destination-out';
     const light=(wx,wy,r,a=.85)=>{const q=this.toScreen(wx,wy);const R=r*TW*z*.7;if(q.x<-R||q.y<-R||q.x>n.width+R||q.y>n.height+R)return;const g=x.createRadialGradient(q.x,q.y,R*.1,q.x,q.y,R);g.addColorStop(0,`rgba(0,0,0,${a})`);g.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=g;x.beginPath();x.ellipse(q.x,q.y,R,R*.6,0,0,7);x.fill();};
-    for(const b of this.world.s.buildings){if(!b.done&&!(b.fire>0))continue;const [w,h]=this.world.sizeOf(b);if(this.fxVisible(b.i+w/2,b.j+h/2,b.f))light(b.i+w/2,b.j+h/2,b.fire>0?5:b.k==='centre'?6:2.5);}
+    for(const b of this.world.s.buildings){if(!b.done&&!(b.fire>0))continue;const [w,h]=this.world.sizeOf(b);if(this.fxVisible(b.i+w/2,b.j+h/2,b.f))light(b.i+w/2,b.j+h/2,b.fire>0?5:b.k==='centre'?6:this.labOpen?.has(b.id)?Math.max(w,h)*1.25:2.5,this.labOpen?.has(b.id)?.95:.85);}
     // les lanternes des rondes bèè : celles qu'on voit (dans notre champ, ou repérées de loin grâce à leur lumière)
     const Wl=this.world,lamps=Wl.s.units.filter(u=>u.lamp&&u.hp>0&&(this.fxVisible(u.x,u.y,'beee')||Wl.spotted(u,'meumeu')));for(const u of lamps)light(u.x,u.y,3.4,.8);
     const now=performance.now();this.flashes=(this.flashes||[]).filter(f=>now-f.t0<f.life*1000);for(const f of this.flashes){const k=1-(now-f.t0)/(f.life*1000);if(this.fxVisible(f.x,f.y))light(f.x,f.y,f.r*(.7+.3*k),.98*k);}
@@ -959,16 +1026,38 @@ export class View{
     // la lueur : chaude, additive, qui éclaire le sol et les soldats autour du coup de feu ou de l'explosion
     if(L<.7&&this.flashes.length){ctx.save();ctx.globalCompositeOperation='lighter';for(const f of this.flashes){const k=1-(now-f.t0)/(f.life*1000);const q=this.toScreen(f.x,f.y,.3);const R=f.r*TW*z*.55;if(q.x<-R||q.y<-R||q.x>n.width+R||q.y>n.height+R)continue;
       const g=ctx.createRadialGradient(q.x,q.y,0,q.x,q.y,R);g.addColorStop(0,`rgba(${f.col},${(f.r>3?.5:.28)*k*(1-L)})`);g.addColorStop(1,`rgba(${f.col},0)`);ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(q.x,q.y,R,R*.6,0,0,7);ctx.fill();}ctx.restore();}}
-  drawGhost(){const k=this.placing;const B=BUILDINGS[k];const [w,h]=k==='enclos'?(this.world.penSize||B.size):B.size;const c=this.hover.cell;if(!c)return;const i=c[0]-Math.floor((w-1)/2),j=c[1]-Math.floor((h-1)/2);this.ghost=[i,j];
-    const r=this.world.canPlace('meumeu',k,i,j);const ctx=this.ctx,z=this.z();const a=this.toScreen(i,j),b=this.toScreen(i+w,j),cc=this.toScreen(i+w,j+h),d=this.toScreen(i,j+h);
+  drawGhost(){const k=this.placing;const B=BUILDINGS[k];const rot=B.bunker?(this.placeRot||0):0;const [w,h]=B.bunker?this.world.bunkerSize(B.bunker,rot):k==='enclos'?(this.world.penSize||B.size):B.size;const c=this.hover.cell;if(!c)return;const i=c[0]-Math.floor((w-1)/2),j=c[1]-Math.floor((h-1)/2);this.ghost=[i,j];
+    const r=this.world.canPlace('meumeu',k,i,j,rot);const ctx=this.ctx,z=this.z();const a=this.toScreen(i,j),b=this.toScreen(i+w,j),cc=this.toScreen(i+w,j+h),d=this.toScreen(i,j+h);
     ctx.fillStyle=r.ok?'rgba(84,170,161,.35)':'rgba(189,75,61,.35)';ctx.strokeStyle=r.ok?'#54aaa1':'#bd4b3d';ctx.lineWidth=2*this.dpr;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(cc.x,cc.y);ctx.lineTo(d.x,d.y);ctx.closePath();ctx.fill();ctx.stroke();
-    const im=this.sprite(k,3,'meumeu');const pw=(k==='enclos'?3:(w+h)/2)*TW*z*1.05;if(im){ctx.save();ctx.globalAlpha=.5;const anchor=k==='enclos'?this.toScreen(i+Math.min(w,3),j+Math.min(h,3)):cc;ctx.drawImage(im,anchor.x-pw/2,anchor.y-pw*.95,pw,pw);ctx.restore();}
+    if(B.bunker)this.drawBunkerPlan(B.bunker,rot,i,j,r.ok);const im=B.bunker?null:this.sprite(k,3,'meumeu');const pw=(k==='enclos'?3:(w+h)/2)*TW*z*1.05;if(im){ctx.save();ctx.globalAlpha=.5;const anchor=k==='enclos'?this.toScreen(i+Math.min(w,3),j+Math.min(h,3)):cc;ctx.drawImage(im,anchor.x-pw/2,anchor.y-pw*.95,pw,pw);ctx.restore();}
     // le rayon où il puise
-    const ctr=this.toScreen(i+w/2,j+h/2);ctx.save();ctx.strokeStyle='rgba(255,241,201,.25)';ctx.setLineDash([6*z,6*z]);ctx.beginPath();ctx.ellipse(ctr.x,ctr.y,14*TW/2*z*1.41,14*TH/2*z*1.41,0,0,7);ctx.stroke();ctx.restore();
+    const ctr=this.toScreen(i+w/2,j+h/2);ctx.save();ctx.strokeStyle='rgba(255,241,201,.25)';ctx.setLineDash([6*z,6*z]);ctx.beginPath();ctx.ellipse(ctr.x,ctr.y,(B.bunker?0:14)*TW/2*z*1.41,(B.bunker?0:14)*TH/2*z*1.41,0,0,7);ctx.stroke();ctx.restore();
     const Y=B.soil?this.world.cropYield(null,i,j,k):null;const nodep=(B.makes||B.factory)&&!this.world.depots('meumeu',i+w/2,j+h/2,RADIUS).length;const soil=(Y!=null?` · rendement ${Math.round(Y*100)} % (${Y>=1.15?'bonne terre':Y>=.8?'terre moyenne':'terre maigre'})`:'')+(nodep?` · aucun dépôt à ${RADIUS} cases : rien ne sortira`:'');
-    this.tag(r.ok?`${B.name} : cliquez pour poser${soil}`:r.why[0],cc.x,cc.y+14*z,r.ok?(Y!=null&&Y<.7?'bad':'ok'):'bad');}
+    this.tag(r.ok?`${B.name} : cliquez pour poser${soil}${B.bunker?` · R : tourner (les embrasures regardent ${['en haut à droite','en bas à droite','en bas à gauche','en haut à gauche'][rot]} de l’écran)`:''}`:r.why[0]+(B.bunker?' · R : tourner':''),cc.x,cc.y+14*z,r.ok?(Y!=null&&Y<.7?'bad':'ok'):'bad');}
+  // V12.5 : les postes d'un bunker — quand on le sélectionne, ou qu'on le survole avec des soldats choisis : chaque case de poste est marquée (jaune : tir, orange : pièce,
+  // vert : soute, bleu : abri ; plein : occupée) ; le survol d'une case dit ce qu'elle est et que le clic droit y envoie le soldat choisi
+  drawPostMarkers(){const W=this.world,ctx=this.ctx,z=this.z(),N=W.N;let b=null;
+    if(this.selB!=null){const bb=W.building(this.selB);if(bb&&BUILDINGS[bb.k]?.bunker&&bb.done&&!bb.ruin&&bb.f==='meumeu')b=bb;}
+    if(!b&&this.sel.size&&this.hover?.cell){const c=this.hover.cell;if(c[0]>=0&&c[1]>=0&&c[0]<N&&c[1]<N){const bid=W.fortB[c[1]*N+c[0]];if(bid>=0){const bb=W.building(bid);if(bb&&bb.f==='meumeu'&&bb.done&&!bb.ruin)b=bb;}}}
+    if(!b)return;const occ=W.bunkerOcc(b),hc=this.hover?.cell,hk=hc?hc[1]*N+hc[0]:-1;
+    const LAB={tir:'poste de tir',gun:'emplacement de pièce',soute:'soute (chargeur)',abri:'abri'},COL={tir:'232,191,98',gun:'255,154,74',soute:'143,191,106',abri:'127,179,217'};
+    ctx.save();let tagged=false;
+    for(const p of W.bunkerPosts(b)){const A=this.toScreen(p.i+.08,p.j+.08),B2=this.toScreen(p.i+.92,p.j+.08),C=this.toScreen(p.i+.92,p.j+.92),D=this.toScreen(p.i+.08,p.j+.92),taken=!!occ[p.k],hot=p.k===hk;
+      ctx.fillStyle=`rgba(${taken?'110,200,120':COL[p.kind]},${hot?.6:taken?.42:.3})`;ctx.strokeStyle=`rgba(${COL[p.kind]},${hot?1:.8})`;ctx.lineWidth=Math.max(1,(hot?3:1.6)*z);
+      ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B2.x,B2.y);ctx.lineTo(C.x,C.y);ctx.lineTo(D.x,D.y);ctx.closePath();ctx.fill();ctx.stroke();
+      const q=this.toScreen(p.i+.5,p.j+.5);ctx.fillStyle=`rgb(${COL[p.kind]})`;ctx.beginPath();ctx.arc(q.x,q.y,Math.max(2,(p.kind==='gun'?4.5:3)*z),0,7);ctx.fill();
+      if(p.fx||p.fy){const t=this.toScreen(p.i+.5+p.fx*.42,p.j+.5+p.fy*.42);ctx.strokeStyle=`rgb(${COL[p.kind]})`;ctx.lineWidth=Math.max(1.5,2*z);ctx.beginPath();ctx.moveTo(q.x,q.y);ctx.lineTo(t.x,t.y);ctx.stroke();}
+      if(hot&&!tagged){tagged=true;this.tag(`${LAB[p.kind]} · ${taken?'occupé':'libre'}${this.sel.size?' · clic droit : prendre ce poste':''}`,q.x,q.y-22*z,taken?'warn':'ok');}}
+    ctx.restore();}
+  // V12.5 : la silhouette d'un bunker à la pose — murs, embrasures (fentes noires), porte (jaune), sol couvert ou ouvert, postes de tir (point + trait vers l'embrasure)
+  drawBunkerPlan(id,rot,i,j,ok){const P=bunkerPlan(id,rot),ctx=this.ctx,z=this.z();const COL={'#':'rgba(126,130,120,.92)',E:'rgba(24,24,22,.95)',D:'rgba(232,191,98,.95)','.':'rgba(206,210,196,.28)',o:'rgba(214,190,130,.45)',G:'rgba(150,160,172,.8)',A:'rgba(112,124,82,.8)'};
+    ctx.save();for(let c=0;c<P.h;c++)for(let a=0;a<P.w;a++){const ch=P.rows[c][a];if(ch===' ')continue;const x=i+a,y=j+c,A=this.toScreen(x,y),B2=this.toScreen(x+1,y),C=this.toScreen(x+1,y+1),D=this.toScreen(x,y+1);const up='#ED'.includes(ch)?(ch==='E'?.18:.3)*TH*z:0;
+      ctx.fillStyle=COL[ch];ctx.beginPath();ctx.moveTo(A.x,A.y-up);ctx.lineTo(B2.x,B2.y-up);ctx.lineTo(C.x,C.y-up);ctx.lineTo(D.x,D.y-up);ctx.closePath();ctx.fill();}
+    ctx.strokeStyle=ok?'rgba(255,255,255,.85)':'rgba(255,120,100,.9)';ctx.fillStyle=ctx.strokeStyle;ctx.lineWidth=Math.max(1,1.5*z);
+    for(const p of P.posts){if(p.kind!=='tir'&&p.kind!=='gun')continue;const q=this.toScreen(i+p.a+.5,j+p.c+.5),t=this.toScreen(i+p.a+.5+p.fx*.45,j+p.c+.5+p.fy*.45);ctx.beginPath();ctx.moveTo(q.x,q.y);ctx.lineTo(t.x,t.y);ctx.stroke();ctx.beginPath();ctx.arc(q.x,q.y,Math.max(1.5,2.2*z),0,7);ctx.fill();}
+    ctx.restore();}
   drawLinePlan(){const L=this.lining;const ctx=this.ctx,z=this.z();
-    if(L.kind==='gomme'){const W=this.world,N=W.N;let n=0;for(const [i,j] of L.cells){const k=j*N+i;const hit=(W.s.rails[k]&&!W.s.rails[k].b)||(W.s.walls[k]&&!W.s.walls[k].b&&W.s.walls[k].f==='meumeu')||(W.s.trenches[k]&&!W.s.trenches[k].b&&W.s.trenches[k].f==='meumeu');if(hit)n++;
+    if(L.kind==='gomme'){const W=this.world,N=W.N;let n=0;for(const [i,j] of L.cells){const k=j*N+i;const hit=(W.s.rails[k]&&!W.s.rails[k].b)||(W.s.walls[k]&&!W.s.walls[k].b&&W.s.walls[k].f==='meumeu')||(W.s.sacs[k]&&!W.s.sacs[k].b&&W.s.sacs[k].f==='meumeu');if(hit)n++;
         const a=this.toScreen(i,j),b=this.toScreen(i+1,j),c=this.toScreen(i+1,j+1),d=this.toScreen(i,j+1);ctx.fillStyle=hit?'rgba(189,75,61,.6)':'rgba(255,255,255,.12)';ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(c.x,c.y);ctx.lineTo(d.x,d.y);ctx.closePath();ctx.fill();}
       const last=L.cells[L.cells.length-1];const q=this.toScreen(last[0]+.5,last[1]+.5);this.tag(n?'Annuler les tracés prévus touchés':'Passez sur un tracé prévu (pointillés dorés)',q.x,q.y-20*z,n?'bad':'ink');return;}
     const ks=new Set(this.world.canLine('meumeu',L.kind,L.cells).map(String));
@@ -981,7 +1070,9 @@ export class View{
 
   // ---------- la minicarte ----------
   drawMini(mc){const x=mc.getContext('2d');const W=this.world,N=W.N;if(!this.overview)return;const w=mc.width,h=mc.height;x.setTransform(1,0,0,1,0,0);x.fillStyle='#1c1d14';x.fillRect(0,0,w,h);
-    x.drawImage(this.overview,0,0,w,h);const P=(i,j)=>[(i-j+N)/(2*N)*w,(i+j)/(2*N)*h];
+    const P=(i,j)=>[(i-j+N)/(2*N)*w,(i+j)/(2*N)*h];const [rx0,ry0,rx1,ry1]=W.bounds||[0,0,N,N];const rc=[[rx0,ry0],[rx1,ry0],[rx0,ry1],[rx1,ry1]].map(([i,j])=>P(i,j));
+    const mx0=Math.min(...rc.map(c=>c[0])),mx1=Math.max(...rc.map(c=>c[0])),my0=Math.min(...rc.map(c=>c[1])),my1=Math.max(...rc.map(c=>c[1]));const mkx=w/(mx1-mx0),mky=h/(my1-my0);   // (V12.5) la minicarte montre le rectangle jouable, pas toute la grille
+    x.setTransform(mkx,0,0,mky,-mkx*mx0,-mky*my0);x.drawImage(this.overview,0,0,w,h);
     const fog=W.s.fog!==false&&this.explored;for(const b of W.s.buildings){if(fog&&b.f==='beee'&&!W.s.intel?.[b.id])continue;const shown=fog&&b.f==='beee'&&!this.fxVisible(b.i+1,b.j+1,b.f)?W.s.intel?.[b.id]?.snapshot||b:b;const [px,py]=P(shown.i+1,shown.j+1);x.fillStyle=b.f==='beee'?(shown.ruin?'#6a3a30':'#e0503a'):(b.ruin?'#555':'#ffd36a');x.fillRect(px-2,py-1.5,b.k==='centre'?5:3,b.k==='centre'?4:3);}
     for(const n of W.s.nodes){if(n.type!=='ore'||n.left<=0)continue;const [px,py]=P(n.i+.5,n.j+.5);x.fillStyle='#000a';x.fillRect(px-2.5,py-2.5,5,5);x.fillStyle=ORE_COL[n.res]||'#ffd36a';x.fillRect(px-1.8,py-1.8,3.6,3.6);}
     for(const [k,r] of Object.entries(W.s.rails)){if(!r.b||fog&&r.f==='beee'&&!this.fxVisible(+k%N,(+k/N)|0,r.f))continue;const [px,py]=P(+k%N,(+k/N)|0);x.fillStyle='#cfd3d6';x.fillRect(px,py,1,1);}
@@ -989,11 +1080,11 @@ export class View{
     for(const v of W.s.vehicles){if(fog&&v.f!=='meumeu'&&!this.fxVisible(v.x,v.y,v.f))continue;const [px,py]=P(v.x,v.y);x.fillStyle=v.f==='beee'?'#ff3b2f':'#9fe8ff';x.beginPath();x.arc(px,py,2.5,0,7);x.fill();}
     // le champ de vision
     const cw=this.canvas.width,ch=this.canvas.height;const cs=[this.toWorld(0,0),this.toWorld(cw,0),this.toWorld(cw,ch),this.toWorld(0,ch)].map(p=>P(p.x,p.y));x.strokeStyle='#fff';x.lineWidth=1;x.beginPath();cs.forEach(([a,b],n)=>n?x.lineTo(a,b):x.moveTo(a,b));x.closePath();x.stroke();
-    this.miniP=(mx,my)=>{const a=mx/w*2*N-N,b=my/h*2*N;return {x:(a+b)/2,y:(b-a)/2};};}
+    this.miniP=(mx,my)=>{const a=(mx/mkx+mx0)/w*2*N-N,b=(my/mky+my0)/h*2*N;return {x:(a+b)/2,y:(b-a)/2};};}
 
   // ---------- la souris ----------
   pos(e){const r=this.canvas.getBoundingClientRect();return [(e.clientX-r.left)*this.dpr,(e.clientY-r.top)*this.dpr];}
-  unitAt(sx,sy){const W=this.world,z=this.z();let best=null,bd=1e9;for(const u of W.s.units){if(u.f!=='meumeu'&&W.s.fog!==false&&!W.spotted(u,'meumeu'))continue;const q=this.toScreen(u.x,u.y);const dx=sx-q.x,dy=sy-(q.y-14*z);if(Math.abs(dx)<13*z&&dy>-20*z&&dy<18*z){const d=Math.hypot(dx,dy);if(d<bd){bd=d;best=u;}}}return best;}
+  unitAt(sx,sy){const W=this.world,z=this.z();let best=null,bd=1e9;for(const u of W.s.units){if(u.inLab!=null)continue;if(u.f!=='meumeu'&&W.s.fog!==false&&!W.spotted(u,'meumeu'))continue;const q=this.toScreen(u.x,u.y);const dx=sx-q.x,dy=sy-(q.y-14*z);if(Math.abs(dx)<13*z&&dy>-20*z&&dy<18*z){const d=Math.hypot(dx,dy);if(d<bd){bd=d;best=u;}}}return best;}
   vehicleAt(sx,sy){const W=this.world,z=this.z();for(const v of W.s.vehicles){if(v.f!=='meumeu'&&!this.fxVisible(v.x,v.y,v.f))continue;const q=this.toScreen(v.x,v.y,v.alt||0);if(Math.hypot(sx-q.x,sy-(q.y-15*z))<28*z)return v;}return null;}
   bind(){const cv=this.canvas;cv.addEventListener('contextmenu',e=>e.preventDefault());
     cv.addEventListener('pointerdown',e=>{const [sx,sy]=this.pos(e);cv.setPointerCapture(e.pointerId);this.drag={btn:e.button,x0:sx,y0:sy,px:e.clientX,py:e.clientY,moved:false,shift:e.shiftKey};
@@ -1001,12 +1092,14 @@ export class View{
     cv.addEventListener('pointermove',e=>{const [sx,sy]=this.pos(e);const w=this.toWorld(sx,sy);const cell=[Math.floor(w.x),Math.floor(w.y)];
       if(this.drag){const D=this.drag;if(Math.hypot(sx-D.x0,sy-D.y0)>6*this.dpr)D.moved=true;
         // V12.4 : en 3D, le bouton du milieu ORIENTE la caméra (gauche-droite : tourner ; haut-bas : incliner) ; Maj + milieu (et en 2D, le milieu) : déplacer
-        if(D.moved&&D.btn===1&&this.o3&&!e.shiftKey){this.yaw=((this.yaw||0)+(e.clientX-D.px)*.006)%(Math.PI*2);this.elev=Math.max(.38,Math.min(1.4,(this.elev??ELEV0)+(e.clientY-D.py)*.004));}
+        if(D.moved&&D.btn===1&&this.o3&&!e.shiftKey){D.piv??=[sx,sy,this.toWorld(D.x0,D.y0)];this.yaw=((this.yaw||0)+(e.clientX-D.px)*.006)%(Math.PI*2);this.elev=Math.max(.12,Math.min(1.45,(this.elev??ELEV0)+(e.clientY-D.py)*.004));
+          // (on tourne autour du point saisi : il reste sous la souris de départ)
+          {const P=D.piv[2],w=this.toWorld(D.x0,D.y0);this.cx+=P.x-w.x;this.cy+=P.y-w.y;}}
         else if(D.moved&&D.btn===1){const w0=this.toWorld(sx-(e.clientX-D.px)*this.dpr,sy-(e.clientY-D.py)*this.dpr),w1=this.toWorld(sx,sy);this.cx+=w0.x-w1.x;this.cy+=w0.y-w1.y;}
         else if(this.lining?.a&&D.btn===0)this.lining.cells=this.lining.kind==='rail'?this.world.railRoute(this.lining.a[0],this.lining.a[1],cell[0],cell[1]):this.world.lineCells(this.lining.a[0],this.lining.a[1],cell[0],cell[1]);
         else if(D.moved&&D.btn===0&&!this.placing&&!this.lining)D.box={x0:D.x0,y0:D.y0,x1:sx,y1:sy};
         D.px=e.clientX;D.py=e.clientY;}
-      this.hover={cell,sx,sy,w};const u=this.unitAt(sx,sy);let label=null,tone='ink';
+      this.hover={cell,sx,sy,w};if(this.lab)this.labHover=this.labFigAt(sx,sy)?.u.id??null;const u=this.unitAt(sx,sy);let label=null,tone='ink';
       if(this.placing||this.lining||this.zoning)label=null;
       else if(u&&this.ui.unitLabel){label=this.ui.unitLabel(u);tone=u.f==='beee'?'bad':u.h?.state==='hors'?'warn':'ink';}
       else if(this.sel.size&&!u){const t=this.world.targetAt(w.x,w.y);label=this.ui.describe(t);tone=t?.type==='unit'||(t?.type==='building'&&this.world.building(t.id)?.f==='beee')?'bad':'ink';}
@@ -1020,23 +1113,25 @@ export class View{
       if(D.btn===1)return;
       if(D.box){const {x0,y0,x1,y1}=D.box;const [a,b]=[Math.min(x0,x1),Math.max(x0,x1)],[c,d]=[Math.min(y0,y1),Math.max(y0,y1)];if(!D.shift){this.sel.clear();this.selVs.clear();}this.selB=null;this.selV=null;
         // (les engins de combat aussi : une colonne de blindés se choisit d'un cadre)
-        for(const v of this.world.s.vehicles){if(v.f!=='meumeu'||!VEHDEF[v.k]||v.hp<=0)continue;const q=this.toScreen(v.x,v.y);if(q.x>=a&&q.x<=b&&q.y-10*this.dpr>=c&&q.y-10*this.dpr<=d)this.selVs.add(v.id);}
-        const inBox=this.world.s.units.filter(u=>u.f==='meumeu').filter(u=>{const q=this.toScreen(u.x,u.y);return q.x>=a&&q.x<=b&&q.y-10*this.dpr>=c&&q.y-10*this.dpr<=d;});
+        for(const v of this.world.s.vehicles){if(v.f!=='meumeu'||v.ally||!VEHDEF[v.k]||v.hp<=0)continue;const q=this.toScreen(v.x,v.y);if(q.x>=a&&q.x<=b&&q.y-10*this.dpr>=c&&q.y-10*this.dpr<=d)this.selVs.add(v.id);}
+        const inBox=this.world.s.units.filter(u=>u.f==='meumeu'&&!u.ally&&u.inLab==null&&!u.sci).filter(u=>{const q=this.toScreen(u.x,u.y);return q.x>=a&&q.x<=b&&q.y-10*this.dpr>=c&&q.y-10*this.dpr<=d;});
         const mil=inBox.filter(u=>u.k!=='villageois');for(const u of (mil.length&&!D.shift?mil:inBox))this.sel.add(u.id);this.ui.changed();return;}
       if(D.moved&&D.btn!==2)return;
       if(this.zoning){this.ui.zoneAt?.(w,e.shiftKey);if(!e.shiftKey)this.zoning=false;this.ui.changed();return;}
-      if(this.placing){if(e.button===2){this.placing=null;this.ui.changed();return;}const r=this.ui.place(this.placing,this.ghost[0],this.ghost[1]);if(r.ok&&!e.shiftKey)this.placing=null;return;}
+      if(this.placing){if(e.button===2){this.placing=null;this.ui.changed();return;}const r=this.ui.place(this.placing,this.ghost[0],this.ghost[1],BUILDINGS[this.placing]?.bunker?(this.placeRot||0):0);if(r.ok&&!e.shiftKey)this.placing=null;return;}
+      if(e.button===0&&this.lab&&this.labClick(sx,sy,w))return;
       if(e.button===0){const u=this.unitAt(sx,sy);const v=u?null:this.vehicleAt(sx,sy);
         if(this.ui.pickStop&&!u){const t=this.world.targetAt(w.x,w.y);if(t?.type==='building'){this.ui.pickStop(t.id);return;}}
-        if(u&&u.f==='meumeu'){const grp=u.sq&&!e.altKey?this.world.members(this.world.squad(u.sq)||{m:[]}).map(m=>m.id):[u.id];if(D.shift){for(const id of grp)this.sel.has(u.id)?this.sel.delete(id):this.sel.add(id);}else{this.sel.clear();for(const id of grp)this.sel.add(id);
-            this.selVs.clear();if(e.detail>=2){for(const o of this.world.s.units)if(o.f==='meumeu'&&o.k===u.k){const q=this.toScreen(o.x,o.y);if(q.x>0&&q.y>0&&q.x<this.canvas.width&&q.y<this.canvas.height)this.sel.add(o.id);}}}
+        if(u&&u.f==='meumeu'&&!u.ally){const grp=u.sq&&!e.altKey?this.world.members(this.world.squad(u.sq)||{m:[]}).map(m=>m.id):[u.id];if(D.shift){for(const id of grp)this.sel.has(u.id)?this.sel.delete(id):this.sel.add(id);}else{this.sel.clear();for(const id of grp)this.sel.add(id);
+            this.selVs.clear();if(e.detail>=2){for(const o of this.world.s.units)if(o.f==='meumeu'&&!o.ally&&o.k===u.k){const q=this.toScreen(o.x,o.y);if(q.x>0&&q.y>0&&q.x<this.canvas.width&&q.y<this.canvas.height)this.sel.add(o.id);}}}
           this.selB=null;this.selV=null;this.ui.changed();return;}
         if(u&&u.f!=='meumeu'&&this.ui.unitInfo){this.ui.unitInfo(u);return;}
-        if(v&&D.shift&&VEHDEF[v.k]&&v.f==='meumeu'){if(this.selV!=null&&this.selV!==v.id&&VEHDEF[this.world.s.vehicles.find(o=>o.id===this.selV)?.k])this.selVs.add(this.selV);this.selV=null;this.selB=null;this.selVs.has(v.id)?this.selVs.delete(v.id):this.selVs.add(v.id);this.ui.changed();return;}
-        if(v){this.sel.clear();this.selVs.clear();this.selB=null;this.selV=v.id;this.ui.changed();return;}
-        const t=this.world.targetAt(w.x,w.y);this.sel.clear();this.selVs.clear();this.selV=null;this.selB=t?.type==='building'?t.id:null;this.ui.inspect(t);this.ui.changed();return;}
+        if(v&&D.shift&&VEHDEF[v.k]&&v.f==='meumeu'&&!v.ally){if(this.selV!=null&&this.selV!==v.id&&VEHDEF[this.world.s.vehicles.find(o=>o.id===this.selV)?.k])this.selVs.add(this.selV);this.selV=null;this.selB=null;this.selVs.has(v.id)?this.selVs.delete(v.id):this.selVs.add(v.id);this.ui.changed();return;}
+        if(v&&!v.ally){this.sel.clear();this.selVs.clear();this.selB=null;this.selV=v.id;this.ui.changed();return;}
+        const t=this.world.targetAt(w.x,w.y);if(t?.type==='building'&&this.g3&&this.isLab(this.world.building(t.id))){this.enterLab(this.world.building(t.id));this.ui.changed();return;}   // (V12.6) la vue recherche
+        this.sel.clear();this.selVs.clear();this.selV=null;this.selB=t?.type==='building'?t.id:null;this.ui.inspect(t);this.ui.changed();return;}
       if(e.button===2){if(this.selV){this.ui.vehicleOrder(w);return;}if(this.selVs.size)this.ui.groupVehicleOrder([...this.selVs],w);if(this.selB&&!this.sel.size&&!this.selVs.size){this.ui.rally(w);return;}if(!this.sel.size)return;const t=this.world.targetAt(w.x,w.y);if(t&&e.shiftKey)t.queue=true;const r=this.ui.order([...this.sel],t);this.marks.push({x:w.x,y:w.y,age:0,bad:!r.ok});}});
-    cv.addEventListener('wheel',e=>{e.preventDefault();const [sx,sy]=this.pos(e);const before=this.toWorld(sx,sy);this.zoom=Math.max(.18,Math.min(2,this.zoom*(e.deltaY<0?1.15:1/1.15)));const after=this.toWorld(sx,sy);this.cx+=before.x-after.x;this.cy+=before.y-after.y;},{passive:false});}
+    cv.addEventListener('wheel',e=>{e.preventDefault();const [sx,sy]=this.pos(e);const before=this.toWorld(sx,sy);this.zoom=Math.max(.18,Math.min(this.lab?9:6,this.zoom*(e.deltaY<0?1.15:1/1.15)));const after=this.toWorld(sx,sy);this.cx+=before.x-after.x;this.cy+=before.y-after.y;},{passive:false});}
   // La géométrie des voies : les cases de rail deviennent des chaînes (d'un aiguillage à l'autre), lissées (Chaikin) pour que
   // l'escalier des cases devienne une courbe ; traverses tous les 0,2 case. Recalculée quand une voie change.
   railGeom(){const W=this.world,N=W.N;const ks=Object.keys(W.s.rails);let sig=ks.length;for(const k of ks)sig=(sig*31+(+k)*3+(W.rail[+k]||0))|0;
@@ -1105,6 +1200,8 @@ export class View{
       let inR=0;for(const u of guns){const Wd=W.W(u.w);const R=Math.hypot(p.x-u.x,p.y-u.y)*TM;const A=W.arcOf(Wd);const ok=R<=A.max*.96&&R>=Math.max(6,A.min*.9);if(ok)inR++;const g=this.toScreen(u.x,u.y),t=this.toScreen(p.x,p.y);ctx.save();ctx.strokeStyle=ok?'rgba(255,211,106,.6)':'rgba(235,90,70,.6)';ctx.setLineDash([3,5]);ctx.beginPath();ctx.moveTo(g.x,g.y);ctx.lineTo(t.x,t.y);ctx.stroke();ctx.restore();}
       const u=guns[0];const Wd=W.W(u.w);const R=Math.hypot(p.x-u.x,p.y-u.y)*TM;const A=W.arcOf(Wd);
       zone(p.x,p.y,Wd.he,`${Math.round(R)} m · ${inR}/${guns.length} à portée · ${W.observer('meumeu',p.x,p.y)?'observée':'sans observateur'}`,inR?'#ffd36a':'#eb5a46');}}
-  pan(dx,dy){const z=this.zoom;const a=dx/(TW/2*z),b=dy/(TH/2*z);this.cx+=(a+b)/2;this.cy+=(b-a)/2;const N=this.world.N;this.cx=Math.max(0,Math.min(N,this.cx));this.cy=Math.max(0,Math.min(N,this.cy));}
+  pan(dx,dy){const w0=this.toWorld(this.canvas.width/2,this.canvas.height/2),w1=this.toWorld(this.canvas.width/2+dx,this.canvas.height/2+dy);this.cx+=w1.x-w0.x;this.cy+=w1.y-w0.y;{const N=this.world.N,[bx0,by0,bx1,by1]=this.world.bounds||[0,0,N,N],m=Math.min(12,N/4);this.cx=Math.max(bx0+m,Math.min(bx1-m,this.cx));this.cy=Math.max(by0+m,Math.min(by1-m,this.cy));}}   // (V12.5) la caméra reste dans le rectangle jouable
 }
+// (V12.6) la vue recherche : labview.js
+Object.assign(View.prototype,LABVIEW);
 const sum=o=>Object.values(o||{}).reduce((a,b)=>a+b,0);

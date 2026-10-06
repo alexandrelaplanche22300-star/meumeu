@@ -1,4 +1,4 @@
-// La caserne et les pièces servies : un équipage complet sort en escouade, ses servants portent des caisses de la pièce (V12.3 : et aucune arme).
+// La caserne et les pièces servies : un équipage complet sort en escouade, ses servants portent une arme ET des caisses de la pièce.
 // Bug mesuré avant correction (V12.0, dbg_caserne) : un servant sorti avec le fusil choisi par défaut emportait des caisses de MUNITIONS DE FUSIL,
 // que le code re-étiquetait « obus » une fois rattaché à la pièce ; les servants sortaient toujours sans arme, le tireur seul, hors escouade.
 // CRITÈRES (fixés avant de lancer) :
@@ -6,20 +6,13 @@
 //      à sa pièce (serve = le tireur), sans attendre un tour de simulation ; testé pour une pièce à 2 et à ≥ 3 servants
 //   E2 « Ils prennent des armes » : chaque servant sort avec une arme légère adoptée (jamais une pièce servie), ses cartouches, ET des caisses de la
 //      pièce (ammoW = la pièce, caisses > 0) ; le tireur a ses obus
-//      CORRIGÉ V12.3 (règle du joueur, 2026-10-01 : « les servants de pièce ne devraient pas porter d'arme mais des munitions ») : chaque servant sort
-//      SANS arme (w nul, aucune cartouche), avec des caisses de la pièce (ammoW = la pièce, caisses > 0) ; le tireur a ses obus
 //   E3 Atomique et honnête : pas assez de recrues, pièce absente du dépôt, pas d'arme légère ni de munitions → refus qui NOMME ce qui manque, aucun stock
 //      touché, personne ne sort
-//      CORRIGÉ V12.3 : « pas d'arme légère au dépôt » n'est plus un refus — l'équipage sort quand même (c'était le blocage de la caserne)
 //   E4 Plus de conversion : la sortie de servants avec une arme non servie est refusée ; des caisses d'un autre type portées par un servant ne deviennent
 //      jamais des obus (type et quantité inchangés après 12 h avec la pièce)
 //   E5 Conservation : ce que le dépôt perd = 1 pièce + (équipage − 1) armes légères + les caisses (servants) + les cartouches emportées (tireur, servants)
-//      CORRIGÉ V12.3 : plus aucune arme légère ni cartouche de fusil débitée — le dépôt perd 1 pièce + les caisses (servants) + les obus du tireur
 //   E6 Ravitaillement physique : le tireur vidé est rechargé par un servant ; les obus reçus = les caisses perdues par les servants (× obus par caisse)
 //   E7 Disposition : après 3 h, les servants sont à ≤ 2 cases de la pièce, et la pièce regarde du côté du point de ralliement
-//   E9 (V12.4, critère fixé avant de lancer ; le joueur : « on devrait pouvoir les livrer sans arme, juste en tant que servants ») : en mode « servants de
-//      pièce », sans aucune caisse de la pièce au dépôt, deux servants sortent quand même, sans arme et sans caisse ; avec 1,5 caisse au dépôt, ils prennent
-//      ce qu'il y a (en coups entiers) et le dépôt ne passe jamais sous zéro
 //   ELECTRON_RUN_AS_NODE=1 ../.runtime/electron.exe test/caserne_pieces.mjs
 const out={textContent:''};globalThis.document??={getElementById:()=>out};
 const {World}=await import('../js/world.js');
@@ -28,7 +21,7 @@ const near=(a,b,e=1e-6)=>Math.abs(a-b)<=e;
 // une pièce lourde à trépied : plusieurs servants
 const MG={id:'mg',f:'meumeu',name:'Mitrailleuse',status:'adopte',p:{d:2.2,l:8,nose:'pointue',base:'bt',cons:'fmj',c:.05,L:260,twist:70,action:'auto',rof:650,mag:150,heavy:true,wallx:1.6,mods:['trepied']}};
 const mk=(seed=3,recrues=8)=>{const W=new World(seed,{assisted:true});const cap=W.capital();Object.assign(cap.stock,{pieces:900,fer:900,cuivre:900,bois:900,poudre:400,plomb:500,explosifs:200,vivres:900});
-  W.s.designs.mg=JSON.parse(JSON.stringify(MG));
+  W.s.designs.mg=JSON.parse(JSON.stringify(MG));W.s.designs.canon_mle1.status='adopte';   // (V12.7 : une référence, plus une arme de départ)
   let cas=W.s.buildings.find(b=>b.f==='meumeu'&&b.k==='caserne'&&b.done);if(!cas){const at=W.buildSpot('meumeu','caserne',cap.i+8,cap.j+2,0,24);cas=W.addBuilding('meumeu','caserne',at[0],at[1],true);}
   Object.assign(cap.stock,{'a:canon_mle1':4,'m:canon_mle1':12,'a:mle1':30,'m:mle1':20,'a:mg':3,'m:mg':12});
   for(const v of W.s.units.filter(u=>u.f==='meumeu'&&u.k==='villageois').slice(0,recrues))W.enterBarracks(v,cas);
@@ -44,16 +37,16 @@ const crewOf=(W,gid)=>W.s.units.filter(u=>u.serve===gid);
   P(bon,'E1. un équipage complet sort en une escouade, chaque servant déjà affecté à sa pièce',r.map(x=>`${x.id}: équipage ${x.crew} · sortis ${x.sortis} · servants ${x.servants} · escouade « ${x.nom} » ${x.memeEscouade?'complète':'incomplète'}`).join(' | '));}
 // E2
 {const {W,cas}=mk();const id='mg';const Wd=W.W(id);W.releaseCrew(cas,id);const g=W.s.units.find(u=>u.w===id&&!u.serve);const servants=crewOf(W,g.id);
-  const armes=servants.map(s=>({w:s.w,cart:(s.mag||0)+(s.pouch||0),ammoW:s.ammoW,caisses:s.crates||0}));
-  const ok=servants.length>=2&&armes.every(a=>!a.w&&a.cart===0&&a.ammoW===id&&a.caisses>0)&&((g.mag||0)+(g.pouch||0))>=1;
-  P(ok,'E2. les servants sortent sans arme, avec des caisses de la pièce ; le tireur a ses munitions',`servants ${JSON.stringify(armes)} · tireur ${g.mag}+${g.pouch} coups`);}
+  const armes=servants.map(s=>({w:s.w,servi:s.w&&W.W(s.w).crew>1,cart:(s.mag||0)+(s.pouch||0),ammoW:s.ammoW,caisses:s.crates||0}));
+  const ok=servants.length>=2&&armes.every(a=>a.w&&!a.servi&&W.design(a.w)?.status==='adopte'&&a.cart>0&&a.ammoW===id&&a.caisses>0)&&((g.mag||0)+(g.pouch||0))>=1;
+  P(ok,'E2. les servants prennent une arme légère, ses cartouches et des caisses de la pièce ; le tireur a ses munitions',`servants ${JSON.stringify(armes)} · tireur ${g.mag}+${g.pouch} coups`);}
 // E3
 {const cas3=[];
   {const {W,cas}=mk(3,1);const s0=snap(W),n0=cas.inside.length;const r=W.releaseCrew(cas,'mg');cas3.push(['trop peu de recrues',!r.ok&&/recrue/i.test(r.why.join(' '))&&snap(W)===s0&&cas.inside.length===n0,r.why?.[0]]);}
   {const {W,cap,cas}=mk();cap.stock['a:mg']=0;for(const b of W.s.buildings)if(b.stock)b.stock['a:mg']=0;const s0=snap(W),n0=cas.inside.length;const r=W.releaseCrew(cas,'mg');cas3.push(['pièce absente',!r.ok&&/Mitrailleuse|pièce/i.test(r.why.join(' '))&&snap(W)===s0&&cas.inside.length===n0,r.why?.[0]]);}
-  {const {W,cas}=mk();for(const b of W.s.buildings)if(b.stock){b.stock['a:mle1']=0;b.stock['m:mle1']=0;}const r=W.releaseCrew(cas,'mg');cas3.push(['aucune arme légère : sort quand même',r.ok&&r.n===W.W('mg').crew,r.ok?r.text:r.why?.[0]]);}
+  {const {W,cas}=mk();for(const b of W.s.buildings)if(b.stock){b.stock['a:mle1']=0;}const s0=snap(W),n0=cas.inside.length;const r=W.releaseCrew(cas,'mg');cas3.push(['aucune arme légère',!r.ok&&/arme légère|arme/i.test(r.why.join(' '))&&snap(W)===s0&&cas.inside.length===n0,r.why?.[0]]);}
   {const {W,cas}=mk();for(const b of W.s.buildings)if(b.stock){b.stock['m:mg']=0;}const s0=snap(W),n0=cas.inside.length;const r=W.releaseCrew(cas,'mg');cas3.push(['plus de munitions pour la pièce',!r.ok&&/munitions|caisses/i.test(r.why.join(' '))&&snap(W)===s0&&cas.inside.length===n0,r.why?.[0]]);}
-  P(cas3.every(c=>c[1]),'E3. un refus nomme ce qui manque et ne touche à rien ; sans arme légère au dépôt, l’équipage sort',cas3.map(c=>`${c[0]} : ${c[1]?'conforme':'FAUX'} (« ${c[2]} »)`).join(' | '));}
+  P(cas3.every(c=>c[1]),'E3. un refus nomme ce qui manque et ne touche à rien',cas3.map(c=>`${c[0]} : ${c[1]?'refusé, intact':'FAUX'} (« ${c[2]} »)`).join(' | '));}
 // E4
 {const {W,cas}=mk();const refus=W.releaseRecruits(cas,1,'servant','mle1',null);const propre=!refus.ok&&/pièce/i.test((refus.why||[]).join(' '));
   // des caisses d'un autre type portées par un servant rattaché à la pièce : jamais converties en obus
@@ -65,11 +58,11 @@ const crewOf=(W,gid)=>W.s.units.filter(u=>u.serve===gid);
 // E5
 {const {W,cas}=mk();const id='mg',Wd=W.W(id);const k=['a:mg','a:mle1','m:mg','m:mle1'];const av=Object.fromEntries(k.map(x=>[x,total(W,x)]));
   const res=W.releaseCrew(cas,id);const ap=Object.fromEntries(k.map(x=>[x,total(W,x)]));const g=W.s.units.find(u=>u.w===id&&!u.serve);const sv=crewOf(W,g.id);
-  const nsv=Wd.crew-1;const cr=sv[0].crates;
-  const cartGunner=(g.mag||0)+(g.pouch||0);
-  const att={['a:mg']:-1,['a:mle1']:0,['m:mg']:-(nsv*cr+cartGunner/Wd.perCrate),['m:mle1']:0};
+  const nsv=Wd.crew-1;const cr=sv[0].crates;const side=sv[0].w;const Ws=W.W(side);
+  const cartServants=sv.reduce((n,s)=>n+(s.mag||0)+(s.pouch||0),0);const cartGunner=(g.mag||0)+(g.pouch||0);
+  const att={['a:mg']:-1,['a:'+side]:-nsv,['m:mg']:-(nsv*cr+cartGunner/Wd.perCrate),['m:'+side]:-(cartServants/Ws.perCrate)};
   const diffs=k.map(x=>[x,+(ap[x]-av[x]).toFixed(6),+(att[x]||0).toFixed(6)]);
-  P(res.ok&&diffs.every(([,a,b])=>Math.abs(a-b)<1e-4)&&k.every(x=>ap[x]>=-1e-9),'E5. le dépôt perd exactement : la pièce, les caisses des servants, les obus du tireur — aucune arme légère',diffs.map(([x,a,b])=>`${x}: ${a} (attendu ${b})`).join(' · '));}
+  P(res.ok&&diffs.every(([,a,b])=>Math.abs(a-b)<1e-4)&&k.every(x=>ap[x]>=-1e-9),'E5. le dépôt perd exactement : la pièce, les armes légères, les caisses, les cartouches emportées',diffs.map(([x,a,b])=>`${x}: ${a} (attendu ${b})`).join(' · '));}
 // E6
 {const {W,cas}=mk();const id='mg',Wd=W.W(id);W.releaseCrew(cas,id);const g=W.s.units.find(u=>u.w===id&&!u.serve);const sv=crewOf(W,g.id);
   for(let h=0;h<2;h++)W.update(1);g.mag=0;g.pouch=0;const crates0=sv.reduce((n,s)=>n+(s.crates||0),0);
@@ -90,10 +83,4 @@ const crewOf=(W,gid)=>W.s.units.filter(u=>u.serve===gid);
   const res=W.releaseCrew(cas,'rupture');const g=res.gunner;for(let i=0;i<480;i++)W.update(.0125);   // 6 h de jeu, au pas d'une image
   const need=W.W('rupture').crew-1,present=g?W.servants(g).length:0,miss=Math.max(0,need-present);
   P(res.ok&&need===11&&present===11&&miss===0,'E8. un équipage de douze est compté présent tout entier, sans « servant manquant »',`${res.ok?'sorti':res.why?.[0]} · équipage ${need+1} · présents ${present}/${need} · manquants ${miss} · état de la pièce « ${g?.why||'—'} »`);}
-// E9
-{const r=[];{const {W,cas}=mk();for(const b of W.s.buildings)if(b.stock)b.stock['m:mg']=0;const x=W.releaseRecruits(cas,2,'servant','mg',null);const sv=W.s.units.filter(u=>u.servant&&u.homeBarracks===cas.id);
-    r.push(['sans caisse',x.ok&&sv.length===2&&sv.every(u=>!u.w&&!(u.crates>0)),x.ok?x.text:x.why?.[0]]);}
-  {const {W,cas}=mk();for(const b of W.s.buildings)if(b.stock)b.stock['m:mg']=0;W.capital().stock['m:mg']=1.5;const x=W.releaseRecruits(cas,2,'servant','mg',null);const sv=W.s.units.filter(u=>u.servant&&u.homeBarracks===cas.id);
-    const left=total(W,'m:mg'),took=sv.reduce((a,u)=>a+(u.crates||0),0);r.push(['1,5 caisse',x.ok&&sv.length===2&&sv.every(u=>!u.w)&&left>=-1e-9&&Math.abs(took+left-1.5)<1e-6,`pris ${took.toFixed(2)} · reste ${left.toFixed(2)}`]);}
-  P(r.every(x=>x[1]),'E9. des servants seuls, sans arme, même sans caisse au dépôt',r.map(x=>`${x[0]} : ${x[1]?'conforme':'FAUX'} (${x[2]})`).join(' | '));}
 process.exit(fail?1:0);

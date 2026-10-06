@@ -16,12 +16,27 @@ export const FILLS={
   amatol:{name:'Amatol',k:.92,gur:.88,res:'explosifs',x:.65,desc:'de la tolite coupée de nitrate d’ammonium : un peu moins brisante, un tiers moins chère — l’obus de la guerre de masse'},
   thermite:{name:'Thermite',k:.5,gur:.42,res:'melange_inc',x:2.4,inc:1,fire:1.9,desc:'fer et oxyde de fer à plus de deux mille degrés : elle fond les tôles et met le feu à tout ; peu de souffle, une flaque de métal en fusion qui brûle bien plus loin que le gel'},
   phosphore:{name:'Phosphore blanc',k:.55,gur:.5,res:'melange_inc',x:2.8,inc:1,fire:1.2,smoke:1,desc:'brûle à l’air libre : un nuage blanc épais qui aveugle une dizaine de secondes, et des particules incandescentes qui collent — couvre une retraite, chasse une tour, brûle les peluches'},
+  // (V12.8) LES THERMOBARIQUES — débloqués par la recherche (la science thermobarique, puis l'explosif air-essence). Un cœur de tolite et un COMBUSTIBLE
+  // (part p.tbf du chargement) que la détonation disperse puis que l'oxygène de l'AIR brûle : un souffle plus long et plus large que la tolite seule,
+  // une boule de feu, presque pas d'éclats ; enfermé (une pièce, un abri, une tranchée), il ravage. tb : fuel (la ressource), Hc (MJ/kg de chaleur
+  // de combustion ; la tolite : 4,6), eta (la part brûlée assez vite pour pousser l'onde, à l'air libre), rmin (le cœur nécessaire pour disperser le
+  // combustible : masse cœur / combustible), f0 (la proportion proposée), fopt (au-delà, le combustible ne brûle plus en entier), conc (kg/m³ du nuage
+  // le plus violent), aero (un liquide en brouillard : il lui faut l'obus à deux temps), fire (la boule de feu, relative).
+  tb_charbon:{name:'Thermobarique au charbon',k:1,gur:.7,res:'explosifs',x:1,tb:{fuel:'charbon',Hc:30,eta:.34,rmin:.7,f0:.35,fopt:.42,conc:.25,fire:.8},
+    desc:'un cœur de tolite et de la poussière de charbon : la détonation la soulève en nuage, l’air la brûle — un souffle plus long et plus large, une boule de feu, peu d’éclats ; bon marché'},
+  tb_fer:{name:'Thermobarique à la poudre de fer',k:1,gur:.8,res:'explosifs',x:1,tb:{fuel:'fer',Hc:7.4,eta:.6,rmin:.5,f0:.45,fopt:.5,conc:.9,fire:1.4},
+    desc:'de la poudre de fer fine autour du cœur : elle brûle à plus de deux mille degrés — moins d’énergie que le charbon, mais une chaleur qui met le feu à tout et colle aux peluches'},
+  tb_essence:{name:'Explosif air-essence',k:1,gur:.4,res:'explosifs',x:1,tb:{fuel:'essence',Hc:44,eta:.62,rmin:.04,f0:.85,fopt:.92,conc:.07,aero:1,fire:1},
+    desc:'de l’essence en brouillard : une petite charge ouvre l’obus et la répand, une seconde allume le nuage, qui détone d’un bloc. Énorme, mais il faut l’obus à deux temps — sinon, une boule de feu'},
   gelinc:{name:'Gel incendiaire chimique',k:.62,gur:.58,res:'melange_inc',x:1.8,inc:1,fire:1.25,desc:'un gel collant de l’usine chimique : moins de brisance, mais une gerbe brûlante qui reste au sol et enflamme bâtiments et peluches'},
 };
 // la coque : la part qui devient des éclats utiles, leur dispersion en taille [facteur de masse, part], leur forme dans l'air
 export const SHELLS={
   lisse:{name:'Coque lisse',use:.55,mix:[[.3,.35],[1,.4],[2.6,.25]],aero:.85,desc:'elle éclate au hasard : beaucoup de poussière de métal, quelques gros morceaux ; la moitié de la coque ne sert à rien'},
   rainuree:{name:'Coque rainurée',use:.8,mix:[[.8,.5],[1.25,.5]],aero:1,cost:{pieces:.1},desc:'rainurée à l’intérieur : elle se brise en éclats de la taille voulue'},
+  // (V12.8) les coques du souffle : thin = la part de la coque rendue au chargement (une paroi fine) ; cloud : l'obus à deux temps (le nuage détone)
+  mince:{name:'Coque mince',use:.4,mix:[[.4,.6],[1,.4]],aero:.8,thin:.2,cost:{pieces:.05},desc:'une paroi fine : bien plus de mélange dans le même obus, presque pas d’éclats — l’obus du souffle'},
+  deux_temps:{name:'Obus à deux temps',use:.25,mix:[[.4,1]],aero:.8,thin:.15,cloud:1,cost:{pieces:.3,cuivre:.05},desc:'une petite charge ouvre l’obus et répand le combustible en nuage ; une seconde, un instant après, l’allume : tout le nuage détone, il entre dans les tranchées et les abris'},
   billes:{name:'Billes d’acier',use:.93,mix:[[1,1]],aero:1.3,cost:{fer:.25,pieces:.15},desc:'des billes calibrées noyées autour de la charge : toutes utiles, rondes, elles portent loin ; chères'},
 };
 // la fusée : geo = part des éclats qui partent vers les cibles (le reste va au sol ou au ciel) ; air : éclate au-dessus
@@ -49,11 +64,26 @@ const dOf=g=>2*Math.cbrt(3*(g*1000/7.85)/(4*Math.PI));           // diamètre (m
 // plus que 71 % des soldats hors de combat (critère B5-brutal : ≥ 80 %) et le gilet perd son avantage (B5-gilet) ; l'utilisateur veut un souffle qui
 // tue, pas moins. Le calcul reste en place (E.phi, E.Wnom) pour l'afficher, et se réactive en passant la constante à true.
 const ENVELOPE_BLAST=false;
+// Le thermobarique : g grammes de chargement, dont la part f de combustible. Le cœur (1 − f) doit disperser le combustible (q : la dispersion,
+// selon cœur / combustible face à rmin) ; au-delà de fopt, il en reste qui ne brûle pas à temps. Le brouillard d'un liquide (aero) sans obus à deux
+// temps ne détone pas : il flambe (un tiers de l'effet). La postcombustion pousse l'onde de toute la part qui brûle à temps (eta) : en impulsion, un
+// thermobarique vaut 1,3 à 1,5 tolite à l'air libre (mesuré au premier essai avec la moitié seulement : +4 %, rien qui justifie la science).
+// Le nuage (obus à deux temps) : le combustible à la concentration conc, en demi-sphère au sol — dedans, tout détone (Rc).
+export function thermo(g,tb,p={},S={}){const f=Math.max(.05,Math.min(.95,p.tbf??tb.f0)),gCore=g*(1-f),gFuel=g*f;
+  const q=Math.max(0,Math.min(1,((1-f)/f)/tb.rmin)),over=f>tb.fopt?Math.max(.3,1-(f-tb.fopt)*2.2):1;
+  const eta=Math.min(.85,tb.eta*(S.cloud?(tb.aero?1.25:1.1):(tb.aero?.35:1))*over);
+  const Wcore=gCore/1000,Wab=gFuel/1000*(tb.Hc/4.6)*eta*q,W=Wcore+Wab;
+  const cloud=S.cloud?Math.cbrt(3*(gFuel/1000/tb.conc)/(2*Math.PI))*q:0;
+  // enfermé (bâtiment, abri, tranchée) : l'onde et la boule de feu restent, réfléchies — d'autant plus que la postcombustion compte
+  const conf=1+2.2*(Wab/Math.max(1e-9,W));
+  return {f,q,eta,gCore,gFuel,Wcore,Wab,W,cloud,conf,fuel:tb.fuel,fire:Math.max(.5,3.2*Math.cbrt(Math.max(1e-9,Wab))*10*(tb.fire||1)/3)};}
 export function charge(g,casing,p={}){const F=FILLS[p.fill]||FILLS.tolite,S=SHELLS[p.shell]||SHELLS.lisse,U=FUSES[p.fuse]||FUSES.impact;
   // Le souffle vient de la charge ÉQUIVALENTE NUE, pas de la masse d'explosif inscrite : l'acier vole l'énergie que les éclats emportent
   // (Fisher : C·(0,2 + 0,8/(1 + M/C)) — un obus de campagne, M/C de 5 à 10, ne souffle qu'avec 25 à 35 % de son explosif). Posé au sol,
   // le souffle est renforcé par la réflexion (charge hémisphérique, ×1,8) ; éclaté en l'air, non. Les éclats gardent toute la charge (Gurney).
-  const phi=.2+.8/(1+casing/Math.max(1e-6,g));const Wnom=g/1000*F.k;const W=ENVELOPE_BLAST?Wnom*phi*(U.air?1:1.8):Wnom;const r=g/Math.max(1e-6,casing);const vg=2400*F.gur*Math.sqrt(r/(1+r/2));
+  // (V12.8) un thermobarique : le cœur détone (tolite), le combustible brûle avec l'air — W = W cœur + W de la postcombustion
+  const T=F.tb?thermo(g,F.tb,p,S):null;const gc=T?T.gCore:g;
+  const phi=.2+.8/(1+casing/Math.max(1e-6,g));const Wnom=T?T.W:g/1000*F.k;const W=ENVELOPE_BLAST?Wnom*phi*(U.air?1:1.8):Wnom;const r=gc/Math.max(1e-6,casing);const vg=2400*F.gur*Math.sqrt(r/(1+r/2));
   const fm=(p.fragm??4)/1000;const useful=casing*S.use;
   // les classes d'éclats : masse, nombre, diamètre, distance de freinage λ (m) — v(R) = vg·e^(−R/λ)
   // distance de freinage d'un éclat d'acier (m) : v(R)=vg·e^(−R/λ), λ = 2·m / (ρ_air · Cd · A) avec A la section de l'éclat (une sphère de même masse,
@@ -65,7 +95,7 @@ export function charge(g,casing,p={}){const F=FILLS[p.fill]||FILLS.tolite,S=SHEL
   const R=z=>z*Math.cbrt(Math.max(1e-9,W));
   const rootW=Math.cbrt(Math.max(1e-9,W));const pressure=Rm=>Math.min(1800,900/Math.max(.16,(Math.max(.03,Rm)/rootW)**2));
   const impulse=Rm=>pressure(Rm)*(.0018*rootW*(1+Math.max(.03,Rm)/rootW));
-  const E={W,Wnom,phi,g,casing,vg,n,fm,cls,geo:U.geo,air:!!U.air,bld:U.bld||1,fill:F,shell:S,fuse:U,blast:R(ZB.lethal),inj:R(ZB.inj),conc:R(ZB.conc),stun:R(ZB.stun),pressure,impulse,inc:!!F.inc,fire:F.inc?10*rootW*(F.fire||1):0};
+  const E={W,Wnom,phi,g,casing,vg,n,fm,cls,geo:U.geo,air:!!U.air,bld:(U.bld||1)*(T?T.conf:1),fill:F,shell:S,fuse:U,blast:R(ZB.lethal),inj:R(ZB.inj),conc:R(ZB.conc),stun:R(ZB.stun),pressure,impulse,inc:!!F.inc||!!T,fire:F.inc?10*rootW*(F.fire||1):T?T.fire:0,tb:T};
   // la chance, pour un Meumeu à R mètres, d'être gravement touché / touché, par les éclats seuls
   E.at=(Rm,post='debout')=>{const A=EXPO[E.air?'air':'sol'][post];let hg=0,hb=0;const r2=Math.max(.01,Rm*Rm);
     for(const c of cls){const hits=c.n*U.geo*A/(4*Math.PI*r2);const v=vg*Math.exp(-Rm/c.lam);const e=.5*c.m*v*v;   /* c.m est en kg : le /1000 d'avant rendait l'énergie mille fois trop petite */hg+=hits*pGrave(e);hb+=hits*pBless(e);}
@@ -79,7 +109,7 @@ export function charge(g,casing,p={}){const F=FILLS[p.fill]||FILLS.tolite,S=SHEL
 
 // Le tir courbe : on cherche l'angle (sous 45° pour un canon, au-dessus pour un mortier) qui porte à R mètres ; on renvoie le
 // temps de vol, l'angle, la vitesse à l'arrivée, et la portée maximale (à 45°, avec la traînée).
-function flight(v0,BC,deg,B=null){const a=deg*Math.PI/180;let x=0,y=0,vx=v0*Math.cos(a),vy=v0*Math.sin(a),t=0;const dt=v0>300||B?.004:.008;
+export function flight(v0,BC,deg,B=null){const a=deg*Math.PI/180;let x=0,y=0,vx=v0*Math.cos(a),vy=v0*Math.sin(a),t=0;const dt=v0>300||B?.004:.008;
   while(t<200){const v=Math.hypot(vx,vy)||1e-6;const k=.5*RHO_AIR*v*cdG7(v/C_SOUND)*(Math.PI/4)/BC;const th=B&&t<B.tr?B.a:0;vx+=(th*vx/v-k*vx)*dt;vy+=(th*vy/v-k*vy-G)*dt;x+=vx*dt;y+=vy*dt;t+=dt;if(y<0&&t>.05)break;}
   return {x,t,v:Math.hypot(vx,vy),fall:Math.atan2(-vy,vx)};}
 // les tables de tir : pour un mortier, plusieurs charges (des gargousses qu'on retire : 100 % à 15 % de la vitesse) ;

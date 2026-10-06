@@ -6,12 +6,13 @@
 //   node test/charges.mjs <graine>
 const out={textContent:''};globalThis.document??={getElementById:()=>out};
 const {World}=await import('../js/world.js');const {player}=await import('./bot.mjs');const {BUILDINGS}=await import('../js/data.js');
-const seed=+(process.argv[2]||301);const W=new World(seed);const P=player(W);const d2=(a,b,c,d)=>Math.hypot(a-c,b-d);let bad=0;
+const seed=+(process.argv[2]||301);const W=new World(seed);const P=player(W);const d2=(a,b,c,d)=>Math.hypot(a-c,b-d);let bad=0;const CAP0=W.capital();const C0=[CAP0.i,CAP0.j];
 const ok=(c,t)=>{console.log((c?'OK  ':'ÉCHEC ')+t);if(!c)bad++;};
 for(let d=0;d<20;d++)for(let h=0;h<24;h++){try{P.tick();}catch(e){}const st=d<3?1/240:1/60;for(let k=0;k<1/st;k++)W.update(st);W.events.length=0;}
 ok(!W.s.units.some(u=>(u.gren||0)>0),`jour ${W.day} : aucune grenade portée (${W.s.units.length} unités)`);
 // s'équiper au dépôt
-const dep=W.depotList('meumeu').find(b=>!BUILDINGS[b.k].foodOnly);const [dx,dy]=[dep.i+1,dep.j+BUILDINGS[dep.k].size[1]+1];
+// (les Bèè peuvent avoir pris la base d'un joueur automatique passif : on rouvre alors un camp-dépôt là où elle était — le test porte sur les charges, pas sur la guerre)
+const dep=W.depotList('meumeu').find(b=>!BUILDINGS[b.k].foodOnly)||(()=>{for(let r=0;r<30;r++)for(let a=0;a<8;a++){const i=C0[0]+Math.round(Math.cos(a)*r),j=C0[1]+Math.round(Math.sin(a)*r);const c=W.canPlace('meumeu','camp',i,j);if(c.ok||c.why.every(w=>/camp/.test(w)))return W.addBuilding('meumeu','camp',i,j,true);}})();for(const u of W.s.units)if(u.f==='beee'&&Math.hypot(u.x-dep.i,u.y-dep.j)<60){u.hp=0;}const [dx,dy]=[dep.i+1,dep.j+BUILDINGS[dep.k].size[1]+1];
 dep.stock.explosifs=3;const u=W.addUnit('meumeu','soldat',dx,dy);u.w='mle1';u.mag=5;u.pouch=30;
 const rs=[1,2,3,4,5].map(()=>W.equip(u,'charge',true));
 ok(u.charges===4&&!rs[4].ok&&Math.abs(dep.stock.explosifs-1)<1e-9,`quatre charges au plus (${u.charges}), 2 caisses prises (reste ${dep.stock.explosifs}) — la 5e : « ${rs[4].why?.[0]} »`);

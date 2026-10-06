@@ -5,9 +5,9 @@ export const SOUND_LIFE={tirs:8,explosion:10,pas:4,train:5,usine:5,mine:5,chanti
 export const PERCEPTION={
   eyeProfile(o){
     const D=o.f==='beee'?BEEE.units[o.k]:UNITS[o.k],W=o.w?this.W(o.w):null,night=this.light()<.4;
-    const civ=!o.w&&!D?.img&&!o.tower,eye=(o.tower?1.8:o.scoutRole?1.5:D?.scout||1)*(civ?.45:1)*(o.h?.state==='hors'?.3:1);
+    const civ=!o.w&&!D?.img&&!o.tower,eye=(o.tower?1.8:o.scoutRole?1.5:D?.scout||(D?.choc?1.15:1))*(civ?.45:1)*(o.h?.state==='hors'?.3:1)*(night&&o.f==='meumeu'?1.5:1);   // (V12.7 : les Meumeu voient mieux la nuit)
     const O=W?.optic,blend=Math.max(0,Math.min(1,(this.light()-.15)/.45));
-    const scope=O?.mag>1?O.night+(O.day-O.night)*blend:1;
+    const scope=O?.mag>1?1+(O.day-1)*blend:1;   // (V12.7 : la nuit, une lunette ne fait pas voir plus loin — seuls l'infrarouge et les jumelles de nuit)
     const optic=this.sight()*eye*scope;
     const binocular=!night&&o.jum>0?o.jum:0;
     const nv=night&&o.nvOn&&(o.irLeft??0)>0?Math.max(W?.ir?.range||0,o.bino||0)*(1+.16*Math.log2(O?.mag||1))*eye:0;
@@ -28,13 +28,26 @@ export const PERCEPTION={
   visibleAt(f,x,y,sig=1){
     if(!Number.isFinite(x+y))return false;
     const look=o=>o.f===f&&active(o)&&distance(o.x,o.y,x,y)<=this.visualRange(o,x,y,sig)&&this.los(o.x,o.y,x,y);
-    if(this.near(x,y,220,look))return true;
+    if(this.nearF(x,y,220,f,look))return true;
     for(const b of this.s.buildings){if(b.f!==f||!b.done||b.ruin)continue;const [bx,by]=this.bc(b),r=BUILDINGS[b.k].defense?this.sight()*1.8:4+Math.max(...this.sizeOf(b))/2;if(distance(bx,by,x,y)<=r&&this.los(bx,by,x,y))return true;}
     for(const v of this.s.vehicles)if(v.f===f&&distance(v.x,v.y,x,y)<(v.alt>0?14:v.crew?.length?this.sight()*1.05:4)&&this.los(v.x,v.y,x,y))return true;
     return false;
   },
-  visibilityMask(f,vis,explored){const N=this.N,mark=(x,y,r,observer)=>{const a=Math.max(0,Math.floor(x-r)),b=Math.min(N-1,Math.ceil(x+r)),c=Math.max(0,Math.floor(y-r)),d=Math.min(N-1,Math.ceil(y+r));
-      for(let j=c;j<=d;j++)for(let i=a;i<=b;i++){const k=j*N+i;if(vis[k])continue;const X=i+.5,Y=j+.5,R=observer?this.visualRange(observer,X,Y):r;if(Math.hypot(X-x,Y-y)>R||!this.los(x,y,X,Y))continue;vis[k]=1;if(explored)explored[k]=1;}};
+  // Le masque de vue : des rayons partent de chaque observateur (unité, bâtiment, véhicule), un tous les ~0,45 case à l'arrivée ; chacun avance
+  // par demi-cases jusqu'à la portée de l'observateur DANS SA DIRECTION (même calcul que visualRange), s'arrête dans la fumée et après la première
+  // case d'un bâtiment (qu'on voit). Chaque case n'est traversée qu'une fois par rayon — avant, chaque case refaisait sa ligne de vue entière
+  // (mesuré, partie du joueur au jour 45 : 180 ms par calcul, quatre fois par seconde).
+  visibilityMask(f,vis,explored){const N=this.N,occ=this.occ,T=this.s.t;const smokes=this.s.smokes.map(m=>({x:m.x,y:m.y,r:m.r*Math.min(1,(m.end-T)/1+.3)})).filter(m=>m.r>0);
+    const mark=(x,y,r,o)=>{const P=o?this.eyeProfile(o):null,fx=o?(o.fx??1):1,fy=o?(o.fy??0):0,fl=Math.hypot(fx,fy)||1,lamp=o&&o.lamp&&this.isNight();
+      const near=smokes.filter(m=>Math.hypot(m.x-x,m.y-y)<r+m.r);
+      const Rd=(dx,dy)=>{if(!o)return r;const c=(fx*dx+fy*dy)/fl;const cone=o.tower?1:c>=.5?1:c>=-.2?[.55,.72,.88][P.wide]:[.22,.38,.62][P.wide];let R=P.base*cone;if(c>=P.cos)R=Math.max(R,P.optic);if(c>=P.nvCos)R=Math.max(R,P.nv);return Math.max(1.6,R);};
+      {const i=Math.floor(x),j=Math.floor(y);if(i>=0&&j>=0&&i<N&&j<N){vis[j*N+i]=1;if(explored)explored[j*N+i]=1;}}
+      for(let a=0;a<6.2832;){const dx=Math.cos(a),dy=Math.sin(a);let R=Math.max(Math.min(r,Rd(dx,dy)),o&&!o.tower?Math.min(r,2,P.base):0);
+        for(let t=.35;t<=R+.7;t+=.35){const X=x+dx*t,Y=y+dy*t;const i=Math.floor(X),j=Math.floor(Y);if(i<0||j<0||i>=N||j>=N)break;
+          let blind=false;for(const m of near)if((X-m.x)**2+(Y-m.y)**2<m.r*m.r){blind=true;break;}if(blind)break;
+          const k=j*N+i;if((i+.5-x)**2+(j+.5-y)**2<=R*R){vis[k]=1;if(explored)explored[k]=1;}const ob=occ[k];if(ob>=0){const B=this.bIndex.get(ob);if(B&&!B.ruin&&(this.fort[k]?!this.emb[k]:this.distB(B,x,y)>.6))break;}}
+        if(lamp)for(let t=.5;t<5;t+=.5){const i=Math.floor(x+dx*t),j=Math.floor(y+dy*t);if(i<0||j<0||i>=N||j>=N)break;vis[j*N+i]=1;if(explored)explored[j*N+i]=1;}
+        a+=Math.min(.2,.45/Math.max(1,R));}};
     for(const u of this.s.units)if(u.f===f&&active(u))mark(u.x,u.y,this.eyeProfile(u).max,u);
     for(const b of this.s.buildings)if(b.f===f&&b.done&&!b.ruin){const [x,y]=this.bc(b);mark(x,y,BUILDINGS[b.k].defense?this.sight()*1.8:4+Math.max(...this.sizeOf(b))/2);}
     for(const v of this.s.vehicles)if(v.f===f)mark(v.x,v.y,v.alt>0?14:v.crew?.length?this.sight()*1.05:4);return vis;

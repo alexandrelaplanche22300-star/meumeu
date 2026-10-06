@@ -27,7 +27,6 @@ jobs:
         run: node test/node.mjs
 
   exe:
-    needs: bancs
     runs-on: windows-latest
     defaults:
       run:

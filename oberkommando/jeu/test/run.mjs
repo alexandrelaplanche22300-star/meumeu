@@ -35,11 +35,11 @@ if(on(1)){say('\n=== banc 1 : ramasser, bâtir ===');
   const q=W.train(cap,'villageois');run(W,5);say(`former un villageois : ${q.ok?'ok':q.why} · ${W.s.units.filter(u=>u.f==='meumeu').length} Meumeu`);}}
 
 if(on(2)){say('\n=== banc 2 : la logistique — porteurs, train ===');
-{const W=new World(3);const cap=W.capital();Object.assign(cap.stock,{bois:400,pierre:200,pieces:100,carburant:100});
+{const W=new World(3);const cap=W.capital();Object.assign(cap.stock,{bois:400,pierre:200,pieces:100,essence:100});
   const at=free(W,'camp',cap.i+2,cap.j+2,9,14);const camp=put(W,'meumeu','camp',at[0],at[1]);camp.stock.fer=40;W.setWant(cap,'fer',30);const r=W.addPorters(cap,2);run(W,24);const cart=W.s.vehicles.find(v=>v.k==='porteur')||{};
 
   say(`porteurs capitale ↔ camp à ${Math.round(Math.hypot(camp.i-cap.i,camp.j-cap.j))} cases : ${r.ok?r.n+' porteurs':r.why[0]} · 24 h plus tard : fer à la capitale ${fmt(cap.stock.fer||0,1)}, au camp ${fmt(camp.stock.fer||0,1)} · voyages ${cart.trips||0} ${cart.why?'('+cart.why+')':''}`);
-  const W2=new World(3);const c2=W2.capital();Object.assign(c2.stock,{bois:3000,pierre:2000,pieces:500,carburant:500});
+  const W2=new World(3);const c2=W2.capital();Object.assign(c2.stock,{bois:3000,pierre:2000,pieces:500,essence:500});
   let row=null;for(let dj=-6;dj<=8&&row==null;dj++){const j=c2.j+dj;let ok=true;for(let i=c2.i+6;i<c2.i+40;i++){const k=j*MAP_N+i;if(!(W2.G.terrain[k]>=T.sand&&W2.G.terrain[k]<=T.scrub)||W2.occ[k]>=0){ok=false;break;}}if(ok)row=j;}
   if(row==null)say('pas de rangée libre pour la voie de test');else{
     const cells=W2.lineCells(c2.i+6,row,c2.i+39,row);W2.planLine('meumeu','rail',cells);for(const k of Object.keys(W2.s.rails))W2.lineBuilt('rail',+k);
@@ -160,8 +160,10 @@ if(on(12)){say('\n=== banc 12 : les idées des Meumeu ===');
   const W=new World(3);const cap=W.capital();const vil=W.s.units.filter(u=>u.f==='meumeu');const tree=W.s.nodes.filter(n=>n.type==='tree'&&n.left>1).sort((a,b)=>Math.hypot(a.i-cap.i,a.j-cap.j)-Math.hypot(b.i-cap.i,b.j-cap.j))[0];
   W.order(vil.map(u=>u.id),{type:'node',id:tree.id});const ev=count(W,48);const I=W.s.innov;
   say(`  deux jours de bûcheronnage à huit : ${fmt(I.prac.bois||0)} heures de pratique · idées : ${I.ideas.map(x=>`${x.id} (${x.who?.name||x.who})`).join(', ')||'aucune'}`);
-  const lab=put(W,'meumeu','labo',...free(W,'labo',cap.i+2,cap.j+2,6,16));Object.assign(cap.stock,{fer:20,pieces:40,bois:300});const first=I.ideas[0];const r0=W.mod('gather_tree');const d=first?W.develop(first.id):{ok:false,why:['pas d’idée']};run(W,12);
-  say(`  développer ${first?.id} : ${d.ok?'lancé':d.why} · adoptée : ${I.done.join(', ')||'non'} · coupe du bois ×${fmt(r0,2)} → ×${fmt(W.mod('gather_tree'),2)}`);}
+  // (V12.6) un savant formé au centre de recherche mène le projet, de la théorie au laboratoire
+  const lab=put(W,'meumeu','labo',...free(W,'labo',cap.i+2,cap.j+2,6,16)),C=put(W,'meumeu','centre_recherche',...free(W,'centre_recherche',cap.i+2,cap.j+2,6,20));Object.assign(cap.stock,{fer:20,pieces:60,bois:300,vivres:200});W.trainSavant(C,'agro');run(W,30);
+  const first=I.ideas[0];const r0=W.mod('gather_tree');const d=first?W.startProject(first.id,W.savants().map(u=>u.id)):{ok:false,why:['pas d’idée']};run(W,30);
+  say(`  projet ${first?.id} : ${d.ok?'lancé':d.why} · adoptée : ${I.done.join(', ')||'non'} · coupe du bois ×${fmt(r0,2)} → ×${fmt(W.mod('gather_tree'),2)}`);}
 
 if(on(13)){say('\n=== banc 13 : la chaîne des soins — le front, la tente, l’hôpital ===');
   const W=new World(4);W.s.beee.warDay=1;W.s.beee.nextWave=1e9;const cap=W.capital();const hop=put(W,'meumeu','hopital',...free(W,'hopital',cap.i+2,cap.j+2,6,16));

@@ -11,21 +11,27 @@ const ROCKET_P=(d,l,c,barrels,hef)=>({d,l,nose:'ogive',base:'plat',cons:'he',c,L
 const HMG_P=o=>({d:2.4,l:9,nose:'pointue',base:'plat',cons:'fmj',c:.06,L:260,twist:70,action:'auto',rof:600,mag:150,heavy:true,burn:1,wallx:1.3,jacket:1,core:0,hef:.3,fragm:4,zero:200,prop:'cartouche',fill:'tolite',shell:'lisse',fuse:'impact',mods:['roues','bouclier','ailettes'],finish:'kaki',feed:'bande',stock:'sans',tube:'refroidi',...o});
 const AT_P=o=>({d:4.5,l:16,nose:'ogive',base:'plat',cons:'tungstene',c:.2,L:600,twist:55,action:'verrou',rof:30,mag:5,heavy:true,burn:1,wallx:1.6,jacket:1,core:0,hef:.3,fragm:4,zero:150,prop:'cartouche',fill:'tolite',shell:'lisse',fuse:'impact',caseD:1.7,mods:['bipied','frein','poignee'],finish:'bleui',feed:'boite',tube:'lourd',stock:'bois',...o});
 export const DEFAULT_DESIGNS=[
-  ...['meumeu','beee'].map(f=>({id:f==='meumeu'?'canon_mle1':'bee_canon',f,name:f==='meumeu'?'Obusier Mle 1':'Obusier bèè',status:'adopte',base:true,p:kitToP(KIT_PRESETS.find(p=>p.id==='howitzer').design)})),
-  // les canons des véhicules meumeu (leur supériorité : les Bèè n'en ont pas) — tirés du kit « canon de campagne », la masse de l'obus à la mesure du
-  // calibre (le cube) : un canon de char de 16 mm en tourelle (obus explosif léger, contre les nids et les groupes), un canon d'assaut de 28 mm en
-  // casemate (presque l'obus de l'obusier, en tir tendu : contre les ouvrages)
-  {id:'canon_char_mle1',f:'meumeu',name:'Canon de char Mle 1',status:'adopte',base:true,p:kitToP({...KIT_PRESETS.find(p=>p.id==='field').design,name:'Canon de char Mle 1',role:'En tourelle',caliberMm:16,barrelLengthCm:46,filler:.2,ogive:.45,coreDensity:6.4,meplat:.24,massG:60,caseLenCm:8,assignedCrew:2,carriage:'none'})},
-  {id:'canon_auto_mle1',f:'meumeu',name:'Canon d’assaut Mle 1',status:'adopte',base:true,p:kitToP({...KIT_PRESETS.find(p=>p.id==='field').design,name:'Canon d’assaut Mle 1',role:'En casemate',caliberMm:28,barrelLengthCm:66,filler:.22,ogive:.42,coreDensity:6.3,meplat:.26,massG:320,caseLenCm:13,assignedCrew:2,carriage:'none'})},
-  {id:'fusees_mle1',f:'meumeu',name:'Lance-fusées Mle 1',status:'adopte',base:true,p:ROCKET_P(22,110,60,4,.3)},
+  // (V12.7) les armes de départ des Meumeu ne sont que le fusil, le fusil d'assaut FAM-1, la mitrailleuse lourde et le fusil de précision lourd :
+  // l'artillerie, il faut la concevoir.
+  // L'obusier et le lance-fusées Mle 1 restent des RÉFÉRENCES (tests, scénario « front ») que le joueur n'a pas ; les canons des engins ne
+  // servent qu'aux engins (l'arsenal fait leurs obus)
+  ...['meumeu','beee'].map(f=>({id:f==='meumeu'?'canon_mle1':'bee_canon',f,name:f==='meumeu'?'Obusier Mle 1':'Obusier bèè',status:f==='meumeu'?'reference':'adopte',base:true,p:kitToP(KIT_PRESETS.find(p=>p.id==='howitzer').design)})),
+  {id:'fusees_mle1',f:'meumeu',name:'Lance-fusées Mle 1',status:'reference',base:true,p:ROCKET_P(22,110,60,4,.3)},
   // l'armement lourd d'infanterie : une mitrailleuse lourde sur roues et bouclier (puissante, chère, trois servants : faite pour tenir une tranchée et
   // pour appuyer un assaut) et un fusil antichar à bipied (deux servants : il perce le blindage des voitures)
   {id:'mg_lourde_mle1',f:'meumeu',name:'Mitrailleuse lourde Mle 1',status:'adopte',base:true,p:HMG_P({d:2.4,l:9,c:.06,L:260})},
   {id:'bee_mg_lourde',f:'beee',name:'Mitrailleuse lourde bèè',status:'adopte',base:true,p:HMG_P({d:2.0,l:7.0,c:.027,L:230,mag:120,cons:'fmj',nose:'ogive',twist:74,caseMat:'acier'})},
-  {id:'at_mle1',f:'meumeu',name:'Fusil antichar Mle 1',status:'adopte',base:true,p:AT_P({})},
+  {id:'fpl_meumeu1',f:'meumeu',name:'Fusil de précision lourd FPLMeumeu-1',status:'adopte',base:true,p:{noseScale:1.8,boat:.65,rocketBurn:1,nozzle:1,caseMat:'laiton',rim:'sans',stock:'bois',finish:'bleui',guide:'aucun',feed:'boite',tube:'lourd',carriage:'roues',d:2.6,l:13,nose:'pointue',base:'bt',cons:'monolithique',c:.12,L:420,twist:50,action:'verrou',rof:20,mag:5,heavy:true,burn:.65,wallx:1.7,jacket:1.5,core:.2,hef:.3,fragm:4,zero:240,prop:'cartouche',fill:'tolite',shell:'lisse',fuse:'impact',mods:['lunette','bipied','frein']}},
   {id:'bee_at',f:'beee',name:'Fusil antichar bèè',status:'adopte',base:true,p:AT_P({d:4.3,l:16,c:.18})},
+  // (V12.8) les armes d'URGENCE des Bèè contre nos blindés (escalade.js : développées quand leur fusil antichar ne perce plus nos flancs) :
+  // le fusil antichar lourd (7,2 mm : 5,8 mm d'acier à 30 m — cinq servants, treize coups par caisse) et le lance-roquettes antichar (9 mm, charge
+  // creuse rustique : 14 mm à toute distance, mais une portée utile de 16 m — il faut ramper jusqu'au char)
+  {id:'bee_at_lourd',f:'beee',name:'Fusil antichar lourd bèè',status:'urgence',base:true,p:AT_P({d:7.2,l:24,c:.6,L:900,mag:3})},
+  {id:'bee_lrac',f:'beee',name:'Lance-roquettes antichar bèè',status:'urgence',base:true,p:{...kitToP({...KIT_PRESETS.find(p=>p.id==='rocket').design,name:'Lance-roquettes antichar bèè',caliberMm:9,massG:23.4,motorNs:8,barrelLengthCm:36}),cons:'creuse_bee'}},
   {id:'mle1',f:'meumeu',name:'Fusil Mle 1',status:'adopte',base:true,
     p:{d:1.8,l:6.5,nose:'pointue',base:'plat',cons:'fmj',c:.032,L:140,twist:60,action:'verrou',rof:600,mag:5,heavy:false}},
+  {id:'fam1',f:'meumeu',name:'Fusil d’assaut FAM-1',status:'adopte',base:true,
+    p:{d:1.6,l:5.5,nose:'pointue',base:'bt',cons:'fmj',c:.022,L:115,twist:50,action:'gaz',rof:650,mag:30,feed:'boite',heavy:false,mods:['cacheflamme']}},
   // (les armes de masse bèè tirent des étuis d'acier laqué : le cuivre manquait aux cartouches pendant vingt jours, le fer débordait par milliers)
   {id:'bee_fusil',f:'beee',name:'Fusil bèè',status:'adopte',base:true,
     p:{d:2.0,l:7.0,nose:'ogive',base:'plat',cons:'fmj',c:.027,L:115,twist:74,action:'verrou',rof:600,mag:5,heavy:false,caseMat:'acier'}},
@@ -41,11 +47,11 @@ export const DEFAULT_DESIGNS=[
     p:{d:4.5,l:4.5,nose:'ronde',base:'plat',cons:'chevrotine',c:.05,L:80,twist:4000,action:'pompe',rof:600,mag:5,heavy:false}},
 ];
 // Les bornes du bureau d'études : larges, pour inventer — la physique se charge du reste.
-export const LIMITS={d:[.3,100,.05],l:[.5,400,.1],noseScale:[.3,2.2,.01],boat:[0,.9,.01],fragm:[.2,400,.2],c:[.0005,400,.001],L:[8,3000,1],twist:[3,4000,1],rof:[1,4000,1],mag:[1,1000,1],zero:[5,1500,1],sightObj:[3,60,.5],sightMag:[1,16,.5],sightRadius:[2,120,1],sightHeight:[.5,12,.1],hef:[.02,.85,.005],core:[0,.95,.01],jacket:[.2,3.5,.05],wallx:[.35,5,.02],burn:[.25,3,.01],rocketBurn:[.2,5,.01],nozzle:[.5,1.6,.01],
+export const LIMITS={tbf:[.1,.92,.01],d:[.3,100,.05],l:[.5,400,.1],noseScale:[.3,2.2,.01],boat:[0,.9,.01],fragm:[.2,400,.2],c:[.0005,400,.001],L:[8,3000,1],twist:[3,4000,1],rof:[1,4000,1],mag:[1,1000,1],zero:[5,1500,1],sightObj:[3,60,.5],sightMag:[1,16,.5],sightRadius:[2,120,1],sightHeight:[.5,12,.1],hef:[.02,.85,.005],core:[0,.95,.01],jacket:[.2,3.5,.05],wallx:[.35,5,.02],burn:[.25,3,.01],rocketBurn:[.2,5,.01],nozzle:[.5,1.6,.01],
   // l'étui et la balle, dedans et dehors
   caseD:[1.02,2.6,.01],neck:[0,3.5,.05],shoulder:[8,80,1],meplat:[0,.9,.01],cavity:[0,.9,.01],bands:[0,4,1],coreD:[.25,.9,.01],
   // la balle-fusée
-  fins:[0,8,1],finSize:[.3,3,.05],cant:[0,25,.5],ignite:[0,300,5],stages:[1,2,1],barrels:[2,8,1],
+  fins:[0,8,1],finSize:[.3,3,.05],cant:[0,25,.5],ignite:[0,300,5],stages:[1,2,1],barrels:[1,12,1],
   // le silencieux : son volume intérieur (cm³), ses chicanes
   supVol:[40,900,10],supBaffles:[2,12,1],
   // l'infrarouge : la lampe (W), la batterie (Wh), la qualité du tube

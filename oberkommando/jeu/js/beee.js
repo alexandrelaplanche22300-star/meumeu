@@ -13,6 +13,7 @@ const SUPPLY_HOP=58;
 // protections) ne se fabriquent qu'en temps de stabilité, avec des ressources en trop (beeeStable) ; sinon, des fusils seulement.
 const DOCTRINE={bee_fusil:.8,bee_pm:.07,bee_mg:.06,bee_chasse:.04,bee_lunette:.03};const ASSAULT=new Set(['bee_pm','bee_chasse','bee_mg']);
 
+export const BEE_POP_CAP=2500;
 export const BEEE_AI={
   // la stabilité : pas de faim, deux jours de vivres, l'armée à son effectif, du fer, des pièces et des cartouches en trop — alors
   // seulement l'armurerie se permet les équipements coûteux (jugé sur le plan de l'heure précédente)
@@ -34,7 +35,7 @@ export const BEEE_AI={
   beeeNextArm(H,mix){const tot=Object.values(mix).reduce((a,b)=>a+b,0)+1;return this.beeeArms().filter(id=>(H['a:'+id]||0)>=1&&(H['m:'+id]||0)>=.3).sort((a,z)=>(mix[a]||0)/tot/DOCTRINE[a]-(mix[z]||0)/tot/DOCTRINE[z])[0]||null;},
   beeeTick(dt){const B=this.s.beee;B.econT=(B.econT||0)+dt;
     if(B.econT>=1){B.econT%=1;this.beeeEconomy();}
-    this.beeeLevelTick();
+    this.beeeLevelTick();this.fortTick?.();this.cityFortTick?.();this.amphiBeeTick?.();
     const cities=B.cities.filter(c=>!c.fallen&&this.building(c.centre)?.done);if(this.atWar)this.beeeSearch(cities);
     // l'état-major veille toujours (défense, contre-batterie, reprise) ; l'offensive attend que les deux peuples soient installés
     this.beeeStaff(cities,this.day>=BEEE.firstRaid&&this.beeeReady());},
@@ -47,10 +48,14 @@ export const BEEE_AI={
     const dead=this.s.corpses.filter(c=>c.f==='beee').length;L=Math.min(5,L+Math.floor(dead/40));
     if(L>(B.lvl||0)){B.lvl=L;this.emit({type:'escalade',lvl:L});}},
   // les réglages de l'offensive selon le niveau : colonnes simultanées, armée minimale, marge d'écrasement, garde laissée aux villes, jours entre deux départs
-  raidK(){const L=this.beeeLevel();return {maxcol:1+(L>=3?1:0)+(L>=5?1:0),armyMin:Math.max(24,30-2*L),odds:Math.max(1.4,2.2-.15*L),keep:Math.max(.3,.5-.04*L),gap:Math.max(.25,.6-.07*L)};},
+  // (V12.5, choix du joueur) un plafond de population : au-delà de BEE_POP_CAP Bèè vivants (le niveau d'environ J35), plus de naissances, plus de renforts,
+  // plus de fondations — la guerre continue avec ce qu'ils ont. Mesuré sans plafond : 6 763 Bèè et 62 villes à J60, une riposte sans fin pour toute tête de pont,
+  // 10 s de calcul par heure de jeu. (w.beeePopCap le change pour un banc.)
+  beeeFull(){const t=this.s.t;if(this._bfT!==t){this._bfT=t;let n=0;for(const u of this.s.units)if(u.f==='beee'&&u.hp>0)n++;this._bfN=n;}return this._bfN>=(this.beeePopCap??BEE_POP_CAP);},
+  raidK(){const L=this.beeeLevel();return {maxcol:1+(L>=3?1:0)+(L>=5?1:0),armyMin:Math.max(24,30-2*L),odds:2.5,keep:Math.max(.3,.5-.04*L),gap:Math.max(.25,.6-.07*L)};},
   beeeReady(){return [FOOD,'atelier','poudrerie','caserne','arsenal'].every(k=>this.s.buildings.some(b=>b.f==='beee'&&b.k===k&&b.done&&!b.ruin));},
   meumeuReady(){return [FOOD,'atelier'].every(k=>this.s.buildings.some(b=>b.f==='meumeu'&&b.k===k&&b.done&&!b.ruin));},
-  beeeCrowded(b){return this.s.buildings.some(o=>o!==b&&o.f==='beee'&&o.k==='centre'&&!o.ruin&&distance(o.i,o.j,b.i,b.j)<SPACE);},
+  beeeCrowded(b){return this.s.buildings.some(o=>o!==b&&o.f==='beee'&&o.k==='centre'&&!o.ruin&&distance(o.i,o.j,b.i,b.j)<SPACE*(this.mapK||1));},
   beeeBuildings(k){return this.s.buildings.filter(b=>b.f==='beee'&&!b.ruin&&(!k||b.k===k));},
   beeeCivilians(){return this.s.units.filter(u=>u.f==='beee'&&u.k==='villageois'&&live(u));},
   beeeAssign(u,task){if(u.carry&&task.kind!=='gather'){const d=this.dropAt(u);if(d){this.put(d,u.carry.k,u.carry.n);u.carry=null;}}u.task=task;u.path=null;},
@@ -81,7 +86,7 @@ export const BEEE_AI={
     // moins payé n'est pas là, mais les livraisons comptent comme de l'avancement)
     for(const b of this.beeeBuildings().filter(b=>!b.done)){const adv=b.progress+Object.values(b.paid||{}).reduce((a,v)=>a+v,0)/1000;if(b.stallP!==adv){b.stallP=adv;b.stallT=this.s.t;continue;}
       // (l'industrie de guerre payée à plus de moitié attend dix jours ses derniers matériaux plutôt que de tout recommencer)
-      const paidF=Object.values(b.paid||{}).reduce((a,v)=>a+v,0)/Math.max(1,Object.values(BUILDINGS[b.k].cost||{}).reduce((a,v)=>a+v,0));if(['manufacture','arsenal','caserne','poudrerie'].includes(b.k)&&paidF>=.5&&this.s.t-(b.stallT??this.s.t)<=240)continue;
+      const paidF=Object.values(b.paid||{}).reduce((a,v)=>a+v,0)/Math.max(1,Object.values(BUILDINGS[b.k].cost||{}).reduce((a,v)=>a+v,0));if(['manufacture','arsenal','caserne','poudrerie'].includes(b.k)&&paidF>=.5&&this.s.t-(b.stallT??this.s.t)<=240)continue;if(BUILDINGS[b.k]?.bunker||BUILDINGS[b.k]?.launch)continue;   // (un ouvrage de la côte n'est jamais abandonné : l'état-major le relance)
       if(this.s.t-(b.stallT??this.s.t)>96){if(b.k==='centre'||b.k==='camp')for(const n of this.s.nodes)if(n.type==='ore'&&distance(n.i,n.j,b.i,b.j)<12)n.beeeFail=this.s.t+10*24;this.cancel(b.id);}}
     // l'entretien : chaque ville bèè brûle du bois pour vivre (le chauffage, les fours à pain, les forges), à la mesure de ses habitants —
     // un peuple gourmand, qui épuise ses forêts et doit aller en chercher toujours plus loin
@@ -93,6 +98,30 @@ export const BEEE_AI={
           if(u.w){this.put(D,'a:'+u.w,1);const Wd=this.W(u.w);const cr=Wd.perCrate>0?((u.mag||0)+(u.pouch||0))/Wd.perCrate:0;if(cr>0)this.put(D,'m:'+u.w,cr);}if(u.armor){this.put(D,'p:'+u.armor,1);u.armor=null;u.plates={};}
           u.k='villageois';u.w=null;u.mag=0;u.pouch=0;u.task=null;u.path=null;u.sentry=false;u.band=null;n++;}}
       if(n&&this.s.t-(B0.famineLogT??-99)>24&&(B0.famineLogT=this.s.t)&&!this.s.fog)this.log('Front',`La famine renvoie ${n} soldats bèè aux champs.`,'good');}}
+    // La ville attaquée (tirée ou bombardée ces 6 dernières heures) : ses civils quittent les postes sous le feu et rentrent au centre ; et elle arme
+    // ses civils avec les fusils de ses dépôts, tout de suite, sans caserne (une milice : quatre par passage, tant qu'elle a moins de deux fois sa garnison)
+    {const T0=this.s.t,loss=(B0.lossAt||[]).filter(p=>T0-p.t<1.5);
+      for(const c of cities.filter(c=>!c.fallen&&c.shelled&&T0-c.shelled.at<6)){const ct=this.building(c.centre);if(!ct)continue;const [cx,cy]=this.bc(ct);
+        for(const u of this.beeeCivilians()){if(distance(u.x,u.y,cx,cy)>30)continue;if(loss.some(p=>distance(p.x,p.y,u.x,u.y)<12)&&u.task?.kind!=='move'){u.task={kind:'move',tx:cx+(this.rand()-.5)*3,ty:cy+(this.rand()-.5)*3};u.path=null;}}
+        const guards=this.beeeGuards(c).length,civ=this.beeeCivilians().length;let n=0;
+        if(guards<2*this.beeeGarrisonMin(c)&&civ>20)for(const u of this.beeeCivilians().filter(u=>distance(u.x,u.y,cx,cy)<30&&!u.inBarracks)){if(n>=4)break;
+          const w=this.bestRifle('beee'),Wd=this.W(w);if(this.take('beee',cx,cy,'a:'+w,1,160)<1)break;const cr=this.take('beee',cx,cy,'m:'+w,1,160);
+          u.k='soldat';u.w=w;u.mag=Wd.p.mag;u.pouch=Math.min(Wd.carry,Math.max(Wd.p.mag*2,Math.round(cr*(Wd.perCrate||20))));u.carry=null;u.city=c.id;u.home=c.centre;u.task={kind:'guard',tx:cx+(this.rand()-.5)*8,ty:cy+(this.rand()-.5)*8};u.path=null;n++;}
+        if(n&&!this.s.fog)this.log(c.name,`${c.name} arme ${n} civils pour se défendre.`,'warn');}}
+    // Les renforts (V12.4, demande du joueur : « beaucoup plus de soldats bèè ») : toutes les 8 h, chaque ville qui a une caserne voit arriver 1 + niveau
+    // soldats armés (fusil bèè, une caisse de cartouches), tant que l'armée est sous 120 + 40 × villes. Une aide donnée à l'IA, pour des vagues massives.
+    {const sol=this.s.units.filter(u=>u.f==='beee'&&u.k==='soldat'&&u.hp>0&&u.h?.state!=='hors').length,live_=cities.filter(c=>!c.fallen),capS=200+70*live_.length+Math.min(400,this.fortNeed?.()||0),L=this.beeeLevel();let room=this.beeeFull()?0:capS-sol;
+      for(const c of live_){if(room<=0)break;if(this.s.t-(c.reinfT??-99)<8)continue;const bk=this.beeeBuildings('caserne').find(b=>b.done&&!b.ruin&&this.distB(b,c.x,c.y)<28);if(!bk)continue;c.reinfT=this.s.t;
+        const n=Math.min(room,2+L),w=this.bestRifle('beee'),Wd=this.W(w),[bx,by]=[bk.i+1,bk.j+3];for(let k=0;k<n;k++){const [x,y]=this.freeSpot(bx+(this.rand()-.5)*4,by+(this.rand()-.5)*3,3);const u=this.addUnit('beee','soldat',x,y,{w});
+          u.mag=Wd.p.mag;u.pouch=Math.max(0,Wd.carry-Wd.p.mag);   /* (V12.5) une dotation, plus une caisse entière */u.city=c.id;u.home=c.centre;u.task={kind:'guard',tx:c.x+3+(this.rand()-.5)*8,ty:c.y+3+(this.rand()-.5)*8};}room-=n;}}
+    // Le ravitaillement des usines (V12.4) : sans triche. Une gare du réseau ferré alimente d'elle-même les usines proches (≤ 14 cases) — mais
+    // seulement avec ce qu'elle a en stock, c'est-à-dire ce que les trains y ont apporté. Voie coupée, plus de train, plus rien dans la gare :
+    // l'usine attend. Plus de prélèvement dans « tous les dépôts du pays ». Une usine sans gare proche reste servie par les porteurs.
+    if(this.s.t-(B0.supT??-99)>=2){B0.supT=this.s.t;const gares=this.beeeBuildings('gare').filter(g=>g.done&&!g.ruin&&this.netOf(g)!=null);
+      if(gares.length)for(const b of this.s.buildings){if(b.f!=='beee'||!b.done||b.ruin||!BUILDINGS[b.k].factory||!b.prod)continue;const S=this.building(b.sup);if(!S)continue;const R=this.recipe(b,b.prod);if(!R)continue;
+        const [fx,fy]=this.bc(b);let G=null,gd=14;for(const g of gares){const d=this.distB(g,fx,fy);if(d<gd){gd=d;G=g;}}if(!G||G===S)continue;
+        const want={...Object.fromEntries(Object.entries(R.in).map(([k,v])=>[k,v*2]))};const coal=this.coalRate(b)*Math.max(2,BUILDINGS[b.k].workers||2)*(R.hours||4)*2;if(coal>0)want.charbon=(want.charbon||0)+coal;
+        for(const [k,w] of Object.entries(want)){const have=S.stock[k]||0;if(have>=w)continue;const q=Math.min(w-have,Math.max(0,G.stock[k]||0));if(q<=0)continue;const got=this.put(S,k,q);if(got>0)G.stock[k]-=got;}}}
     // L'intendance : le plan (ce qui manque, en remontant la chaîne), puis chaque villageois au poste qui vaut le plus.
     const stock=this.have('beee',base.i+1,base.j+1);const plan=this.beeePlan();this.beeeLabour(plan);this.beeePorters(plan);this.beeeTrains();this.beeeSiting(plan);
     const stillBuilding=this.beeeBuildings().some(b=>!b.done&&!['camp','mine','centre','maison','gare'].includes(b.k)&&distance(b.i,b.j,base.i,base.j)<32);   // l'expansion (camps, mines, colonies) ne bloque pas l'industrie
@@ -119,17 +148,17 @@ export const BEEE_AI={
     // les usines chimiques : la poudre d'abord (les cartouches en dépendent) ; une seule fait des explosifs — pour les charges de
     // démolition de leurs saboteurs, rien d'autre (pas de grenades) : lents (le salpêtre seul, neuf heures), et seulement quand la
     // poudre dépasse ce qu'il faut
-    {const P=this.beeeBuildings('poudrerie').filter(b=>b.done);const ex=(plan.nat.explosifs||0)<(plan.T.explosifs||14)&&(plan.nat.poudre||0)>=(plan.T.poudre||30)*1.2;
+    {const P=this.beeeBuildings('poudrerie').filter(b=>b.done);const ex=(plan.nat.explosifs||0)<(plan.T.explosifs||14)&&((plan.nat.poudre||0)>=(plan.T.poudre||30)*1.2||(this.fortMineWant?.()||0)>0&&(plan.nat.poudre||0)>=(plan.T.poudre||30)*.5);
       P.forEach((b,i)=>{const want=ex&&i>=P.length-Math.max(1,Math.floor(P.length/3))&&(P.length>1||(plan.nat.poudre||0)>(plan.T.poudre||30)*2)?'explosifs':'poudre';if(b.prod!==want)this.setProduct(b,want);});}
     // l'armurerie : chaque manufacture fabrique ce qui manque le plus au stock de guerre (les armes de la doctrine pour les recrues
     // à venir, les casques, les plastrons), chaque arsenal les cartouches les plus en retard ; on ne change pas de fabrication pour
     // un rien (un lot commencé serait démonté)
     // (le fusil d'abord tant que l'armée est trop petite pour ses garnisons ; les protections après les armes ; jamais ce que le pays
     // ne peut pas fabriquer faute de matière — un fusil à lunette sans cuivre bloquait toute la manufacture)
-    {const T=plan.T,short=plan.sold<plan.pop*.3;const heavyK=new Set(this.beeeHeavyWants().flatMap(w=>['a:'+w.id,'m:'+w.id]));const wt=k=>k==='a:bee_fusil'||k==='m:bee_fusil'?(short?3:1.2):heavyK.has(k)?.9:k.startsWith('p:')?(short?.3:.6):short?.35:1;   // les armes lourdes voulues par l'escalade passent devant les autres armes, jamais devant le fusil
+    {const T=plan.T,short=plan.sold<plan.pop*.3;const heavyK=new Set([...this.beeeHeavyWants().flatMap(w=>['a:'+w.id,'m:'+w.id]),...Object.keys(this.fortArmsWant?.()||{}).flatMap(w=>['a:'+w,'m:'+w])]);const wt=k=>k==='a:bee_fusil'||k==='m:bee_fusil'?(short?3:1.2):heavyK.has(k)?.9:k.startsWith('p:')?(short?.3:.6):short?.35:1;   // les armes lourdes voulues par l'escalade passent devant les autres armes, jamais devant le fusil
       const need=k=>Math.max(0,(T[k]||0)-(plan.nat[k]||0))/Math.max(1,T[k]||1)*wt(k);
       const can=(m,k)=>{const R=this.recipe(m,k);return !!R&&Object.entries(R.in||{}).every(([r,n])=>(plan.nat[r]||0)>=Math.max(n*6,4));};
-      for(const [kind,pre] of [['manufacture',/^[ap]:/],['arsenal',/^m:/]]){const L=Object.keys(T).filter(k=>pre.test(k)).sort((a,z)=>need(z)-need(a));const taken=new Set();
+      for(const [kind,pre] of [['manufacture',/^([ap]:|mine$)/],['arsenal',/^m:/]]){const L=Object.keys(T).filter(k=>pre.test(k)).sort((a,z)=>need(z)-need(a));const taken=new Set();
         for(const m of this.beeeBuildings(kind).filter(b=>b.done)){if(m.prod&&L.includes(m.prod)&&need(m.prod)>.12&&!taken.has(m.prod)&&can(m,m.prod)){taken.add(m.prod);continue;}
           const want=L.find(k=>!taken.has(k)&&need(k)>.05&&can(m,k))||L.find(k=>can(m,k));if(!want)continue;taken.add(want);if(m.prod!==want)this.setProduct(m,want);}}}
     // la dotation des casernes : chaque ville qui en a une (la capitale comprise) réclame au réseau des armes de chaque sorte, leurs
@@ -229,15 +258,19 @@ export const BEEE_AI={
   beeeColonize(plan,base){const B=this.s.beee,t=this.s.t,N=this.N;const cities=B.cities.filter(c=>!c.fallen);const cities0=B.cities;const ctrs=this.beeeBuildings('centre');
     const founding=ctrs.filter(b=>!b.done).length;const idle=this.beeeCivilians().filter(u=>!u.task).length;
     const LV=this.beeeLevel();const maxF=2+Math.floor(cities.length/4)+(idle>25?1:0)+3;B.colonyWhy='';   // trois fondations de plus à la fois (mesuré)
-    if(this.day<(BEEE.colonyDay||5)){B.colonyWhy='trop tôt';return;}if(founding>=maxF){B.colonyWhy=`${founding} fondation(s) en cours`;return;}if(t<(B.colonyT||0)){B.colonyWhy='délai';return;}
+    if(this.day<(BEEE.colonyDay||5)){B.colonyWhy='trop tôt';return;}if(this.beeeFull()){B.colonyWhy='population au plafond';return;}if(founding>=maxF){B.colonyWhy=`${founding} fondation(s) en cours`;return;}if(t<(B.colonyT||0)){B.colonyWhy='délai';return;}
     const cost=this.colonyPrice();if(Object.entries(cost).some(([k,n])=>(plan.nat[k]||0)<n*1.25)||(plan.nat.vivres||0)<140){B.colonyWhy='pas de quoi fonder';return;}
     if(plan.pop<(cities.length+founding)*16&&idle<6){B.colonyWhy='pas assez de monde';return;}
     // les chantiers en retard (ils attendent plus de bois ou de pierre que le pays n'en a) : on les finit avant d'en ouvrir d'autres
     if(['bois','pierre','pieces'].some(k=>(plan.site?.[k]||0)>(plan.nat[k]||0)*1.2+20)){B.colonyWhy='chantiers en retard';B.colonyT=t+6;return;}
-    const lack=k=>plan.D[k]||0,hungry=(B.foodCan||0)<(B.foodEat||0)*1.15;const ours=this.s.buildings.filter(b=>b.f==='meumeu'&&!b.ruin);const all=ctrs.map(b=>[b.i,b.j]);
+    const lack=k=>plan.D[k]||0,hungry=(B.foodCan||0)<(B.foodEat||0)*1.15;const ours=this.s.buildings.filter(b=>b.f==='meumeu'&&!b.ruin&&B.known?.[b.id]);/* seulement ce qu'ils ont repéré : ils ne savent pas où nous sommes */const all=ctrs.map(b=>[b.i,b.j]);
     const cx=all.reduce((a,p)=>a+p[0],0)/all.length,cy=all.reduce((a,p)=>a+p[1],0)/all.length;let best=null,bs=-1e9;
-    for(const c of this.beeeCadastre()){if(c.fail>t)continue;const dc=Math.min(...all.map(([x,y])=>distance(x,y,c.i,c.j)));if(dc<SPACE||dc>SUPPLY_HOP+38*LV)continue;   // avec le rail, une colonie n'a plus à coller à sa mère : de 58 cases (niveau 0) à 250 (niveau 5)
-      if(dc>SUPPLY_HOP&&(LV<1||B.conq))continue;   // au-delà de la portée des porteurs : seulement par une conquête ferroviaire (une à la fois)
+    /* (V12.5, carte V2) les villes à SPACE × 2 l'une de l'autre ; la portée des porteurs se compte depuis les villes ET les camps-dépôts : un site trop loin
+       reçoit d'abord un camp-relais à mi-chemin (relay), la colonie vient ensuite */
+    const KM=this.mapK||1,anchors=all.concat(KM>1?this.beeeBuildings('camp').filter(b=>b.done&&!b.ruin).map(b=>[b.i,b.j]):[]);
+    for(const c of this.beeeCadastre()){if(c.fail>t)continue;const dcc=Math.min(...all.map(([x,y])=>distance(x,y,c.i,c.j)));if(dcc<SPACE*KM)continue;const dc=Math.min(...anchors.map(([x,y])=>distance(x,y,c.i,c.j)));
+      c.relay=!!(KM>1&&dc>SUPPLY_HOP&&dc<=SUPPLY_HOP*2&&(LV<1||B.conq));   /* (V12.7 : un booléen — l’objet de conquête y entrait, et la sauvegarde bouclait : site → relay → conquête → site) */ if(!c.relay&&dc>SUPPLY_HOP+38*LV)continue;   // avec le rail, une colonie n'a plus à coller à sa mère : de 58 cases (niveau 0) à 250 (niveau 5)
+      if(!c.relay&&dc>SUPPLY_HOP&&(LV<1||B.conq))continue;   // au-delà de la portée des porteurs : seulement par une conquête ferroviaire (une à la fois)
       c.dcity=dc;   // pas plus loin que la portée des porteurs (60 cases) : une colonie hors de portée n'était jamais approvisionnée (mesuré : chantiers abandonnés après 5 à 7 jours avec 34 à 49 bois livrés)
       const dm=ours.reduce((a,b)=>Math.min(a,distance(b.i,b.j,c.i,c.j)),999);if(dm<55)continue;
       let v=0;for(const [r,n] of Object.entries(c.ore))v+=Math.min(3,n)*(1.2+3*lack(r))*(1+.25*LV);   // les gisements riches valent le voyage
@@ -249,6 +282,9 @@ export const BEEE_AI={
       if(dm<90)v-=(90-dm)*.1;                                    // trop près de nous : risqué
       if(v>bs){bs=v;best=c;}}
     if(!best){B.colonyWhy='aucun emplacement';B.colonyT=t+12;return;}
+    if(best.relay){const [ax,ay]=anchors.slice().sort((p,q)=>distance(p[0],p[1],best.i,best.j)-distance(q[0],q[1],best.i,best.j))[0],d=distance(ax,ay,best.i,best.j),k=Math.min(1,50/d);
+      if(this.beeeBuildings('camp').some(cp=>!cp.done&&distance(cp.i,cp.j,ax+(best.i-ax)*k,ay+(best.j-ay)*k)<14)){B.colonyWhy='le camp-relais se monte';B.colonyT=t+3;return;}
+      const camp=this.beeeBuild('camp',Math.round(ax+(best.i-ax)*k),Math.round(ay+(best.j-ay)*k),10);if(camp){camp.prio=4;B.colonyWhy='camp-relais vers un site lointain';B.colonyT=t+3;for(const u of this.beeeAvailable(camp.i,camp.j,500).slice(0,2))this.beeeAssign(u,{kind:'build',b:camp.id});}else{best.fail=t+96;B.colonyT=t+1;B.colonyWhy='pas de place pour le relais';}return;}
     if(best.dcity>SUPPLY_HOP){if(this.beeeConquerStart(best,plan,base,cities0)){B.colonyWhy='voie vers un site lointain';B.colonyT=t+6;}else{best.fail=t+48;B.colonyWhy='pas de quoi tracer la voie';B.colonyT=t+3;}return;}
     // un centre se bâtit près d'un dépôt (qui recevra ses matériaux) : d'abord un camp-dépôt, gratuit, sur place ; la ville ensuite
     if(!this.depots('beee',best.i+2,best.j+2,14).some(d=>!BUILDINGS[d.k].foodOnly)){if(this.beeeBuildings('camp').some(cp=>!cp.done&&distance(cp.i,cp.j,best.i,best.j)<12)){B.colonyWhy='le camp des colons se monte';B.colonyT=t+2;return;}
@@ -273,7 +309,7 @@ export const BEEE_AI={
     for(const u of this.beeeAvailable(city.i,city.j,500).slice(0,4+LV))this.beeeAssign(u,{kind:'build',b:city.id});
     B.founded=(B.founded||0)+1;B.conq=null;this.log('Front',`Au bout de la voie : les Bèè fondent ${city.city}, loin de tout, reliée par le rail.`,'warn');},
   // démarrer une conquête vers `site` : la ville du réseau la plus proche, sa voie (ou la capitale), le tracé, le prix
-  beeeConquerStart(site,plan,base,cities){const B=this.s.beee,t=this.s.t;if(B.conq)return false;
+  beeeConquerStart(site,plan,base,cities){const B=this.s.beee,t=this.s.t;if(B.conq||this.beeeFull())return false;
     const live=cities.filter(c=>!c.fallen&&this.building(c.centre)?.done);const src=live.slice().sort((p,q)=>distance(p.x,p.y,site.i,site.j)-distance(q.x,q.y,site.i,site.j))[0];if(!src)return false;
     const hub=src.centre===base.id?[base.i-8,base.j-7]:src.railCells?.[0]||[Math.round(src.x-7),Math.round(src.y-7)];
     const a=[Math.round(site.i-5),Math.round(site.j-5)];const cells=this.railRoute(a[0],a[1],hub[0],hub[1]);if(!cells||cells.length<2)return false;
@@ -314,8 +350,13 @@ export const BEEE_AI={
       // l'armement suit l'armée : des fusils pour les recrues à venir, des caisses de munitions pour la tenir au feu
     };
     // le stock de guerre : des armes de chaque sorte pour les recrues à venir, des cartouches pour ceux qui les portent, des protections
-    {const R=Math.max(8,Math.ceil(civ*.12)),mix=this.beeeArmyMix();for(const w of this.beeeArms()){T['a:'+w]=Math.max(1,Math.ceil(R*DOCTRINE[w]));T['m:'+w]=Math.max(2,Math.ceil((mix[w]||0)*1.2+R*DOCTRINE[w]));}
+    {const share=[.32,.45,.62][Math.min(2,Math.floor(this.beeeLevel()/2))];const R=Math.max(8,Math.ceil(civ*.12),Math.ceil((civ+sold)*share-sold)),mix=this.beeeArmyMix();   /* (les armes suivent l'armée VOULUE, pas un petit stock : au jour 72 les usines n'avaient plus aucun ouvrier) */for(const w of this.beeeArms()){T['a:'+w]=Math.max(1,Math.ceil(R*DOCTRINE[w]));T['m:'+w]=Math.max(2,Math.ceil((mix[w]||0)*1.2+R*DOCTRINE[w]));}
       if(this.beeeStable())if(this.armorsOf?.('beee')?.some(a=>a.id==='bee_casque'))T['p:bee_casque']=Math.ceil(R*.9);if(this.beeeStable())if(this.armorsOf?.('beee')?.some(a=>a.id==='bee_plaque'))T['p:bee_plaque']=Math.ceil(R*.3);}
+    {const AW=this.fortArmsWant?.()||{};for(const [w,n] of Object.entries(AW)){if(!n||!this.design(w))continue;const Wd=this.W(w);T['a:'+w]=Math.max(T['a:'+w]||0,Math.min(12,n));T['m:'+w]=Math.max(T['m:'+w]||0,Math.ceil(Math.min(12,n)*Wd.carry/Math.max(1,Wd.perCrate))+2);}}
+    // la flotte d'assaut : ce que coûtent les bateaux qui manquent entre dans le plan (les ateliers font aussi leurs pièces — mesuré : chantiers ouverts à J21,
+    // premier bateau à J30, faute de pièces prises par les armes)
+    {const AR=this.amphiBeeReserve?.()||{};for(const [k,n] of Object.entries(AR))if(n>0)T[k]=(T[k]||0)+n;}
+    {const mw=this.fortMineWant?.();if(mw){T.mine=mw;T.explosifs=Math.max(T.explosifs||14,14+mw);}}
     this.beeeHeavyPlan(T);   // l'escalade : des armes lourdes et leurs munitions, selon le niveau de la guerre
     const D={};for(const [k,n] of Object.entries(T))D[k]=Math.max(0,Math.min(1,(n-(nat[k]||0))/n));
     // ce que les usines attendent à leur dépôt : le pays en a peut-être ailleurs, mais là où il le faut il en manque — on continue à
@@ -331,7 +372,7 @@ export const BEEE_AI={
     // chaque ville : ce qu'elle mange, ce qu'elle a (son centre et ses dépôts), en jours de réserve
     const city=new Map();for(const c of B.cities.filter(c=>!c.fallen)){const ct=this.building(c.centre);if(!ct?.done)continue;const eatD=this.cityFoodRate(ct)*24;const have=this.have('beee',ct.i+1,ct.j+1,26).vivres||0;city.set(ct.id,{eatD,have,days:have/Math.max(1,eatD)});}
     // la chaîne : un manque en aval tire sur l'amont (sauf si l'amont déborde déjà)
-    const CH={poudre:['salpetre','charbon'],pieces:['fer','bois'],charbon:['bois']};for(const k of Object.keys(T)){if(k.startsWith('m:'))CH[k]=['poudre','fer','pieces','plomb','cuivre'];else if(k.startsWith('a:'))CH[k]=['fer','pieces','bois'];else if(k.startsWith('p:'))CH[k]=['fer','pieces'];}
+    const CH={poudre:['salpetre','charbon'],pieces:['fer','bois'],charbon:['bois']};if(T.mine)CH.mine=['explosifs','fer','pieces'];if(T.explosifs)CH.explosifs=['salpetre'];for(const k of Object.keys(T)){if(k.startsWith('m:'))CH[k]=['poudre','fer','pieces','plomb','cuivre'];else if(k.startsWith('a:'))CH[k]=['fer','pieces','bois'];else if(k.startsWith('p:'))CH[k]=['fer','pieces'];}
     for(let r=0;r<3;r++)for(const [p,ins] of Object.entries(CH))for(const k of ins){const rich=(nat[k]||0)>T[k]*2;D[k]=Math.max(D[k]||0,(D[p]||0)*(rich?.15:.85));}
     // les fermes s'arrêtent quand leur dépôt a de quoi (sinon les vivres engorgent les centres des colonies, qui ne reçoivent plus rien)
     const overV=(nat.vivres||0)>T.vivres*2;for(const f of this.beeeBuildings(FOOD))f.limit=overV?600:0;
@@ -362,7 +403,7 @@ export const BEEE_AI={
         add('w'+b.id,.45+1.2*d*Math.min(1.3,b.yield??this.cropYield(b)),d>.1?BUILDINGS[FOOD].workers:Math.min(2,BUILDINGS[FOOD].workers),go,at);}}
       else if(k==='mine'){const n=this.s.nodes[b.ore];if(n&&n.left>0&&!jam(b)&&!over[n.res])add('w'+b.id,.15+1.1*(D[n.res]||0),BUILDINGS.mine.workers,go,at);}
       else if(k==='camp'){if(this.room(b)>60&&!(over.bois&&over.pierre)){const local=siteWait.some(s=>distance(s.i,s.j,b.i,b.j)<30);const dd=Math.max(D.bois||0,D.pierre||0,local?.6:0);add('w'+b.id,.18+.6*dd,dd>.3?3:1,go,at);}}
-      else if(BUILDINGS[k].factory&&b.prod&&!(b.sabUntil>t)&&!capped(b)){const o=outOf(b);add('w'+b.id,fed(b)?.12+1.1*(D[o]??.3):.02,Math.min(2,BUILDINGS[k].workers),go,at);}}
+      else if(BUILDINGS[k].factory&&b.prod&&!(b.sabUntil>t)&&!capped(b)){const o=outOf(b);add('w'+b.id,fed(b)?.12+1.1*(D[o]??.3):.1+.9*(D[o]??.3),fed(b)?Math.min(2,BUILDINGS[k].workers):1,go,at);   /* (sans sa matière : un ouvrier qui va la chercher) */}}
     // la cueillette : le bois et la pierre toujours un peu ; un filon sans mine, à la main, s'il manque
     const ore=r=>(D[r]||0)>.3?2+Math.floor(P.civ/25):1;const caps={bois:(D.bois||0)>.05?2+Math.floor(P.civ/7):1,pierre:(D.pierre||0)>.05?2+Math.floor(P.civ/10):1,fer:ore('fer'),salpetre:ore('salpetre'),charbon:1,plomb:ore('plomb'),cuivre:ore('cuivre')};
     for(const res of Object.keys(caps)){if(over[res])continue;const base=res==='bois'||res==='pierre';const v=(base?.15:.05)+(D[res]||0)*(base?1:.6);
@@ -437,7 +478,7 @@ export const BEEE_AI={
     const soldiers=this.s.units.filter(u=>u.f==='beee'&&u.k==='soldat'&&live(u)).length;
     const inside=barracks.inside?.length||0,civ=this.beeeCivilians().length;
     const idle=this.beeeCivilians().filter(u=>!u.task).length;// la part de soldats suit l'escalade : au début, surtout des civils (bâtisseurs, cueilleurs : l'expansion en dépend), puis l'armée grossit (mesuré : 8 villes au jour 24 avec 40-60 % de soldats, 11 avec 22 %)
-    const armed=[.22,.35,.55][Math.min(2,Math.floor(this.beeeLevel()/2))]+(idle>civ*.12?.1:0);
+    const armed=[.32,.45,.62][Math.min(2,Math.floor(this.beeeLevel()/2))]+(idle>civ*.12?.1:0);
     const waiting=(barracks.inside||[]).filter(u=>(u.drillT||0)>=8).length;   // des recrues formées attendent une arme : on n'en appelle pas d'autres
     const famine=(this.s.beee.hunger||0)>1.1&&(this.s.beee.plan?.nat?.vivres||0)<(this.s.beee.plan?.T?.vivres||60)/3;   // pas d'enrôlement pendant la famine
     if(!famine&&inside<14&&waiting<6&&soldiers+inside<Math.min(BEEE.cap+55*(nC-1),Math.floor((civ+soldiers+inside)*armed)+1)&&civ>12){
@@ -449,13 +490,18 @@ export const BEEE_AI={
       // (douze : mesuré, 6 à 19 recrues formées attendaient par caserne pendant que 300 à 550 fusils dormaient aux manufactures)
       for(let q=0;q<Math.min(12,wait);q++){const avail={};for(const w of this.beeeArms())avail['a:'+w]=(nat['a:'+w]||0)-(need['a:'+w]||0),avail['m:'+w]=(nat['m:'+w]||0)-(need['m:'+w]||0);const w=this.beeeNextArm(avail,{...mix,...got});if(!w)break;
         need['a:'+w]=(need['a:'+w]||0)+1;need['m:'+w]=(need['m:'+w]||0)+1;got[w]=(got[w]||0)+1;if((nat['p:bee_casque']||0)>(need['p:bee_casque']||0)+1)need['p:bee_casque']=(need['p:bee_casque']||0)+1;}
-      if(Object.keys(need).length)barracks.armNeed={need,t:this.s.t};}}
+      if(Object.keys(need).length)barracks.armNeed={need,t:this.s.t};
+      // les armes existent ailleurs dans le pays mais ne venaient pas (mesuré, jour 72 : 26 recrues formées attendaient, 22 fusils et 59 caisses dormaient dans
+      // d'autres dépôts, aucun porteur ne les menait) : la caserne fait venir ce qui manque des dépôts à 160 cases, toutes les trois heures
+      if(Object.keys(need).length&&this.s.t-(barracks.pullT??-99)>=3){barracks.pullT=this.s.t;const bx=barracks.i+1,by=barracks.j+1;const here=this.have('beee',bx,by);const D0=this.depots('beee',bx,by).find(d=>!BUILDINGS[d.k].foodOnly);
+        if(D0)for(const [k,n] of Object.entries(need)){const miss=Math.max(0,n-(here[k]||0));if(miss<=0)continue;const got=this.take('beee',bx,by,k,miss,160);if(got>0)this.put(D0,k,got);}}}}
     // chacun sort avec l'arme qui manque le plus à l'armée ; un casque, et un plastron pour l'assaut
     const ready=(barracks.inside||[]).filter(u=>(u.drillT||0)>=8);let outN=0;const mix=this.beeeArmyMix();
     for(const u of ready.slice(0,8)){const H=this.have('beee',barracks.i+1,barracks.j+1);const w=this.beeeNextArm(H,mix);if(!w)break;
       const armor=ASSAULT.has(w)&&(H['p:bee_plaque']||0)>=1?'bee_plaque':(H['p:bee_casque']||0)>=1?'bee_casque':null;const r=this.releaseRecruits(barracks,1,'soldat',w,armor,[u.id]);if(!r.ok)break;outN++;mix[w]=(mix[w]||0)+1;}
     {const out={ok:outN>0};
-      if(out.ok)for(const u of this.s.units.filter(u=>u.f==='beee'&&u.k==='soldat'&&u.city==null&&!u.band)){u.city=c.id;u.home=c.centre;u.task={kind:'guard',tx:c.x+3+(this.rand()-.5)*7,ty:c.y+3+(this.rand()-.5)*7};}}},
+      if(out.ok)for(const u of this.s.units.filter(u=>u.f==='beee'&&u.k==='soldat'&&u.city==null&&!u.band&&!u.head&&!u.stage&&u.amphi==null)){   /* (V12.5 : pas ceux d'une tête de pont, d'un assaut ou du port) */
+        u.city=c.id;u.home=c.centre;u.task={kind:'guard',tx:c.x+3+(this.rand()-.5)*7,ty:c.y+3+(this.rand()-.5)*7};}}},
   beeeExpand(c){const base=this.building(c.centre);if(!base)return;
     // la ressource qui manque d'abord (le fer sans lequel ni pièces ni fusils), puis la plus proche ; un filon raté est mis de côté deux jours
     const st=this.have('beee',base.i+1,base.j+1);const need={fer:(st.fer||0)<40?3:1,charbon:(st.charbon||0)<30?2:1,salpetre:(st.poudre||0)<20&&(st.salpetre||0)<20?5:(st.salpetre||0)<20?2:1,plomb:(st.plomb||0)<20?2:1,cuivre:(st.cuivre||0)<20?1.5:1};

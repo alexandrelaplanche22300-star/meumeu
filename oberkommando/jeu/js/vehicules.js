@@ -1,4 +1,4 @@
-// Les véhicules de combat des Meumeu (leur supériorité technologique : les Bèè n'en ont pas) : jeeps, automitrailleuse, char, automoteur.
+// Les véhicules de combat des Meumeu (leur supériorité technologique : les Bèè n'en ont pas) : les engins conçus au bureau des engins (V12.8).
 // Ce fichier : leurs caractéristiques (VEHDEF) et leur conduite — le chemin (une grille à leur mesure : arbres, rochers et tranchées arrêtent les
 // roues, les chenilles passent en peinant), puis un pilote qui le suit comme un conducteur : il braque (rayon minimal des roues ; les chenilles
 // pivotent sur place), accélère, freine avant les virages serrés et avant l'arrivée, et ne rentre pas dans les autres véhicules.
@@ -7,6 +7,8 @@ import {TERRAIN,HOUR_REAL,BUILDINGS} from './data.js';
 import {ACTIONS as ACT,TILE_M as TILE,CONSTRUCTIONS} from './ballistics.js';
 import {fragDesign} from './designs.js';
 import {EXPO} from './explosive.js';
+import {vehDefOf,deriveVeh,VEH_VIS} from './engins.js';
+import {platesAt,rayPlates,rayMods,inCone,shotRay,seatsOf} from './blindage3d.js';
 const CONS_SHAPED=W=>CONSTRUCTIONS[W.p.cons]?.shaped,CONS_INC=W=>CONSTRUCTIONS[W.p.cons]?.inc;
 
 const D2R=Math.PI/180;
@@ -21,47 +23,66 @@ const active=u=>u&&u.hp>0&&u.h?.state!=='hors';
 //  roues : 'roues' (braquage, rayon minimal r) ou 'chenilles' (pivot sur place, vitesse de lacet pivot °/s)
 //  long, large : l'emprise au sol (cases) ; modele, avant : le modèle 3D et son axe avant ('+x', '+z', '-z')
 //  places : conducteur (toujours), servants des armes, passagers ; soute : caisses portées
+//  cout : des matières seulement (V12.5, demande du joueur) — les armes d'un engin viennent avec lui ; plus d'arme préfabriquée prise au stock
+//  (des mitrailleuses et canons à faire venir de l'arsenal pour chaque engin : un cauchemar logistique)
 export const VEHDEF={
-  jeep:{name:'Jeep',modele:'vintage_military_jeep_logistic_unarmed',avant:'+x',long:1.7,large:.85,roues:'roues',r:2.2,vmax:28,t0:2.2,frein:1.2,
-    blindage:{avant:[.15,0],flanc:[.12,0],arriere:[.12,0],dessus:[0,0]},hp:60,places:{servants:0,passagers:3},soute:10,armes:[],
-    cout:{fer:12,pieces:16,bois:4,cuivre:1},heures:10,
-    why:'Le transport rapide : un conducteur, trois passagers, dix caisses (munitions d’abord). Presque pas de blindage : de la tôle.'},
-  jeep_mg:{name:'Jeep à mitrailleuse',modele:'vintage_military_logistic_jeep_with_gun',avant:'+x',long:1.7,large:.85,roues:'roues',r:2.2,vmax:27,t0:2.4,frein:1.2,
-    blindage:{avant:[.15,0],flanc:[.12,0],arriere:[.12,0],dessus:[0,0]},hp:60,places:{servants:1,passagers:2},soute:6,
-    armes:[{id:'mg',piece:'affut',w:'mg_lourde_mle1',arc:360,tour:120,coups:900,repos:Math.PI,garde:0,pos:[-.46,0,.71],tube:.45}],
-    cout:{fer:14,pieces:18,bois:4,cuivre:1,'a:mg_lourde_mle1':1},heures:12,
-    why:'Une mitrailleuse lourde sur pivot à l’arrière (tout l’horizon), un tireur debout, deux passagers, six caisses. De la tôle : il faut tirer en mouvement et ne pas rester.'},
-  automitrailleuse:{name:'Automitrailleuse',modele:'vintage_armored_car',avant:'+z',long:1.9,large:1.0,roues:'roues',r:2.8,vmax:22,t0:3.2,frein:1.6,
-    blindage:{avant:[1.05,25],flanc:[.9,8],arriere:[.9,0],dessus:[.35,80],tourelle:[.9,35]},hp:140,places:{servants:1,passagers:2},soute:4,
-    armes:[{id:'mg1',piece:'tourelle',w:'mg_lourde_mle1',arc:360,tour:45,coups:1500,jumelle:true,pos:[-.41,.12,.9],tube:.42},{id:'mg2',piece:'tourelle',w:'mg_lourde_mle1',arc:360,tour:45,coups:1500,jumelle:true,pos:[-.41,-.12,.9],tube:.42}],
-    cout:{fer:55,pieces:42,cuivre:6,bois:4,'a:mg_lourde_mle1':2},heures:36,
-    why:'Deux mitrailleuses lourdes jumelées dans une tourelle en dôme. Le blindage arrête les balles de fusil et de mitrailleuse bèè ; le fusil antichar le perce.'},
-  char:{name:'Char léger',modele:'armored_vehicle',avant:'+z',long:2.4,large:1.4,roues:'chenilles',pivot:38,vmax:14,t0:4.5,frein:2.2,
-    blindage:{avant:[3.6,35],flanc:[2.0,0],arriere:[1.6,0],dessus:[.8,85],tourelle:[3.0,20],tourelle_flanc:[2.0,10]},hp:260,places:{servants:2,passagers:0},soute:2,
-    armes:[{id:'canon',piece:'tourelle',w:'canon_char_mle1',arc:360,tour:30,coups:60,hausse:[-6,18],pos:[-.04,0,.94],tube:.7},{id:'coax',piece:'tourelle',w:'mg_lourde_mle1',arc:360,tour:30,coups:2000,coax:'canon',pos:[-.04,.12,.94],tube:.55}],
-    cout:{fer:120,pieces:85,cuivre:12,charbon:10,'a:canon_char_mle1':1,'a:mg_lourde_mle1':1},heures:70,
-    why:'Un canon court (obus explosifs contre les nids et les groupes) et une mitrailleuse coaxiale, en tourelle. L’avant incliné tient le fusil antichar bèè au-delà de quelques dizaines de mètres ; les flancs non.'},
-  automoteur:{name:'Automoteur à casemate',modele:'guncarrier_casemate',avant:'-z',long:2.6,large:1.45,roues:'chenilles',pivot:30,vmax:12,t0:5,frein:2.5,
-    blindage:{avant:[4.5,40],flanc:[1.6,0],arriere:[1.2,0],dessus:[.5,85]},hp:300,places:{servants:3,passagers:0},soute:2,
-    // (chaque tube tourne dans sa rotule, à la plaque avant — 1,12 case devant le centre, à 0,3 case de l'axe, comme les pivots du modèle ; la bouche au nez, 0,18 plus loin)
-    armes:[{id:'canon1',piece:'canons',w:'canon_auto_mle1',arc:24,tour:8,coups:40,hausse:[-4,20],jumelle:true,pos:[1.12,.3,.99],tube:.18},{id:'canon2',piece:'canons',w:'canon_auto_mle1',arc:24,tour:8,coups:40,hausse:[-4,20],jumelle:true,pos:[1.12,-.3,.99],tube:.18}],
-    cout:{fer:150,pieces:95,cuivre:10,charbon:12,'a:canon_auto_mle1':2},heures:84,
-    why:'Deux canons jumelés dans une casemate : ±12° de débattement — c’est la caisse qui pointe. Très épais devant, mince ailleurs. Pour casser les ouvrages bèè.'},
 };
-export const VEH_KINDS=Object.keys(VEHDEF);
+// V12.5 : la barge de débarquement (nav:'eau' : elle ne roule pas, elle navigue — voir naval.js). Une coque blindée à l'avant (la rampe relevée) et sur les flancs :
+// le fusil et la mitrailleuse bèè ne la percent pas, l'antichar si. Un pilote, vingt-quatre passagers, un véhicule sur le pont, soixante caisses.
+// (V12.5 : 3,8 × 1,7 — les soldats tiennent entre les pavois sans les traverser ; deux mitrailleuses dans les cuves de poupe, vers l'avant au repos)
+VEHDEF.barge={name:'Barge de débarquement',nav:'eau',modele:':barge',avant:'+x',long:3.8,large:1.7,roues:'chenilles',pivot:24,vmax:16,t0:3,frein:2,pont:[1.3,-1.0],
+  blindage:{avant:[3.2,30],flanc:[2.3,0],arriere:[1.3,0],dessus:[0,0]},hp:420,places:{servants:2,passagers:24},soute:60,
+  // (deux affûts de mitrailleuses jumelées, une par cuve de poupe : chaque affût tire ses deux armes ensemble)
+  armes:[{id:'mg1',piece:'affut',w:'mg_lourde_mle1',arc:300,tour:120,coups:900,repos:0,garde:0,jumelle:true,pos:[-1.5,0.6050000000000001,0.88],tube:.55},{id:'mg1b',piece:'affut',w:'mg_lourde_mle1',arc:300,tour:120,coups:900,repos:0,garde:0,jumelle:true,pos:[-1.5,0.515,0.88],tube:.55},{id:'mg2',piece:'affut2',w:'mg_lourde_mle1',arc:300,tour:120,coups:900,repos:0,garde:0,jumelle:true,pos:[-1.5,-0.515,0.88],tube:.55},{id:'mg2b',piece:'affut2',w:'mg_lourde_mle1',arc:300,tour:120,coups:900,repos:0,garde:0,jumelle:true,pos:[-1.5,-0.6050000000000001,0.88],tube:.55}],
+  cout:{fer:60,pieces:25,bois:70},heures:26,
+  why:'Une coque blindée qu’on échoue sur la plage : un pilote, deux mitrailleurs (deux mitrailleuses lourdes dans les cuves de poupe), vingt-quatre Meumeu, un véhicule léger (jeep, automitrailleuse), des munitions. La proue relevée arrête les balles de fusil et de mitrailleuse bèè ; baissée, elle laisse courir les soldats vers la plage. Elle repart chercher du monde tant que le pilote vit.'};
+// V12.5 : la grande barge (une barge de chars) : un long pont ouvert derrière une rampe de toute la largeur, la passerelle et une mitrailleuse lourde sur affût à l'arrière.
+// Sur le pont, des véhicules à la file tant que leurs longueurs y tiennent (deux automitrailleuses à canon, ou un automoteur et une jeep…), et quarante soldats.
+VEHDEF.grande_barge={name:'Grande barge de débarquement',nav:'eau',modele:':grande_barge',avant:'+x',long:7,large:2.6,roues:'chenilles',pivot:14,vmax:11,t0:4.5,frein:3,pont:[3.15,-2.35],
+  blindage:{avant:[4.2,30],flanc:[2.8,0],arriere:[1.8,0],dessus:[0,0]},hp:950,places:{servants:2,passagers:40},soute:140,
+  armes:[{id:'mg1',piece:'affut',w:'mg_lourde_mle1',arc:300,tour:110,coups:1500,repos:0,garde:0,jumelle:true,pos:[-2.5,0.9650000000000001,1.48],tube:.55},{id:'mg1b',piece:'affut',w:'mg_lourde_mle1',arc:300,tour:110,coups:1500,repos:0,garde:0,jumelle:true,pos:[-2.5,0.875,1.48],tube:.55},{id:'mg2',piece:'affut2',w:'mg_lourde_mle1',arc:300,tour:110,coups:1500,repos:0,garde:0,jumelle:true,pos:[-2.5,-0.875,1.48],tube:.55},{id:'mg2b',piece:'affut2',w:'mg_lourde_mle1',arc:300,tour:110,coups:1500,repos:0,garde:0,jumelle:true,pos:[-2.5,-0.9650000000000001,1.48],tube:.55}],
+  cout:{fer:150,pieces:60,bois:120,cuivre:4},heures:52,
+  why:'La barge des blindés : un pilote, deux mitrailleurs, quarante Meumeu, et sur le pont des véhicules à la file (deux automitrailleuses à canon, une automitrailleuse à canon et un automoteur, ou trois jeeps). Rampe relevée, la proue et les hauts pavois arrêtent les balles bèè ; les deux mitrailleuses lourdes du roof couvrent la plage pendant qu’on débarque. Plus lente, plus large : il lui faut une vraie plage.'};
+// V12.5 : le ciel (voir air.js) — un avion de transport trimoteur, un planeur d'assaut (silencieux), un planeur lourd. Mesures réelles : vitesses en m/s (qui valent des cases/h),
+// altitudes en m. Réservés aux Meumeu.
+VEHDEF.avion={name:'Avion de transport',air:{power:true,stall:27,vr:36,cruise:52,climb:3.6,descend:4.5,accel:4.2,brake:5,bank:25,cruiseAlt:150,loiter:.09},modele:':avion',avant:'+x',long:4.7,large:7.4,roues:'roues',r:1,vmax:62,t0:1,frein:1,
+  blindage:{avant:[.25,0],flanc:[.2,0],arriere:[.2,0],dessus:[.2,0]},hp:240,places:{servants:0,passagers:18},soute:80,armes:[],
+  cout:{fer:90,pieces:60,bois:50,cuivre:10,charbon:20},heures:60,
+  why:'Un trimoteur de transport : un pilote, dix-huit passagers, quatre-vingts caisses (le pont aérien : munitions d’abord), ou un planeur à la remorque. Il décolle d’une piste de 44 cases au moins, vole à 150 m, atterrit sur une piste. Les Bèè l’entendent de loin.'};
+VEHDEF.planeur={name:'Planeur d’assaut',air:{power:false,silent:true,stall:20,glide:29,ld:12,bank:30,brake:3.2,tow:44},modele:':planeur',avant:'+x',long:2.8,large:5.3,roues:'roues',r:1,vmax:60,t0:1,frein:1,
+  blindage:{avant:[.1,0],flanc:[.08,0],arriere:[.08,0],dessus:[.08,0]},hp:90,places:{servants:0,passagers:9},soute:6,armes:[],
+  cout:{bois:70,fer:10,pieces:15},heures:24,
+  why:'Un pilote et huit soldats, en toile et en bois : remorqué par l’avion, largué avant la côte, il plane en silence (finesse 12 : 12 m parcourus pour 1 m perdu) et se pose dans un champ. Tout le monde en sort d’un coup, prêt à combattre. Un arbre à grande vitesse peut tuer le pilote.'};
+VEHDEF.planeur_lourd={name:'Planeur lourd',air:{power:false,silent:true,heavy:true,stall:23,glide:33,ld:10,bank:25,brake:2.6,tow:40},modele:':planeur_lourd',avant:'+x',long:7,large:13.8,roues:'roues',r:1,vmax:60,t0:1,frein:1,
+  blindage:{avant:[.12,0],flanc:[.1,0],arriere:[.1,0],dessus:[.1,0]},hp:180,places:{servants:0,passagers:36},soute:40,armes:[],
+  cout:{bois:200,fer:60,pieces:60,cuivre:6},heures:60,
+  why:'Le mammouth : un pilote, trente-cinq soldats, quarante caisses. Plus lourd à remorquer, plus lent à planer (finesse 10) : il demande une longue piste d’arrivée et un grand champ.'};
+// Le bateau de débarquement bèè (voir naval.js : mêmes règles que la barge) : une coque de planches, une planche en guise de rampe, seize Bèè, pas de véhicule. Les Bèè en construisent des dizaines.
+VEHDEF.bateau_bee={name:'Bateau bèè',faction:'beee',nav:'eau',modele:':bateau_bee',avant:'+x',long:3,large:1.2,roues:'chenilles',pivot:30,vmax:13,t0:3,frein:2,
+  blindage:{avant:[.35,0],flanc:[.22,0],arriere:[.2,0],dessus:[0,0]},hp:150,places:{servants:0,passagers:16},soute:16,armes:[],
+  cout:{bois:120},heures:14,   // (V12.5 : du bois seulement — les chantiers attendaient des pièces puis du fer venus de gares lointaines, à 0 % des jours entiers : aucune flotte avant J30)
+  why:'Une coque de planches, une rampe de bois, seize soldats : la coque arrête à peine le fusil. Les Bèè en construisent des dizaines pour leurs grands assauts.'};
 const VEDF=v=>VEHDEF[v.k];
 // la vitesse sur chaque terrain (part de vmax) : les roues s'enlisent dans le sable et peinent dans la lande, les chenilles moins
 const TERRAIN_V={roues:{sand:.55,scrub:.7,dirt:1,grass:.95,meadow:.95},chenilles:{sand:.8,scrub:.85,dirt:1,grass:.95,meadow:.95}};
 
 export const VEHICULES={
   // un engin (gros, bruyant) se voit de plus loin qu'un homme : sa signature visuelle
-  vehSeen(f,v){return this.visibleAt(f,v.x,v.y,VEH_SIG);},
+  vehSeen(f,v){return this.visibleAt(f,v.x,v.y,v.stealth?.6:VEH_SIG);},
   vehDef(v){return VEHDEF[v.k];},
   isCombatVehicle(v){return !!VEHDEF[v?.k];},
   // Un véhicule neuf (à la sortie du garage) : caisse orientée, armes vides (on les charge au dépôt), personne à bord.
+  // (V12.8) les engins conçus au bureau des engins : chacun sa fiche (VEHDEF, sous l'identifiant de sa conception) et ses armes (des conceptions « engin »,
+  // invisibles au joueur) ; le garage ne propose qu'eux. Refait à chaque nouvelle partie, au chargement, et à chaque conception enregistrée.
+  enginsSync(){const s=this.s,VD=s.vdesigns||{};for(const k of Object.keys(VEHDEF))if(VEHDEF[k].engin&&!VD[k])delete VEHDEF[k];
+    for(const vd of Object.values(VD)){if(vd.status==='perdu'){delete VEHDEF[vd.id];continue;}try{VEHDEF[vd.id]=vehDefOf(vd);}catch(e){console.warn('engin',vd.name,e);continue;}
+      const reg=(id,p,name)=>{if(p)s.designs[id]={id,f:vd.f||'meumeu',name,status:'engin',p:JSON.parse(JSON.stringify(p))};};
+      vd.v.tourelles.forEach((T,i)=>{reg(vd.id+'_t'+i,T.arme,`${vd.name} — tourelle ${i+1}`);reg(vd.id+'_x'+i,T.coax,`${vd.name} — coaxiale ${i+1}`);});reg(vd.id+'_c',vd.v.mgCaisse,`${vd.name} — mitrailleuse de caisse`);}
+    BUILDINGS.garage.trains=Object.values(VD).filter(vd=>vd.status!=='perdu').map(vd=>vd.id);},
   addCombatVehicle(f,k,x,y,h=0){const V=VEHDEF[k];const v={id:this.id(),f,k,name:V.name+' '+(this.s.vehicles.filter(o=>o.k===k).length+1),x,y,h,spd:0,steer:0,yawRate:0,odo:0,
       hp:V.hp,max:V.hp,pass:[],crew:[],cargo:{},path:null,pi:0,goal:null,state:'idle',alt:0,comp:{},
       mounts:V.armes.map(a=>({id:a.id,yaw:a.garde??a.repos??0,el:0,w:a.w,mag:0,pouch:0,cool:0,reload:0,aimAt:null,target:null}))};
+    if(V.engin){v.fuel=V.engin.plein;for(let i=0;i<v.mounts.length;i++){const m=v.mounts[i],W=this.W(m.w),c=V.armes[i].coups||0;m.mag=Math.min(c,W?.p?.mag||1);m.pouch=c-m.mag;}}   // (un engin conçu sort du garage le plein fait, ses râteliers remplis : c'est dans son prix)
     this.s.vehicles.push(v);(this.cvs??=[]).push(v);return v;},
 
   // La sortie du garage : une place libre devant la porte (la face sud), le nez vers l'extérieur ; puis le point de ralliement s'il y en a un.
@@ -84,10 +105,10 @@ export const VEHICULES={
   // le terrain lent, les cratères, la lisière d'un obstacle (l'engin est large : il préfère le milieu des passages)
   // (la fonction lit la carte au moment de l'appel : un arbre abattu, un bâtiment neuf comptent tout de suite)
   vehCost(V){const key=V.roues;if(this._vc?.[key])return this._vc[key];
-    const N=this.N,ter=this.G.terrain,occ=this.occ,wall=this.wall,crater=this.crater,nodes=this.s.nodes,nodeAt=this.nodeAt,tr=this.s.trenches,wheels=V.roues==='roues';
+    const N=this.N,ter=this.G.terrain,occ=this.occ,wall=this.wall,crater=this.crater,nodes=this.s.nodes,nodeAt=this.nodeAt,tr=this.s.sacs,wheels=V.roues==='roues';
     // (le bord de la carte, deux cases, est interdit aux engins : mesuré, des chemins longeaient la colonne x = 0,5 et les engins s'y coinçaient)
     // (un gisement non épuisé aussi, comme un rocher : vu en jeu, une jeep posée au milieu du chevalement d'un filon de plomb)
-    const hard=k=>{if(k<0||k>=ter.length)return true;const bi=k%N,bj=(k/N)|0;if(bi<2||bj<2||bi>N-3||bj>N-3)return true;const T=TERRAIN[ter[k]];if(!T?.walk||occ[k]>=0||wall[k])return true;const n=nodeAt[k];if(n>=0){const nd=nodes[n];if(nd&&nd.left>0&&(nd.type==='rock'||nd.type==='ore'||wheels&&nd.type==='tree'))return true;}return wheels&&!!tr[k];};
+    const hard=k=>{if(k<0||k>=ter.length)return true;const bi=k%N,bj=(k/N)|0;if(bi<2||bj<2||bi>N-3||bj>N-3)return true;const T=TERRAIN[ter[k]];if(!T?.walk||occ[k]>=0||wall[k]||this.fort[k])return true;const n=nodeAt[k];if(n>=0){const nd=nodes[n];if(nd&&nd.left>0&&(nd.type==='rock'||nd.type==='ore'||wheels&&nd.type==='tree'))return true;}return wheels&&!!tr[k];};
     const fn=k=>{if(hard(k))return Infinity;const i=k%N;let c=1;const T=TERRAIN[ter[k]];c/=Math.max(.3,TERRAIN_V[V.roues][T.k]??1);c+=Math.min(3,(crater[k]||0)*(wheels?1.6:.8));
       const n=nodeAt[k];if(n>=0&&nodes[n]?.type==='tree'&&nodes[n].left>0)c+=5;if(!wheels&&tr[k])c+=4;
       // la lisière : une case voisine infranchissable coûte (deux de chaque côté pour les engins larges)
@@ -179,7 +200,7 @@ export const VEHICULES={
   // conduisible (A* hybride : rayon de braquage, marche arrière, emprise, engins garés) sur les ~12 cases suivantes de l'itinéraire, refait avant d'en
   // voir le bout. Mesuré : planifier tout le trajet d'un coup coûtait jusqu'à 5,7 s et devait tout refaire à la moindre obstruction ; chaque morceau
   // local reste petit (fenêtre de 14 cases, 8 000 nœuds au plus). Faux s'il n'y a pas d'itinéraire.
-  vehMove(v,tx,ty){const R=this.vehPlan(v,tx,ty);if(!R){v.why='pas de chemin pour ce véhicule (arbres, rochers, tranchées, eau)';v.path=null;v.itin=null;v.state='idle';return false;}
+  vehMove(v,tx,ty){if(VEHDEF[v.k]?.nav==='eau')return this.boatMove(v,tx,ty);if(VEHDEF[v.k]?.air)return this.airGoto(v,tx,ty);const R=this.vehPlan(v,tx,ty);if(!R){v.why='pas de chemin pour ce véhicule (arbres, rochers, tranchées, eau)';v.path=null;v.itin=null;v.state='idle';return false;}
     v.itin=R;v.ri=0;v.goal=[tx,ty];v.path=null;v.state='go';v.why=null;v.man=null;v.watch=null;v.localN=0;return true;},
   // le morceau local : vers le point de l'itinéraire à ~12 cases devant (cap voulu : la direction de l'itinéraire là-bas), à défaut ~6 cases ;
   // le but lui-même s'il est à portée. À défaut de tout, l'itinéraire tel quel (le pilote manœuvre au besoin).
@@ -214,12 +235,42 @@ export const VEHICULES={
   // un nouveau morceau local tout de suite (bloqué : un engin qui ne bouge pas, un mur devant) — trois fois en deux heures au plus
   vehReplan(v){(v.diag??={}).rRe=(v.diag.rRe||0)+1;const t=this.s.t;v.replans=(v.replans||[]).filter(x=>t-x<2);if(v.replans.length>=3||!v.goal)return false;v.replans.push(t);v.path=null;return true;},
   // le cap de la caisse : l'angle (repère du monde, x vers l'est, y vers le sud) ; l'avant du véhicule est (cos h, sin h) ; v.dir : +1 en avant, −1 en arrière
-  combatVehicleTick(v,dt){const V=VEHDEF[v.k];if(v.hp<=0){v.spd=0;return;}
+  // La soute d'un engin : comptée en caisses (une caisse de munitions, une arme, une protection = 1 ; 10 unités d'une ressource = 1).
+  // On charge et décharge à un dépôt à moins de 4 cases ; à l'arrêt, l'équipage, les Meumeu à 2,5 cases et les armes de l'engin s'y ravitaillent.
+  soutePart(k,n){return /^(m|a|p):/.test(k)?n:n/10;},
+  souteUsed(v){let s=0;for(const [k,n] of Object.entries(v.cargo||{}))s+=this.soutePart(k,n);return s;},
+  vehLoad(v,k,n){const V=VEHDEF[v.k];if(!V?.soute)return {ok:false,why:['pas de soute']};const RD=V.air?14:4;if(!this.depots(v.f,v.x,v.y,RD).length)return {ok:false,why:[`il faut un dépôt à moins de ${RD} cases`]};
+    const room=V.soute-this.souteUsed(v),per=this.soutePart(k,1);const want=Math.min(n,Math.floor(room/per+1e-9));if(want<=0)return {ok:false,why:['soute pleine']};
+    const got=this.take(v.f,v.x,v.y,k,want,RD);if(got<=0)return {ok:false,why:['le dépôt n’en a pas']};v.cargo[k]=(v.cargo[k]||0)+got;return {ok:true,text:`${v.name} : ${Math.round(got*10)/10} ${this.goodName(k)} chargé${got>1?'s':''}.`};},
+  vehUnload(v,k=null,n=Infinity){const RD=VEHDEF[v.k]?.air?14:4;const D=this.depots(v.f,v.x,v.y,RD)[0];if(!D)return {ok:false,why:[`il faut un dépôt à moins de ${RD} cases`]};let moved=0;
+    for(const kk of k?[k]:Object.keys(v.cargo)){const q=this.put(D,kk,Math.min(n,v.cargo[kk]||0));v.cargo[kk]-=q;moved+=q;if(v.cargo[kk]<=1e-6)delete v.cargo[kk];}
+    return moved>0?{ok:true,text:`${v.name} décharge au dépôt.`}:{ok:false,why:['rien à décharger, ou dépôt plein']};},
+  vehSouteSupply(v){if(!v.cargo||(v.spd||0)>.5)return;if(this.s.t-(v.souteT??-9)<.25)return;v.souteT=this.s.t;
+    const crate=(w,cap,give)=>{const k='m:'+w;if(!((v.cargo[k]||0)>=1))return false;const Wd=this.W(w);if(!Wd)return false;if(!give(Wd))return false;v.cargo[k]-=1;if(v.cargo[k]<=1e-6)delete v.cargo[k];return true;};
+    for(const m of v.mounts||[])crate(m.w,0,Wd=>{if((m.pouch||0)>=Wd.p.mag*2)return false;m.pouch=(m.pouch||0)+(Wd.perCrate||Wd.p.mag);return true;});
+    const near=[...(v.crew||[]),...this.s.units.filter(u=>u.f===v.f&&!u.inVeh&&u.hp>0&&Math.hypot(u.x-v.x,u.y-v.y)<2.5)];
+    for(const u of near){if(!u.w)continue;crate(u.w,0,Wd=>{const carry=Wd.carry||Wd.p.mag*4;if((u.pouch||0)+(u.mag||0)>=carry*.5)return false;u.pouch=Math.min(carry,(u.pouch||0)+(Wd.perCrate||Wd.p.mag));return true;});}},
+  // (V12.8) L'essence d'un engin conçu : il en brûle à chaque case roulée (perCase, tiré de sa masse et de son moteur) ; à sec, il s'arrête.
+  // Le plein se refait tout seul dès qu'il est arrêté (sans ordre de route : mesuré, un char qui démarrait d'un dépôt refaisait son plein tant qu'il roulait
+  // à moins de 0,5 case/h, 11 → 20 bidons en partant) : d'abord sa propre soute, puis un engin ravitailleur ami arrêté à 3 cases (sa soute),
+  // puis un dépôt à 5 cases — 40 bidons par heure de jeu (un char moyen refait son plein en une demi-heure, dix secondes de combat).
+  vehBurn(v,V,d){if(!(d>0))return;const E=V.engin,was=v.fuel;v.fuel=Math.max(0,v.fuel-d*E.perCase);
+    if(v.f==='meumeu'&&was>E.plein*.2&&v.fuel<=E.plein*.2)this.log('Front',`${v.name} : réservoir presque vide (${Math.round(v.fuel*10)/10} / ${E.plein}).`,'bad');},
+  vehRefuel(v,V){const E=V.engin,k=E.carbu;if(v.state==='go'||(v.spd||0)>.5||this.s.t<(v.fuelT||0))return;v.fuelT=this.s.t+.25;let want=Math.min(E.plein-v.fuel,40*.25);if(want<.05)return;
+    const got0=v.fuel,give=q=>{v.fuel+=q;want-=q;};
+    if((v.cargo?.[k]||0)>0){const q=Math.min(want,v.cargo[k]);v.cargo[k]-=q;if(v.cargo[k]<=1e-6)delete v.cargo[k];give(q);}
+    if(want>.05)for(const o of this.s.vehicles){if(o===v||o.f!==v.f||o.hp<=0||o.state==='go'||(o.spd||0)>.5||!((o.cargo?.[k]||0)>0)||Math.hypot(o.x-v.x,o.y-v.y)>3)continue;
+      const q=Math.min(want,o.cargo[k]);o.cargo[k]-=q;if(o.cargo[k]<=1e-6)delete o.cargo[k];give(q);if(want<=.05)break;}
+    if(want>.05){const q=this.take(v.f,v.x,v.y,k,want,5);if(q>0)give(q);}
+    if(v.fuel>got0&&v.dry){v.dry=false;v.why=null;}},
+  combatVehicleTick(v,dt){const V=VEHDEF[v.k];if(V.air){this.airTick(v,V,dt);return;}if(V.nav==='eau'){this.vehSouteSupply(v);this.boatTick(v,V,dt);if(V.armes.length&&v.hp>0){this.vehResupply(v,V);if(this.atWar)this.vehFire(v,V,dt);}return;}if(v.hp<=0){v.spd=0;return;}this.vehSouteSupply(v);
     if(v.fire>0){v.fire-=dt;v.hp-=dt*35;if(v.hp<=0){this.vehDestroyed(v,'brûlé');return;}}
     if(v.comp?.moteur||v.comp?.train){if(v.state==='go'){v.state='idle';v.path=null;v.itin=null;}v.why=v.comp.moteur?'moteur détruit : immobilisé':'train de roulement brisé : immobilisé';}
-    const drv=this.vehDriver(v);
+    if(V.engin&&!(v.fuel>1e-6)){v.fuel=0;if(v.state==='go'){v.state='idle';v.path=null;v.itin=null;}v.dry=true;v.why=`à sec : il attend ${V.engin.carbu==='charbon'?'du charbon':'de l’essence'} (un dépôt à 5 cases, ou un engin ravitailleur à 3)`;}
+    const drv=this.vehDriver(v),x0=v.x,y0=v.y;
     if(v.state==='go'&&v.itin&&drv){if(!v.path||!v.path.fin&&this.vehRemainLocal(v)<4&&!(this.s.t<v.localWait))this.vehLocal(v);this.vehDrive(v,V,dt);this.vehWatch(v,V);}else this.vehBrake(v,V,dt);
     v.odo+=v.spd*(v.dir||1)*dt;v.x=clamp(v.x,1,this.N-2);v.y=clamp(v.y,1,this.N-2);
+    if(V.engin){this.vehBurn(v,V,Math.hypot(v.x-x0,v.y-y0));this.vehRefuel(v,V);}
     if(V.armes.length){this.vehResupply(v,V);if(this.atWar)this.vehFire(v,V,dt);}},
   // personne au volant, le véhicule reste où il est (v.debugDriver : les essais de conduite, sans équipage)
   vehDriver(v){return !!v.debugDriver||(v.crew||[]).some(u=>u.vrole==='conducteur'&&u.hp>0&&u.h?.state!=='hors');},
@@ -251,7 +302,7 @@ export const VEHICULES={
       // (une arme vide se recharge d'elle-même, sans attendre une cible qui lui convienne)
       if(m.mag<=0&&m.pouch>0&&m.reload<=0&&(gunner[V.armes[i].piece])){const W=this.W(m.w);if(W){const n=Math.min(W.p.mag||1,m.pouch);m.mag=n;m.pouch-=n;m.reload=this.vehClass(W)==='canon'?(loader?3:6):W.p.mag>12?4:2.5;m.burst=0;}}}
     for(const piece of this.vehPieces(V)){const g=gunner[piece];const idx=V.armes.map((a,i)=>a.piece===piece?i:-1).filter(i=>i>=0);const main=v.mounts[idx[0]],A0=V.armes[idx[0]];
-      const W0=this.W(main.w);if(!W0)continue;const cls=this.vehClass(W0);const hasMg=V.armes.some(a=>this.vehClass(this.W(a.w))==='mg');
+      if(!main||!A0)continue;const W0=this.W(main.w);if(!W0)continue;const cls=this.vehClass(W0);   /* (une arme sans poste, sur un engin d'avant elle : elle ne tire pas) */const hasMg=V.armes.some(a=>this.vehClass(this.W(a.w))==='mg');
       const from=this.vehMuzzle(v,A0,main.yaw);const range=cls==='canon'?clamp(Math.max(20,W0.eff*1.8/4),20,40):clamp(Math.max(14,W0.eff*1.6/4),12,34);
       // la cible de la pièce, revue chaque dixième d'heure (ou perdue)
       const keep=main.target&&(main.target.isB?this.building(main.target.id):this.unit(main.target.id));const lost=!keep||(!main.target.isB&&!active(keep))||keep.ruin;
@@ -266,12 +317,12 @@ export const VEHICULES={
       // (sans cible : vers le tireur qui vient de frapper l'engin — mesuré, un affût au repos vers l'arrière mettait 0,8 h à tirer son premier coup
       // contre des fusiliers déjà en joue ; il tourne pendant qu'on le repère)
       const tg=main.target&&(main.target.isB?this.building(main.target.id):this.unit(main.target.id));
-      if(!tg){const T=v.threat;if(T&&this.s.t-T.t<.6&&!v.comp?.[piece]){const hf=A0.arc>=360?Math.PI:A0.arc/2*D2R,w0=clamp(wrap(T.a-v.h),-hf,hf),r0=A0.tour*D2R*this.dts;
+      if(!tg){const T=v.threat;if(T&&this.s.t-T.t<.6&&!v.comp?.[piece]){const hf=A0.arc>=360?Math.PI:A0.arc/2*D2R,w0=clamp(wrap(T.a-v.h-(A0.repos||0)),-hf,hf)+(A0.repos||0),r0=A0.tour*D2R*this.dts;
         const ny0=wrap(main.yaw+clamp(wrap(w0-main.yaw),-r0,r0));for(const i of idx)v.mounts[i].yaw=ny0;}continue;}
       const [tx,ty]=main.target.isB?(()=>{const [w,h]=this.sizeOf(tg);return [tg.i+w/2,tg.j+h/2];})():[tg.x,tg.y];
       // pointer : la pièce tourne à sa vitesse ; une casemate (débattement court) : la caisse pivote vers la cible si l'engin est arrêté
-      let want=wrap(Math.atan2(ty-from.by,tx-from.bx)-v.h);const half=A0.arc>=360?Math.PI:A0.arc/2*D2R;
-      if(Math.abs(want)>half){if(v.state!=='go'&&V.roues==='chenilles'){const pr=V.pivot*D2R*this.dts;v.h=wrap(v.h+clamp(want,-pr,pr));want=wrap(Math.atan2(ty-from.by,tx-from.bx)-v.h);}want=clamp(want,-half,half);}
+      const R0=A0.repos||0;let want=wrap(Math.atan2(ty-from.by,tx-from.bx)-v.h-R0);const half=A0.arc>=360?Math.PI:A0.arc/2*D2R;   // (V12.8 : autour de la direction de repos — un sponson regarde son flanc)
+      if(Math.abs(want)>half){if(v.state!=='go'&&V.roues==='chenilles'&&!V.nav){const pr=V.pivot*D2R*this.dts;v.h=wrap(v.h+clamp(want,-pr,pr));want=wrap(Math.atan2(ty-from.by,tx-from.bx)-v.h-R0);}want=clamp(want,-half,half);}want+=R0;
       const rate=(v.comp?.[piece]?0:A0.tour*D2R)*this.dts;const err=wrap(want-main.yaw);const ny=wrap(main.yaw+clamp(err,-rate,rate));for(const i of idx)v.mounts[i].yaw=ny;
       const R=d2(tx,ty,from.bx,from.by);const el=Math.atan2((W0.at(R*TILE).drop||0),R*TILE)+(main.target.isB?.02:0);for(const i of idx)v.mounts[i].el+=(el-v.mounts[i].el)*Math.min(1,this.dts*2);
       if(Math.abs(wrap(want-ny))>.035||Math.abs(wrap(Math.atan2(ty-from.by,tx-from.bx)-v.h-ny))>.05)continue;
@@ -292,8 +343,8 @@ export const VEHICULES={
     // jeep, pivot compris, tirait après 0,8 h)
     // (passer à la cible voisine ne demande qu'un petit pointage : le temps suit l'angle à rattraper — mesuré, la pièce refaisait une visée complète
     // pour le Bèè d'à côté, et le servant tombait avant le coup suivant)
-    if(m.aimAt!==(e.id??'b')){const aA=Math.atan2(ty-mz.y,tx-mz.x),da=m.aimA==null?9:Math.abs(wrap(aA-m.aimA));m.aimAt=e.id??'b';m.aimA=aA;m.cool=W.aim*.3*clamp(.25+da/.35,.25,1);return;}
-    m.mag--;const auto=ACT[W.p.action]?.auto;if(auto){m.burst=(m.burst||0)+1;if(m.burst>=10){m.burst=0;m.cool=W.aim*.35;}else m.cool=W.cyc;}else{m.burst=0;m.cool=W.cyc+W.aim*.3;}
+    if(m.aimAt!==(e.id??'b')){const aA=Math.atan2(ty-mz.y,tx-mz.x),da=m.aimA==null?9:Math.abs(wrap(aA-m.aimA));m.aimAt=e.id??'b';m.aimA=aA;m.cool=W.aim*.3*clamp(.25+da/.35,.25,1)*this.fireJitter(.25);return;}
+    m.mag--;const auto=ACT[W.p.action]?.auto;if(auto){m.burst=(m.burst||0)+1;if(m.burst>=(m.burstN||=8+Math.floor(this.rand()*5))){m.burst=0;m.burstN=0;m.cool=W.aim*.35*this.fireJitter(.15);}else m.cool=W.cyc*this.fireJitter(.04);}else{m.burst=0;m.cool=(W.cyc+W.aim*.3)*this.fireJitter(.15);}   /* (V12.5 : rafales de 8 à 12, le décalage des tirs) */
     const Rm=d2(tx,ty,mz.x,mz.y)*TILE;const fl=W.at(Rm);const share={};let ix=tx,iy=ty;
     for(let k=0;k<(isB?1:(W.pel||1));k++){const res=isB?{hit:true,struct:true,v:fl.v}:this.resolve(S,e,W,Rm,m.burst||0,share);[ix,iy]=res.hit?[tx,ty]:[res.px??tx,res.py??ty];
       this.s.shots.push({kind:'round',f:v.f,by:v.id,w:m.w,x0:mz.x,y0:mz.y,x1:ix,y1:iy,t:0,dur:Math.max(.01,fl.t)/HOUR_REAL,res,target:isB?{b:e.id}:{u:e.id},R:Rm,tracer:auto?((m.tr=(m.tr||0)+1)%4===0):false});}
@@ -303,11 +354,16 @@ export const VEHICULES={
   vehResupply(v,V){if(v.state==='go'||this.s.t<(v.supT||0))return;v.supT=this.s.t+.5;
     for(let i=0;i<v.mounts.length;i++){const m=v.mounts[i],A=V.armes[i],W=this.W(m.w);if(!W||!(W.perCrate>0))continue;const want=A.coups-(m.mag+m.pouch);if(want<W.perCrate*.5&&m.mag+m.pouch>0)continue;
       // (l'arme se charge tout de suite : un engin ravitaillé est prêt à tirer — recharger une bande, c'est quatre secondes de combat, une heure de jeu)
-      const crates=Math.max(1,Math.floor(want/W.perCrate));const got=this.take(v.f,v.x,v.y,'m:'+m.w,crates,5);if(got>0){m.pouch+=Math.round(got*W.perCrate);const n=Math.min(Math.max(0,(W.p.mag||1)-m.mag),m.pouch);m.mag+=n;m.pouch-=n;}}},
+      const crates=Math.max(1,Math.floor(want/W.perCrate));let got=this.take(v.f,v.x,v.y,'m:'+m.w,crates,5);
+      // (V12.8) un engin conçu : ses armes sont à lui, aucun arsenal n'en fait les caisses d'avance — il les fait au dépôt avec les matières
+      // de leur recette (la même qu'à l'arsenal : poudre, plomb, cuivre, fer), autant que le dépôt en a
+      if(got<crates&&V.engin){const R=this.recipe({f:v.f,i:v.x,j:v.y},'m:'+m.w);if(R){const H=this.have(v.f,v.x,v.y,5);let n=crates-got;
+        for(const [k,q] of Object.entries(R.in))if(q>0)n=Math.min(n,Math.floor((H[k]||0)/q+1e-9));if(n>0){for(const [k,q] of Object.entries(R.in))if(q>0)this.take(v.f,v.x,v.y,k,q*n,5);got+=n;}}}
+      if(got>0){m.pouch+=Math.round(got*W.perCrate);const n=Math.min(Math.max(0,(W.p.mag||1)-m.mag),m.pouch);m.mag+=n;m.pouch-=n;}}},
   // ---------- le blindage ----------
   // Ce que vaut un engin comme cible pour un tireur : l'antichar le prend avant tout ; une arme légère seulement si elle peut percer sa face la plus
   // mince à cette distance (une jeep, oui ; un char, non — on ne gâche pas ses cartouches sur de l'acier)
-  vehThreatFor(u,v,d,r){const W=u.w&&this.W(u.w);if(!W)return -9;const V=VEHDEF[v.k];const at=W.p.action==='verrou'&&W.p.d>=4||!!CONS_SHAPED(W);
+  vehThreatFor(u,v,d,r){const W=u.w&&this.W(u.w);if(!W)return -9;const V=VEHDEF[v.k];{const k=this.atKind?.(u.w);if(k==='lrac'&&d>this.atFireMax(W,k))return -9;}   /* (V12.8 : le lance-roquettes ne tire que de près) */const at=W.p.action==='verrou'&&W.p.d>=4||!!CONS_SHAPED(W);
     const thin=Math.min(...Object.entries(V.blindage).filter(([k])=>k!=='dessus').map(([,b])=>b[0]));const pen=W.pen(W.at(d*TILE).v);
     return (at?14:pen>thin*1.15?6:-6)-d/Math.max(1,r)*3;},
   // Un coup au but sur un engin : la face (selon d'où il vient ; la tourelle s'il frappe haut et que l'engin en a une, orientée selon son pointage),
@@ -316,7 +372,61 @@ export const VEHICULES={
   //  la non-perforation : la plaque arrête tout (étincelles)
   //  la perforation : la vitesse qui reste ; le projectile et des éclats de la plaque dans l'habitacle (les mêmes blessures que dehors) ; un obus
   //  explosif qui perce éclate dedans ; des organes touchés selon la face (moteur, train, tourelle, arme) ; parfois le feu ; les dégâts à la caisse
-  vehImpact(v,r,W,sh){const V=VEHDEF[v.k];if(v.hp<=0)return;const a=Math.atan2(v.y-sh.y0,v.x-sh.x0);
+  // (V12.8) LA BALISTIQUE 3D d'un engin conçu : le rayon du tir contre les vraies plaques de la conception (blindage3d.js) — l'angle d'incidence exact,
+  // le ricochet, la perforation (notre formule : W.pen(v) contre l'épaisseur vue t / cos i ; la charge creuse perce selon son calibre, pas sa vitesse),
+  // puis, s'il perce, son trajet dans l'habitacle : le Meumeu assis à ce poste, le râtelier (qui peut exploser), le moteur, l'essence (le feu) ; et le
+  // cône d'éclats arrachés à la face intérieure, chacun son rayon. Un tir qui ne rencontre aucune plaque est passé à côté.
+  vehImpact3D(v,V,r,W,sh){const D=deriveVeh(V.engin.v),kcm=100/(VEH_VIS*TILE);const a=Math.atan2(v.y-sh.y0,v.x-sh.x0),rel=wrap(a-v.h);
+    const yaw=[];V.armes.forEach((A,i)=>{const m=/^tourelle(\d+)$/.exec(A.piece||'');if(m)yaw[+m[1]]=v.mounts[i]?.yaw||0;});
+    const {O,d}=shotRay(rel,(r.ex||0)*kcm,(r.ey??(r.H||1)*.45)*kcm,(this.rand()-.5)*.03);const hits=rayPlates(O,d,platesAt(D,yaw));const ent=hits.find(h=>h.enter);
+    const hx=v.x-Math.cos(a)*.5,hy=v.y-Math.sin(a)*.5;
+    if(!ent){this.emit({type:'impact',x:v.x+Math.cos(a)*(.8+this.rand()),y:v.y+Math.sin(a)*(.8+this.rand()),hit:false,small:true,mat:'terre'});return 'manqué';}
+    // un équipage découvert (caisse ouverte, tourelle ouverte) : le haut du corps dépasse — touché avant toute plaque
+    const crew=(v.crew||[]).filter(u=>u.hp>0),seats=seatsOf(D,crew);const vel=r.v;
+    const pre=rayMods(O,d,D.mods.filter(m=>m.kind==='equipage'||m.kind==='passager'),0,ent.s)[0];
+    if(pre){const us=seats.get(pre.m.id)||[];const u=us[(this.rand()*us.length)|0];if(u){this.vehCrewHit(v,u,W.proj||W,vel,'balle par-dessus le bord',sh.by);v.hitAt=this.s.t;return 'découvert';}}
+    const P=ent.P,t=P.t||0,cosI=Math.max(.06,ent.cosI),obl=Math.acos(cosI),te=t/cosI,shaped=!!W.he?.shaped,pen=W.pen(vel),cal=W.p.d||2;const where=P.label||'la caisse';
+    v.hitAt=this.s.t;v.threat={a:Math.atan2(sh.y0-v.y,sh.x0-v.x),t:this.s.t};v.lastHit={face:P.id,t,obl:Math.round(obl/D2R),te:+te.toFixed(2),pen:+pen.toFixed(2),part:P.part};
+    const card=o=>({veh:v.id,vf:v.f,vname:v.name,shooter:sh.by,w:sh.w,R:sh.R,where,face:P.id,part:P.part,t,slope:P.a||0,obl:obl/D2R,te,pen,v:vel,cal,m:W.m||10,he:!!W.he,shaped,y:ent.X[1],...o});
+    if(t>0){// le ricochet : au-delà d'un angle critique (68° à 80° selon l'épaisseur rapportée au calibre) ; une charge creuse ne glisse qu'en rasant (fusée qui ne mord pas)
+      const crit=(68+12*Math.min(1,t/Math.max(.1,cal)))*D2R;const pr=shaped?(obl>78*D2R?.5:0):clamp((obl-crit+6*D2R)/(12*D2R),0,1)*(cal>t*3?.3:1);
+      if(this.rand()<pr){v.lastHit.out='ricochet';this.emit({type:'ricochet',x:hx,y:hy,veh:v.id,f:v.f,ang:a+Math.PI*.5*(this.rand()<.5?1:-1)*(.3+this.rand()*.4),v:vel,card:card({out:'ricochet'})});return 'ricochet';}
+      if(pen<=te){v.lastHit.out='arrêté';v.hp-=Math.min(.6,.5*(W.m||10)/1000*vel*vel/4000)+(shaped?4:0);this.emit({type:'plate',x:hx,y:hy,veh:v.id,mat:'acier',where,card:card({out:'arrêté'})});
+        // un obus explosif qui ne perce pas éclate contre la plaque : le souffle et les éclats dehors (l'équipage découvert, la caisse, les roues)
+        if(W.he&&!shaped)this.heBlast(hx,hy,W.he,sh.f,sh.by,{kind:'obus',w:sh.w,at:null});
+        return 'arrêté';}}
+    // percé : ce qui reste au projectile (la charge creuse : son jet, d'autant plus vif qu'il lui restait à percer)
+    v.lastHit.out='percé';const v2=shaped?Math.min(1500,500+1000*(1-te/Math.max(.01,pen))):t>0?vel*Math.sqrt(Math.max(0,1-(te/pen)**2)):vel;v.lastHit.v2=Math.round(v2);
+    const exit=hits.find(h=>!h.enter&&h.s>ent.s+.1),path=rayMods(O,d,D.mods,ent.s,exit?exit.s:ent.s+600);const seen=[];let vcur=v2,boom=null;
+    const proj=shaped?null:(W.proj||W),E=v=>.5*(W.m||10)/1000*v*v;
+    if(W.he&&!shaped){// l'obus explosif qui perce éclate dans l'habitacle : sa masse en morceaux, tout le monde à bord en reçoit ; un râtelier peut partir
+      v.hp-=40+E(v2)/30+W.he.g*3;const fm=Math.max(.05,(W.m||60)/30),fd=Math.max(1,cal/6);
+      for(const u of crew){const k=1+this.poisson(1.5);for(let n=0;n<k&&u.hp>0;n++)if(this.rand()<.6)this.vehCrewHit(v,u,fragDesign(fm*(.4+this.rand()*1.2),fd),700+this.rand()*400,'obus éclaté dans l’habitacle',sh.by);}
+      if(D.mods.some(m=>m.kind==='munitions')&&this.rand()<.35)boom=D.mods.find(m=>m.kind==='munitions');if(this.rand()<.35)v.fire=Math.max(v.fire||0,2);seen.push('l’obus éclate dedans');}
+    else for(const h of path){if(vcur<60)break;const m=h.m;
+      if(m.kind==='equipage'||m.kind==='passager'){const us=seats.get(m.id)||[];const u=us[(this.rand()*us.length)|0];seen.push(m.label+(u?'':' (vide)'));
+        if(u&&u.hp>0){this.vehCrewHit(v,u,shaped?fragDesign(.4+this.rand(),1.6):proj,vcur*(shaped?1:.9),shaped?'jet de la charge creuse':'balle à travers la tôle',sh.by);vcur*=shaped?.75:.45;}}
+      else if(m.kind==='munitions'){seen.push(m.label);const pd=shaped?.6:Math.min(.25,E(vcur)/2500);if(this.rand()<pd){boom=m;break;}vcur*=.4;}
+      else if(m.kind==='moteur'){seen.push('le moteur');(v.comp??={}).moteur=true;vcur*=.25;}
+      else if(m.kind==='essence'){seen.push(m.label);if(this.rand()<(shaped?.5:CONS_INC(W)?.6:.15))v.fire=Math.max(v.fire||0,2);vcur*=.6;}
+      else{seen.push(m.label);vcur*=.5;}}
+    // le cône d'éclats de la face intérieure : d'autant plus nombreux que la plaque était épaisse pour ce projectile ; plus large et plus dense pour un jet
+    const nf=shaped?Math.round(6+4*Math.min(3,(pen-te)/Math.max(.5,t))):t>0?Math.round(.5+3*(te/pen)*Math.min(2,1+t)):0,plug=7.85e-3*Math.PI*(cal/2)**2*te;let fhits=0;
+    for(let n=0;n<nf;n++){const dd=inCone(d,shaped?.8:.6,()=>this.rand());const h=rayMods(ent.X,dd,D.mods,.5,140)[0];if(!h)continue;const m=h.m,vf=v2*(.4+this.rand()*.5);
+      if(m.kind==='equipage'||m.kind==='passager'){const us=seats.get(m.id)||[];const u=us[(this.rand()*us.length)|0];if(u&&u.hp>0){fhits++;this.vehCrewHit(v,u,fragDesign(Math.max(.002,plug/Math.max(1,nf)*(.5+this.rand())),Math.max(.3,cal*(.15+this.rand()*.25))),vf,shaped?'éclat du jet':'éclat de blindage',sh.by);}}
+      else if(m.kind==='munitions'&&!boom&&this.rand()<(shaped?.12:.03))boom=m;else if(m.kind==='essence'&&this.rand()<.05)v.fire=Math.max(v.fire||0,1.5);}
+    if(!W.he)v.hp-=E(v2)/45+(shaped?30+(pen-te)*3:0);
+    // la tourelle percée : sa couronne se bloque parfois ; un tir dans le masque peut casser l'arme ; un flanc bas percé, le train de roulement
+    if(P.part==='tourelle'&&this.rand()<.25)(v.comp??={}).tourelle=true;
+    if(P.part==='tourelle'&&P.k==='av'&&this.rand()<.3){const ms=v.mounts.filter((m,i)=>V.armes[i].piece==='tourelle'+P.ti&&!m.broken);if(ms.length)ms[(this.rand()*ms.length)|0].broken=true;}
+    if(P.part==='caisse'&&/^fl/.test(P.id)&&ent.X[1]<D.G.y0+D.v.H*.35&&(shaped||E(vel)>150)&&this.rand()<.4)(v.comp??={}).train=true;
+    this.emit({type:'pierce',x:hx,y:hy,veh:v.id,where,card:card({out:'percé',v2,crew:crew.length,nf,fhits,path:seen.slice(0,6),boom:!!boom})});
+    if(boom){// le râtelier explose : l'engin est perdu, l'équipage avec lui (presque)
+      v.ammoBoom=true;for(const u of crew)if(u.hp>0)for(let k=0;k<3&&u.hp>0;k++)this.vehCrewHit(v,u,fragDesign(2+this.rand()*6,4),600+this.rand()*500,`les munitions ont explosé (${boom.label})`,sh.by);
+      this.emit({type:'boom',kind:'shell',x:v.x,y:v.y,f:v.f});this.log('Front',`${v.name} : ${boom.label.toLowerCase()} touché — les munitions explosent.`,v.f==='meumeu'?'bad':'good');v.hp=0;v.fire=Math.max(v.fire||0,6);}
+    if(v.fire>0&&!v.bailed&&v.hp>0){v.bailed=true;this.vehUnboard(v,'tous');this.log('Front',`${v.name} brûle : l’équipage saute à terre.`,'bad');}
+    if(v.hp<=0)this.vehDestroyed(v,boom?'munitions explosées':shaped?'charge creuse':'perforé');return 'percé';},
+  vehImpact(v,r,W,sh){const V=VEHDEF[v.k];if(v.hp<=0)return;if(V.engin)return this.vehImpact3D(v,V,r,W,sh);const a=Math.atan2(v.y-sh.y0,v.x-sh.x0);
     const tm=v.mounts.find((m,i)=>V.armes[i].piece==='tourelle');const tur=!!V.blindage.tourelle&&r.ey>r.H*.6;const ref=tur?v.h+(tm?.yaw||0):v.h;
     // la face : vu de trois quarts, un engin montre l'avant (ou l'arrière) et un flanc à la fois ; le coup tombe sur l'une ou l'autre au prorata de la
     // surface que chacune présente (largeur·|cos|, longueur·|sin|) — le flanc vu presque de profil est touché sous un angle rasant, et ricoche
@@ -327,28 +437,30 @@ export const VEHICULES={
     const cosO=Math.max(.06,Math.cos(oh)*Math.cos(slope*D2R)),obl=Math.acos(cosO),te=t/cosO;const vel=r.v,pen=W.pen(vel),cal=W.p.d||2;
     const hx=v.x-Math.cos(a)*.5,hy=v.y-Math.sin(a)*.5;const where=tur?'la tourelle':face==='avant'?'l’avant':face==='arriere'?'l’arrière':'le flanc';
     v.hitAt=this.s.t;v.threat={a:Math.atan2(sh.y0-v.y,sh.x0-v.x),t:this.s.t};v.lastHit={face:key,t,obl:Math.round(obl/D2R),te:+te.toFixed(2),pen:+pen.toFixed(2)};
+    // (V12.8) la fiche du coup pour la radiographie de la plaque : la face, l'épaisseur et son inclinaison, l'obliquité, ce que le projectile perce
+    const card=o=>({veh:v.id,vf:v.f,vname:v.name,shooter:sh.by,w:sh.w,R:sh.R,where,face:key,t,slope,obl:obl/D2R,te,pen,v:vel,cal,m:W.m||10,he:!!W.he,...o});
     if(t>0){const crit=(68+12*Math.min(1,t/Math.max(.1,cal)))*D2R;const pr=clamp((obl-crit+6*D2R)/(12*D2R),0,1)*(cal>t*3?.3:1);
       // (la balle repart réfléchie sur la normale de la face quand c'est l'angle horizontal qui la fait glisser ; sur une plaque inclinée vue de face,
       // elle saute par-dessus et continue presque droit)
       if(this.rand()<pr){v.lastHit.out='ricochet';const nA=face==='avant'?ref:face==='arriere'?ref+Math.PI:Math.cos(ref+Math.PI/2-a)<0?ref+Math.PI/2:ref-Math.PI/2;
-        this.emit({type:'ricochet',x:hx,y:hy,veh:v.id,f:v.f,ang:oh>Math.PI/4?Math.PI+2*nA-a:a+(this.rand()-.5)*.3,v:vel});return;}
-      if(pen<=te){v.lastHit.out='arrêté';v.hp-=Math.min(.6,.5*(W.m||10)/1000*vel*vel/4000);this.emit({type:'plate',x:hx,y:hy,veh:v.id,mat:'acier',where});return;}}
+        this.emit({type:'ricochet',x:hx,y:hy,veh:v.id,f:v.f,ang:oh>Math.PI/4?Math.PI+2*nA-a:a+(this.rand()-.5)*.3,v:vel,card:card({out:'ricochet'})});return;}
+      if(pen<=te){v.lastHit.out='arrêté';v.hp-=Math.min(.6,.5*(W.m||10)/1000*vel*vel/4000);this.emit({type:'plate',x:hx,y:hy,veh:v.id,mat:'acier',where,card:card({out:'arrêté'})});return;}}
     // percé
     const v2=t>0?vel*Math.sqrt(Math.max(0,1-(te/pen)**2)):vel,E2=.5*(W.m||10)/1000*v2*v2;v.lastHit.out='percé';v.lastHit.v2=Math.round(v2);
-    this.emit({type:'pierce',x:hx,y:hy,veh:v.id,where});const crew=(v.crew||[]).filter(u=>u.hp>0);const open=(V.blindage.dessus?.[0]||0)<.05;
+    const crew=(v.crew||[]).filter(u=>u.hp>0);this.emit({type:'pierce',x:hx,y:hy,veh:v.id,where,card:card({out:'percé',v2,crew:crew.length,nf:t>0?Math.round(.5+3*(te/pen)*Math.min(2,1+t)):0})});const open=(V.blindage.dessus?.[0]||0)<.05;
     // l'obus explosif qui perce éclate dans l'habitacle
     // (des éclats de l'obus lui-même : sa masse en une trentaine de morceaux ; chacun à bord en reçoit un ou plusieurs dans l'espace clos)
     if(W.he&&!W.he.shaped){v.hp-=40+E2/30+W.he.g*3;const fm=Math.max(.05,(W.m||60)/30),fd=Math.max(1,cal/6);
-      for(const u of crew){const k=1+this.poisson(1.5);for(let n=0;n<k&&u.hp>0;n++)if(this.rand()<.6)this.vehCrewHit(v,u,fragDesign(fm*(.4+this.rand()*1.2),fd),700+this.rand()*400,'obus éclaté dans l’habitacle');}
+      for(const u of crew){const k=1+this.poisson(1.5);for(let n=0;n<k&&u.hp>0;n++)if(this.rand()<.6)this.vehCrewHit(v,u,fragDesign(fm*(.4+this.rand()*1.2),fd),700+this.rand()*400,'obus éclaté dans l’habitacle',sh.by);}
       if(this.rand()<.35)v.fire=Math.max(v.fire||0,2);}
     else{v.hp-=E2/45;
       // le projectile lui-même : un homme sur sa trajectoire — chacun couvre une part de la silhouette (assis bas dans une caisse fermée : 15 % ;
       // découvert, le buste dépasse : 20 %) ; mesuré : l'ancienne somme (0,2 + 0,17 par homme) donnait 74 % pour deux hommes, 85 % dès trois
-      if(crew.length&&this.rand()<1-Math.pow(1-(open?.2:.15),crew.length))this.vehCrewHit(v,crew[(this.rand()*crew.length)|0],W.proj||W,v2*.85,'balle à travers la tôle');
+      if(crew.length&&this.rand()<1-Math.pow(1-(open?.2:.15),crew.length))this.vehCrewHit(v,crew[(this.rand()*crew.length)|0],W.proj||W,v2*.85,'balle à travers la tôle',sh.by);
       // les éclats arrachés à la plaque : d'autant plus nombreux que la plaque était épaisse pour ce projectile
       // (le bouchon d'acier que le projectile découpe — π(calibre/2)²·épaisseur, 7,85 g/cm³ — part en morceaux à une fraction de sa vitesse restante)
       const nf=t>0?Math.round(.5+3*(te/pen)*Math.min(2,1+t)):0,plug=7.85e-3*Math.PI*(cal/2)**2*te;
-      for(let n=0;n<nf;n++){const u=crew[(this.rand()*crew.length)|0];if(u&&u.hp>0&&this.rand()<.3)this.vehCrewHit(v,u,fragDesign(Math.max(.002,plug/nf*(.5+this.rand())),Math.max(.3,cal*(.15+this.rand()*.25))),v2*(.5+this.rand()*.4),'éclat de blindage');}
+      for(let n=0;n<nf;n++){const u=crew[(this.rand()*crew.length)|0];if(u&&u.hp>0&&this.rand()<.3)this.vehCrewHit(v,u,fragDesign(Math.max(.002,plug/nf*(.5+this.rand())),Math.max(.3,cal*(.15+this.rand()*.25))),v2*(.5+this.rand()*.4),'éclat de blindage',sh.by);}
       if(CONS_INC(W)&&this.rand()<.12)v.fire=Math.max(v.fire||0,1.5);}
     // les organes : selon la face ; une balle n'en abîme un que selon l'énergie qui lui reste (mesuré : à 22 % par balle quelle qu'elle soit, la
     // première salve de fusils cassait la mitrailleuse d'une jeep — une balle de 33 J aussi sûrement qu'un obus)
@@ -364,8 +476,9 @@ export const VEHICULES={
   vehBlast(v,x,y,E,by,Df,Rmax){const V=VEHDEF[v.k];const dc=d2(v.x,v.y,x,y)*TILE,r=Math.max(.05,dc-Math.min(V.long,V.large)/2*TILE),rc=Math.max(.05,dc);if(r>Rmax)return;
     // (r : depuis la caisse, pour la caisse ; rc : depuis le centre, pour l'équipage assis autour du centre)
     const crew=(v.crew||[]).filter(u=>u.hp>0&&u.h),open=(V.blindage.dessus?.[0]||0)<.05,t=V.blindage.flanc[0];let hurt=0;
-    if(open)for(const u of crew){if(rc<E.blast){u.h.state='mort';u.h.cause='souffle de l’explosion';this.death(u);hurt++;}
-      else if(rc<E.inj){u.h.shock=Math.max(u.h.shock,30+this.rand()*60);if(u.h.state!=='hors'){u.h.state='hors';u.h.cause='souffle : poumons et tympans déchirés';this.stateChange(u,'hors');}hurt++;}}
+    const bev=(u,eff)=>this.emit({type:'blast',victim:u.id,vf:u.f,vk:u.k,name:u.name,x:v.x,y:v.y,dir:[v.x-x,v.y-y],r:rc,pk:E.pressure?.(rc)||0,W:E.W,eff,shooter:by,frag:'obus',post:'accroupi',veh:v.id});
+    if(open)for(const u of crew){if(rc<E.blast){u.h.state='mort';u.h.cause='souffle de l’explosion';bev(u,'mort');this.death(u);hurt++;}
+      else if(rc<E.inj){bev(u,'lesions');u.h.shock=Math.max(u.h.shock,30+this.rand()*60);if(u.h.state!=='hors'){u.h.state='hors';u.h.cause='souffle : poumons et tympans déchirés';this.stateChange(u,'hors');}hurt++;}}
     const a=Math.atan2(v.y-y,v.x-x),rel=wrap(a-v.h),halfW=(Math.abs(Math.cos(rel))*V.large+Math.abs(Math.sin(rel))*V.long)/2*TILE,H=(V.haut||Math.min(V.large*.8,1.1))*TILE;
     // (un éclat qui traverse la tôle touche un homme avec la probabilité surface du corps / surface de la caisse : l'équipage reçoit le même flux
     // qu'à terre, ralenti par la tôle ; si la caisse arrête les éclats, seul le haut du corps d'un équipage découvert reste exposé, par-dessus le bord)
@@ -373,13 +486,14 @@ export const VEHICULES={
       const vel=E.vg*Math.exp(-r/c.lam);if(vel>=40){const nH=Math.min(400,c.n*E.geo/(4*Math.PI*r*r)*2*halfW*H);v.hp-=nH*(pen(vel)>t?.05:.005);}
       const vc=E.vg*Math.exp(-rc/c.lam);if(vc<40)continue;const pc=pen(vc),through=pc>t,v2=through?vc*Math.sqrt(1-(t/pc)**2):vc;
       const A=EXPO.sol.accroupi*(through?1:open?.4:0);if(A>0)for(const u of crew){const k=Math.min(6,this.poisson(c.n*E.geo/(4*Math.PI*rc*rc)*A));
-        for(let n=0;n<k&&u.hp>0;n++)if(this.vehCrewHit(v,u,Df(c),v2,through?'éclat à travers la caisse':'éclat'))hurt++;}}
+        for(let n=0;n<k&&u.hp>0;n++)if(this.vehCrewHit(v,u,Df(c),v2,through?'éclat à travers la caisse':'éclat',by))hurt++;}}
     // le souffle sur la caisse et les roues
     if(r<E.blast*2){v.hp-=(E.dmgB||40)*(open?.4:.15)*(1-r/(E.blast*2));if(r<E.blast&&this.rand()<.5)(v.comp??={}).train=true;}
     v.hitAt=this.s.t;if(hurt&&v.f==='meumeu')this.log('Front',`${v.name} : une explosion tout près, ${hurt} touché(s) à bord.`,'bad');
     if(v.hp<=0)this.vehDestroyed(v,'explosion');},
   // Détruit : l'épave reste ; ceux qui sont encore à bord s'en sortent ou non, blessés
-  vehDestroyed(v,cause){if(v.dead)return;v.dead=true;v.hp=0;v.spd=0;v.state='idle';v.path=null;v.itin=null;
+  vehDestroyed(v,cause){if(v.dead)return;v.dead=true;v.hp=0;v.spd=0;v.state='idle';v.path=null;v.itin=null;if(VEHDEF[v.k]?.air){v.dead=false;this.airCrash(v,cause||'détruit');return;}
+    if(VEHDEF[v.k]?.nav==='eau'){this.emit({type:'boom',kind:'shell',x:v.x,y:v.y,f:v.f});this.emit({type:'fire',x:v.x,y:v.y});this.boatSunk(v,cause);return;}
     for(const u of (v.crew||[]).filter(u=>u.hp>0))if(this.rand()<(v.fire>0?.6:.45))this.vehCrewHit(v,u,fragDesign(.6+this.rand(),1.5),350+this.rand()*350,`engin détruit (${cause})`);
     this.vehUnboard(v,'tous');this.emit({type:'boom',kind:'shell',x:v.x,y:v.y,f:v.f});this.emit({type:'fire',x:v.x,y:v.y});
     this.log('Front',`${v.name} est détruit (${cause}).`,v.f==='meumeu'?'bad':'good');},
@@ -387,7 +501,7 @@ export const VEHICULES={
   // Monter : le premier à bord conduit, puis les servants des armes (un par poste : tourelle, affût, casemate ; un servant de plus recharge),
   // puis les passagers ; plein, on reste à terre. À bord, un Meumeu quitte la carte (comme à l'abri d'un bâtiment) : il est dans v.crew.
   vehSeats(v){const c=(v.crew||[]).filter(u=>u.hp>0);return {cond:c.filter(u=>u.vrole==='conducteur').length,serv:c.filter(u=>u.vrole==='servant').length,pass:c.filter(u=>u.vrole==='passager').length};},
-  vehBoard(v,u){const V=VEDF(v),s=this.vehSeats(v);if(v.hp<=0)return null;const role=!s.cond?'conducteur':s.serv<V.places.servants?'servant':s.pass<V.places.passagers?'passager':null;if(!role)return null;
+  vehBoard(v,u){const V=VEDF(v),s=this.vehSeats(v);if(v.hp<=0)return null;const role=!s.cond?'conducteur':s.serv<V.places.servants?'servant':s.pass<(V.nav==='eau'?this.boatCap(v):V.places.passagers)?'passager':null;   /* (sur un bateau : la place que laissent les véhicules du pont) */if(!role)return null;
     const i=this.s.units.indexOf(u);if(i>=0)this.s.units.splice(i,1);this.uIndex.delete(u.id);if(u.sq&&this.leave)this.leave(u);
     Object.assign(u,{vrole:role,inVeh:v.id,task:null,path:null,goal:null,anim:'idle'});(v.crew??=[]).push(u);return role;},
   // Descendre : autour de l'engin, côté arrière d'abord (à l'abri de la caisse) ; « passagers » ne fait descendre qu'eux
@@ -482,3 +596,6 @@ export const VEHICULES={
   vehGap(v,V){let g=99;const cx=Math.cos(v.h),cy=Math.sin(v.h);for(const o of this.s.vehicles){if(o===v||!VEHDEF[o.k]||o.hp<=0)continue;const dx=o.x-v.x,dy=o.y-v.y;const along=dx*cx+dy*cy,side=Math.abs(-dx*cy+dy*cx);
       const W=(V.large+VEHDEF[o.k].large)/2+.15;if(along>0&&side<W){const L=along-(V.long+VEHDEF[o.k].long)/2;if(L>-.2&&L<g)g=L;}}return g;},
 };
+
+// les barges et bateaux bèè se construisent sur la plage comme des bâtiments : le chantier coûte et dure ce que coûte et dure le véhicule
+for(const k of Object.keys(BUILDINGS))if(BUILDINGS[k].launch){const V=VEHDEF[BUILDINGS[k].launch];BUILDINGS[k].cost={...V.cout};BUILDINGS[k].hours=V.heures;BUILDINGS[k].hp=V.hp;}

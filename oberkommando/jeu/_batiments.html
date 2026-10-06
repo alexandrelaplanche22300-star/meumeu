@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Planche des bâtiments</title>
+<style>body{margin:0;background:#2c3a28;color:#ddd;font:12px sans-serif}#g{display:grid;grid-template-columns:repeat(6,1fr);gap:2px}div.c{position:relative}canvas{width:100%;display:block}span{position:absolute;left:4px;top:2px}</style></head>
+<body><div id="info"></div><div id="g"></div>
+<script type="module">
+// Page de contrôle (dev, exclue de la construction) : tous les modèles de bâtiments faits par le code, vus comme en jeu (?p=az_ : seulement les aztèques)
+import * as THREE from './js/lib/three.module.js';import {buildingModels,aztecModels} from './js/bldg3d.js';
+const Q=new URLSearchParams(location.search),pre=Q.get('p')||'';const M={...buildingModels(),...aztecModels()};
+const R=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});R.setSize(320,260);
+for(const [k,m] of Object.entries(M).filter(([k])=>k.startsWith(':'+pre))){const d=document.createElement('div');d.className='c';const cv=document.createElement('canvas');cv.width=320;cv.height=260;d.appendChild(cv);const s=document.createElement('span');s.textContent=k;d.appendChild(s);document.getElementById('g').appendChild(d);
+  /* (un seul contexte WebGL pour toute la planche : copié dans chaque case) */R.setClearColor(0x4a6a3a);const S=new THREE.Scene();S.add(new THREE.HemisphereLight(0xffffff,0x666655,1.6));const L=new THREE.DirectionalLight(0xffffff,1.6);L.position.set(2,3,2.5);S.add(L);
+  S.add(new THREE.Mesh(m.geo,new THREE.MeshLambertMaterial({vertexColors:true,flatShading:true})));const r=Math.max(m.ext[0],m.ext[2],m.ext[1]*1.2)*.75;
+  const C=new THREE.OrthographicCamera(-r,r,r*.8,-r*.8,.01,50);C.position.set(6,5,6);C.lookAt(0,m.ext[1]*.35,0);R.render(S,C);cv.getContext('2d').drawImage(R.domElement,0,0);}
+document.getElementById("info").textContent=Object.keys(M).filter(k=>k.startsWith(":"+pre)).length+" modèles";window.__done=true;
+</script></body></html>

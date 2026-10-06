@@ -3,17 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Oberkommando der Meumeu V12.4</title>
+<title>Oberkommando der Meumeu V12.7</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <header class="top">
-  <div class="brand"><div class="mark">OK</div><div><div class="title">Oberkommando der Meumeu · V12.4</div><div class="eyebrow">Bâtir · Relier · Tenir</div></div></div>
+  <div class="brand"><div class="mark">OK</div><div><div class="title">Oberkommando der Meumeu · V12.7</div><div class="eyebrow">Bâtir · Relier · Tenir</div></div></div>
   <div class="clock" id="clock">Jour 1</div>
   <div class="speeds" title="Espace : pause · 1, 2, 3 : vitesses"><button data-speed="0">❚❚</button><button data-speed="0.5" title="Au ralenti : suivre un combat comme au cinéma">½×</button><button data-speed="1">1×</button><button data-speed="2">2×</button><button data-speed="4">4×</button></div>
   <div class="status" id="status"></div>
   <div class="spacer"></div>
-  <div class="menu"><button class="ghost" data-act="new">Nouvelle partie</button><button class="ghost" data-act="new-assisted" title="Commencer avec une capitale déjà équipée, des stocks et une petite garde">Départ établi</button><button class="ghost" data-act="new-dev" title="Partie de test : base équipée, mines en service, usines d’armes, gros stocks">Dev</button><button class="ghost" data-act="fog" title="Brouillard de guerre : oui = on ne voit que ce que voient nos soldats ; non = toute la carte, les Bèè et leurs alertes (N)">Brouillard</button><button class="ghost" data-act="panel" title="Masquer le panneau de droite pour voir le combat et les radiographies (Tab)">Panneau ⇥</button><button class="ghost" data-act="cine" title="Mode cinéma : l’interface s’efface, la caméra suit l’action (K)">Cinéma</button><button class="ghost" data-act="v3d" id="b3d" title="Vue 3D ou vue dessinée (V)">3D</button><button class="ghost" data-act="sound" title="Son">🔈</button><span class="zoom" title="Taille de l’interface (Ctrl + / Ctrl −) — clic sur le chiffre : automatique"><button class="ghost" data-act="zoom-out">A−</button><button class="ghost" data-act="zoom-auto">100 %</button><button class="ghost" data-act="zoom-in">A+</button></span></div>
+  <div class="menu"><button class="ghost" data-act="new">Nouvelle partie</button><button class="ghost" data-act="new-v2" title="Carte normale V2 : deux fois plus grande, gisements en grappes espacées, villes plus espacées">Carte V2</button><button class="ghost" data-act="new-sci" title="Partie de test de la recherche : carte V2, départ établi, centre de recherche, mines sur tous les filons, six savants formés">Recherche</button><button class="ghost" data-act="new-sea" title="Carte « mer » : 2,5 fois plus grande, deux rives séparées par la mer, de longues plages à fortifier">Carte mer</button><button class="ghost" data-act="new-assisted" title="Commencer avec une capitale déjà équipée, des stocks et une petite garde">Départ établi</button><button class="ghost" data-act="new-dev" title="Partie de test : base équipée, mines en service, usines d’armes, gros stocks">Dev</button><button class="ghost" data-act="scen-front" title="Scénario de test : notre batterie face à une ville bèè bien garnie, pour voir leur réaction">Scénario front</button><button class="ghost" data-act="fog" title="Brouillard de guerre : oui = on ne voit que ce que voient nos soldats ; non = toute la carte, les Bèè et leurs alertes (N)">Brouillard</button><button class="ghost" data-act="panel" title="Masquer le panneau de droite pour voir le combat et les radiographies (Tab)">Panneau ⇥</button><button class="ghost" data-act="cine" title="Mode cinéma : l’interface s’efface, la caméra suit l’action (K)">Cinéma</button><button class="ghost" data-act="sound" title="Son">🔈</button><span class="zoom" title="Taille de l’interface (Ctrl + / Ctrl −) — clic sur le chiffre : automatique"><button class="ghost" data-act="zoom-out">A−</button><button class="ghost" data-act="zoom-auto">100 %</button><button class="ghost" data-act="zoom-in">A+</button></span></div>
   <div class="stocks" id="stocks"></div>
 </header>
 <main class="layout">
@@ -28,11 +28,12 @@
     <div class="scenario" id="win" hidden></div>
     <div class="hint" id="hint"></div>
     <div class="buildbar" id="buildbar"></div>
-    <div class="keys">Clic : choisir · glisser : un groupe · clic droit : ordonner · B : bâtir · G : escouade · T : tente · M : santé · I : idées des Meumeu · K : cinéma · V : vue 3D · E : économie · H : capitale</div>
+    <div class="keys">Clic : choisir · glisser : un groupe · clic droit : ordonner · B : bâtir · G : escouade · T : tente · M : santé · I : vue recherche (savants, projets, réunions) · K : cinéma · V : vision nocturne en filtre vert-gris ou en cônes classiques · E : économie · H : capitale</div>
   </section>
   <aside class="panel" id="panel"></aside>
 </main>
 <div class="dzwrap" id="dz" hidden></div>
+<div class="dzwrap" id="vz" hidden></div>
 <div class="mwrap" id="modal" hidden></div>
 <div class="xroomwrap" id="xroom" hidden></div>
 <script type="module" src="js/ui.js"></script>

@@ -11,6 +11,8 @@
 //   8. sans filtre, l'opérateur est plus visible la nuit
 //   9. de nuit, avec le réglage par défaut, un ennemi à 40 cases dans l'axe est vu (sans infrarouge : 10 cases) ; la batterie se vide, mais
 //      une nuit entière (12 h de jeu) en garde plus de la moitié
+// V12.4 (réglage voulu, commit « Artillerie, infrarouge, sauvegardes ») : portée 85 m (≈21 cases) à 35 W, plafond 45 cases, la lampe ne se décharge plus.
+//   Critères corrigés en conséquence : 1bis (portée 18-25 cases, pas de décharge), 4bis (meilleur réglage = le plafond, 40-45 cases), 9bis (vu de nuit à 20 cases, sans : 10).
 // Historique : V10.5 : autonomie 4,4 h et portée 18,9 cases ; V11 (première version) : batterie retirée — l'utilisateur a demandé de la garder, dix fois plus durable.
 //   node test/nir.mjs
 const out={textContent:''};globalThis.document??={getElementById:()=>out};
@@ -18,10 +20,12 @@ const {irOf}=await import('../js/ballistics.js');const {World}=await import('../
 const line=(l,ok,d)=>{console.log(`${ok?'PASS':'FAIL'}  ${l}${d?'  ['+d+']':''}`);if(!ok)process.exitCode=1;};
 const d=irOf({}),n=irOf({irBeam:15}),w=irOf({irBeam:60}),nf=irOf({irFilt:0});
 const strong=irOf({irW:150}),best=irOf({irW:150,irQ:1.6,irBeam:12});
-line('1. batterie de 30 à 60 h, portée par défaut de 40 à 60 cases',d.hours>=30&&d.hours<=60&&d.packKg>0&&d.beam===43&&d.filt===1&&d.range>=40&&d.range<=60,`portée ${d.range} cases (${Math.round(d.range*4)} m), batterie ${d.hours} h (ancien réglage : 4,4 h), pack ${d.packKg} kg, faisceau ${d.beam}°`);
+line('1bis. portée par défaut de 18 à 25 cases, faisceau 43°, filtre, pas de décharge',d.range>=18&&d.range<=25&&d.beam===43&&d.filt===1&&d.hours>=999,`portée ${d.range} cases, ${d.hours} h`);
+if(process.env.ANCIENS)line('1. batterie de 30 à 60 h, portée par défaut de 40 à 60 cases',d.hours>=30&&d.hours<=60&&d.packKg>0&&d.beam===43&&d.filt===1&&d.range>=40&&d.range<=60,`portée ${d.range} cases (${Math.round(d.range*4)} m), batterie ${d.hours} h (ancien réglage : 4,4 h), pack ${d.packKg} kg, faisceau ${d.beam}°`);
 line('2. faisceau étroit porte plus loin, large moins loin',n.range>d.range&&w.range<d.range,`15° : ${n.range} · 43° : ${d.range} · 60° : ${w.range}`);
 line('3. la puissance compte : 150 W ≥ 1,8 × 35 W',strong.range>=d.range*1.8,`150 W : ${strong.range} · 35 W : ${d.range}`);
-line('4. le meilleur réglage : de 120 à 140 cases',best.range>=120&&best.range<=140,`${best.range} cases (${Math.round(best.range*4)} m)`);
+line('4bis. le meilleur réglage atteint le plafond (40 à 45 cases)',best.range>=40&&best.range<=45,`${best.range} cases`);
+if(process.env.ANCIENS)line('4. le meilleur réglage : de 120 à 140 cases',best.range>=120&&best.range<=140,`${best.range} cases (${Math.round(best.range*4)} m)`);
 line('5. sans filtre : lueur visible et lampe plus légère',nf.leak===true&&d.leak===false&&nf.lampKg<d.lampKg,`masse ${nf.lampKg} contre ${d.lampKg} kg`);
 // 5. l'atelier
 const W=new World(5);for(let h=0;h<6;h++)W.update(1);W.s.solar=.5;
@@ -45,4 +49,5 @@ line('8. sans filtre, l’opérateur est plus visible la nuit',sL>sF,`signature 
   const o=W2.addUnit('meumeu','soldat',100,100);o.w='ir_std';o.fx=1;o.fy=0;o.post='debout';o.nvOn=true;o.irLeft=irOf({}).hours;o.irMax=irOf({}).hours;
   const r40=W2.visualRange(o,140,100,1);o.nvOn=false;const r0=W2.visualRange(o,140,100,1);
   o.nvOn=true;const left0=o.irLeft;for(let h=0;h<12;h++)W2.update(1);
-  line('9. de nuit, un ennemi à 40 cases dans l’axe est vu avec l’infrarouge ; la batterie se vide mais une nuit entière en garde plus de la moitié',r40>=40&&r0<20&&(o.irLeft??0)<left0&&(o.irLeft??0)>=left0*.5,`portée avec ${r40.toFixed(0)} cases · sans ${r0.toFixed(0)} cases · batterie ${left0} → ${(o.irLeft??0).toFixed(1)} après 12 h de nuit`);}
+  line('9bis. de nuit, un ennemi à 20 cases dans l’axe est vu avec l’infrarouge, à 10 sans ; la lampe ne se vide pas',W2.visualRange(o,120,100,1)>=20&&r0<=12&&(o.irLeft??0)>=left0,`avec ${r40.toFixed(0)} · sans ${r0.toFixed(0)} cases · ${left0} → ${(o.irLeft??0).toFixed(0)} h`);
+  if(process.env.ANCIENS)line('9. de nuit, un ennemi à 40 cases dans l’axe est vu avec l’infrarouge ; la batterie se vide mais une nuit entière en garde plus de la moitié',r40>=40&&r0<20&&(o.irLeft??0)<left0&&(o.irLeft??0)>=left0*.5,`portée avec ${r40.toFixed(0)} cases · sans ${r0.toFixed(0)} cases · batterie ${left0} → ${(o.irLeft??0).toFixed(1)} après 12 h de nuit`);}

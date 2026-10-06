@@ -10,7 +10,7 @@
 // Les deux camps obéissent à la même discipline de tir : on s'arrête, on se cale, on vise ; seule la charge tire en avançant.
 // Les pièces lourdes changent de mains : si le tireur tombe, un camarade reprend l'arme.
 // Les méthodes sont posées sur World (comme la gestion et la faune).
-import {BUILDINGS,UNITS,BEEE,DAY,TERRAIN} from './data.js';
+import {BUILDINGS,UNITS,BEEE,DAY,TERRAIN,FIRE} from './data.js';
 import {Pather} from './path.js';
 
 const d2=(ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
@@ -62,7 +62,7 @@ export const WAR={
         // V12.3 : il ne prend PAS d'arme, seulement les munitions de la pièce (règle du joueur)
         const side=null;
         const pay=this.canPay(b.f,b.i+1,b.j+1,cost);if(!pay.ok){why.push('il manque '+pay.miss.join(', '));break;}this.pay(b.f,b.i+1,b.j+1,cost);
-        b.inside.splice(b.inside.indexOf(u),1);u.inBarracks=null;u.k='soldat';u.w=side?.id||null;u.mag=0;u.pouch=0;u.crates=cr;u.ammoW=d.id;u.servant=true;if(armor){u.armor=armor;u.plates={};}
+        b.inside.splice(b.inside.indexOf(u),1);u.inBarracks=null;u.skin=b.skin||'meumeu';u.k='soldat';u.w=side?.id||null;u.mag=0;u.pouch=0;u.crates=cr;u.ammoW=d.id;u.servant=true;if(armor){u.armor=armor;u.plates={};}
         u.homeBarracks=b.id;u.x=b.i+bw/2+(this.rand()-.5)*bw;u.y=b.j+bh+.7;u.anim='idle';this.s.units.push(u);this.uIndex.set(u.id,u);
         if(side){this.resupply(u);u.mag=Math.min(this.W(side.id).p.mag,u.pouch||0);u.pouch-=u.mag;}
         const R=b.rally;u.task={kind:'guard',tx:(R?R[0]:u.x)+(out%4-1.5)*.9,ty:(R?R[1]:u.y+1)+Math.floor(out/4)*.9};u.path=null;out++;continue;}
@@ -72,8 +72,9 @@ export const WAR={
       // une charge explosive : une demi-caisse d'explosifs
       if(!armed||u.w!==d.id)cost['a:'+d.id]=1;/* la formation d'élite se paie (vivres surtout) */if(D.choc)for(const [r,v] of Object.entries(D.cost||{}))cost[r]=(cost[r]||0)+v;if(charges>0)cost.explosifs=(cost.explosifs||0)+charges*.5;if(nv==='camo'||nv==='both'||nv==='jumcamo')cost.tenue_camo=1;if(nv==='bino'||nv==='both')cost.jumelles_ir=1;if(nv==='jum'||nv==='jumcamo')cost.jumelles=1;
       if(armor&&u.armor!==armor)cost['p:'+armor]=1;
+      if(D.choc&&(u.drillT||0)<(D.drill||24)){why.push(`formation d’élite : encore ${Math.ceil((D.drill||24)-(u.drillT||0))} h pour ${u.name||'une recrue'}`);continue;}   // (V12.4 : l'élite coûte peu mais se forme 24 h)
       const pay=this.canPay(b.f,b.i+1,b.j+1,cost);if(!pay.ok){why.push('il manque '+pay.miss.join(', '));break;}this.pay(b.f,b.i+1,b.j+1,cost);
-      b.inside.splice(b.inside.indexOf(u),1);u.inBarracks=null;u.k=k;u.w=d.id;if(D.choc&&u.h){u.h.vit=D.choc.vit;u.h.tough=D.choc.tough;}if(charges>0)u.charges=(u.charges||0)+charges;if(nv==='camo'||nv==='both'||nv==='jumcamo')u.camoSuit=true;if(nv==='bino'||nv==='both'){u.bino=60;u.irLeft=80;u.jum=44;}if(nv==='jum'||nv==='jumcamo')u.jum=44;const Wd=this.W(d.id);u.mag=0;u.pouch=0;if(D.smoke)u.smoke=D.smoke;if(armor){u.armor=armor;u.plates={};}
+      b.inside.splice(b.inside.indexOf(u),1);u.inBarracks=null;u.skin=b.skin||'meumeu';u.k=k;u.w=d.id;if(D.choc&&u.h){u.h.vit=D.choc.vit;u.h.tough=D.choc.tough;}if(charges>0)u.charges=(u.charges||0)+charges;if(nv==='camo'||nv==='both'||nv==='jumcamo')u.camoSuit=true;if(nv==='bino'||nv==='both'){u.bino=60;u.irLeft=80;u.jum=44;}if(nv==='jum'||nv==='jumcamo')u.jum=44;const Wd=this.W(d.id);u.mag=0;u.pouch=0;if(D.smoke)u.smoke=D.smoke;if(armor){u.armor=armor;u.plates={};}
       u.homeBarracks=b.id;u.x=b.i+bw/2+(this.rand()-.5)*bw;u.y=b.j+bh+.7;u.anim='idle';this.s.units.push(u);this.uIndex.set(u.id,u);this.resupply(u);u.mag=Math.min(Wd.p.mag,u.pouch||0);u.pouch-=u.mag;
       const R=b.rally;u.task={kind:'guard',tx:(R?R[0]:u.x)+(out%4-1.5)*.9,ty:(R?R[1]:u.y+1)+Math.floor(out/4)*.9};u.path=null;out++;}
     if(out){this.log(this.cityName(b),`${out} ${servant?'servant':charges>0||nv?'commando':'soldat'}${out>1?'s':''} ${servant?'de pièce ':''}sort${out>1?'ent':''} de la caserne.`,'good');this.emit({type:'trained',x:b.i+1,y:b.j+1,k,f:b.f});}
@@ -99,7 +100,7 @@ export const WAR={
     const cost={['a:'+d.id]:1,['m:'+d.id]:+(nsv*cr+gunnerCrates).toFixed(4)};if(armor)cost['p:'+armor]=need;
     const pay=this.canPay(b.f,b.i+1,b.j+1,cost);if(!pay.ok)return {ok:false,why:['il manque '+pay.miss.join(', ')]};
     this.pay(b.f,b.i+1,b.j+1,cost);
-    const [bw,bh]=this.sizeOf(b),R=b.rally||[b.i+bw/2+2,b.j+bh+3],exit=u=>{b.inside.splice(b.inside.indexOf(u),1);u.inBarracks=null;u.k='soldat';u.homeBarracks=b.id;u.x=b.i+bw/2+(this.rand()-.5)*bw;u.y=b.j+bh+.7;u.anim='idle';u.mag=0;u.pouch=0;u.serve=null;u.role=null;u.task=null;u.path=null;this.s.units.push(u);this.uIndex.set(u.id,u);if(armor){u.armor=armor;u.plates={};}this.face(u,R[0]-u.x,R[1]-u.y);};
+    const [bw,bh]=this.sizeOf(b),R=b.rally||[b.i+bw/2+2,b.j+bh+3],exit=u=>{b.inside.splice(b.inside.indexOf(u),1);u.skin=b.skin||'meumeu';u.inBarracks=null;u.k='soldat';u.homeBarracks=b.id;u.x=b.i+bw/2+(this.rand()-.5)*bw;u.y=b.j+bh+.7;u.anim='idle';u.mag=0;u.pouch=0;u.serve=null;u.role=null;u.task=null;u.path=null;this.s.units.push(u);this.uIndex.set(u.id,u);if(armor){u.armor=armor;u.plates={};}this.face(u,R[0]-u.x,R[1]-u.y);};
     const gunner=L[0];exit(gunner);gunner.w=d.id;gunner.servant=false;gunner.pouch=Wd.carry;gunner.mag=Math.min(Wd.p.mag,gunner.pouch);gunner.pouch-=gunner.mag;gunner.task={kind:'guard',tx:R[0],ty:R[1]};
     const crew=L.slice(1);for(const u of crew){exit(u);u.w=null;u.servant=true;u.ammoW=d.id;u.crates=cr;u.serve=gunner.id;}
     const r=this.formSquad(L.map(u=>u.id));if(r.ok){r.sq.name=`${d.name} · équipage`;r.sq.leader=gunner.id;}
@@ -125,8 +126,8 @@ export const WAR={
   //    nos mines, nos gares qui s'approchent de leur territoire) — et plusieurs raids à la fois quand ils en ont les moyens.
   intrudersNear(x,y,r){return this.s.units.filter(u=>u.f==='meumeu'&&active(u)&&d2(u.x,u.y,x,y)<r&&this.spotted(u,'beee',1));},
   // prendre des gardes : la ville d'abord (elle en garde `keep`), puis les voisines à moins de 90 cases (elles en gardent 3)
-  beeeMuster(c,cities,need,keep=2){let pool=[];const all=[c,...cities.filter(o=>o!==c).sort((a,z)=>d2(a.x,a.y,c.x,c.y)-d2(z.x,z.y,c.x,c.y))];
-    for(const o of all){if(pool.length>=need)break;if(o!==c&&d2(o.x,o.y,c.x,c.y)>90)continue;const g=this.beeeGuards(o);pool=pool.concat(g.slice(0,Math.max(0,g.length-(o===c?keep:Math.max(3,Math.ceil(this.beeeGarrisonMin(o)/2))))));}
+  beeeMuster(c,cities,need,keep=2,reach=90){let pool=[];const all=[c,...cities.filter(o=>o!==c).sort((a,z)=>d2(a.x,a.y,c.x,c.y)-d2(z.x,z.y,c.x,c.y))];
+    for(const o of all){if(pool.length>=need)break;if(o!==c&&d2(o.x,o.y,c.x,c.y)>reach)continue;const g=this.beeeGuards(o);pool=pool.concat(g.slice(0,Math.max(0,g.length-(o===c?keep:Math.max(3,Math.ceil(this.beeeGarrisonMin(o)/2))))));}
     return pool.slice(0,need);},
   // La contre-batterie : on bombarde une ville, leur priorité est d'aller prendre la batterie, même loin.
   // La réponse est à la mesure du danger : les défenseurs autour de la batterie estimée, et la gravité du bombardement.
@@ -135,9 +136,9 @@ export const WAR={
     for(const c of cities){const S=c.shelled;if(!S||this.s.t-S.at>8)continue;
       const band=B.bands.find(b=>b.kind==='contre'&&b.city===c.id);if(band){band.pt=[S.x,S.y];continue;}
       if(this.s.t<(S.retry??0))continue;const def=this.defendersAt(S.x,S.y);
-      const need=Math.min(30,Math.max(4,Math.ceil(def*1.6)+2+Math.floor(S.danger/3)));const pool=this.beeeMuster(c,cities,need);
-      if(pool.length<Math.max(4,Math.ceil(need*.8))){S.retry=this.s.t+2;c.dig=Math.max(c.dig||0,1);if(!S.told){S.told=true;this.log(c.name,`${c.name} rassemble des renforts pour faire taire notre batterie.`,'warn');}continue;}
-      const near=this.s.buildings.filter(b=>b.f==='meumeu'&&!b.ruin).sort((a,z)=>this.distB(a,S.x,S.y)-this.distB(z,S.x,S.y))[0]||this.building(c.centre);if(!near)continue;
+      const need=Math.min(60,Math.max(6,Math.ceil(def*1.6)+4+Math.floor(S.danger/2)));const pool=this.beeeMuster(c,cities,need,2,150);
+      if(pool.length<Math.max(4,Math.ceil(need*.6))){S.retry=this.s.t+2;c.dig=Math.max(c.dig||0,1);if(!S.told){S.told=true;this.log(c.name,`${c.name} rassemble des renforts pour faire taire notre batterie.`,'warn');}continue;}
+      const near=this.s.buildings.filter(b=>b.f==='meumeu'&&!b.ruin&&B.known?.[b.id]).sort((a,z)=>this.distB(a,S.x,S.y)-this.distB(z,S.x,S.y))[0]||this.building(c.centre);if(!near)continue;
       const b=this.makeBand(pool,near,c);b.kind='contre';b.city=c.id;b.pt=[S.x,S.y];B.waves=(B.waves||0)+1;
       (this.s.fog?0:this.log(c.name,`${pool.length} Bèè partent de ${c.name} à l’assaut de notre batterie (${def?`${def} défenseurs estimés`:'peu défendue'}).`,'bad'));
       this.s.fog||this.emit({type:'wave',n:pool.length,x:S.x,y:S.y,from:[c.x,c.y]});}},
@@ -155,7 +156,8 @@ export const WAR={
     (this.s.fog?0:this.log(L.name,`Contre-attaque bèè : ${pool.length} Bèè marchent sur ${L.name} pour la reprendre.`,'bad'));this.s.fog||this.emit({type:'wave',n:pool.length,x:L.x,y:L.y,from:[from.x,from.y]});},
   // Se retrancher : une ville menacée (bombardée, voisine d'une ville perdue) creuse ses tranchées, face au danger ;
   // dig 1 : une ligne ; dig 2 : un réseau — deux lignes en arc et des boyaux. Les civils creusent, le pays paie.
-  beeeFortify(cities){const B=this.s.beee;B.digT=(B.digT||0)+1;if(B.digT<3)return;B.digT=0;
+  beeeFortify(cities){return;   /* (V12.5, demande du joueur) plus de tranchées ni de fosses : les Bèè ne creusent plus */
+    const B=this.s.beee;B.digT=(B.digT||0)+1;if(B.digT<3)return;B.digT=0;
     const foes=this.s.buildings.filter(b=>b.f==='meumeu'&&!b.ruin&&typeof B.known?.[b.id]==='object'&&(b.k==='centre'||b.done));
     // la ville la plus proche de notre capitale, et toute ville à moins de 140 cases de nos bâtiments, se couvre d'une ligne dès le
     // dixième jour (quand sa garnison est là)
@@ -175,14 +177,14 @@ export const WAR={
       let ok=false;
       for(const [sx,sy] of spots){let pit=null;   // la fosse : la première place libre de 2 × 2 cases, au plus près du point voulu
         for(let r=0;r<=3&&!pit;r++)for(let dj=-r;dj<=r&&!pit;dj++)for(let di=-r;di<=r&&!pit;di++){if(Math.max(Math.abs(di),Math.abs(dj))!==r)continue;const i=Math.round(sx)+di,j=Math.round(sy)+dj;
-          const cells=[[i,j],[i+1,j],[i,j+1],[i+1,j+1]];if(this.canLine('beee','tranchee',cells).length===4)pit=cells;}
-        if(pit&&this.planLine('beee','tranchee',pit).ok){ok=true;const u=this.beeeAvailable?.(pit[0][0],pit[0][1],40)?.[0];if(u)this.beeeAssign(u,{kind:'line',line:'tranchee',x:pit[0][0],y:pit[0][1]});}}
+          const cells=[[i,j],[i+1,j],[i,j+1],[i+1,j+1]];if(this.canLine('beee','sacs',cells).length===4)pit=cells;}
+        if(pit&&this.planLine('beee','sacs',pit).ok){ok=true;const u=this.beeeAvailable?.(pit[0][0],pit[0][1],40)?.[0];if(u)this.beeeAssign(u,{kind:'line',line:'sacs',x:pit[0][0],y:pit[0][1]});}}
       c.dug=lvl;if(ok)this.log(c.name,lvl>=2?`${c.name} se couvre de fosses de combat.`:`${c.name} creuse une fosse de combat face à la menace.`,'warn');}
     // les terrassiers : tant qu'une ligne n'est pas finie, trois villageois de la ville y creusent (les gardes l'occuperont à l'alerte,
     // voir beeeGarrison)
-    const N=this.N;for(const c of cities){if(!(c.dig>0))continue;const todo=Object.keys(this.s.trenches).map(Number).filter(k=>{const t=this.s.trenches[k];return t.f==='beee'&&!t.b&&d2(k%N+.5,((k/N)|0)+.5,c.x,c.y)<22;});if(!todo.length)continue;
-      const diggers=this.s.units.filter(u=>u.f==='beee'&&u.task?.kind==='line'&&u.task.line==='tranchee'&&d2(u.x,u.y,c.x,c.y)<40).length;
-      for(let n=diggers;n<Math.min(3,todo.length);n++){const k=todo[Math.floor(this.rand()*todo.length)];const u=this.beeeAvailable?.(k%N,(k/N)|0,45)?.[0];if(!u)break;this.beeeAssign(u,{kind:'line',line:'tranchee',x:k%N,y:(k/N)|0});}}},
+    const N=this.N;for(const c of cities){if(!(c.dig>0))continue;const todo=Object.keys(this.s.sacs).map(Number).filter(k=>{const t=this.s.sacs[k];return t.f==='beee'&&!t.b&&d2(k%N+.5,((k/N)|0)+.5,c.x,c.y)<22;});if(!todo.length)continue;
+      const diggers=this.s.units.filter(u=>u.f==='beee'&&u.task?.kind==='line'&&u.task.line==='sacs'&&d2(u.x,u.y,c.x,c.y)<40).length;
+      for(let n=diggers;n<Math.min(3,todo.length);n++){const k=todo[Math.floor(this.rand()*todo.length)];const u=this.beeeAvailable?.(k%N,(k/N)|0,45)?.[0];if(!u)break;this.beeeAssign(u,{kind:'line',line:'sacs',x:k%N,y:(k/N)|0});}}},
   // ce qu'ils ont vu ou entendu : une alerte, un point et un rayon d'incertitude
   beeeNotice(x,y,r,why){const B=this.s.beee;B.alerts??=[];const a=B.alerts.find(a=>d2(a.x,a.y,x,y)<8&&this.s.t-a.t<2);if(a){const repeat=this.s.t-a.t>.3||a.why!==why;a.x=(a.x+x)/2;a.y=(a.y+y)/2;a.t=this.s.t;a.r=Math.min(a.r,r);a.why=why;if(repeat)a.done=false;return;}
     B.alerts.push({x,y,r,t:this.s.t,why,done:false});if(B.alerts.length>20)B.alerts.shift();
@@ -208,12 +210,6 @@ export const WAR={
   shotNoise(u,W,x1,y1){let dB=W.dB;const S=W.sup;if(S){u.supUse=(u.supUse||0)+1;let R=S.R;if(S.life)R*=1-(1-S.floor)*Math.min(1,(u.supUse-1)/S.life);if(S.wet)R*=u.supUse<=S.wet?S.wetK:1;dB=Math.max(W.actDb||100,Math.round(W.dB0-Math.min(38,R)));}
     u.lastDb=dB;u.firedAt=this.s.t;u.firedK=1+.9*Math.max(0,Math.min(1,Math.max(W.flash||0,(dB-125)/25)));if(u.f!=='meumeu')return;this.beeeHear(u.x,u.y,dB);
     if(W.crackDb>dB+2&&x1!=null){const k=.4+this.rand()*.5;this.beeeHear(u.x+(x1-u.x)*k,u.y+(y1-u.y)*k,W.crackDb,'claquement');}},
-  // Une armée nombreuse couvre aussi les approches lointaines, par binômes coordonnés. Les axes suivent
-  // une dernière observation ou des bâtiments ennemis réellement connus ; sinon les secteurs tournent.
-  // les patrouilles de route : un binôme va jusqu'à la ville voisine (par le vrai chemin) et revient, toutes les dix heures environ
-  beeeRoadPatrols(cities){const t=this.s.t;for(const c of cities){if(t<(c.roadT||0))continue;c.roadT=t+9+this.rand()*6;const g=this.beeeGuards(c);if(g.length<6)continue;
-      const o=cities.filter(o=>o!==c&&d2(o.x,o.y,c.x,c.y)<140).sort((p,q)=>d2(p.x,p.y,c.x,c.y)-d2(q.x,q.y,c.x,c.y))[Math.floor(this.rand()*2)];if(!o)continue;
-      const route=this.scoutRoute(c,[o.x+2,o.y+3]);for(const u of g.slice(0,2)){u.task={kind:'patrol',pts:route,i:0,until:t+6+d2(o.x,o.y,c.x,c.y)*.35,home:[c.x,c.y],city:c.id,sector:1,road:1};u.path=null;}}},
   // La reconnaissance lointaine : les Bèè savent que l'ennemi a commencé dans le coin d'en face (la carte le veut ainsi) ; depuis la ville la plus avancée,
   // un binôme pousse une pointe dans cette direction — de plus en plus loin, de plus en plus souvent à mesure que la guerre s'aggrave — et rentre.
   // Ce qu'il voit nourrit le renseignement (beeeScout) : sans lui, les offensives attendaient que nous passions à portée de leurs villes.
@@ -229,21 +225,13 @@ export const WAR={
     const tx=Math.max(4,Math.min(N-5,c.x+Math.cos(ang)*reach)),ty=Math.max(4,Math.min(N-5,c.y+Math.sin(ang)*reach));const fs=this.freeSpot(tx,ty,8);const route=this.scoutRoute(c,[fs[0],fs[1]]);
     for(const u of g.slice(0,2)){u.task={kind:'patrol',pts:route,i:0,until:t+20+reach*.8,home:[c.x,c.y],city:c.id,sector:1,road:1,recon:1};u.path=null;}
     B.reconT=t+DAY*(L>=3?1.2:2.4);},
-  beeeSectorPatrols(cities){this.beeeRoadPatrols(cities);this.beeeRecon(cities);const t=this.s.t,B=this.s.beee;for(const c of cities){if(t<(c.sectorT||0))continue;const g=this.beeeGuards(c);if(g.length<8)continue;
-      const activePairs=this.s.units.filter(u=>u.f==='beee'&&u.city===c.id&&u.task?.kind==='patrol'&&u.task.sector).length/2;if(activePairs>=2)continue;
-      const known=this.s.buildings.filter(b=>b.f==='meumeu'&&b.done&&!b.ruin&&B.known?.[b.id]).map(b=>{const [x,y]=this.bc(b);return {x,y,d:d2(x,y,c.x,c.y)};}).filter(q=>q.d<180).sort((a,z)=>a.d-z.d)[0];
-      const lead=B.lead&&t-B.lead.t<24?B.lead:known;const base=lead?(lead.cone?lead.bearing:Math.atan2(lead.y-c.y,lead.x-c.x)):(c.sectorN||0)*Math.PI/2;c.sectorN=(c.sectorN||0)+1;
-      const pair=Math.min(2-activePairs,Math.floor((g.length-4)/2));for(let n=0;n<pair;n++){const ang=base+(n?-.65:.65),radius=lead&&!lead.cone?Math.max(30,Math.min(75,d2(lead.x,lead.y,c.x,c.y))):45+(c.sectorN%3)*10;
-        const at=(r,a)=>this.freeSpot(c.x+Math.cos(a)*r,c.y+Math.sin(a)*r,6);const pts=[at(18,ang),at(radius,ang),at(radius*.75,ang+.5),at(25,ang+.75),at(12,ang)];
-        for(const u of g.slice(n*2,n*2+2)){u.task={kind:'patrol',pts,i:0,until:t+18,home:[c.x,c.y],city:c.id,sector:1};u.path=null;}}
-      c.sectorT=t+6;}},
   // l'itinéraire d'une reconnaissance : un vrai chemin (calculé une fois), en étapes de 15 cases, aller et retour
   scoutRoute(c,p){const N=this.N,cl=v=>Math.max(0,Math.min(N-1,Math.floor(v)));const ti=cl(p[0]),tj=cl(p[1]);const cost=this.costFn('beee');
     const r=this.pather.find(cl(c.x),cl(c.y),ti,tj,cost,k=>Math.abs(k%N-ti)<=3&&Math.abs(((k/N)|0)-tj)<=3,Math.max(60000,N*300));const P=r.path||[];
     const out=[];const ok=r.done&&P.length>5;if(ok){for(let k=14;k<P.length;k+=15)out.push([P[k][0]+.5,P[k][1]+.5]);out.push([P[P.length-1][0]+.5,P[P.length-1][1]+.5]);}
     else{const L=d2(p[0],p[1],c.x,c.y),n=Math.max(1,Math.ceil(L/15));for(let k=1;k<=n;k++)out.push(this.freeSpot(c.x+(p[0]-c.x)*k/n,c.y+(p[1]-c.y)*k/n,4));}   // pas de chemin connu : en ligne droite, étape par étape
     const back=out.slice(0,-1).reverse();back.push([c.x,c.y]);return out.concat(back);},
-  beeeGuards(c){return this.s.units.filter(u=>u.f==='beee'&&u.city===c.id&&u.task?.kind==='guard'&&active(u)&&!u.band&&!u.sentry&&!u.heavy);},
+  beeeGuards(c){return (this.beeeByCity?this.beeeByCity(c.id):this.s.units).filter(u=>u.f==='beee'&&u.city===c.id&&u.task?.kind==='guard'&&active(u)&&!u.band&&!u.sentry&&!u.heavy);},
   // La garnison : ce qu'une ville garde toujours, selon sa taille (quatre à dix soldats ; la capitale et les greniers un peu plus).
   beeeGarrisonMin(c){const ct=this.building(c.centre);if(!ct)return 0;const res=ct.done?this.cityStats(ct).res:0;const cap=c===this.s.beee.cities.find(x=>!x.fallen);
     return Math.min(10,4+Math.floor(res/10)+(cap?2:0)+(ct.granary?1:0));},
@@ -256,8 +244,11 @@ export const WAR={
   // plus proche qui en a de trop ; au calme, chaque garde tient un point clé ; à l'alerte (des Meumeu vus tout près, une menace
   // forte, un bombardement), les gardes descendent dans les tranchées de la ville et s'y couchent.
   beeeGarrison(cities){const t=this.s.t;
-    for(const u of this.s.units){if(u.f!=='beee'||u.k!=='soldat'||!active(u)||u.band||u.task&&u.task.kind!=='guard')continue;if(u.city!=null&&cities.some(c=>c.id===u.city))continue;
-      const c=cities.slice().sort((a,z)=>d2(a.x,a.y,u.x,u.y)-d2(z.x,z.y,u.x,u.y))[0];if(!c)return;u.city=c.id;u.home=c.centre;u.keyB=null;u.task={kind:'guard',tx:c.x+2,ty:c.y+3};u.path=null;}
+    /* (V12.5) ni ceux d'une tête de pont, d'un assaut ou du port, et seulement une ville de la même terre — mesuré : chaque heure, les hommes des têtes de pont
+       étaient rendus à une ville de l'autre côté de la mer, et les soldats appelés au port renvoyés chez eux (8 à 28 sur 100 y arrivaient) */
+    const L=this.landComp(),N=this.N,lk=(x,y)=>L[Math.floor(y)*N+Math.floor(x)];
+    for(const u of this.s.units){if(u.f!=='beee'||u.k!=='soldat'||!active(u)||u.band||u.head||u.stage||u.amphi!=null||u.task&&u.task.kind!=='guard')continue;if(u.city!=null&&cities.some(c=>c.id===u.city))continue;
+      const k=lk(u.x,u.y),c=cities.filter(c=>lk(c.x,c.y)===k).sort((a,z)=>d2(a.x,a.y,u.x,u.y)-d2(z.x,z.y,u.x,u.y))[0];if(!c)continue;u.city=c.id;u.home=c.centre;u.keyB=null;u.task={kind:'guard',tx:c.x+2,ty:c.y+3};u.path=null;}
     // pas assez de soldats pour toutes les garnisons : chacune au prorata (deux au moins), pour qu'aucune ville ne reste vide
     const need=new Map(cities.map(c=>[c,this.beeeGarrisonMin(c)])),have=new Map(cities.map(c=>[c,this.beeeTroops(c).length]));
     {const sN=[...need.values()].reduce((a,n)=>a+n,0),sH=[...have.values()].reduce((a,n)=>a+n,0);if(sH<sN)for(const c of cities)need.set(c,Math.max(2,Math.floor(need.get(c)*sH/sN)));}
@@ -269,7 +260,7 @@ export const WAR={
     for(const c of cities){const I=this.intrudersNear(c.x,c.y,40);const alert=I.length>0||(c.threat||0)>=1.6||c.shelled&&t-c.shelled.at<6;
       if(alert&&!c.alertT){c.alertT=t;c.dig=Math.max(c.dig||0,1);}else if(!alert&&c.alertT&&t-c.alertT>4)c.alertT=null;
       const g=this.beeeGuards(c);const N=this.N;
-      const T0=Object.keys(this.s.trenches).map(Number).filter(k=>{const o=this.s.trenches[k];return o.f==='beee'&&o.b&&d2(k%N+.5,((k/N)|0)+.5,c.x,c.y)<24;}),T=alert?T0:[];
+      const T0=Object.keys(this.s.sacs).map(Number).filter(k=>{const o=this.s.sacs[k];return o.f==='beee'&&o.b&&d2(k%N+.5,((k/N)|0)+.5,c.x,c.y)<24;}),T=alert?T0:[];
       // les sentinelles : la nuit, une (deux pour une grosse garnison) aux points clés, accroupies ; le jour, au calme, elles rentrent
       const night=this.light()<.4,S=this.s.units.filter(u=>u.f==='beee'&&u.sentry&&u.city===c.id&&active(u)&&!u.band);
       if(!night&&!alert&&(c.threat||0)<.8)for(const u of S){u.sentry=false;u.keyB=null;u.orderPost=null;if(u.task?.kind!=='guard')u.task={kind:'guard',tx:c.x+2,ty:c.y+3};}
@@ -400,7 +391,7 @@ export const WAR={
             const L=b.lastI,tg=L&&up.length>=6&&b.morale>.55&&this.s.buildings.filter(o=>o.f==='meumeu'&&B.known?.[o.id]&&typeof B.known[o.id]==='object'&&!B.known[o.id].ruin&&this.t-B.known[o.id].t<3*DAY&&d2(o.i,o.j,L[0],L[1])<80).sort((p,q)=>d2(p.i,p.j,L[0],L[1])-d2(q.i,q.j,L[0],L[1]))[0];
             if(tg){b.kind=null;b.target=tg.id;b.aim='contre-attaque';b.calmT=0;this.bandSet(b,'approche','contre-attaque');this.s.fog||this.log(this.cityName(tg),`Les Bèè contre-attaquent : ${up.length} poursuivent vers ${this.cityName(tg)} (${BUILDINGS[tg.k].name.toLowerCase()}) !`,'bad');continue;}
             this.bandDisband(b,up);continue;}goal=city?[city.x,city.y]:b.from;}}
-      if(b.kind==='contre'&&b.state!=='repli'){goal=b.pt;if(d2(b.pt[0],b.pt[1],c[0],c[1])<4&&this.s.t-b.contactT>1){b.calmT=(b.calmT||0)+dt;if(b.calmT>2){this.bandRetreat(b,up,c,true);continue;}}}
+      if((b.kind==='contre'||b.kind==='riposte')&&b.state!=='repli'){goal=b.pt;if(d2(b.pt[0],b.pt[1],c[0],c[1])<4&&this.s.t-b.contactT>1){b.calmT=(b.calmT||0)+dt;if(b.calmT>2){this.bandRetreat(b,up,c,true);continue;}}}
       const seen=this.bandContacts(b,up);if(seen.length){b.contactT=this.s.t;b.fightT=(b.fightT||0)+dt;}
       // sous le brouillard : on apprend l'existence d'une colonne quand un des nôtres la voit
       if(this.s.fog&&!b.meuSeen&&up.some(u=>this.spotted(u,'meumeu'))){b.meuSeen=true;const tg=this.building(b.target);this.log(tg?this.cityName(tg):'Front',`Une colonne bèè d’environ ${up.length} est repérée${tg?` en direction de ${this.cityName(tg)}`:''} !`,'bad');this.emit({type:'wave',n:up.length,x:c[0],y:c[1],from:b.from});}
@@ -413,7 +404,7 @@ export const WAR={
       // plus une cartouche dans le groupe : on décroche (on ne reste pas planté devant l'ennemi)
       if(b.state!=='repli'&&up.every(u=>!(u.mag>0)&&!(u.pouch>0)&&!UDEF(u).img)){this.bandSet(b,'repli','plus de munitions');this.bandRetreat(b,up,c,true);continue;}
       // ils ne décrochent qu'après une vraie défaite
-      if(b.state!=='repli'&&(b.morale<.35||lost>=.45)){this.bandRetreat(b,up,c);continue;}
+      if(b.state!=='repli'&&(b.kind==='defense'||b.kind==='contre'?(b.morale<.35||lost>=.45):(b.morale<.2||lost>=.7))){this.bandRetreat(b,up,c);continue;}   // (un assaut ne se replie plus à mi-chemin : 70 % de pertes)
       const range=this.bandRange(up),stand=range*.92;
       // plus d'objectif : on en choisit un autre, ou l'on rentre
       if(!goal&&b.aim==='installation'&&!b.settled&&target){b.settled=true;const [sx,sy]=this.bc(target);const camp=this.beeeBuild?.('camp',Math.round(sx),Math.round(sy),10);
@@ -435,6 +426,8 @@ export const WAR={
           break;}
         case 'attente':{const main=B.bands.find(o=>o.id===b.waitFor);if(!main||main.state!=='rassemblement'){this.bandSet(b,'approche');break;}if(enemy)this.bandDeploy(b,up,c,enemy,stand);break;}
         case 'approche':{for(const u of up)u.charge=false;
+          // pris sous un feu qu'ils ne voient pas : ils avancent en tirant au lieu de marcher l'arme à la bretelle (de jour comme de nuit : la nuit les couvre aussi)
+          if(!enemy&&supp>.2&&b.kind!=='defense')for(const u of up)u.charge=true;
           // au contact, ou dès qu'on leur tire dessus : ils se déploient là, à distance de tir, au lieu de marcher sous le feu
           if(enemy&&(d2(enemy.x,enemy.y,c[0],c[1])<range*1.35||supp>.2)){this.bandDeploy(b,up,c,enemy,Math.min(stand,d2(enemy.x,enemy.y,c[0],c[1])));break;}
           if(goal&&b.kind!=='defense'&&b.kind!=='contre'&&d2(goal[0],goal[1],c[0],c[1])<(b.kind==='rail'?2.5:Math.max(3,range*.7))&&!enemy){this.bandSet(b,'objectif');if(b.kind!=='rail')for(const u of up)this.bandToObjective(u,b);break;}
@@ -466,8 +459,8 @@ export const WAR={
           if(de>range*1.05){this.bandSet(b,'bond','hors de portée : on avance par bonds');b.half=0;this.bandBound(b,up,c,enemy,stand);break;}
           if(de<range*.45&&b.morale<.75){this.bandDeploy(b,up,c,enemy,stand);}   // trop près, pas assez sûrs : on reprend ses distances
           // l'assaut en masse : deux fois plus nombreux, le moral haut, l'ennemi plaqué au sol (ou l'échange qui s'éternise)
-          else if(up.length>=6&&up.length>=Math.max(1,seen.filter(e=>e.w||UDEF(e).img).length)*2&&b.morale>.6&&(esupp>.3||(b.fightT||0)>1)&&de<range*1.02){this.bandSet(b,'assaut','deux fois plus nombreux : à l’assaut');
-            const L=up[0];this.log('Front',`${up.length} Bèè montent à l’assaut en masse contre ${seen.length} des nôtres !`,'bad');if(L)this.s.fog||this.emit({type:'wave',n:up.length,x:L.x,y:L.y,from:[L.x,L.y]});}
+          else if(up.length>=6&&up.length>=Math.max(1,seen.filter(e=>e.w||UDEF(e).img).length)*2&&b.morale>.6&&(esupp>.3||(b.fightT||0)>1)&&de<range*1.02){this.bandSet(b,'assaut','deux fois plus nombreux : à l’assaut, par bonds');
+            const L=up[0];this.log('Front',`${up.length} Bèè montent à l’assaut par bonds contre ${seen.length} des nôtres !`,'bad');if(L)this.s.fog||this.emit({type:'wave',n:up.length,x:L.x,y:L.y,from:[L.x,L.y]});}
           break;}
         case 'bond':{for(const u of up)u.charge=false;
           const movers=up.filter((u,q)=>q%2===b.half);const done=movers.every(u=>d2(u.x,u.y,u.task.tx,u.task.ty)<.6);
@@ -475,7 +468,15 @@ export const WAR={
           if(done||b.t>3){b.half=1-b.half;b.t=0;if(!enemy&&this.s.t-b.contactT>2){this.bandSet(b,'approche');break;}this.bandBound(b,up,c,enemy,stand);}break;}
         case 'assaut':{if(!enemy){this.bandSet(b,goal?'approche':'repli');break;}
           if(b.morale<.45){this.bandDeploy(b,up,c,enemy,stand);break;}
-          for(const u of up){u.charge=false;const e=seen.slice().sort((a,z)=>d2(a.x,a.y,u.x,u.y)-d2(z.x,z.y,u.x,u.y))[0];u.task.tx=e.x;u.task.ty=e.y;u.task.foe=e.id;}break;}
+          // un assaut organisé : chacun garde son couloir (l'écart de la ligne) ; par bonds alternés de trois cases — une moitié court pendant que
+          // l'autre tire — au lieu de tous courir sur le même homme
+          {const E=[seen.reduce((a,e)=>a+e.x,0)/seen.length,seen.reduce((a,e)=>a+e.y,0)/seen.length],dx=E[0]-c[0],dy=E[1]-c[1],L=Math.hypot(dx,dy)||1,px=-dy/L,py=dx/L,n=up.length;
+           const movers=up.filter((u,q)=>q%2===(b.half??0)&&u.task?.rush);
+           if(b.t>.35||!movers.length||movers.every(u=>d2(u.x,u.y,u.task.tx,u.task.ty)<.7)){b.half=1-(b.half??0);b.t=0;
+             up.forEach((u,q)=>{u.charge=false;const off=(q-(n-1)/2)*Math.max(1.2,b.spacing*.8),lx=E[0]+px*off,ly=E[1]+py*off,dd=d2(u.x,u.y,lx,ly);
+               if(q%2===b.half){const k=Math.min(1,3/Math.max(.01,dd));u.task.tx=u.x+(lx-u.x)*k;u.task.ty=u.y+(ly-u.y)*k;u.task.rush=true;}else{u.task.tx=u.x;u.task.ty=u.y;u.task.rush=false;}
+               u.task.foe=seen.slice().sort((a,z)=>d2(a.x,a.y,lx,ly)-d2(z.x,z.y,lx,ly))[0].id;});}}
+          break;}
         case 'objectif':{if(b.kind==='rail'){if(enemy){this.bandDeploy(b,up,c,enemy,stand);break;}if(this.bandRailCut(b,up))this.bandRetreat(b,up,c,true);break;}
           if(enemy){for(const u of up){u.task={kind:'band',tx:u.x,ty:u.y};u.path=null;}this.bandDeploy(b,up,c,enemy,stand);break;}
           if(!goal){this.bandSet(b,'approche');break;}
@@ -511,14 +512,92 @@ export const WAR={
     if(b.state==='repli'){if(!at)this.go(u,T0.tx,T0.ty);else u.anim='idle';return;}
     // la charge : on court sur l'ennemi en tirant (mal)
     // l'assaut : un tiers reste et couvre (il tire, arrêté) ; les autres courent sans tirer jusqu'à trois cases, puis tirent
-    if(b.state==='assaut'&&armed){const e=T0.foe!=null&&this.unit(T0.foe);if(e&&active(e)){const cover=b.m.indexOf(u.id)%3===0;const de=d2(u.x,u.y,e.x,e.y);
-      if(cover){if(!this.engage(u,e)&&de>this.engageRange(u))this.go(u,e.x,e.y);return;}
-      if(de>3.2){u.post='debout';this.go(u,e.x,e.y);return;}if(!this.engage(u,e))this.go(u,e.x,e.y);return;}}
+    if(b.state==='assaut'&&armed){const e=T0.foe!=null&&this.unit(T0.foe);if(e&&active(e)){const de=d2(u.x,u.y,e.x,e.y);
+      // au contact (moins de 3 cases) : on tire, on finit ; sinon ceux qui courent courent (debout, sans tirer) jusqu'à leur place, les autres tirent
+      if(de<=3.2){if(!this.engage(u,e))this.go(u,e.x,e.y);return;}
+      if(T0.rush&&d2(u.x,u.y,T0.tx,T0.ty)>.5){u.post='debout';this.go(u,T0.tx,T0.ty);return;}
+      if(u.post==='debout')u.post='accroupi';if(!this.engage(u,e)){u.anim='aim';this.face(u,e.x-u.x,e.y-u.y);}return;}}
     // à sa place : on tire (après s'être calé) ; en route : on ne tire pas
     if(!at){this.go(u,T0.tx,T0.ty);return;}
     if(b.dir)this.face(u,b.dir[0],b.dir[1]);
     if(armed&&(b.state==='feu'||b.state==='bond'||b.state==='approche'||b.state==='rassemblement'||b.state==='attente')){const e=this.nearestEnemy(u,Math.max(this.sight(),this.engageRange(u)));if(e&&this.engage(u,e))return;}
     u.anim=u.anim==='aim'?'aim':'idle';},
+  // ---------- l'assaut d'un Bèè hors des groupes (tâche « assault ») — V12.7, signalé par le joueur ----------
+  // Avant : tous visaient le même point (cinq places de 0,55 case autour d'un bâtiment, l'ennemi rejoint en ligne droite) — des tas qui piétinaient ;
+  // ils « voyaient » les savants dans les laboratoires et tiraient dans les murs ; près d'une ville défendue, ils se postaient à portée de fusil d'un
+  // bâtiment que leurs fusils ne peuvent pas abîmer, et y restaient ; pris sous le feu dans le dos, la nuit, ils ne se retournaient pas.
+  // Maintenant : chacun sa place (un arc autour de l'ennemi, le pourtour du bâtiment, une ligne de positions de tir) ; au bruit d'un tir, on se
+  // tourne vers lui, on se baisse, on cherche ; devant un bâtiment couvert par un ouvrage (une tour, le centre-ville), des positions de tir espacées,
+  // à genou — puis, assez nombreux et sans arme lourde ennemie qui tienne le terrain, un assaut PAR BONDS sur l'ouvrage (une moitié court trois
+  // cases pendant que l'autre couvre), jamais une charge en masse.
+  beeeAssaultTick(u,T0,D,enemy){const t=this.s.t,range=this.engageRange(u),desired=Math.max(3.5,range*.92);
+    const target=this.building(T0.targetId)||this.nearestEnemyBuilding(u,range);const tOk=target&&target.f!==u.f&&!target.ruin;
+    let G=null,slot=0,tx=0,ty=0,guard=null;const [sx,sy]=T0.approach||[u.x,u.y];
+    if(tOk){const [tw,th]=this.sizeOf(target);tx=target.i+tw/2;ty=target.j+th/2;slot=this.atkSlot(target,u);
+      guard=BUILDINGS[target.k].defense?target:this.s.buildings.find(b=>b.f!==u.f&&b.done&&!b.ruin&&BUILDINGS[b.k].defense&&d2(b.i,b.j,tx,ty)<BUILDINGS[b.k].defense.range+3)||null;
+      if(guard&&!D.img)G=this.siegeOf(target,guard,sx,sy);}
+    // l'assaut par bonds : ceux qui courent courent (debout, sans tirer) ; arrivés au pied de l'ouvrage, ils y mettent le feu
+    if(G&&enemy)G.lastSeen=t;
+    if(G?.mode==='bond'){const [gw,gh]=this.sizeOf(guard),gx=guard.i+gw/2,gy=guard.j+gh/2;
+      if(enemy&&d2(u.x,u.y,enemy.x,enemy.y)<=range&&this.engage(u,enemy))return;   // on s'arrête pour tirer
+      if(this.distB(guard,u.x,u.y)<1.8){const p=this.atkPerimeter(guard,this.atkSlot(guard,u),sx,sy);if(p&&d2(u.x,u.y,p[0],p[1])>.45){u.post='debout';this.go(u,p[0],p[1]);return;}if(this.engage(u,guard))return;}
+      else if(slot%2===G.half){if(!T0.bnd||T0.bnd.h!==G.swap){const dx=gx-u.x,dy=gy-u.y,L=Math.hypot(dx,dy)||1,step=Math.min(3,Math.max(0,L-1.2));const [bx,by]=this.freeSpot(u.x+dx/L*step,u.y+dy/L*step,1);T0.bnd={x:bx,y:by,h:G.swap};}
+        if(d2(u.x,u.y,T0.bnd.x,T0.bnd.y)>.5){u.post='debout';this.go(u,T0.bnd.x,T0.bnd.y);return;}}
+      if(u.post==='debout')u.post='accroupi';}
+    if(enemy){T0.sabotage=false;T0.look=null;const dist=d2(u.x,u.y,enemy.x,enemy.y);
+      if(dist<=range&&this.engage(u,enemy))return;
+      if(G?.mode==='bond'&&T0.bnd){u.anim='aim';this.face(u,enemy.x-u.x,enemy.y-u.y);return;}   // pendant les bonds, on tient sa place
+      // chacun sa place sur l'arc, à bonne distance : l'angle pris au premier contact, décalé de son couloir
+      if(T0.eng?.id!==enemy.id){const a=Math.atan2(u.y-enemy.y,u.x-enemy.x)+this.beeeLane(u)*1.2/Math.max(4,desired);T0.eng={id:enemy.id,a};}
+      this.go(u,enemy.x+Math.cos(T0.eng.a)*desired,enemy.y+Math.sin(T0.eng.a)*desired);return;}
+    // on se fait tirer dessus sans voir d'où : on se tourne vers le bruit, on se baisse et l'on cherche (le saccage attend) ; si rien ne se
+    // montre au bout d'une demi-heure, on avance de quatre cases vers le bruit, chacun dans son couloir
+    {const L=this.beeeHeard(u);if(L){if(!T0.look||t-T0.look.t>.45)T0.lookSince=t;T0.look=L;}}
+    if(T0.look&&t-T0.look.t<.45){const a=T0.look.a;
+      if(t-(T0.lookSince??t)>.5&&!D.img){if(!T0.probe||T0.probe.t!==T0.lookSince){const ln=this.beeeLane(u)*1.2;T0.probe={t:T0.lookSince,x:u.x+Math.cos(a)*4-Math.sin(a)*ln,y:u.y+Math.sin(a)*4+Math.cos(a)*ln};}
+        if(d2(u.x,u.y,T0.probe.x,T0.probe.y)>.6){u.post='accroupi';this.go(u,T0.probe.x,T0.probe.y);return;}}
+      if(u.post!=='couche')u.post='accroupi';u.path=null;this.face(u,Math.cos(a),Math.sin(a));u.anim='aim';return;}
+    if(!tOk){this.beeeRetarget(u);return;}
+    if(D.img&&this.distB(target,u.x,u.y)<=range*.98&&this.engage(u,target))return;   // une pièce tire sur le bâtiment
+    const [tw,th]=this.sizeOf(target);
+    if(!guard&&!D.img){// au contact : quatre y mettent le feu (une place chacun sur le pourtour) ; les autres couvrent, espacés, à genou, tournés vers l'extérieur
+      const p=slot<4?this.atkPerimeter(target,slot,sx,sy):null;
+      if(p){T0.sabotage=true;if(d2(u.x,u.y,p[0],p[1])>.45){u.post='debout';this.go(u,p[0],p[1]);return;}
+        if(u.torch>0&&!(target.fire>0)&&this.distB(target,u.x,u.y)<1.2){u.torch--;target.fire=FIRE.hours;this.emit({type:'fire',x:tx,y:ty});this.log(this.cityName(target),`Des Bèè ont mis le feu à ${BUILDINGS[target.k].name.toLowerCase()} : il faut l’éteindre (réparer).`,'bad');}
+        if(this.engage(u,target))return;this.go(u,tx,ty,[target.i,target.j,tw,th]);return;}
+      const q=this.atkArc(tx,ty,slot-4,sx,sy,Math.max(tw,th)/2+3.5,1.6);if(d2(u.x,u.y,q[0],q[1])>.5){this.go(u,q[0],q[1]);return;}
+      if(u.post!=='couche')u.post='accroupi';this.face(u,q[0]-tx,q[1]-ty);u.anim='idle';return;}
+    // un bâtiment couvert par un ouvrage : une ligne de positions de tir, espacées, à genou, à portée (ou sa place gagnée pendant les bonds)
+    if(G?.mode==='bond'&&T0.bnd){if(d2(u.x,u.y,T0.bnd.x,T0.bnd.y)>.5){this.go(u,T0.bnd.x,T0.bnd.y);return;}if(u.post!=='couche')u.post='accroupi';this.face(u,tx-u.x,ty-u.y);u.anim='aim';return;}
+    const stand=Math.max(Math.max(tw,th)/2+1,range*.93),p=this.atkArc(tx,ty,slot,sx,sy,stand);
+    if(d2(u.x,u.y,p[0],p[1])>.55){this.go(u,p[0],p[1]);return;}
+    if(u.post!=='couche')u.post='accroupi';u.anim='aim';this.face(u,tx-u.x,ty-u.y);},
+  // le couloir d'un Bèè : de −4 à +4, stable (son identité)
+  beeeLane(u){return (u.id*7)%9-4;},
+  // le bruit d'un tir entendu près de lui (moins de 14 cases de l'écouteur, il y a moins de 0,25 h) : la direction, seulement
+  beeeHeard(u){const t=this.s.t;let best=null;for(const a of this.s.beee?.alerts||[]){if(!a.cone||t-a.t>.25||!['tir','claquement','explosion','camarade abattu'].includes(a.why))continue;
+      if(d2(a.ox,a.oy,u.x,u.y)>14)continue;if(!best||a.t>best.t)best={a:a.bearing,t:a.t};}return best;},
+  // les places autour d'un bâtiment attaqué : chacun la sienne, gardée tant qu'il y est (transitoire : rien dans la sauvegarde)
+  atkSlot(b,u){const t=this.s.t,M=this._atk??=new Map();let e=M.get(b.id);if(!e){e={ids:[],seen:new Map(),pr:t};M.set(b.id,e);}
+    e.seen.set(u.id,t);if(t-e.pr>.2){e.pr=t;for(let q=0;q<e.ids.length;q++){const id=e.ids[q];if(id!=null&&t-(e.seen.get(id)??-9)>.2){e.ids[q]=null;e.seen.delete(id);}}}
+    let i=e.ids.indexOf(u.id);if(i<0){i=e.ids.indexOf(null);if(i<0){e.ids.push(u.id);i=e.ids.length-1;}else e.ids[i]=u.id;}return i;},
+  atkCount(b){const e=this._atk?.get(b.id);return e?e.ids.filter(id=>id!=null).length:0;},
+  // le pourtour d'un bâtiment, à 0,6 case de ses murs : quatre places, une par face, en partant du côté d'où l'on vient
+  atkPerimeter(b,slot,sx,sy){const [w,h]=this.sizeOf(b),o=.6,x0=b.i-o,y0=b.j-o,W=w+2*o,H=h+2*o,P=2*(W+H);if(slot>=4)return null;
+    const at=s=>{s=((s%P)+P)%P;if(s<W)return [x0+s,y0];s-=W;if(s<H)return [x0+W,y0+s];s-=H;if(s<W)return [x0+W-s,y0+H];s-=W;return [x0,y0+H-s];};
+    let s0=0,bd=1e9;for(let s=0;s<P;s+=.25){const p=at(s),d=d2(p[0],p[1],sx,sy);if(d<bd){bd=d;s0=s;}}
+    const p=at(s0+[0,1,-1,2][slot]*P/4);return this.freeSpot(p[0],p[1],.9);},
+  // une ligne de places sur un arc de rayon R autour de (cx,cy), face à l'arrivée : la place k s'écarte de l'axe de 1,25 case par rang
+  atkArc(cx,cy,slot,sx,sy,R,gap=1.25){const a0=Math.atan2(sy-cy,sx-cx),k=((slot+1)>>1)*(slot%2?1:-1),a=a0+k*gap/Math.max(2,R);return this.freeSpot(cx+Math.cos(a)*R,cy+Math.sin(a)*R,1);},
+  // le siège d'un bâtiment couvert par un ouvrage (transitoire) : des positions de tir d'abord ; au bout d'une heure, cinq assaillants au moins :
+  // un assaut par bonds sur l'ouvrage ; moins de trois debout, on reprend ses positions et l'on attend une heure et demie
+  siegeOf(target,guard,sx,sy){const t=this.s.t,M=this._siege??=new Map();let G=M.get(target.id);if(!G||G.guard!==guard.id||t-G.seen>2){G={guard:guard.id,t0:t,mode:'feu',half:0,swap:t,until:0,chk:-9,seen:t};M.set(target.id,G);}
+    G.seen=t;if(t-G.chk<.15)return G;G.chk=t;const n=this.atkCount(target);
+    // (on n'entre que si l'ennemi reste caché depuis une demi-heure : retranché, ou derrière les bâtiments — sinon, on le tire depuis ses positions)
+    if(G.mode==='feu'&&n>=5&&t-G.t0>=1&&t>=G.until&&t-(G.lastSeen??-9)>.5){G.mode='bond';G.half=0;G.swap=t;this.log(this.cityName(guard),`Les Bèè montent à l’assaut par bonds sur ${BUILDINGS[guard.k].name.toLowerCase()} (${n}).`,'bad');}
+    else if(G.mode==='bond'&&n<3){G.mode='feu';G.until=t+1.5;G.t0=t;}
+    else if(G.mode==='bond'&&t-G.swap>.35){G.half=1-G.half;G.swap=t;}
+    return G;},
   // le prochain objectif d'un groupe dont la cible est tombée : le bâtiment utile le plus proche
   beeeTarget(x,y,final=false){const w={gare:4,mine:4,camp:2.5,atelier:2,arsenal:2.5,manufacture:3,entrepot:3,ferme:1.5,moulin:1.5,champ:1,centre:2,caserne:2,tour:1,fonderie:2,hopital:1.5};
     const ours=this.s.buildings.filter(b=>b.f==='meumeu'&&b.done&&!b.ruin&&(!b.capital||final)&&d2(b.i,b.j,x,y)<45);if(!ours.length)return null;
