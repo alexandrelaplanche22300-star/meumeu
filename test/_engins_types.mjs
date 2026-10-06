@@ -7,4 +7,4 @@ import {exemple,EXEMPLES} from '../js/engins.js';
 // la carte des tests : la carte V2 (celle du joueur) ; OKM_CARTE=classique pour l'ancienne
 export const CARTE=process.env.OKM_CARTE==='classique'?{}:{map:'v2'};
 export const TYPES={jeep:'jeep',jeep_mg:'jeep_mg',automitrailleuse:'auto4',char:'auto8',automoteur:'automoteur',char_lourd:'tigre'};
-export function enginsDeTest(W){W.s.vdesigns??={};for(const [id,ex] of Object.entries(TYPES))W.s.vdesigns[id]={id,f:'meumeu',name:EXEMPLES[ex],status:'prototype',v:exemple(ex),t:0};W.enginsSync();return W;}
+export function enginsDeTest(W){for(const id of ['garage_engins','chenilles','tourelles','gros_moteurs'])if(!W.s.innov.done.includes(id))W.s.innov.done.push(id);W.s.vdesigns??={};for(const [id,ex] of Object.entries(TYPES))W.s.vdesigns[id]={id,f:'meumeu',name:EXEMPLES[ex],status:'prototype',v:exemple(ex),t:0};W.enginsSync();return W;}

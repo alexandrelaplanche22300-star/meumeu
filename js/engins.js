@@ -93,6 +93,9 @@ export const VEH_ARMES={
 // v : {chassis, L, W, H, pl:{av:[mm,°], avb, fl, ar, toit:mm, sol:mm}, ouvert, moteur:{type, P, n, pos:'arriere'|'avant'|'centre'}, bidons,
 //      tourelles:[{forme, z, x, D, h, long, pl:{av:[mm,°], fl, ar, toit}, arme:p, coax:p|null, elec}], mgCaisse:p|null,
 //      racks:[{ti, n, z, x}] (ti : l'index de la tourelle, 'c' la mitrailleuse de caisse, 'x0' la coaxiale de la tourelle 0), passagers, soute}
+// (V12.8) la recherche qu'une conception demande avant que le garage la fabrique
+export function techNeeded(v){const C=CHASSIS[v.chassis]||{},out=['garage_engins'];if(/chenilles|semi|losange/.test(C.train||''))out.push('chenilles');
+  if((v.tourelles||[]).some(T=>T.forme!=='affut'))out.push('tourelles');if(['six','v8','v12'].includes(v.moteur?.type))out.push('gros_moteurs');return out;}
 export function newVehicle(ch='chenM'){const C=CHASSIS[ch];const v={chassis:ch,L:C.L[1],W:C.W[1],H:C.H[1],pl:JSON.parse(JSON.stringify(C.pl)),ouvert:!!C.ouvert,
     moteur:{type:ch==='jeep'?'bicyl':ch==='camion'||ch==='voiture14'?'quatre':ch==='losange'?'vapeur':ch==='geant'?'v12':['auto4','auto6','auto8','semi','chenL'].includes(ch)?'six':'six',P:0,n:ch==='geant'?3:1,pos:CHASSIS[ch].moteurAv?'avant':'arriere'},
     bidons:0,tourelles:[],mgCaisse:null,racks:[],passagers:0,soute:0};
@@ -161,7 +164,7 @@ export function polyNormal(P,inside){let n=[0,0,0];for(let i=1;i<P.length-1;i++)
 // l'équipage : 1 tireur, et 1 chargeur dès que l'arme se charge coup par coup (canon) ou qu'elle est lourde ; la couronne minimale suit le poids et la
 // longueur de la munition (le chargeur la manie) ; les munitions : volume d'un coup rangé (étui couché, une alvéole)
 export function armeVeh(p){if(!p)return null;let D;try{D=derive(p);}catch(e){return null;}const auto=!!(D.p.action&&/auto|gaz|recul|rotatif/.test(D.p.action));
-  const charge=!auto||D.mass>1.2;const crew=charge?2:1;const colCm=D.COL/10,dcCm=D.Dc/10;
+  const charge=!auto||D.mass>1.2;const crew=charge&&(D.mass>.6||(D.p.d||0)>6)?2:1;   /* (V12.8 : un petit calibre se charge d'une main : un seul servant) */const colCm=D.COL/10,dcCm=D.Dc/10;
   const Dmin=Math.max(crew>1?22:15,1.8*colCm+(crew>1?5:2))+1.2*Math.cbrt(Math.max(.01,D.mass));
   const vol=colCm*Math.pow(dcCm*1.18+.1,2)*1.25;   // cm³ par coup rangé
   return {D,crew,charge,Dmin,vol,colCm,dcCm,rm:D.rm,kg:D.mass,name:p.kit?.name||D.name||'arme'};}
