@@ -353,7 +353,12 @@ export const VEHICULES={
   vehResupply(v,V){if(v.state==='go'||this.s.t<(v.supT||0))return;v.supT=this.s.t+.5;
     for(let i=0;i<v.mounts.length;i++){const m=v.mounts[i],A=V.armes[i],W=this.W(m.w);if(!W||!(W.perCrate>0))continue;const want=A.coups-(m.mag+m.pouch);if(want<W.perCrate*.5&&m.mag+m.pouch>0)continue;
       // (l'arme se charge tout de suite : un engin ravitaillé est prêt à tirer — recharger une bande, c'est quatre secondes de combat, une heure de jeu)
-      const crates=Math.max(1,Math.floor(want/W.perCrate));const got=this.take(v.f,v.x,v.y,'m:'+m.w,crates,5);if(got>0){m.pouch+=Math.round(got*W.perCrate);const n=Math.min(Math.max(0,(W.p.mag||1)-m.mag),m.pouch);m.mag+=n;m.pouch-=n;}}},
+      const crates=Math.max(1,Math.floor(want/W.perCrate));let got=this.take(v.f,v.x,v.y,'m:'+m.w,crates,5);
+      // (V12.8) un engin conçu : ses armes sont à lui, aucun arsenal n'en fait les caisses d'avance — il les fait au dépôt avec les matières
+      // de leur recette (la même qu'à l'arsenal : poudre, plomb, cuivre, fer), autant que le dépôt en a
+      if(got<crates&&V.engin){const R=this.recipe({f:v.f,i:v.x,j:v.y},'m:'+m.w);if(R){const H=this.have(v.f,v.x,v.y,5);let n=crates-got;
+        for(const [k,q] of Object.entries(R.in))if(q>0)n=Math.min(n,Math.floor((H[k]||0)/q+1e-9));if(n>0){for(const [k,q] of Object.entries(R.in))if(q>0)this.take(v.f,v.x,v.y,k,q*n,5);got+=n;}}}
+      if(got>0){m.pouch+=Math.round(got*W.perCrate);const n=Math.min(Math.max(0,(W.p.mag||1)-m.mag),m.pouch);m.mag+=n;m.pouch-=n;}}},
   // ---------- le blindage ----------
   // Ce que vaut un engin comme cible pour un tireur : l'antichar le prend avant tout ; une arme légère seulement si elle peut percer sa face la plus
   // mince à cette distance (une jeep, oui ; un char, non — on ne gâche pas ses cartouches sur de l'acier)

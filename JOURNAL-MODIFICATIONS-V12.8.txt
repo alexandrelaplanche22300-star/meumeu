@@ -37,5 +37,12 @@ OBERKOMMANDO DER MEUMEU — V12.8 « ENGINS » : LE JOURNAL DES MODIFICATIONS
   * feu F5 : un engin conçu à vide ne se recharge pas au dépôt (ses armes sont des conceptions « engin » dont aucun dépôt n'a les caisses).
   * feu F1 : l'automitrailleuse conçue met 1 Bèè sur 8 hors de combat en 4 h (l'ancienne 8 sur 8) : à comprendre.
 
-RESTE DE L'ÉTAPE C : retirer les anciens VEHDEF terrestres et leurs modèles (jeep, jeep_mg, automitrailleuse, char, automoteur) ; réécrire
-vehicules_garage pour les engins conçus ; munitions des râteliers rechargées depuis les ressources.
+- Les tests d'engins et de véhicules roulent sur la CARTE V2 (le mode du joueur ; OKM_CARTE=classique pour l'ancienne). Les barges : laissées
+  de côté à la demande du joueur.
+- Munitions des engins conçus (vehicules.js vehResupply) : à l'arrêt près d'un dépôt, si le dépôt n'a pas leurs caisses, l'engin les fait avec
+  les matières de leur recette (celle de l'arsenal). Feu F5 recalé (le dépôt reçoit des matières, plus des caisses de l'ancienne mitrailleuse) :
+  passe, au prix exact (une caisse de la jeep à mitrailleuse : plomb 0,52, cuivre 0,83, poudre 0,28, pièces 0,09 — 388 coups).
+- Carte V2, résultats : engins_essence, engins_transport, équipage, garage, blindage : tout passe ; feu : F1 et F3 échouent ; conduite : C1
+  (automitrailleuse 4×4 1 but sur 4, jeep à mitrailleuse et char lourd 3 sur 4).
+
+RESTE DE L'ÉTAPE C : conduite (C1) ; efficacité de l'automitrailleuse (F1).

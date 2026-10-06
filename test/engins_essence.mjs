@@ -10,8 +10,8 @@
 //   R7 la jauge survit à la sauvegarde
 //   node test/engins_essence.mjs [graine]
 const out={textContent:''};globalThis.document??={getElementById:()=>out};
-const {World}=await import('../js/world.js');const {VEHDEF}=await import('../js/vehicules.js');const E=await import('../js/engins.js');
-const SEED=+(process.argv[2]||101);const W=new World(SEED);W.s.fog=false;
+const {World}=await import('../js/world.js');const {VEHDEF}=await import('../js/vehicules.js');const E=await import('../js/engins.js');const {CARTE}=await import('./_engins_types.mjs');
+const SEED=+(process.argv[2]||101);const W=new World(SEED,CARTE);W.s.fog=false;
 let fail=0;const P=(ok,t,d)=>{if(!ok)fail++;console.log(`${ok?'PASS':'FAIL'}  ${t}  [${d}]`);};
 const run=h=>{for(let t=0;t<h;t+=.025)W.update(.025);};const r2=x=>Math.round(x*100)/100;
 W.s.vdesigns={e_char:{id:'e_char',f:'meumeu',name:'Char moyen',status:'prototype',v:E.exemple('chenM'),t:0},e_cam:{id:'e_cam',f:'meumeu',name:'Camion',status:'prototype',v:E.exemple('camion'),t:0}};
@@ -49,6 +49,6 @@ t3.fuel=Ee.plein*.5;const f6=t3.fuel;const g6=reach(t3,t3.x+10,t3.y);W.vehMove(t
 for(let t=0;t<1.5&&t3.state==='go';t+=.025){W.update(.025);if((t3.spd||0)>.5)maxUp=Math.max(maxUp,t3.fuel-last);last=t3.fuel;}
 P(maxUp<=1e-9&&t3.fuel<f6,'R6. en roulant, aucun plein',`plus forte hausse en roulant ${maxUp} · ${r2(f6)} → ${r2(t3.fuel)}`);
 // R7
-try{t3.fuel=7.25;const data=W.serialize();const W2=new World(SEED);W2.restore(data);const v2=W2.s.vehicles.find(x=>x.id===t3.id);P(v2?.fuel===7.25,'R7. la jauge survit à la sauvegarde',`relu ${v2?.fuel}`);}
+try{t3.fuel=7.25;const data=W.serialize();const W2=new World(SEED,CARTE);W2.restore(data);const v2=W2.s.vehicles.find(x=>x.id===t3.id);P(v2?.fuel===7.25,'R7. la jauge survit à la sauvegarde',`relu ${v2?.fuel}`);}
 catch(e){P(false,'R7. la jauge survit à la sauvegarde',e.message);}
 console.log(fail?`${fail} ÉCHEC(S)`:'TOUT PASSE');process.exit(fail?1:0);

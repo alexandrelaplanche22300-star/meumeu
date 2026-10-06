@@ -14,7 +14,7 @@
 //   ELECTRON_RUN_AS_NODE=1 ../.runtime/electron.exe test/vehicules_equipage.mjs [graine]
 const out={textContent:''};globalThis.document??={getElementById:()=>out};
 const {World}=await import('../js/world.js');const {VEHDEF}=await import('../js/vehicules.js');
-const SEED=+(process.argv[2]||101);const {enginsDeTest}=await import('./_engins_types.mjs');const W=enginsDeTest(new World(SEED));W.s.fog=false;const N=W.N;
+const SEED=+(process.argv[2]||101);const {enginsDeTest,CARTE}=await import('./_engins_types.mjs');const W=enginsDeTest(new World(SEED,CARTE));W.s.fog=false;const N=W.N;
 let fail=0;const P=(ok,t,d)=>{if(!ok)fail++;console.log(`${ok?'PASS':'FAIL'}  ${t}  [${d}]`);};
 const cap=W.capital();const run=h=>{for(let t=0;t<h;t+=.025)W.update(.025);};
 const spot=(k,x0,y0)=>{const V=VEHDEF[k];for(let r=0;r<14;r++)for(let a=0;a<24;a++){const x=Math.floor(x0+Math.cos(a/24*6.283)*r)+.5,y=Math.floor(y0+Math.sin(a/24*6.283)*r)+.5;if(W.vehFits(V,x,y,0)&&!W.s.vehicles.some(o=>Math.hypot(o.x-x,o.y-y)<3))return [x,y];}return null;};

@@ -14,7 +14,7 @@
 const out={textContent:''};globalThis.document??={getElementById:()=>out};
 const {World}=await import('../js/world.js');const {VEHDEF}=await import('../js/vehicules.js');
 const SEED=+(process.argv[2]||101);let fail=0,errs=0;const P=(ok,t,d)=>{if(!ok)fail++;console.log(`${ok?'PASS':'FAIL'}  ${t}  [${d}]`);};
-const {enginsDeTest}=await import('./_engins_types.mjs');const W=enginsDeTest(new World(SEED));const cap=W.capital();
+const {enginsDeTest,CARTE}=await import('./_engins_types.mjs');const W=enginsDeTest(new World(SEED,CARTE));const cap=W.capital();
 const at=W.buildSpot('meumeu','garage',cap.i+8,cap.j+2,0,24);const g=W.addBuilding('meumeu','garage',at[0],at[1],true);const [gw,gh]=W.sizeOf(g);
 const have=()=>W.have('meumeu',g.i+1,g.j+1);const fill=(k,n)=>{cap.stock[k]=(cap.stock[k]||0)+n;};
 const run=(h,each)=>{for(let t=0;t<h;t+=.025){try{W.update(.025);}catch(e){errs++;if(errs<3)console.log('ERREUR',e.stack);return;}if(each?.())return;}};

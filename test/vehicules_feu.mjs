@@ -6,6 +6,8 @@
 //   F3 le canon du char ne tire pas sur un isolé (la coaxiale s'en charge) ; il tire sur un groupe de trois
 //   F4 sans servant, aucun coup
 //   F5 les coups à bord diminuent ; à vide, plus de tir ; à l'arrêt près d'un dépôt qui a les caisses, le plein se refait
+//      (CORRECTION V12.8 : les armes d'un engin conçu sont à lui — le dépôt n'a pas leurs caisses, il a les MATIÈRES de leur recette ; le plein
+//      se refait avec elles, et le stock baisse exactement du prix des caisses faites)
 //   F6 l'automoteur (casemate, ±12°) arrêté pivote sa caisse vers une cible à 90° et la prend sous son feu
 //   F6 CORRIGÉ (mesuré : les Bèè bougent pendant les 3 h, l'écart final au relèvement de départ ne dit rien) : la caisse a tourné d'au moins 45° vers
 //      les cibles et l'engin a tiré
@@ -20,7 +22,7 @@ const out={textContent:''};globalThis.document??={getElementById:()=>out};
 const {World}=await import('../js/world.js');const {VEHDEF}=await import('../js/vehicules.js');
 const SEED=+(process.argv[2]||101);let fail=0,errs=0;const P=(ok,t,d)=>{if(!ok)fail++;console.log(`${ok?'PASS':'FAIL'}  ${t}  [${d}]`);};
 // un terrain dégagé, loin des villes : un monde neuf, la guerre déclarée, pas de brouillard
-const {enginsDeTest}=await import('./_engins_types.mjs');const mk=()=>{const W=enginsDeTest(new World(SEED));W.s.fog=false;if(!W.atWar)W.declareWar('meumeu');WW=W;return W;};
+const {enginsDeTest,CARTE}=await import('./_engins_types.mjs');const mk=()=>{const W=enginsDeTest(new World(SEED,CARTE));W.s.fog=false;if(!W.atWar)W.declareWar('meumeu');WW=W;return W;};
 const open=(W,k,x0,y0)=>{const V=VEHDEF[k];for(let r=0;r<80;r++)for(let a=0;a<32;a++){const x=Math.floor(x0+Math.cos(a/32*6.283)*r)+.5,y=Math.floor(y0+Math.sin(a/32*6.283)*r)+.5;
   let ok=W.vehFits(V,x,y,0)&&!W.s.vehicles.some(o=>o.hp>0&&Math.hypot(o.x-x,o.y-y)<14);for(let q=0;ok&&q<12;q+=2)ok=W.vehFits(V,x+q,y,0)&&W.los(x,y,x+q,y);if(ok)return [x,y];}return null;};
 const crewUp=(W,v,n)=>{const us=W.s.units.filter(u=>u.f==='meumeu'&&u.hp>0&&!u.inVeh).slice(0,n);for(const u of us){u.x=v.x;u.y=v.y;W.vehBoard(v,u);}};
@@ -53,9 +55,10 @@ const down=us=>us.filter(u=>u.hp<=0||u.h?.state==='hors').length;
   const T=[];for(let n=0;n<6;n++)T.push(bee(W,p[0]+8,p[1]-2+n*.8));const pin=T.map(u=>[u.x,u.y]);
   run(W,3,()=>T.forEach((u,i)=>{if(u.hp>0){u.x=pin[i][0];u.y=pin[i][1];u.mag=0;u.rounds=0;}}));const after=v.mounts[0].mag+v.mounts[0].pouch;const dry=v.mounts[0].dry;
   // le plein : près de la capitale (son dépôt), des caisses de munitions de mitrailleuse lourde
-  const cap=W.capital();const d=W.building(cap.centre??cap.id)||W.s.buildings.find(b=>b.f==='meumeu'&&b.k==='centre');d.stock['m:mg_lourde_mle1']=(d.stock['m:mg_lourde_mle1']||0)+6;
-  const q=open(W,'jeep_mg',d.i+2,d.j+6);v.x=q[0];v.y=q[1];v.state='idle';v.supT=0;W.update(.05);const refill=v.mounts[0].mag+v.mounts[0].pouch;
-  P(after<10&&dry&&refill>after,'F5. les coups baissent, à vide on cesse, le plein se refait au dépôt',`10 → ${after} (à vide : ${dry}) → ${refill} après le dépôt`);}
+  const cap=W.capital();const d=W.building(cap.centre??cap.id)||W.s.buildings.find(b=>b.f==='meumeu'&&b.k==='centre');const R=W.recipe(d,'m:'+v.mounts[0].w);for(const [k,n] of Object.entries(R.in))d.stock[k]=(d.stock[k]||0)+n*6;
+  const q=open(W,'jeep_mg',d.i+2,d.j+6);v.x=q[0];v.y=q[1];v.state='idle';v.supT=0;const h0=W.have('meumeu',v.x,v.y,5);W.update(.05);const h1=W.have('meumeu',v.x,v.y,5);const refill=v.mounts[0].mag+v.mounts[0].pouch;
+  const Wd=W.W(v.mounts[0].w),made=(refill-after)/Wd.perCrate,paid=Object.entries(R.in).every(([k,n])=>Math.abs(((h0[k]||0)-(h1[k]||0))-n*made)<1e-6);
+  P(after<10&&dry&&refill>after&&paid,'F5. les coups baissent, à vide on cesse, le plein se refait au dépôt',`10 → ${after} (à vide : ${dry}) → ${refill} après le dépôt · ${made.toFixed(1)} caisses faites avec ${Object.entries(R.in).map(([k,n])=>k+' '+(+((h0[k]||0)-(h1[k]||0)).toFixed(2))).join(', ')} (recette ${JSON.stringify(R.in)}) · payé juste : ${paid}`);}
 // F6
 {const W=mk();const c=W.capital();const p=open(W,'automoteur',c.i+30,c.j+30);const v=W.addCombatVehicle('meumeu','automoteur',p[0],p[1],-Math.PI/2);crewUp(W,v,4);arm(v);
   const G=[bee(W,p[0]+9,p[1]-.4),bee(W,p[0]+9.5,p[1]+.5),bee(W,p[0]+8.8,p[1]+1)];const h0=v.h;let shots=0;W.events.length=0;run(W,3,()=>{for(const e of W.events.splice(0))if(e.type==='shot'&&e.veh===v.id)shots++;});

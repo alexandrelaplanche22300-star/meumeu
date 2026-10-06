@@ -9,8 +9,8 @@
 //   T5 la partie se sauvegarde et se recharge : l'engin conçu, son équipage et sa soute sont toujours là
 //   node test/engins_transport.mjs [graine]   (ou ELECTRON_RUN_AS_NODE=1 ../.runtime/electron.exe test/engins_transport.mjs)
 const out={textContent:''};globalThis.document??={getElementById:()=>out};
-const {World}=await import('../js/world.js');const {VEHDEF}=await import('../js/vehicules.js');const E=await import('../js/engins.js');
-const SEED=+(process.argv[2]||101);const W=new World(SEED);W.s.fog=false;
+const {World}=await import('../js/world.js');const {VEHDEF}=await import('../js/vehicules.js');const E=await import('../js/engins.js');const {CARTE}=await import('./_engins_types.mjs');
+const SEED=+(process.argv[2]||101);const W=new World(SEED,CARTE);W.s.fog=false;
 let fail=0;const P=(ok,t,d)=>{if(!ok)fail++;console.log(`${ok?'PASS':'FAIL'}  ${t}  [${d}]`);};
 const run=h=>{for(let t=0;t<h;t+=.025)W.update(.025);};
 // T1
@@ -35,7 +35,7 @@ P(l1.ok&&Math.abs(full-10)<1e-6&&!l3.ok&&u1.ok&&empty<1e-6,'T3. la soute se char
 W.vehLoad(tank,'fer',40);const out4=W.vehUnboard(tank,'passagers');const R4=roles(tank.crew||[]);
 P(out4.length===3&&!R4.passager&&R4.conducteur===1&&R4.servant===V.places.servants,'T4. seuls les passagers descendent',`descendus ${out4.length} · à bord ${JSON.stringify(R4)}`);
 // T5
-let t5='';try{const data=W.serialize();delete VEHDEF[ID];const W2=new World(SEED);W2.restore(data);const v2=W2.s.vehicles.find(x=>x.id===tank.id);const R5=roles(v2?.crew||[]);
+let t5='';try{const data=W.serialize();delete VEHDEF[ID];const W2=new World(SEED,CARTE);W2.restore(data);const v2=W2.s.vehicles.find(x=>x.id===tank.id);const R5=roles(v2?.crew||[]);
   t5=`${(data.length/1024).toFixed(0)} Ko · fiche ${VEHDEF[ID]?'oui':'non'} · à bord ${JSON.stringify(R5)} · soute ${W2.souteUsed(v2)}`;
   P(!!VEHDEF[ID]&&R5.conducteur===1&&R5.servant===V.places.servants&&Math.abs(W2.souteUsed(v2)-4)<1e-6,'T5. sauvegarde et relecture',t5);}
 catch(e){P(false,'T5. sauvegarde et relecture',e.message);}

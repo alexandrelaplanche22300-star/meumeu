@@ -14,7 +14,7 @@
 //   ELECTRON_RUN_AS_NODE=1 ../.runtime/electron.exe test/vehicules_conduite.mjs [graine]
 const out={textContent:''};globalThis.document??={getElementById:()=>out};
 const {World}=await import('../js/world.js');const {VEHDEF}=await import('../js/vehicules.js');const {TYPES}=await import('./_engins_types.mjs');const VEH_KINDS=Object.keys(TYPES);   // (les engins navals et volants ont leurs propres tests : naval.mjs, air.mjs)
-const SEED=+(process.argv[2]||101);const {enginsDeTest}=await import('./_engins_types.mjs');const W=enginsDeTest(new World(SEED));W.s.fog=false;
+const SEED=+(process.argv[2]||101);const {enginsDeTest,CARTE}=await import('./_engins_types.mjs');const W=enginsDeTest(new World(SEED,CARTE));W.s.fog=false;
 let fail=0;const P=(ok,t,d)=>{if(!ok)fail++;console.log(`${ok?'PASS':'FAIL'}  ${t}  [${d}]`);};
 const cap=W.capital(),N=W.N;const rnd=(()=>{let a=SEED*9301+49297;return ()=>((a=(a*9301+49297)%233280)/233280);})();
 const res={};let errs=0,nan=0,ticks=0,tms=0;const mv={n:0,ms:0,max:0};{const f0=W.vehMove.bind(W);W.vehMove=(...a)=>{const t=performance.now();const r=f0(...a);const d=performance.now()-t;mv.n++;mv.ms+=d;mv.max=Math.max(mv.max,d);return r;};}
