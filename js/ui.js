@@ -828,11 +828,28 @@ function where(x,y){const q=view.toScreen(x,y);const w=view.canvas.width,h=view.
 function alertBox(text,x,y,tone='bad'){const box=$('#alert');box.innerHTML=`${text}${x!=null?` <button class="small" data-gotoxy="${x},${y}">Voir</button>`:''}`;box.className='alert '+tone;box.hidden=false;clearTimeout(ui.alertT);ui.alertT=setTimeout(()=>box.hidden=true,9000);}
 // Les radiographies « Envoyé / Reçu » : seulement les tirs des soldats choisis et ceux qu'ils reçoivent (V12.5 : rétablies, légères — deux fenêtres par côté,
 // une nouvelle au plus toutes les 0,7 s, une seule visible par côté, peinte à 15 images/s puis figée ; elles avaient été coupées parce qu'elles ralentissaient les combats)
-function woundCard(e){if(xray.mode==='off'||!view.sel.size)return;if(!(view.sel.has(e.victim)||(e.shooter!=null&&view.sel.has(e.shooter))))return;
-  const hiddenIntel=e.vf==='beee'&&!world.visibleAt('meumeu',e.x,e.y);
-  const vD=e.vf==='beee'?BEEE.units[e.vk]:UNITS[e.vk];const victim=e.name||(e.vf==='beee'?(vD?.name||'Bèè'):(vD?.name||'Meumeu'));const shooter=e.frag?`${{grenade:'Charge',obus:'Obus',bombe:'Bombe'}[e.frag]}${e.sname?' de '+e.sname:''}`:(e.sname||(e.vf==='meumeu'?'Un Bèè':'Un Meumeu'));
-  const received=e.vf==='meumeu';const d=e.w?world.design(e.w):null;if(d)e.cons=d.p.cons;
-  xray.add({...e,hiddenIntel},{side:received?'L':'R',title:`${received?'Reçu · ':'Envoyé · '}${shooter} → ${hiddenIntel?'Bèè non localisé':victim}`,sub:`${e.frag?`éclat de ${fmt(e.rec.E0*1000/Math.max(1,e.v*e.v)*2,2)} g`:(d?.name||'')} · ${fmt(e.R,e.R<10?1:0)} m · ${Math.round(e.v)} m/s à l’impact${e.cover?` · à travers : ${e.cover}`:''}${hiddenIntel?' · impact hors ligne de mire':''}`});}
+// (V12.8) les engins choisis comptent aussi : leurs tirs (à droite) ; les coups sur leur blindage, le souffle et les blessures de leur équipage
+// à bord (à gauche). Quand plusieurs arrivent à la fois, ils attendent leur tour dans l'ordre (xray.js).
+const selVehs=()=>{const S=new Set(view.selVs||[]);if(view.selV!=null)S.add(view.selV);return S;};
+const picked=e=>{const SV=selVehs();return view.sel.has(e.victim)||e.shooter!=null&&(view.sel.has(e.shooter)||SV.has(e.shooter))||e.veh!=null&&SV.has(e.veh);};
+const vehName=id=>world.s.vehicles.find(v=>v.id===id)?.name;
+const FRAG={grenade:'Charge',obus:'Obus',bombe:'Bombe'};
+function victimOf(e){const vD=e.vf==='beee'?BEEE.units[e.vk]:UNITS[e.vk];const n=e.name||(e.vf==='beee'?(vD?.name||'Bèè'):(vD?.name||'Meumeu'));return e.veh!=null&&vehName(e.veh)?`${n} (à bord de ${vehName(e.veh)})`:n;}
+function woundCard(e){if(xray.mode==='off'||!picked(e))return;
+  const hiddenIntel=e.vf==='beee'&&!world.visibleAt('meumeu',e.x,e.y);const by=e.sname||vehName(e.shooter);
+  const shooter=e.inside?`${e.inside[0].toUpperCase()+e.inside.slice(1)}${by?' ('+by+')':''}`:e.frag?`${FRAG[e.frag]}${by?' de '+by:''}`:(by||(e.vf==='meumeu'?'Un Bèè':'Un Meumeu'));
+  const received=e.vf==='meumeu';const d=e.w?world.design(e.w):null;if(d)e.cons=d.p.cons;const g=e.v>0&&e.rec?.E0?fmt(e.rec.E0*1000/Math.max(1,e.v*e.v)*2,2):null;
+  const sub=e.inside?`${g&&!d?`${g} g · `:''}${Math.round(e.v||0)} m/s dans l’habitacle`:`${e.frag?`éclat de ${g} g`:(d?.name||'')}${e.R!=null?` · ${fmt(e.R,e.R<10?1:0)} m`:''} · ${Math.round(e.v)} m/s à l’impact${e.cover?` · à travers : ${e.cover}`:''}${hiddenIntel?' · impact hors ligne de mire':''}`;
+  xray.add({...e,hiddenIntel},{side:received?'L':'R',title:`${received?'Reçu · ':'Envoyé · '}${shooter} → ${hiddenIntel?'Bèè non localisé':victimOf(e)}`,sub});}
+// la surpression : un Meumeu (ou un Bèè) que le souffle d'une explosion atteint
+function blastCard(e){if(xray.mode==='off'||!picked(e))return;const hiddenIntel=e.vf==='beee'&&!world.visibleAt('meumeu',e.x,e.y);const received=e.vf==='meumeu';const by=e.sname||vehName(e.shooter);
+  xray.add({...e,hiddenIntel},{kind:'souffle',side:received?'L':'R',title:`${received?'Reçu · ':'Envoyé · '}souffle ${FRAG[e.frag]?'('+FRAG[e.frag].toLowerCase()+(by?' de '+by:'')+')':''} → ${hiddenIntel?'Bèè non localisé':victimOf(e)}`,
+    sub:`${fmt(e.W*1000,e.W<.01?1:0)} g de TNT à ${fmt(e.r,1)} m · ${fmt(e.pk,e.pk<10?1:0)} kPa`});}
+// un coup sur le blindage d'un engin : ricochet, arrêté, percé (la plaque en coupe)
+function plateCard(e){const c=e.card;if(!c||xray.mode==='off')return;const SV=selVehs();const mine=SV.has(c.veh),byMe=c.shooter!=null&&(view.sel.has(c.shooter)||SV.has(c.shooter));if(!mine&&!byMe)return;
+  const received=c.vf==='meumeu';const d=c.w?world.design(c.w):null;const by=world.unit(c.shooter)?.name||vehName(c.shooter)||(received?'Un Bèè':'Un Meumeu');
+  xray.add({...e,victim:c.veh,shooter:c.shooter},{kind:'plaque',side:received?'L':'R',title:`${received?'Reçu · ':'Envoyé · '}${by} → ${c.vname} (${c.where})`,
+    sub:`${d?.name||''}${c.R!=null?` · ${fmt(c.R,c.R<10?1:0)} m`:''} · ${Math.round(c.v)} m/s à l’impact`});}
 function soundWhere(e){if(e.x==null)return null;const ears=[...view.sel].map(id=>world.unit(id)).filter(u=>u?.f==='meumeu'&&u.hp>0&&u.h?.state!=='hors');if(!ears.length)return where(e.x,e.y);
   const ear=ears.reduce((a,b)=>Math.hypot(a.x-e.x,a.y-e.y)<Math.hypot(b.x-e.x,b.y-e.y)?a:b),dx=e.x-ear.x,dy=e.y-ear.y,d=Math.hypot(dx,dy),db=e.dB||({shot:150,boom:180,cannon:175,fire:135,collapse:165,stop:185}[e.type]||128),R=Math.max(4,(db-110)/1.6),blocked=!world.los(ear.x,ear.y,e.x,e.y),range=R*(blocked?.62:1);
   const vol=d>range?0:Math.max(.03,Math.pow(1-d/range,.8)),raw=(dx-dy)/Math.max(1,d*Math.SQRT2),pan=d>18?Math.round(raw*3)/3:raw;
@@ -845,7 +862,7 @@ function events(){for(const e of world.events.splice(0)){view.onEvent(e);const P
     case 'shot':audio.play('shot',P,e);whiz(e);break;case 'cannon':audio.play('cannon',P);break;
     case 'wound':{const v=world.unit(e.victim);if(v){hurtRefs.delete(e.victim);hurtRefs.set(e.victim,v);if(hurtRefs.size>80)hurtRefs.delete(hurtRefs.keys().next().value);}woundCard(e);audio.play('hit',P,e);break;}
     case 'down':audio.play('down',P);if(e.f==='meumeu'&&P&&!P.far)say(`${unitName(world.unit(e.id)||{k:'soldat',f:'meumeu'})} est à terre : ${e.cause||''}.`,'bad');break;
-    case 'throw':audio.play('throw',P);break;case 'plate':audio.play('plate',P);if(e.rec)woundCard(e);break;case 'smoke':audio.play('smoke',P);break;case 'reload':audio.play('reload',P);break;case 'pierce':audio.play('pierce',P);break;case 'ricochet':audio.play('ricochet',P);break;case 'impact':if(e.mat==='pierre'||e.mat==='mur'||e.mat==='rocher')audio.play('ricochet',P);else if(!e.hit&&P&&P.vol>.35)audio.play('thud',P,e);break;
+    case 'throw':audio.play('throw',P);break;case 'plate':audio.play('plate',P);if(e.rec)woundCard(e);if(e.card)plateCard(e);break;case 'smoke':audio.play('smoke',P);break;case 'reload':audio.play('reload',P);break;case 'pierce':audio.play('pierce',P);if(e.card)plateCard(e);break;case 'ricochet':audio.play('ricochet',P);if(e.card)plateCard(e);break;case 'blast':blastCard(e);break;case 'impact':if(e.mat==='pierre'||e.mat==='mur'||e.mat==='rocher')audio.play('ricochet',P);else if(!e.hit&&P&&P.vol>.35)audio.play('thud',P,e);break;
     case 'boom':audio.play(e.kind==='bomb'?'bomb':'boom',P,e);break;case 'flak':audio.play('flak',P);break;
     case 'collapse':audio.play('collapse',P);if(e.k&&e.f==='meumeu'&&!e.small)alertBox(`<b>${BUILDINGS[e.k].name} détruit !</b>`,e.x,e.y);break;
     case 'fire':audio.play('fire',P);break;case 'felled':audio.play('felled',P);break;case 'death':audio.play('death',P,e);break;

@@ -1286,13 +1286,13 @@ export class World{
     const k=.6+this.rand()*1.6;return {hit:false,near:Math.max(0,Math.abs(ex)-halfW),px:v.x-Math.cos(a)*k+(this.rand()-.5)*.6,py:v.y-Math.sin(a)*k+(this.rand()-.5)*.6};}
   // Un membre d'équipage touché dans l'habitacle (le projectile qui a percé, ou un éclat de la plaque) : la même blessure que dehors — un rayon qui
   // le frappe d'un côté au hasard (assis : accroupi), le modèle de blessure, l'état qui suit (hors de combat, mort)
-  vehCrewHit(v,u,P,vel,cause){if(!u.h){u.hp=0;return true;}u.x=v.x;u.y=v.y;setSpecies(u.f);let hit=null;
+  vehCrewHit(v,u,P,vel,cause,by=null){if(!u.h){u.hp=0;return true;}u.x=v.x;u.y=v.y;setSpecies(u.f);let hit=null;
     // (un rayon presque droit, comme pour les éclats à terre — mesuré : incliné de ±0,15 rad depuis 2 m, il dérivait de ±30 cm pour un corps de ±10 cm,
     // et manquait presque toujours)
     for(let t=0;t<6&&!hit;t++)hit=this.bodyRay([(this.rand()-.5)*.22,this.rand()*BODY_H*.72,2],[(this.rand()-.5)*.04,(this.rand()-.5)*.04,-1],this.rand()*6.283,'accroupi',u.f);if(!hit)return false;
     const rec=wound(P,vel,hit.p,hit.d,this.rand,this.rand()*1.3);const out=applyWound(u.h,rec,this.rand,cause);u.hitAt=this.s.t;
     (u.h.log??=[]).push({t:this.s.t,what:`touché à bord de ${v.name} (${cause})`,by:''});
-    this.emit({type:'wound',cause:u.h.cause,len:(P.p?.d||2)/1000,victim:u.id,vf:u.f,vk:u.k,rec,out,x:v.x,y:v.y,dir:[0,1],name:u.name,veh:v.id});
+    this.emit({type:'wound',cause:u.h.cause,len:(P.p?.d||2)/1000,victim:u.id,vf:u.f,vk:u.k,rec,out,x:v.x,y:v.y,dir:[0,1],name:u.name,veh:v.id,inside:cause,v:vel,shooter:by,sname:by!=null?(this.unit(by)?.name||this.s.vehicles.find(o=>o.id===by)?.name||null):null});
     if(out?.now==='mort')this.death(u);return true;}
   // Le rayon d'une balle dans le repère du corps, selon la posture ; renvoie le point d'entrée, ou rien (elle passe à côté)
   bodyRay(oL,dL,alpha,post,sp='meumeu'){setSpecies(sp);const ca=Math.cos(-alpha),sa=Math.sin(-alpha);const rot=v=>[v[0]*ca+v[2]*sa,v[1],-v[0]*sa+v[2]*ca];let o=rot(oL),d=rot(dL);
@@ -1625,13 +1625,16 @@ export class World{
     {const Wo=o.w&&this.W(o.w),cal=Wo?.p?.d||0;if(cal>=20&&!o.at){const k=cal/36;E={...E,blast:Math.max(E.blast,4.3*k),inj:Math.max(E.inj,8*k),conc:Math.max(E.conc,12.5*k),stun:Math.max(E.stun,20*k),geo:(E.geo||.6)*1.8};}}
     const fd=new Map();const Df=c=>{let d=fd.get(c);if(!d){d=fragDesign(c.m,c.d);fd.set(c,d);}return d;};
     const shooter=by!=null?this.unit(by):null;const fragReach=Math.min(250,Math.max(0,...(E.cls||[]).map(c=>c.lam*Math.log(Math.max(1,E.vg)/55))));const Rmax=Math.max(E.radius||0,E.stun*1.5,fragReach)+.1;if(shooter?.f==='meumeu'&&f==='meumeu')this.beeeShelled(x,y,shooter,E);const note=(u,what)=>(u.h.log??=[]).push({t:s.t,what,by:shooter?.name||''});
+    // (V12.8) chaque Meumeu ou Bèè que le souffle atteint : un événement « blast » (la radiographie de la surpression, si la victime ou le tireur est choisi)
+    const blastEv=(u,r,eff)=>this.emit({type:'blast',victim:u.id,vf:u.f,vk:u.k,name:u.name,x:u.x,y:u.y,dir:[u.x-x,u.y-y],r,pk:E.pressure?.(r)||0,W:E.W,eff,shooter:by,sname:shooter?.name||null,frag:kind,post:u.post||'debout',w:o.w||null});
     for(const u of [...s.units]){if(!alive(u)||u.id===o.skip)continue;let r=Math.max(.05,d2(u.x,u.y,x,y)*TILE_M);if(E.air)r=Math.hypot(r,.6);if(o.at?.id===u.id)r=o.at.r;if(this.s.sacs[Math.floor(u.y)*N+Math.floor(u.x)]?.b)r*=1.9;if(r>Math.max(Rmax,E.fire||0))continue;
       if(!u.h){this.damage(u,E.dmgB*Math.max(0,1-r/Rmax)*.6,f);continue;}
       u.supp=Math.min(1.5,(u.supp||0)+.9*Math.max(0,1-r/(E.stun*1.5+.5)));if(u.f==='beee')this.beeeAlarm(u);
-      if(r<E.blast){u.h.state='mort';u.h.cause='souffle de l’explosion';note(u,'tué net par le souffle');this.death(u);continue;}
+      if(r<E.blast){u.h.state='mort';u.h.cause='souffle de l’explosion';note(u,'tué net par le souffle');blastEv(u,r,'mort');this.death(u);continue;}
+      {const pk0=E.pressure?.(r)||0;const eff0=r<E.inj?'lesions':r<E.conc?'conc?':r<E.stun?'etourdi':pk0>12?'renverse':null;if(eff0&&eff0!=='conc?')blastEv(u,r,eff0);}
       if(r<E.inj){u.h.shock=Math.max(u.h.shock,30+this.rand()*60);u.h.bleeds.push({name:'poumons (souffle)',rate:.02+this.rand()*.05,limb:null,internal:true});if(u.h.state!=='hors'){u.h.state='hors';u.h.cause='souffle : poumons et tympans déchirés';this.stateChange(u,'hors');}note(u,'soufflé : lésions internes');}
-      else if(r<E.conc){const p=.3+.6*(1-(r-E.inj)/Math.max(.01,E.conc-E.inj));if(this.rand()<p){u.h.conc=Math.max(u.h.conc,20+this.rand()*70);if(u.h.state!=='hors'){u.h.state='hors';u.h.cause='commotion (souffle)';this.stateChange(u,'hors');}note(u,'assommé par le souffle');}
-        else{u.stun=Math.max(u.stun||0,8+this.rand()*10);u.deaf=Math.max(u.deaf||0,s.t+6);note(u,'sonné par le souffle');}}
+      else if(r<E.conc){const p=.3+.6*(1-(r-E.inj)/Math.max(.01,E.conc-E.inj));if(this.rand()<p){u.h.conc=Math.max(u.h.conc,20+this.rand()*70);if(u.h.state!=='hors'){u.h.state='hors';u.h.cause='commotion (souffle)';this.stateChange(u,'hors');}note(u,'assommé par le souffle');blastEv(u,r,'commotion');}
+        else{u.stun=Math.max(u.stun||0,8+this.rand()*10);u.deaf=Math.max(u.deaf||0,s.t+6);note(u,'sonné par le souffle');blastEv(u,r,'sonne');}}
       else if(r<E.stun){u.stun=Math.max(u.stun||0,(3+this.rand()*8)*(1.3-(r-E.conc)/Math.max(.01,E.stun-E.conc)));u.deaf=Math.max(u.deaf||0,s.t+2);}
       // La surpression a une valeur propre (kPa), distincte des éclats. Au-dessus d'environ 12 kPa une peluche de 30 cm
       // est renversée ; plus près, elle est réellement projetée dans l'axe du souffle, sauf si un obstacle l'arrête.

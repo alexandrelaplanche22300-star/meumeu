@@ -382,28 +382,30 @@ export const VEHICULES={
     const cosO=Math.max(.06,Math.cos(oh)*Math.cos(slope*D2R)),obl=Math.acos(cosO),te=t/cosO;const vel=r.v,pen=W.pen(vel),cal=W.p.d||2;
     const hx=v.x-Math.cos(a)*.5,hy=v.y-Math.sin(a)*.5;const where=tur?'la tourelle':face==='avant'?'l’avant':face==='arriere'?'l’arrière':'le flanc';
     v.hitAt=this.s.t;v.threat={a:Math.atan2(sh.y0-v.y,sh.x0-v.x),t:this.s.t};v.lastHit={face:key,t,obl:Math.round(obl/D2R),te:+te.toFixed(2),pen:+pen.toFixed(2)};
+    // (V12.8) la fiche du coup pour la radiographie de la plaque : la face, l'épaisseur et son inclinaison, l'obliquité, ce que le projectile perce
+    const card=o=>({veh:v.id,vf:v.f,vname:v.name,shooter:sh.by,w:sh.w,R:sh.R,where,face:key,t,slope,obl:obl/D2R,te,pen,v:vel,cal,m:W.m||10,he:!!W.he,...o});
     if(t>0){const crit=(68+12*Math.min(1,t/Math.max(.1,cal)))*D2R;const pr=clamp((obl-crit+6*D2R)/(12*D2R),0,1)*(cal>t*3?.3:1);
       // (la balle repart réfléchie sur la normale de la face quand c'est l'angle horizontal qui la fait glisser ; sur une plaque inclinée vue de face,
       // elle saute par-dessus et continue presque droit)
       if(this.rand()<pr){v.lastHit.out='ricochet';const nA=face==='avant'?ref:face==='arriere'?ref+Math.PI:Math.cos(ref+Math.PI/2-a)<0?ref+Math.PI/2:ref-Math.PI/2;
-        this.emit({type:'ricochet',x:hx,y:hy,veh:v.id,f:v.f,ang:oh>Math.PI/4?Math.PI+2*nA-a:a+(this.rand()-.5)*.3,v:vel});return;}
-      if(pen<=te){v.lastHit.out='arrêté';v.hp-=Math.min(.6,.5*(W.m||10)/1000*vel*vel/4000);this.emit({type:'plate',x:hx,y:hy,veh:v.id,mat:'acier',where});return;}}
+        this.emit({type:'ricochet',x:hx,y:hy,veh:v.id,f:v.f,ang:oh>Math.PI/4?Math.PI+2*nA-a:a+(this.rand()-.5)*.3,v:vel,card:card({out:'ricochet'})});return;}
+      if(pen<=te){v.lastHit.out='arrêté';v.hp-=Math.min(.6,.5*(W.m||10)/1000*vel*vel/4000);this.emit({type:'plate',x:hx,y:hy,veh:v.id,mat:'acier',where,card:card({out:'arrêté'})});return;}}
     // percé
     const v2=t>0?vel*Math.sqrt(Math.max(0,1-(te/pen)**2)):vel,E2=.5*(W.m||10)/1000*v2*v2;v.lastHit.out='percé';v.lastHit.v2=Math.round(v2);
-    this.emit({type:'pierce',x:hx,y:hy,veh:v.id,where});const crew=(v.crew||[]).filter(u=>u.hp>0);const open=(V.blindage.dessus?.[0]||0)<.05;
+    const crew=(v.crew||[]).filter(u=>u.hp>0);this.emit({type:'pierce',x:hx,y:hy,veh:v.id,where,card:card({out:'percé',v2,crew:crew.length,nf:t>0?Math.round(.5+3*(te/pen)*Math.min(2,1+t)):0})});const open=(V.blindage.dessus?.[0]||0)<.05;
     // l'obus explosif qui perce éclate dans l'habitacle
     // (des éclats de l'obus lui-même : sa masse en une trentaine de morceaux ; chacun à bord en reçoit un ou plusieurs dans l'espace clos)
     if(W.he&&!W.he.shaped){v.hp-=40+E2/30+W.he.g*3;const fm=Math.max(.05,(W.m||60)/30),fd=Math.max(1,cal/6);
-      for(const u of crew){const k=1+this.poisson(1.5);for(let n=0;n<k&&u.hp>0;n++)if(this.rand()<.6)this.vehCrewHit(v,u,fragDesign(fm*(.4+this.rand()*1.2),fd),700+this.rand()*400,'obus éclaté dans l’habitacle');}
+      for(const u of crew){const k=1+this.poisson(1.5);for(let n=0;n<k&&u.hp>0;n++)if(this.rand()<.6)this.vehCrewHit(v,u,fragDesign(fm*(.4+this.rand()*1.2),fd),700+this.rand()*400,'obus éclaté dans l’habitacle',sh.by);}
       if(this.rand()<.35)v.fire=Math.max(v.fire||0,2);}
     else{v.hp-=E2/45;
       // le projectile lui-même : un homme sur sa trajectoire — chacun couvre une part de la silhouette (assis bas dans une caisse fermée : 15 % ;
       // découvert, le buste dépasse : 20 %) ; mesuré : l'ancienne somme (0,2 + 0,17 par homme) donnait 74 % pour deux hommes, 85 % dès trois
-      if(crew.length&&this.rand()<1-Math.pow(1-(open?.2:.15),crew.length))this.vehCrewHit(v,crew[(this.rand()*crew.length)|0],W.proj||W,v2*.85,'balle à travers la tôle');
+      if(crew.length&&this.rand()<1-Math.pow(1-(open?.2:.15),crew.length))this.vehCrewHit(v,crew[(this.rand()*crew.length)|0],W.proj||W,v2*.85,'balle à travers la tôle',sh.by);
       // les éclats arrachés à la plaque : d'autant plus nombreux que la plaque était épaisse pour ce projectile
       // (le bouchon d'acier que le projectile découpe — π(calibre/2)²·épaisseur, 7,85 g/cm³ — part en morceaux à une fraction de sa vitesse restante)
       const nf=t>0?Math.round(.5+3*(te/pen)*Math.min(2,1+t)):0,plug=7.85e-3*Math.PI*(cal/2)**2*te;
-      for(let n=0;n<nf;n++){const u=crew[(this.rand()*crew.length)|0];if(u&&u.hp>0&&this.rand()<.3)this.vehCrewHit(v,u,fragDesign(Math.max(.002,plug/nf*(.5+this.rand())),Math.max(.3,cal*(.15+this.rand()*.25))),v2*(.5+this.rand()*.4),'éclat de blindage');}
+      for(let n=0;n<nf;n++){const u=crew[(this.rand()*crew.length)|0];if(u&&u.hp>0&&this.rand()<.3)this.vehCrewHit(v,u,fragDesign(Math.max(.002,plug/nf*(.5+this.rand())),Math.max(.3,cal*(.15+this.rand()*.25))),v2*(.5+this.rand()*.4),'éclat de blindage',sh.by);}
       if(CONS_INC(W)&&this.rand()<.12)v.fire=Math.max(v.fire||0,1.5);}
     // les organes : selon la face ; une balle n'en abîme un que selon l'énergie qui lui reste (mesuré : à 22 % par balle quelle qu'elle soit, la
     // première salve de fusils cassait la mitrailleuse d'une jeep — une balle de 33 J aussi sûrement qu'un obus)
@@ -419,8 +421,9 @@ export const VEHICULES={
   vehBlast(v,x,y,E,by,Df,Rmax){const V=VEHDEF[v.k];const dc=d2(v.x,v.y,x,y)*TILE,r=Math.max(.05,dc-Math.min(V.long,V.large)/2*TILE),rc=Math.max(.05,dc);if(r>Rmax)return;
     // (r : depuis la caisse, pour la caisse ; rc : depuis le centre, pour l'équipage assis autour du centre)
     const crew=(v.crew||[]).filter(u=>u.hp>0&&u.h),open=(V.blindage.dessus?.[0]||0)<.05,t=V.blindage.flanc[0];let hurt=0;
-    if(open)for(const u of crew){if(rc<E.blast){u.h.state='mort';u.h.cause='souffle de l’explosion';this.death(u);hurt++;}
-      else if(rc<E.inj){u.h.shock=Math.max(u.h.shock,30+this.rand()*60);if(u.h.state!=='hors'){u.h.state='hors';u.h.cause='souffle : poumons et tympans déchirés';this.stateChange(u,'hors');}hurt++;}}
+    const bev=(u,eff)=>this.emit({type:'blast',victim:u.id,vf:u.f,vk:u.k,name:u.name,x:v.x,y:v.y,dir:[v.x-x,v.y-y],r:rc,pk:E.pressure?.(rc)||0,W:E.W,eff,shooter:by,frag:'obus',post:'accroupi',veh:v.id});
+    if(open)for(const u of crew){if(rc<E.blast){u.h.state='mort';u.h.cause='souffle de l’explosion';bev(u,'mort');this.death(u);hurt++;}
+      else if(rc<E.inj){bev(u,'lesions');u.h.shock=Math.max(u.h.shock,30+this.rand()*60);if(u.h.state!=='hors'){u.h.state='hors';u.h.cause='souffle : poumons et tympans déchirés';this.stateChange(u,'hors');}hurt++;}}
     const a=Math.atan2(v.y-y,v.x-x),rel=wrap(a-v.h),halfW=(Math.abs(Math.cos(rel))*V.large+Math.abs(Math.sin(rel))*V.long)/2*TILE,H=(V.haut||Math.min(V.large*.8,1.1))*TILE;
     // (un éclat qui traverse la tôle touche un homme avec la probabilité surface du corps / surface de la caisse : l'équipage reçoit le même flux
     // qu'à terre, ralenti par la tôle ; si la caisse arrête les éclats, seul le haut du corps d'un équipage découvert reste exposé, par-dessus le bord)
@@ -428,7 +431,7 @@ export const VEHICULES={
       const vel=E.vg*Math.exp(-r/c.lam);if(vel>=40){const nH=Math.min(400,c.n*E.geo/(4*Math.PI*r*r)*2*halfW*H);v.hp-=nH*(pen(vel)>t?.05:.005);}
       const vc=E.vg*Math.exp(-rc/c.lam);if(vc<40)continue;const pc=pen(vc),through=pc>t,v2=through?vc*Math.sqrt(1-(t/pc)**2):vc;
       const A=EXPO.sol.accroupi*(through?1:open?.4:0);if(A>0)for(const u of crew){const k=Math.min(6,this.poisson(c.n*E.geo/(4*Math.PI*rc*rc)*A));
-        for(let n=0;n<k&&u.hp>0;n++)if(this.vehCrewHit(v,u,Df(c),v2,through?'éclat à travers la caisse':'éclat'))hurt++;}}
+        for(let n=0;n<k&&u.hp>0;n++)if(this.vehCrewHit(v,u,Df(c),v2,through?'éclat à travers la caisse':'éclat',by))hurt++;}}
     // le souffle sur la caisse et les roues
     if(r<E.blast*2){v.hp-=(E.dmgB||40)*(open?.4:.15)*(1-r/(E.blast*2));if(r<E.blast&&this.rand()<.5)(v.comp??={}).train=true;}
     v.hitAt=this.s.t;if(hurt&&v.f==='meumeu')this.log('Front',`${v.name} : une explosion tout près, ${hurt} touché(s) à bord.`,'bad');

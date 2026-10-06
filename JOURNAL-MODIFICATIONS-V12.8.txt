@@ -45,4 +45,18 @@ OBERKOMMANDO DER MEUMEU — V12.8 « ENGINS » : LE JOURNAL DES MODIFICATIONS
 - Carte V2, résultats : engins_essence, engins_transport, équipage, garage, blindage : tout passe ; feu : F1 et F3 échouent ; conduite : C1
   (automitrailleuse 4×4 1 but sur 4, jeep à mitrailleuse et char lourd 3 sur 4).
 
+RADIOGRAPHIES « ENVOYÉ / REÇU » (demande du joueur)
+- La file : une fenêtre par côté (reçu à gauche, envoyé à droite) ; les suivantes attendent leur tour dans l'ordre et s'ouvrent à la fermeture
+  de la précédente (lecture raccourcie à 0,9 s quand d'autres attendent ; 40 au plus en attente par côté). Avant : une blessure arrivée moins de
+  0,7 s après la dernière fenêtre était oubliée. En attente, une blessure n'est qu'un événement : sa scène ne se calcule qu'à son tour.
+- Les engins choisis comptent : leurs tirs (à droite) ; à gauche, les coups sur leur blindage (nouvelle fenêtre « plaque » : la plaque en coupe,
+  le projectile sous son obliquité, ricochet / arrêté dans l'acier / percé avec sa vitesse restante et les éclats de la face intérieure vers
+  l'équipage), le souffle sur un équipage découvert, et chaque blessure de l'équipage à bord (balle à travers la tôle, éclat de blindage, obus
+  éclaté dans l'habitacle, éclat à travers la caisse), avec le tireur.
+- La surpression : un événement « blast » par victime du souffle (world.js heBlast, vehicules.js vehBlast) — tué net, lésions internes,
+  commotion, sonné, étourdi, renversé ; nouvelle fenêtre « souffle » : le front de l'onde traverse le Meumeu, les organes atteints s'allument
+  (poumons, intestins, cerveau, oreilles), la pression de crête, la distance, la charge.
+- test/radiographies.mjs X1-X5 : tout passe. Régression (balistique_blessure, vehicules_blindage, vehicules_feu ; avant / après) : identique.
+  (chimie plante avant comme après : W.canStartProject n'existe plus.)
+
 RESTE DE L'ÉTAPE C : conduite (C1) ; efficacité de l'automitrailleuse (F1).

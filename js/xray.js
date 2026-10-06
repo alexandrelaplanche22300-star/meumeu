@@ -15,8 +15,9 @@ import {has3d,render3d,updateSceneFx,disposeSceneFx,Fiche3D} from './gl3d.js';
 import {MATS} from './armor.js';
 const MATN=Object.fromEntries(Object.entries(MATS).map(([k,M])=>[k,M.name]));
 
-// des vignettes discrètes : 4 au plus par côté, 200 px de large, fermées seules après lecture ; une vignette qui attend trop est oubliée
-const MAX=2,ZOOM=.8,NEWGAP=700,FPS=15,PLAY=2.6,GAP=.5,READ=2.2,MERGE=2500,FOV=.55,CARD_H=176,STALE=6000;
+// des vignettes discrètes, 200 px de large, fermées seules après lecture
+// (V12.8) une fenêtre par côté, les suivantes en file (QMAX au plus) ; READQ : le temps de lecture quand d'autres attendent
+const ZOOM=.8,FPS=15,PLAY=2.6,GAP=.5,READ=2.2,READQ=.9,QMAX=40,MERGE=2500,FOV=.55;
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const SEVC=['#9aa','#8fb996','#e8bf62','#ee9a3a','#e0663f','#d23a2e','#b0122a'];
 const MARK=['#ffd36a','#7fd3f0','#ff8a6a','#b6f07f'];
@@ -171,49 +172,117 @@ function drawScene(ctx,W,H,sc,t,cam,o){setSpecies(sc.events[0]?.vf);const anat=o
   ctx.textAlign='right';ctx.fillStyle='rgba(232,242,255,.6)';ctx.fillText(`ralenti ×${Math.round(b.slow).toLocaleString('fr-FR')}`,W-10*big,H-10*big);ctx.fillText(`${fmt(b.R.E,1)} J cédés`,W-10*big,24*big);
   if(sc.bullets.length>1){const g=sc.bullets.filter(o=>o.slot===b.slot).length;ctx.fillText(g>1?`gerbe de ${g}${sc.volleys>1?` · ${b.slot+1} / ${sc.volleys}`:''}`:`balle ${b.slot+1} / ${sc.volleys}`,W-10*big,43*big);}ctx.textAlign='left';}
 
+// ---------- (V12.8) la surpression : l'onde de choc traverse le Meumeu ----------
+// Pas de projectile : le front de l'onde arrive du côté de l'explosion, passe, et ce que le souffle a fait s'allume — les poumons et les
+// intestins (lésions internes), le cerveau (commotion), les oreilles (sonné, sourd). Les chiffres : la pression de crête, la distance, la charge.
+const BLAST={mort:['dead','Tué net','le souffle seul : poumons, intestins et cerveau',['poumonG','poumonD','intestins','cerveau','coeur'],true],
+  lesions:['down','Hors de combat','lésions internes : les poumons déchirés, il saigne dedans',['poumonG','poumonD','intestins'],true],
+  commotion:['down','Assommé','commotion cérébrale',['cerveau'],true],sonne:['hurt','Sonné','il ne tire plus quelques secondes, sourd',['cerveau'],true],
+  etourdi:['hurt','Étourdi','les oreilles sifflent',[],true],renverse:['hurt','Renversé','l’onde le jette au sol',[],false]};
+function blastScene(e){return {kind:'souffle',events:[e],bullets:[],F:[0,BODY_H*.5,0],ext:BODY_H*1.5,th0:Math.PI/2+.35,end:ZOOM+PLAY+GAP,volleys:1};}
+function drawBlast(ctx,W,H,sc,t,cam){const e=sc.events[0];setSpecies(e.vf);const big=H/300,B=BLAST[e.eff]||BLAST.renverse;
+  ctx.setTransform(1,0,0,1,0,0);ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
+  const g=ctx.createRadialGradient(W/2,H/2,H*.1,W/2,H/2,W*.75);g.addColorStop(0,'#0b1620');g.addColorStop(1,'#020508');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  drawXrayBody(ctx,cam,LAYERS);
+  // le front : de la gauche (côté de l'explosion) à la droite ; d'autant plus blanc que la pression est forte
+  const tl=clamp((t-ZOOM)/PLAY,0,1),xf=lerp(-.15*W,1.15*W,tl),k=clamp(Math.log10(1+e.pk)/3,.15,1);ctx.globalCompositeOperation='lighter';
+  const gr=ctx.createLinearGradient(xf-W*.45,0,xf+4*big,0);gr.addColorStop(0,'rgba(120,170,255,0)');gr.addColorStop(.8,`rgba(150,200,255,${.16*k})`);gr.addColorStop(.97,`rgba(235,245,255,${.75*k})`);gr.addColorStop(1,'rgba(235,245,255,0)');
+  ctx.fillStyle=gr;ctx.fillRect(xf-W*.45,0,W*.45+4*big,H);
+  // ce que le souffle a fait : allumé quand le front a passé le corps
+  const mid=cam.P(sc.F)[0];if(xf>mid){const pulse=.55+.45*Math.sin(t*6),col=`rgba(255,40,30,${.55*pulse})`;
+    for(const id of B[3]){const p=PART[id];if(!p)continue;const s=p.shape;if(s.t==='cap')capsule(ctx,cam,s,col,1.3);else blob(ctx,ellProj(cam,s),[[0,col],[.85,col],[1,'rgba(255,40,30,0)']]);}
+    if(B[4])for(const r of REGIONS)if(/^oreille/.test(r.id)){const s=r.shape;const c2=`rgba(255,170,40,${.5*pulse})`;if(s.t==='cap')capsule(ctx,cam,s,c2,1.3);else blob(ctx,ellProj(cam,s),[[0,c2],[.85,c2],[1,'rgba(255,170,40,0)']]);}
+    if(e.eff==='renverse'||e.pk>12){const q=cam.P([0,BODY_H*.55,0]);const L=Math.min(W*.2,(18+e.pk/6)*big);ctx.strokeStyle='rgba(255,220,150,.8)';ctx.lineWidth=2.2*big;ctx.beginPath();ctx.moveTo(q[0],q[1]);ctx.lineTo(q[0]+L,q[1]);ctx.lineTo(q[0]+L-6*big,q[1]-5*big);ctx.moveTo(q[0]+L,q[1]);ctx.lineTo(q[0]+L-6*big,q[1]+5*big);ctx.stroke();}}
+  ctx.globalCompositeOperation='source-over';
+  ctx.textAlign='left';ctx.font=`700 ${Math.round(17*big)}px ui-monospace,Consolas,monospace`;ctx.fillStyle='#e8f2ff';ctx.fillText(`${fmt(e.pk,e.pk<10?1:0)} kPa`,12*big,24*big);
+  ctx.font=`600 ${Math.round(13.5*big)}px ui-monospace,Consolas,monospace`;ctx.fillStyle='rgba(232,242,255,.8)';
+  ctx.fillText(`à ${fmt(e.r,e.r<10?1:0)} m · ${fmt(e.W*1000,e.W<.01?1:0)} g de TNT · ${{debout:'debout',accroupi:'accroupi',couche:'couché'}[e.post]||e.post}`,12*big,43*big);
+  ctx.fillText(xf>mid?B[1].toLowerCase():'l’onde arrive',12*big,61*big);}
+
+// ---------- (V12.8) la plaque d'un engin : un coup sur le blindage, en coupe ----------
+// Le projectile arrive de la gauche ; la plaque est tournée de l'obliquité (l'angle entre sa trajectoire et la normale de la plaque, inclinaison
+// et angle d'arrivée composés). Il ricoche, s'arrête dans l'acier (à la profondeur qu'il perce), ou passe avec ce qui lui reste de vitesse et
+// arrache des éclats à la face intérieure, vers l'équipage.
+function plateScene(e){return {kind:'plaque',events:[e],bullets:[],F:[0,0,0],ext:1,th0:0,end:ZOOM+PLAY+GAP,volleys:1};}
+function drawPlate(ctx,W,H,sc,t){const c=sc.events[0].card,big=H/300;ctx.setTransform(1,0,0,1,0,0);ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
+  const g=ctx.createRadialGradient(W/2,H/2,H*.1,W/2,H/2,W*.75);g.addColorStop(0,'#14202a');g.addColorStop(1,'#04080c');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  const cx=W*.5,cy=H*.56,th=(Math.min(c.te,c.t*3)>0?clamp(6+c.t*5,6,H*.22):3)*big*.7,len=H*.82,a=clamp(c.obl,0,85)*Math.PI/180;
+  // la plaque : sa normale fait l'angle a avec la trajectoire (horizontale)
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(-a);ctx.fillStyle='#5d6a74';ctx.fillRect(0,-len/2,th,len);ctx.strokeStyle='#a9b6c0';ctx.lineWidth=1*big;ctx.strokeRect(0,-len/2,th,len);ctx.restore();
+  const tl=clamp((t-ZOOM)/PLAY,0,1),hit=.42,x0=W*.04;const lenP=Math.max(5*big,Math.min(16*big,c.cal*2.2*big));
+  const proj=(x,y,ang,col)=>{ctx.save();ctx.translate(x,y);ctx.rotate(ang);ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(lenP*.5,0);ctx.lineTo(-lenP*.5,-lenP*.18);ctx.lineTo(-lenP*.5,lenP*.18);ctx.closePath();ctx.fill();ctx.restore();};
+  const trail=(xa,ya,xb,yb,col)=>{ctx.strokeStyle=col;ctx.lineWidth=1.6*big;ctx.beginPath();ctx.moveTo(xa,ya);ctx.lineTo(xb,yb);ctx.stroke();};
+  if(tl<hit){const x=lerp(x0,cx,tl/hit);trail(x0,cy,x,cy,'rgba(255,220,150,.5)');proj(x,cy,0,'#fff3c8');}
+  else{trail(x0,cy,cx,cy,'rgba(255,220,150,.35)');const u=(tl-hit)/(1-hit);
+    // (le ricochet : la trajectoire réfléchie sur la face, d − 2(d·n)n = (−cos 2a, sin 2a) — elle repart en rasant la plaque)
+    if(c.out==='ricochet'){const L=u*W*.45,xr=cx-Math.cos(2*a)*L,yr=cy+Math.sin(2*a)*L;trail(cx,cy,xr,yr,'rgba(255,190,120,.6)');proj(xr,yr,Math.atan2(Math.sin(2*a),-Math.cos(2*a)),'#ffd9a0');}
+    // (arrêté : à la part de son trajet dans l'acier qu'il perce — le trajet dans la plaque fait th / cos a)
+    else if(c.out==='arrêté'){const xs=cx+clamp(c.pen/Math.max(.01,c.te),0,1)*th/Math.max(.2,Math.cos(a)),ys=cy;proj(xs,ys,0,'#e8c890');
+      ctx.globalCompositeOperation='lighter';for(let n=0;n<8;n++){const an=Math.PI*.6+n*.22,L=(6+n*2)*big*(1-u*.5);trail(cx,cy,cx+Math.cos(an)*L,cy-Math.sin(an)*L,`rgba(255,200,90,${.7*(1-u)})`);}ctx.globalCompositeOperation='source-over';}
+    else{const xe=cx+th/Math.max(.2,Math.cos(a))+u*W*.4;trail(cx,cy,xe,cy,'rgba(255,120,80,.6)');proj(xe,cy,0,'#ffb08a');
+      const nf=Math.min(14,c.nf||0);ctx.globalCompositeOperation='lighter';for(let n=0;n<nf;n++){const an=(n/(nf||1)-.5)*1.1,L=u*W*.3*(.6+.4*((n*37)%10)/10);const xb=cx+th/Math.max(.2,Math.cos(a));trail(xb,cy,xb+Math.cos(an)*L,cy+Math.sin(an)*L,'rgba(255,170,90,.75)');}ctx.globalCompositeOperation='source-over';
+      for(let n=0;n<Math.min(4,c.crew||0);n++){const x=W*.78+((n%2)*W*.1),y=cy+(n<2?-1:1)*H*.16;ctx.strokeStyle='rgba(120,180,230,.6)';ctx.lineWidth=1.4*big;ctx.beginPath();ctx.arc(x,y,7*big,0,6.3);ctx.stroke();}}}
+  ctx.textAlign='left';ctx.font=`700 ${Math.round(17*big)}px ui-monospace,Consolas,monospace`;ctx.fillStyle='#e8f2ff';ctx.fillText(`${Math.round(tl>=hit&&c.out==='percé'?c.v2:c.v)} m/s`,12*big,24*big);
+  ctx.font=`600 ${Math.round(13.5*big)}px ui-monospace,Consolas,monospace`;ctx.fillStyle='rgba(232,242,255,.8)';
+  ctx.fillText(`${c.where} : ${fmt(c.t,1)} mm à ${Math.round(c.slope)}° · vus sous ${Math.round(c.obl)}°`,12*big,43*big);
+  ctx.fillText(`il faut percer ${fmt(c.te,1)} mm · il en perce ${fmt(c.pen,1)}`,12*big,61*big);
+  ctx.textAlign='right';ctx.fillText(`calibre ${fmt(c.cal,1)} mm`,W-10*big,H-10*big);ctx.textAlign='left';}
+
 // ---------- la pile de fenêtres ----------
 export class XRay{
-  // deux piles, qui jouent en même temps : à gauche ce que nos Meumeu reçoivent, à droite ce qu'ils envoient
-  constructor(host,{onGo,room,onFiche,hostL=null}={}){this.host=host;this.hostL=hostL;this.cards=[];this.onGo=onGo;this.room=room;this.onFiche=onFiche;this.mode=localStorage.getItem('okm-xray')==='off'?'off':'sel';
+  // deux côtés, qui jouent en même temps : à gauche ce que nos Meumeu (et nos engins) reçoivent, à droite ce qu'ils envoient. Une fenêtre à la
+  // fois par côté ; les suivantes attendent leur tour, dans l'ordre (V12.8 : avant, une blessure arrivée moins de 0,7 s après la dernière fenêtre
+  // était oubliée). En attente, une blessure n'est qu'un événement : sa scène ne se calcule qu'à son tour (c'est ce qui ralentissait les combats).
+  constructor(host,{onGo,room,onFiche,hostL=null}={}){this.host=host;this.hostL=hostL;this.cards=[];this.queue={L:[],R:[]};this.dropped={L:0,R:0};this.onGo=onGo;this.room=room;this.onFiche=onFiche;this.mode=localStorage.getItem('okm-xray')==='off'?'off':'sel';
     for(const h of [host,hostL].filter(Boolean))this.listen(h);}
   side(s){return this.cards.filter(c=>c.side===s);}
   listen(host){
     host.addEventListener('click',e=>{const b=e.target.closest('[data-x]');const card=e.target.closest('.xcard');if(!card)return;const c=this.cards.find(k=>k.el===card);if(!c)return;
       if(b?.dataset.x==='close'){this.remove(c);return;}if(b?.dataset.x==='go'){this.onGo?.(c.sc.events[0].x,c.sc.events[0].y);return;}if(b?.dataset.x==='fiche'){this.onFiche?.(c.victim);return;}if(b?.dataset.x==='replay'){c.t=0;this.front(c);return;}
-      if(e.target.tagName==='CANVAS'||b?.dataset.x==='room'){this.room?.open(c.sc,c.el.querySelector('header b').textContent,c.el.querySelector('footer').innerHTML);return;}this.front(c);});
+      if(c.kind==='balle'&&(e.target.tagName==='CANVAS'||b?.dataset.x==='room')){this.room?.open(c.sc,c.el.querySelector('header b').textContent,c.el.querySelector('footer').innerHTML);return;}this.front(c);});
     host.addEventListener('pointerover',e=>{const card=e.target.closest('.xcard');for(const c of this.cards)c.hover=c.el===card;});
     host.addEventListener('pointerleave',()=>{for(const c of this.cards)c.hover=false;});}
-  setMode(m){this.mode=m;try{localStorage.setItem('okm-xray',m);}catch(e){}if(m==='off')for(const c of [...this.cards])this.remove(c);}
-  // une blessure arrive : sur le même Meumeu, dans les deux secondes, elle rejoint la même fenêtre (une rafale) ; sinon, une nouvelle fenêtre
-  add(e,{title,sub,side='R'}){if(this.mode==='off'||!e.rec?.path?.length)return;const now=performance.now();e._xt=now;if(!this.hostL)side='R';
-    const same=this.cards.find(c=>c.victim===e.victim&&(c.shooter??null)===(e.shooter??null)&&now-c.last<MERGE&&(c.sc.events.length<6||now-c.last<60&&c.sc.events.length<12)&&!e.rec.stopped&&!c.sc.events[0].rec.stopped);if(same)same.last=now;
-    if(same){disposeSceneFx(same.sc);same.sc=buildScene([...same.sc.events,e]);same.el.querySelector('footer').innerHTML=this.footer(same.sc.events);same.el.querySelector('header b').textContent=`${same.title} · ${same.sc.volleys>1?'rafale de '+same.sc.volleys+(same.sc.volleys<same.sc.events.length?` (${same.sc.events.length} projectiles)`:''):'gerbe de '+same.sc.events.length}`;return;}
-    // (une autre blessure arrive moins de 0,7 s après la dernière fenêtre de ce côté, sans pouvoir s'y joindre : elle n'ouvre pas de fenêtre — en plein combat,
-    // chaque coup reconstruisait une scène et la mettait en file ; c'est ce qui ralentissait les combats)
-    const newest=this.side(side).reduce((a,c)=>Math.max(a,c.born),-1e9);if(now-newest<NEWGAP)return;
-    const c={victim:e.victim,shooter:e.shooter??null,born:now,last:now,t:0,acc:1,done:false,title,side,sc:buildScene([e])};const el=document.createElement('div');el.className='xcard';
-    el.innerHTML=`<header><b>${esc(title)}</b><span class="xn"></span>${e.hiddenIntel?'':`<button data-x="fiche" title="La fiche médicale de la victime, en 3D">✚</button>`}<button data-x="room" title="La salle de radiologie : tourner, zoomer, image par image">⤢</button><button data-x="replay" title="Rejouer">↻</button>${e.hiddenIntel?'':`<button data-x="go" title="Voir sur la carte">◎</button>`}<button data-x="close" title="Fermer (la suivante joue)">✕</button></header>
-      <canvas width="400" height="224" title="Cliquez pour ouvrir la salle de radiologie"></canvas><footer>${this.footer([e])}</footer><small class="xsub">${esc(sub)}</small>`;
-    c.el=el;c.cv=el.querySelector('canvas');{const k=Math.max(1,Math.min(2,devicePixelRatio||1));c.cv.width=Math.round(204*k);c.cv.height=Math.round(114*k);}c.ctx=c.cv.getContext('2d');
-    const mine=this.side(side);if(mine.length>=MAX){const last=mine[mine.length-1];if(last!==mine[0])this.remove(last);}
-    this.cards.push(c);(side==='L'?this.hostL:this.host).appendChild(el);this.layout();}
-  fits(s){const h=(s==='L'?this.hostL:this.host)?.parentElement?.clientHeight||900;return 1;}   // une seule fenêtre visible par côté (reçu à gauche, envoyé à droite) : chaque image d'une radiographie est un rendu 3D complet
+  setMode(m){this.mode=m;try{localStorage.setItem('okm-xray',m);}catch(e){}if(m==='off'){this.queue={L:[],R:[]};for(const c of [...this.cards])this.remove(c);}}
+  // kind : 'balle' (une balle, un éclat dans le corps), 'souffle' (la surpression), 'plaque' (un coup sur le blindage d'un engin)
+  // une blessure sur le même Meumeu, du même tireur, dans les deux secondes et demie : elle rejoint la même fenêtre (une rafale), ou la même attente
+  add(e,{title,sub,side='R',kind='balle'}){if(this.mode==='off'||kind==='balle'&&!e.rec?.path?.length)return;const now=performance.now();e._xt=now;if(!this.hostL)side='R';
+    const joins=(victim,shooter,evs,last)=>kind==='balle'&&victim===e.victim&&(shooter??null)===(e.shooter??null)&&now-last<MERGE&&(evs.length<6||now-last<60&&evs.length<12)&&!e.rec.stopped&&!evs[0].rec?.stopped;
+    const same=this.cards.find(c=>c.kind==='balle'&&c.side===side&&joins(c.victim,c.shooter,c.sc.events,c.last));
+    if(same){same.last=now;disposeSceneFx(same.sc);same.sc=buildScene([...same.sc.events,e]);same.el.querySelector('footer').innerHTML=this.footer(same.sc.events);same.el.querySelector('header b').textContent=this.titleOf(same);return;}
+    const Q=this.queue[side],tail=Q[Q.length-1];if(tail&&tail.kind==='balle'&&joins(tail.victim,tail.shooter,tail.events,tail.last)){tail.events.push(e);tail.last=now;return;}
+    const en={kind,victim:e.victim??null,shooter:e.shooter??null,events:[e],title,sub,side,last:now,hidden:!!e.hiddenIntel};
+    if(this.side(side).length){if(Q.length<QMAX)Q.push(en);else this.dropped[side]++;this.layout();return;}
+    this.open(en);}
+  titleOf(c){const sc=c.sc;if(c.kind!=='balle'||sc.events.length<2)return c.title;return `${c.title} · ${sc.volleys>1?'rafale de '+sc.volleys+(sc.volleys<sc.events.length?` (${sc.events.length} projectiles)`:''):'gerbe de '+sc.events.length}`;}
+  open(en){const now=performance.now();const sc=en.kind==='souffle'?blastScene(en.events[0]):en.kind==='plaque'?plateScene(en.events[0]):buildScene(en.events);
+    const c={kind:en.kind,victim:en.victim,shooter:en.shooter,born:now,last:en.kind==='balle'?now:en.last,t:0,acc:1,done:false,title:en.title,side:en.side,sc};const el=document.createElement('div');el.className='xcard';
+    const fiche=!en.hidden&&en.kind!=='plaque'&&en.victim!=null;
+    el.innerHTML=`<header><b></b><span class="xn"></span>${fiche?`<button data-x="fiche" title="La fiche médicale de la victime, en 3D">✚</button>`:''}${en.kind==='balle'?`<button data-x="room" title="La salle de radiologie : tourner, zoomer, image par image">⤢</button>`:''}<button data-x="replay" title="Rejouer">↻</button>${en.hidden?'':`<button data-x="go" title="Voir sur la carte">◎</button>`}<button data-x="close" title="Fermer (la suivante joue)">✕</button></header>
+      <canvas width="400" height="224"${en.kind==='balle'?' title="Cliquez pour ouvrir la salle de radiologie"':''}></canvas><footer></footer><small class="xsub">${esc(en.sub)}</small>`;
+    c.el=el;el.querySelector('header b').textContent=this.titleOf(c);el.querySelector('footer').innerHTML=en.kind==='souffle'?this.footBlast(en.events[0]):en.kind==='plaque'?this.footPlate(en.events[0].card):this.footer(en.events);
+    c.cv=el.querySelector('canvas');{const k=Math.max(1,Math.min(2,devicePixelRatio||1));c.cv.width=Math.round(204*k);c.cv.height=Math.round(114*k);}c.ctx=c.cv.getContext('2d');
+    this.cards.push(c);(en.side==='L'?this.hostL:this.host).appendChild(el);this.layout();}
   front(c){c.t=0;c.done=false;c.acc=1;}
-  remove(c){const i=this.cards.indexOf(c);if(i<0)return;this.cards.splice(i,1);c.el.remove();if(this.room?.sc!==c.sc)disposeSceneFx(c.sc);this.layout();}
-  layout(){for(const s of ['L','R']){const K=this.fits(s);this.side(s).forEach((c,i,S)=>{const on=i<K;c.el.style.zIndex=String(100-i);c.el.style.transform=`translateY(${Math.min(i,K-1)*(CARD_H+6)}px)`;c.el.style.opacity=on?'1':'0';c.el.style.pointerEvents=on?'':'none';c.el.classList.toggle('front',on);
-    c.el.querySelector('.xn').textContent=i===K-1&&S.length>K?`+${S.length-K} en attente`:'';});}}
+  remove(c){const i=this.cards.indexOf(c);if(i<0)return;this.cards.splice(i,1);c.el.remove();if(this.room?.sc!==c.sc&&c.kind==='balle')disposeSceneFx(c.sc);
+    const Q=this.queue[c.side];if(!this.side(c.side).length&&Q.length&&this.mode!=='off')this.open(Q.shift());this.layout();}
+  layout(){for(const s of ['L','R']){const Q=this.queue[s];this.side(s).forEach((c,i)=>{c.el.style.zIndex=String(100-i);c.el.style.transform='translateY(0)';c.el.style.opacity='1';c.el.style.pointerEvents='';c.el.classList.add('front');
+    c.el.querySelector('.xn').textContent=Q.length?`+${Q.length} en attente`:'';});}}
+  footBlast(e){const B=BLAST[e.eff]||BLAST.renverse;return `<b class="${B[0]==='dead'?'dead':B[0]==='down'?'down':'hurt'}">${B[1]}</b> — ${esc(B[2])}<br>surpression de crête ${fmt(e.pk,e.pk<10?1:0)} kPa à ${fmt(e.r,1)} m`;}
+  footPlate(c){if(c.out==='ricochet')return `<b class="hurt">Ricochet</b> sur ${esc(c.where)} — vu sous ${Math.round(c.obl)}°, le projectile glisse<br>${fmt(c.t,1)} mm à ${Math.round(c.slope)}°`;
+    if(c.out==='arrêté')return `<b class="hurt">Arrêté</b> par ${esc(c.where)} — il perce ${fmt(c.pen,1)} mm, il en fallait ${fmt(c.te,1)}<br>${fmt(c.t,1)} mm à ${Math.round(c.slope)}°, vus sous ${Math.round(c.obl)}°`;
+    return `<b class="dead">Percé</b> — ${esc(c.where)} : ${Math.round(c.v2||0)} m/s dans l’habitacle${c.he?' · l’obus éclate dedans':c.nf?` · ${c.nf} éclat${c.nf>1?'s':''} de blindage`:''}<br>${c.crew||0} à bord · ${fmt(c.t,1)} mm à ${Math.round(c.slope)}°, vus sous ${Math.round(c.obl)}°`;}
   footer(evs){const e=evs[evs.length-1];if(e.rec?.stopped)return `<b class="hurt">Arrêtée</b> par ${esc(e.armorName||'la protection')} (${esc({casque:'casque',plastron:'plastron',dos:'dos',flancs:'flancs'}[e.zone]||e.zone||'')}) — le choc passe : ${fmt(e.blunt||0,1)} J<br>${esc(MATN[e.mat]||e.mat||'')}`;const o=e.out;if(!o)return '';const tone=o.now==='mort'?'dead':o.now==='hors'?'down':'hurt';
     const now=o.now==='mort'?`<b class="${tone}">Tué</b> — ${esc(e.cause||'')}`:o.now==='hors'?`<b class="${tone}">Hors de combat</b> — ${esc(e.cause||'')}`:`<b class="${tone}">Blessé</b>, il tient encore`;
     const all=new Map();for(const x of evs)for(const p of x.out?.parts||[])if(!all.has(p.name)||all.get(p.name).sev<p.sev)all.set(p.name,p);
     const parts=[...all.values()].sort((a,b)=>b.sev-a.sev).slice(0,4).map(p=>`<span style="color:${SEVC[p.sev]}">${esc(p.name)}${p.note?' ('+esc(p.note)+')':''}</span>`).join(' · ');
     const bleed=evs.reduce((a,x)=>a+(x.out?.bleed||0),0);return `${now}${bleed>.005?` · saigne ${fmt(bleed,2)} mL/s`:''}<br>${parts||'rien de vital'}`;}
-  step(dt){const now=performance.now();for(const s of ['L','R']){const K=this.fits(s);const S=this.side(s);for(const c of S.slice(0,K)){const hold=c.hover||this.room?.isOpen;if(!hold)c.t+=dt;c.acc+=dt;
+  step(dt){for(const s of ['L','R']){const read=this.queue[s].length?READQ:READ;for(const c of this.side(s)){const hold=c.hover||this.room?.isOpen;if(!hold)c.t+=dt;c.acc+=dt;
         // 15 images par seconde suffisent à une vignette ; l'animation finie, la dernière image reste à l'écran sans être repeinte
-        if(!c.done&&c.acc>=1/FPS){c.acc=0;this.draw(c);if(c.t>c.sc.end)c.done=true;}if(c.t>c.sc.end+READ&&!hold)this.remove(c);}
-      // celles qui attendent leur tour depuis trop longtemps : dépassées, on les oublie
-      for(const c of S.slice(K))if(now-c.last>STALE&&!this.room?.isOpen)this.remove(c);}}
-  draw(c){const sc=c.sc,t=c.t;const z=ease(t/ZOOM);const W=c.cv.width,H=c.cv.height;
-    const F=[lerp(0,sc.F[0],z),lerp(BODY_H*.5,sc.F[1],z),lerp(0,sc.F[2],z)];const ext=lerp(.36,sc.ext,z);const dist=ext/2/Math.tan(FOV/2)*1.05;
+        if(!c.done&&c.acc>=1/FPS){c.acc=0;this.draw(c);if(c.t>c.sc.end)c.done=true;}if(c.t>c.sc.end+read&&!hold)this.remove(c);}}}
+  draw(c){const sc=c.sc,t=c.t;const W=c.cv.width,H=c.cv.height;
+    if(c.kind==='plaque'){drawPlate(c.ctx,W,H,sc,t);return;}
+    if(c.kind==='souffle'){const dist=sc.ext/2/Math.tan(FOV/2)*1.05;drawBlast(c.ctx,W,H,sc,t,camera(sc.F,sc.th0,.15,dist,W,H));return;}
+    const z=ease(t/ZOOM);const F=[lerp(0,sc.F[0],z),lerp(BODY_H*.5,sc.F[1],z),lerp(0,sc.F[2],z)];const ext=lerp(.36,sc.ext,z);const dist=ext/2/Math.tan(FOV/2)*1.05;
     const cam=camera(F,sc.th0-.6*(1-z)+.28*Math.sin(t*.4),.2,dist,W,H);drawScene(c.ctx,W,H,sc,t,cam,{mode:'xray',hud:true,prefer3d:false});   /* la vignette : le dessin 2D (0,3 ms l'image, contre 3,8 ms en WebGL et presque une seconde au premier rendu) ; la salle de radiologie, au clic, est en 3D */}
 }
 
