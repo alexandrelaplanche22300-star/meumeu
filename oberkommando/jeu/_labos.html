@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Intérieurs de recherche</title>
+<style>body{margin:0;background:#2c3a28;color:#ddd;font:12px sans-serif}#g{display:grid;grid-template-columns:repeat(2,1fr);gap:2px}div.c{position:relative}canvas{width:100%;display:block}span{position:absolute;left:6px;top:4px;background:#0008;padding:2px 6px}</style></head>
+<body><div id="info"></div><div id="g"></div>
+<script type="module">
+// Page de contrôle (dev, exclue de la construction) : les intérieurs des bâtiments de recherche (labs3d.js), vus sous l'angle du jeu (azimut 45°, élévation
+// ?el=degrés, 30 par défaut), un savant (meumeu_chercheur) à chaque poste — assis, ou debout — tourné comme le dit le poste ; ?ext=1 : les extérieurs aztèques à côté
+import * as THREE from './js/lib/three.module.js';import {labInteriors} from './js/labs3d.js';import {aztecModels} from './js/bldg3d.js';import {loadModel} from './js/mesh3d.js';
+const Q=new URLSearchParams(location.search),EL=(+Q.get('el')||30)*Math.PI/180;const M=labInteriors(),AZ=aztecModels();const sav=await loadModel('meumeu_chercheur','assets3d/');
+const R=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});const CW=800,CH=560;R.setSize(CW,CH);R.shadowMap.enabled=true;
+const list=Q.get('ext')==='seul'?[]:Object.entries(M);if(Q.get('ext'))for(const k of ['centre_recherche','labo','armurerie','poudrerie'])list.push([':az_'+k,AZ[':az_'+k]]);
+for(const [k,m] of list){const d=document.createElement('div');d.className='c';const cv=document.createElement('canvas');cv.width=CW;cv.height=CH;d.appendChild(cv);const s=document.createElement('span');s.textContent=k+(m.st?` · ${m.st.length} postes`:'');d.appendChild(s);document.getElementById('g').appendChild(d);
+  R.setClearColor(0x4f6b2c);const S=new THREE.Scene();S.add(new THREE.HemisphereLight(0xfcfbf7,0x9a9a90,2.0));const L=new THREE.DirectionalLight(0xfff8ef,2.2);L.position.set(43,47,29);L.castShadow=true;L.shadow.mapSize.set(2048,2048);
+  const sc=L.shadow.camera;sc.left=-4;sc.right=4;sc.top=4;sc.bottom=-4;sc.near=1;sc.far=150;S.add(L);
+  const mesh=new THREE.Mesh(m.geo,new THREE.MeshLambertMaterial({vertexColors:true,flatShading:true}));mesh.castShadow=true;mesh.receiveShadow=true;S.add(mesh);
+  const H=.42,ks=H/sav.ext[1];for(const p of m.st||[]){const f=new THREE.Mesh(sav.geo,sav.mat||new THREE.MeshLambertMaterial({vertexColors:true,flatShading:true}));f.castShadow=true;
+    f.scale.set(ks,ks*(p.sit?.78:1),ks);f.position.set(p.x,.08,p.z);f.rotation.y=Math.atan2(p.f[0],p.f[1]);S.add(f);}
+  const r=Math.max(m.ext[0],m.ext[2])*.62,C=new THREE.OrthographicCamera(-r*CW/CH,r*CW/CH,r,-r,.01,200),f=Math.PI/4;C.position.set(Math.cos(EL)*Math.sin(f)*20,Math.sin(EL)*20+.3,Math.cos(EL)*Math.cos(f)*20);C.lookAt(0,.3,0);
+  R.render(S,C);cv.getContext('2d').drawImage(R.domElement,0,0);}
+document.getElementById("info").textContent=list.length+" modèles";window.__done=true;
+</script></body></html>

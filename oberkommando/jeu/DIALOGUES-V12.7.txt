@@ -1,0 +1,878 @@
+TOUTES LES RÉPLIQUES DES SAVANTS — Oberkommando der Meumeu V12.7
+Champs : {a} celui qui parle, {b} celui à qui il parle, {A} {B} {C} les participants d’une scène, {c} un collègue absent, {tried} l’essai, {val} sa valeur, {fx} son effet,
+{fxb} ce que l’autre en voit, {metric} une grandeur, {goal} le but, {why} la raison, {prog} un programme, {n} le nombre d’essais, {best} ce qu’il retient,
+{lever} un levier, {left} les heures restantes, {block} un blocage, {last} la dernière proposition retenue, {arme} la dernière arme adoptée, {grade} un grade.
+
+======================== I. AU TRAVAIL ET EN RÉUNION (TALK) ========================
+
+— Un essai [essai]
+   · {tried}… {fx}.
+   · Je tente {tried}.
+   · Voyons : {tried}. {fx}.
+   · Et si je mettais {val} ?
+   · Calcul n° {n} : {tried}.
+   · J’ai refait le calcul : {tried} — {fx}.
+   · Je reprends à {val}… {fx}.
+   · Encore un : {tried}.
+   · Bon, {val}. On mesure.
+   · Essai {n} : {val}. Alors… {fx}.
+   · Allez, encore un : {val}.
+   · Je pousse jusqu’à {val}, pour voir.
+   · Et maintenant {val}. Croisons les sabots.
+   · Petit changement : {tried}.
+   · Je recompte tout avec {val}… {fx}.
+   · Je reviens à {val}. Pour en avoir le cœur net.
+   · Hypothèse n° {n} : {val}.
+   · On ne sait jamais : {val}.
+
+— Un essai au banc (chimiste) [essai_banc_chimiste]
+   · Pesée faite : {tried}, {fx}.
+   · Au banc : {val}. Résultat : {fx}.
+   · J’ai brûlé un échantillon : {val}… {fx}.
+   · Le manomètre dit : {fx}, avec {val}.
+   · Éprouvette n° {n} : {val}. {fx}.
+
+— Un essai à l’établi (ingénieur) [essai_banc_ingenieur]
+   · Sur le marbre : {val}. {fx}.
+   · J’ai tourné une pièce d’essai : {val}… {fx}.
+   · À l’établi : {tried}. {fx}.
+   · Maquette refaite à {val} : {fx}.
+
+— Un calcul au tableau (physicien) [essai_banc_physicien]
+   · Au tableau : {tried}. {fx}.
+   · La table de tir dit : {fx}, avec {val}.
+   · J’ai refait l’intégrale : {val}… {fx}.
+   · Trajectoire recalculée à {val} : {fx}.
+
+— C’est mieux [mieux]
+   · Mieux !
+   · Ah ! Ça s’améliore.
+   · Voilà qui est encourageant.
+   · C’est le meilleur jusqu’ici.
+   · Ça tient !
+   · Je le savais !
+   · Oh, intéressant…
+   · On progresse.
+   · Enfin !
+   · Ça monte, ça monte !
+   · Regarde ça ! Regarde !
+   · Ha ! Je le tiens.
+   · C’est beau quand ça marche.
+   · Les chiffres sourient, enfin.
+   · Mieux que ce matin !
+   · Je l’écris tout de suite, avant de l’oublier.
+   · Tu vois ? Il fallait insister.
+
+— C’est pire [pire]
+   · Non… pire.
+   · Raté. Je reviens en arrière.
+   · Hmm, ça ne marche pas comme prévu.
+   · Fausse piste.
+   · Ce n’est pas ça.
+   · Zut. On efface.
+   · Ça empire. Dans l’autre sens, alors.
+   · Rien de mieux.
+   · Bof.
+   · Je m’égare.
+   · Ah non.
+   · Bon. Pas par là.
+   · Je m’attendais à mieux.
+   · La balistique me déteste aujourd’hui.
+   · Ça, c’est une impasse polie.
+   · Pire. Mais j’ai appris pourquoi.
+   · Retour à la case départ.
+
+— Un collègue questionne (une grandeur) [question]
+   · Et {metric}, tu y as pensé ?
+   · Tu as regardé {metric} ?
+   · Ton affaire, elle ne change pas {metric} ?
+   · Et {metric}, ça bouge ?
+   · Tu as pensé à {metric}, au moins ?
+   · Et pour {metric}, ça donne quoi ?
+   · Ça ne va pas abîmer {metric} ?
+   · Je vérifierais {metric}, si j’étais toi.
+
+— (ancien) question [question_etat]
+   · Montre-moi tes chiffres.
+   · Tu en es où, {a} ?
+   · Combien d’essais déjà ?
+   · Tu as vérifié deux fois ?
+   · C’est pour « {prog} » ?
+   · Tu es sûr de ta formule ?
+   · Ça avance ?
+   · Tu es sur quoi, là ?
+   · Tu me montres ta feuille ?
+   · Toujours sur ta piste ?
+   · C’est le combientième essai ?
+   · Tu veux un deuxième avis ?
+
+— (ancien) réponse [reponse_etat]
+   · {n} essais, et je cherche encore.
+   · J’avance : {fx}.
+   · Presque. Encore un ou deux calculs.
+   · Oui, pour « {prog} ».
+   · Tiens, regarde : {tried}.
+   · Sûr ? Non. Mais les chiffres sont bons.
+   · Ça avance. Lentement.
+   · Essai {n}. Et ce n’est pas fini.
+   · Sur {goal}. Ça résiste.
+   · Regarde : {tried}. Qu’est-ce que tu en penses ?
+   · Encore deux ou trois essais, et je conclus.
+   · Je commence à y voir clair : {fx}.
+
+— Un collègue objecte [objecte]
+   · Attention : chez moi, {fxb}.
+   · Ça m’inquiète pour {metric} : {fxb}.
+   · Mes calculs disent {fxb}. Tu es sûr ?
+   · {fxb}… ça va coincer, {a}.
+   · Je regarde de mon côté : {fxb}. Pas terrible.
+
+— Il répond, sûr de lui [repond_ok]
+   · Oui, j’ai vérifié : ça tient.
+   · Je compenserai.
+   · Le jeu en vaut la chandelle.
+   · C’est le prix à payer.
+   · Je note.
+   · Oui, oui, j’y ai pensé.
+   · Je sais. Je cherche encore.
+   · Tu verras à la réunion.
+   · J’ai vérifié trois fois.
+   · Ça reste dans les marges.
+   · Je le sais, et je l’accepte.
+   · On en parlera à la réunion.
+   · Je mettrai ça dans ma feuille de calculs.
+
+— Il répond, ébranlé [repond_doute]
+   · Hmm… je n’avais pas vu ça.
+   · Tu as raison, je reprends.
+   · Je vais revoir mes chiffres.
+   · Aïe. Merci de me le dire.
+   · Ah. Ça change tout.
+   · Bon sang, tu as raison.
+   · Attends, je refais le calcul…
+   · Tu me fais douter, maintenant.
+   · Merci. Vraiment. Je n’avais pas vu.
+   · Bon, retour au tableau.
+
+— Le collègue console [console]
+   · Courage.
+   · Ça viendra.
+   · Essaie dans l’autre sens.
+   · Tu y es presque.
+   · Une impasse de moins.
+   · Note-le quand même : c’est un résultat.
+   · Moi, j’en suis à mon dixième raté.
+   · Les impasses aussi, ça se publie.
+   · Mange un peu de foin, ça ira mieux.
+   · Tu trouveras demain.
+   · Moi, hier, c’était pire.
+
+— Le collègue encourage [encourage]
+   · Pas mal !
+   · Joli !
+   · Continue comme ça.
+   · Bien vu.
+   · Ça, c’est du travail.
+   · La reine sera contente.
+   · Tu vas y arriver.
+   · Ça sent la bonne idée.
+   · Continue, tu tiens quelque chose.
+   · J’aime bien la direction.
+   · Ça a de l’allure.
+   · Tu as l’œil, toi.
+   · Garde ça pour la réunion !
+
+— Il conclut [conclut]
+   · Bon. {best}.
+   · J’ai fini : {best}. C’est le meilleur de tout ce que j’ai essayé.
+   · Après tous ces calculs, ma conclusion : {best}.
+   · Je tiens quelque chose. {best}.
+   · Voilà. {best}. Je ne ferai pas mieux.
+   · Ma décision est prise : {best}.
+   · J’ai tout essayé. Le meilleur : {best}.
+   · Voilà ma conclusion, chiffres à l’appui. {best}.
+
+— Réponse à une conclusion [conclut_rep]
+   · Présente-la à la prochaine réunion !
+   · À la réunion, alors.
+   · La reine va adorer.
+   · Il faudra le prouver à l’essai.
+   · Je vérifierai tes chiffres, si tu veux.
+   · Bravo, {a}.
+   · Enfin une bonne nouvelle.
+   · Note tout dans ton carnet.
+   · Montre-la à la reine !
+   · Je la soutiendrai en réunion.
+   · Tu as mérité un café.
+   · Je relis ta feuille ce soir.
+
+— Une idée [idee]
+   · J’ai une idée pour « {prog} » : {goal}.
+   · Écoute : {why}. Il faut s’attaquer à {goal}.
+   · Je pense à {goal}, pour « {prog} ».
+   · Ce matin, une idée : {goal}… {why}.
+   · Je ne peux pas laisser passer ça : {why}.
+   · Il y a un problème avec « {prog} » : {why}.
+   · Écoute, j’ai une piste pour « {prog} » : {goal}.
+   · Il faut que je te parle de {goal}. Pour « {prog} ».
+   · Je viens de voir quelque chose : {why}.
+   · Une idée me trotte dans la tête : {goal}.
+
+— Réponse à une idée [idee_rep]
+   · Raconte !
+   · Encore une idée ?
+   · Vas-y, je t’écoute.
+   · Ça me paraît prometteur.
+   · Hmm. Méfie-toi de la pression.
+   · Bonne chance !
+   · Tu penses à quel levier ?
+   · C’est ton métier, pas le mien !
+   · Je t’écoute.
+   · Raconte, raconte.
+   · Encore une ? Tu en as trop.
+   · Ça me plaît déjà.
+   · Prends des notes, surtout.
+
+— Une idée radicale [idee_radicale]
+   · J’ai une idée folle : tout revoir pour {goal}.
+   · Et si on changeait tout ? {why}.
+   · Une refonte, voilà ce qu’il faut. Pour {goal}.
+   · Oublions le dessin d’origine : {goal} d’abord.
+
+— Réponse à une idée radicale [idee_radicale_rep]
+   · Tu es fou !
+   · Audacieux… pourquoi pas.
+   · La reine n’aimera pas ça. Ou peut-être que si.
+   · Tout revoir ? Diable.
+   · J’aime ton culot.
+
+— Une intuition [intuition]
+   · Je ne sais pas pourquoi, mais je sens quelque chose du côté de {goal}.
+   · Une intuition : {goal}.
+   · Rien ne le demande, mais je vais regarder {goal}.
+
+— Une impasse [impasse]
+   · Je n’arrive à rien sur {goal}.
+   · Impasse. J’abandonne {goal}.
+   · Ça ne mène nulle part.
+   · {n} essais pour rien.
+   · Mon métier n’y peut rien, je crois.
+
+— Réponse à une impasse [impasse_rep]
+   · Ça arrive.
+   · Essaie autre chose.
+   · Courage.
+   · On a tous des impasses.
+   · Demain sera meilleur.
+   · Laisse reposer, ça reviendra.
+
+— Inspiré par un collègue [inspire]
+   · Ton idée m’a donné une piste, {b} : {why}.
+   · {b}, à cause de toi, je cherche maintenant {goal} !
+   · J’ai vu ton calcul, {b}. Je cherche à compenser.
+
+— Réponse [inspire_rep]
+   · Content de t’avoir inspiré.
+   · À ton service.
+   · On fera équipe, alors.
+   · Tiens-moi au courant.
+
+— Rivalité [rival]
+   · Encore toi, {b} ?
+   · Tes chiffres sont faux, {b}.
+   · On verra bien qui a raison à la réunion.
+   · Toujours à objecter, hein…
+   · Laisse-moi travailler, {b}.
+
+— Réponse du rival [rival_rep]
+   · Je ne fais que mon métier.
+   · Les chiffres ne mentent pas.
+   · Tu me remercieras.
+   · Hmpf.
+
+— Amitié [ami]
+   · Bien vu, {b} !
+   · Merci, {b}.
+   · On forme une bonne équipe.
+   · Toi, au moins, tu comprends.
+   · {b}, tu as un instant ? J’aimerais ton avis.
+
+— À voix haute (seul) [monologue]
+   · Voyons… {tried}…
+   · Si je change {lever}…
+   · Hmm. {fx}…
+   · Encore un essai.
+   · Où est mon crayon ?
+   · Les chiffres ne mentent pas.
+   · Recommençons.
+   · Et si… non.
+   · Un, deux, trois… {val}.
+   · Il faut que ça tombe juste.
+   · Bon. Recommençons depuis le début.
+   · Si la pression monte, alors…
+   · Voyons, voyons…
+   · Je l’ai sur le bout de la langue.
+   · Mmmh. Intéressant.
+   · Où ai-je mis la feuille n° {n} ?
+
+— Pause (ancienne réplique isolée) [cafe]
+   · Tu as vu l’essai d’hier ?
+   · Encore un café ?
+   · Il paraît que {c} a trouvé quelque chose.
+   · La reine viendra à la réunion, tu crois ?
+   · J’ai rêvé de balistique cette nuit.
+   · Qui a pris ma règle à calcul ?
+   · Meuh.
+   · On avance, on avance…
+   · Tu dors, toi, la nuit ?
+   · Le tableau est plein de craie.
+   · Les Bèè n’ont pas de savants, eux.
+   · Mon foin est froid.
+   · Tu as lu le rapport d’essai ?
+   · J’ai mal au cou à force d’écrire.
+
+— Pause : un programme [cafe_prog]
+   · « {prog} » avance bien.
+   · Pour « {prog} », il reste {left} de travail.
+   · « {prog} » est bloqué : {block}.
+   · On attend la réunion pour « {prog} ».
+   · « {prog} » : la reine doit trancher.
+   · Tu crois que « {prog} » ira au front ?
+   · Le dessin de « {prog} » me plaît.
+
+— Pause : réponse [cafe_rep]
+   · Oui.
+   · Hmm.
+   · Ah bon ?
+   · On verra.
+   · C’est bien.
+   · Pas facile.
+   · Meuh !
+   · Sans doute.
+   · Tu crois ?
+   · Il faudrait demander à la reine.
+
+— Réunion : ouvrir les propositions [ouvre_prop]
+   · Bien. Passons aux propositions.
+   · Qui commence ?
+   · À vous, les chercheurs.
+   · Les propositions, maintenant.
+
+— Réunion : ouvrir, devant la reine [ouvre_prop_reine]
+   · Majesté, voici ce que nous proposons.
+   · Majesté, nos propositions.
+   · Si Votre Majesté le permet, nos propositions.
+
+— prefixe [prefixe]
+   grade Assistant :
+     · Euh… si je peux me permettre, j’ai trouvé quelque chose :
+     · Je ne suis qu’assistant, mais :
+     · J’ai peut-être une idée :
+     · Je… j’ai fait un calcul :
+   grade Chercheur :
+     · J’ai une proposition :
+     · Voici ce que je propose :
+     · J’ai travaillé là-dessus :
+     · Écoutez ça :
+   grade Chercheur confirmé :
+     · Après plusieurs nuits de calculs, je propose :
+     · J’ai longuement vérifié :
+     · Mes calculs me mènent à ceci :
+     · Je propose, chiffres à l’appui :
+   grade Maître de recherche :
+     · Mes calculs sont formels :
+     · Je l’affirme :
+     · Écoutez bien :
+     · Il n’y a pas trente-six solutions :
+   grade Sommité :
+     · Mes chers collègues, j’ai la solution :
+     · Croyez-en mon expérience :
+     · Voici, simplement, ce qu’il faut faire :
+
+— Réunion : l’équipe du bureau propose [prefixe_equipe]
+   · Notre équipe propose, après maintes réflexions :
+   · Le bureau a planché là-dessus :
+   · Nous avons longuement discuté, et nous proposons :
+   · Toute l’équipe du bureau est d’accord :
+
+— Réunion : s’adresser à la reine [prefixe_reine]
+   · Majesté, 
+   · Votre Majesté, 
+
+— Réunion : réaction [reaction]
+   · Intéressant.
+   · Ça se tient.
+   · Hmm… à voir à l’essai.
+   · Joli travail !
+   · Je n’y avais pas pensé.
+   · Pourquoi pas.
+   · Ça me plaît.
+   · J’ai des doutes.
+   · Brillant !
+   · C’est cher.
+   · Il faudra le prouver.
+   · Simple et efficace.
+
+— Réunion : réaction à une refonte [reaction_radicale]
+   · Audacieux !
+   · Tout revoir ? Diable.
+   · C’est une révolution !
+   · Risqué…
+   · La manufacture va hurler.
+
+— Réunion : avant une objection [objection_pre]
+   · Si je puis me permettre… 
+   · Pardon, mais 
+   · Avec tout le respect que je te dois, 
+   · Un instant : 
+   · Non, attends : 
+
+— Réunion : après la décision de la reine [decision_reine]
+   · Sage décision, Majesté.
+   · Bien, Majesté. On redessine.
+   · Merci, Majesté.
+   · À vos ordres, Majesté.
+   · Votre Majesté a l’œil.
+
+— Réunion : après la décision [decision]
+   · Bien. On redessine.
+   · C’est décidé.
+   · Au travail, alors.
+
+— Réunion : proposition refusée [refus]
+   · Dommage… je la retravaillerai.
+   · Tant pis. Une autre fois.
+   · Je reviendrai avec de meilleurs chiffres.
+   · Hmm. J’y croyais.
+
+— Réunion : « à creuser » [creuser]
+   · La reine me demande de creuser : je m’y mets.
+   · Je creuserai, Majesté.
+   · Bien, j’approfondis.
+   · Je reviendrai avec plus de calculs.
+
+— Réunion : fin [fin]
+   · La séance est levée.
+   · Chacun à son poste !
+   · Au travail !
+   · Merci à tous.
+
+
+======================== II. QUESTIONS ET LEURS RÉPONSES (QA) ========================
+
+   « Tu en es où, {a} ? »
+        → Essai {n}. Et ce n’est pas fini.
+        → J’avance : {fx}.
+        → Sur {goal}. Ça résiste.
+        → Presque. Encore un ou deux calculs.
+
+   « Combien d’essais déjà ? »
+        → {n}. Et j’en ferai d’autres.
+        → {n} essais, et je cherche encore.
+        → Je ne compte plus. {n}, je crois.
+
+   « Montre-moi tes chiffres. »
+        → Tiens, regarde : {tried}.
+        → Voilà : {fx}. Qu’est-ce que tu en penses ?
+        → Ils sont dans ma feuille, avec les ratures.
+
+   « Tu as vérifié deux fois ? »
+        → Trois fois.
+        → Sûr ? Non. Mais les chiffres sont bons.
+        → Deux fois. Je vérifierai une troisième.
+
+   « C’est pour « {prog} » ? »
+        → Oui, pour « {prog} ».
+        → Pour « {prog} », bien sûr. Pour qui d’autre ?
+
+   « Tu es sur quoi, là ? »
+        → Sur {goal}.
+        → {goal}, avec {lever}.
+        → Un levier : {lever}. Je le pousse.
+
+   « Tu veux un deuxième avis ? »
+        → Volontiers. Regarde : {tried}.
+        → Plus tard. Je veux d’abord comprendre seul.
+        → Oui ! Je tourne en rond.
+
+   « Ça avance ? »
+        → Ça avance. Lentement.
+        → Oui : {fx}.
+        → Non. Mais je sais pourquoi.
+
+
+======================== III. LES SCÈNES (chaque réplique répond à la précédente ; A et B tour à tour, « C : » un troisième) ========================
+
+—————— La reine ——————
+  Scène 1
+     A : La reine viendra à la réunion, tu crois ?
+     B : J’espère. Quand elle est là, on ose davantage.
+     A : Et quand elle n’est pas là, le chef de projet garde tout comme avant.
+     B : Alors il faut des chiffres impeccables pour la faire venir.
+  Scène 2
+     A : Tu l’as déjà vue de près, la reine ?
+     B : Une fois. Elle a lu mes calculs jusqu’au bout.
+     A : Et alors ?
+     B : Elle a dit « intéressant ». Je n’ai pas dormi de la nuit.
+  Scène 3
+     A : Il paraît que la reine relit toutes les feuilles de calculs.
+     B : Toutes ? Même les miennes, avec les ratures ?
+     A : Surtout celles-là. Elle aime voir comment on cherche.
+     B : Je vais recopier les miennes au propre.
+  Scène 4
+     A : Si la reine me demande encore de « creuser »…
+     B : C’est bon signe : elle n’a pas dit non.
+     A : Ni oui.
+     B : C’est ça, la recherche.
+  Scène 5
+     A : Tu crois que la reine préfère les idées sages ou les refontes ?
+     B : Ça dépend de la guerre.
+     A : Et la guerre, ça dépend de nos armes.
+     B : Alors on tourne en rond. Encore un café ?
+  Scène 6
+     A : La couronne de la reine, elle est en quel métal, à ton avis ?
+     B : En or. Densité dix-neuf virgule trois.
+     A : Tu calcules même la couronne de la reine ?
+     B : Je calcule tout. C’est mon métier.
+  Scène 7
+     A : J’ai rêvé que la reine refusait toutes mes propositions.
+     B : Et dans la vraie vie ?
+     A : Elle en a refusé deux sur trois.
+     B : Alors ton rêve était trop pessimiste.
+
+—————— Après une réunion ——————
+  Scène 1
+     A : La reine a retenu : {last}.
+     B : J’en étais sûr. Les chiffres étaient trop beaux.
+     A : Il faudra le prouver à l’essai.
+     B : On le prouvera.
+  Scène 2
+     A : Tu as vu ? « {last} ». Adopté par la reine !
+     B : Mes collègues vont être jaloux.
+     A : C’était ton idée ?
+     B : Disons… que j’y ai contribué.
+  Scène 3
+     A : Après « {last} », tout est à recalculer.
+     B : Encore ? J’avais fini mes tables.
+     A : Bienvenue dans la recherche.
+     B : Je déteste et j’adore ce métier.
+  Scène 4
+     A : « {last} »… je n’aurais pas osé le proposer.
+     B : Il fallait oser. La reine aime les savants courageux.
+     A : Et si l’essai rate ?
+     B : On aura appris quelque chose. C’est déjà ça.
+  Scène 5
+     A : Pas mal, la séance d’hier.
+     B : Tu trouves ? On s’est disputés une heure sur la pression.
+     A : Justement : c’est comme ça qu’on avance.
+     C : Moi j’ai surtout retenu qu’il faut des biscuits pendant les réunions.
+
+—————— Un programme ——————
+  Scène 1
+     A : Où en est « {prog} » ?
+     B : Il reste {left} de travail.
+     A : Avec nous deux, on y arrivera.
+     B : Avec nous deux et beaucoup de café.
+  Scène 2
+     A : « {prog} », c’est la plus belle conception qu’on ait eue.
+     B : Tu dis ça à chaque fois.
+     A : Cette fois c’est vrai.
+     B : Tu dis ça aussi à chaque fois.
+  Scène 3
+     A : Tu crois que « {prog} » ira au front ?
+     B : Si l’essai de tir est bon, oui.
+     A : Et s’il ne l’est pas ?
+     B : Alors on recommence. La reine nous fait confiance.
+  Scène 4
+     A : J’ai refait les comptes pour « {prog} » : {left}.
+     B : Ça fait combien de nuits ?
+     A : Trop.
+     B : Alors on dort, et on reprend demain.
+  Scène 5
+     A : Le dessin de « {prog} » est magnifique.
+     B : Le dessin, oui. Il faut encore qu’il tire droit.
+     A : Ça, c’est ton problème.
+     B : Non : le nôtre.
+  Scène 6
+     A : Pour « {prog} », je propose qu’on se répartisse les calculs.
+     B : Je prends la trajectoire.
+     A : Je prends la poudre.
+     C : Et moi le café. Quelqu’un doit bien s’en occuper.
+
+—————— Un programme bloqué ——————
+  Scène 1
+     A : « {prog} » est bloqué : {block}.
+     B : Encore ?
+     A : Encore. J’ai tout vérifié deux fois.
+     B : Une revue, voilà ce qu’il faut. Tout le monde autour de la table.
+  Scène 2
+     A : {block}… je n’ai jamais vu ça.
+     B : Montre-moi.
+     A : Là, regarde la courbe.
+     B : Ah. Oui. Bon. On va avoir besoin d’un regard neuf.
+
+—————— Une arme adoptée ——————
+  Scène 1
+     A : « {arme} » est en fabrication à la manufacture !
+     B : Nos peluches vont enfin avoir une vraie arme.
+     A : Et les Bèè vont s’en souvenir.
+     C : Mais elle n’est pas parfaite. J’ai déjà trois idées de variantes.
+  Scène 2
+     A : Tu as vu « {arme} » sortir de la manufacture ?
+     B : J’ai pleuré un peu.
+     A : Moi aussi. Mais ne le dis à personne.
+     B : Promis.
+
+—————— Les Bèè, la guerre ——————
+  Scène 1
+     A : Les Bèè n’ont pas de savants, eux.
+     B : Ils ont des cornes et de la rancune.
+     A : Nous, on a des calculs.
+     B : Et la reine.
+  Scène 2
+     A : Il paraît que les Bèè ont attaqué une mine cette nuit.
+     B : Raison de plus pour finir nos programmes.
+     A : Tu crois que nos calculs sauvent des vies ?
+     B : J’en suis sûr. Chaque millimètre de dispersion compte.
+  Scène 3
+     A : Qu’est-ce que tu ferais si les Bèè entraient dans le centre ?
+     B : Je cacherais mes carnets.
+     A : Pas toi d’abord ?
+     B : Les carnets d’abord. Moi, je suis en peluche, je rebondis.
+  Scène 4
+     A : Les chèvres ont des fusils, maintenant.
+     B : Des fusils copiés sur les nôtres, avec dix ans de retard.
+     A : Alors gardons dix ans d’avance.
+     B : Au travail.
+
+—————— La nuit ——————
+  Scène 1
+     A : Tu ne dors pas ?
+     B : Je n’arrive pas à arrêter de calculer.
+     A : Moi non plus. Ma tête fait des tables de tir.
+     B : Bon. Puisqu’on est là, on vérifie tes chiffres ?
+  Scène 2
+     A : Il est tard.
+     B : Encore une colonne et je vais me coucher.
+     A : C’est ce que tu as dit il y a trois colonnes.
+     B : Il y a beaucoup de colonnes.
+  Scène 3
+     A : Chut. Tout le monde dort.
+     B : Sauf nous et la lampe.
+     A : Et les équations.
+     B : Les équations ne dorment jamais.
+
+—————— La vie ——————
+  Scène 1
+     A : Encore un café ?
+     B : Mon troisième. Je vais vibrer comme un tube trop mince.
+     A : Une paroi plus épaisse, alors ?
+     B : Très drôle.
+  Scène 2
+     A : Qui a pris ma règle à calcul ?
+     C : Pas moi.
+     B : Pas moi non plus.
+     A : Elle n’est quand même pas partie toute seule !
+     C : … Elle est dans ta poche de blouse.
+  Scène 3
+     A : Mon foin est froid.
+     B : Tu le laisses refroidir à chaque fois que tu calcules.
+     A : Les calculs ne refroidissent pas, eux.
+     B : Bonne remarque. Mange.
+  Scène 4
+     A : J’ai mal au cou à force d’écrire.
+     B : Lève la tête de temps en temps : le plafond aussi a besoin d’être regardé.
+     A : Et le plafond, il calcule ?
+     B : Non. C’est pour ça qu’il est reposant.
+  Scène 5
+     A : Le tableau est plein de craie.
+     B : On efface ?
+     A : Jamais ! Il y a peut-être une découverte là-dedans.
+     B : Alors on achète un deuxième tableau.
+  Scène 6
+     A : J’ai fait un rêve : une balle qui ne tombait jamais.
+     B : Ça s’appelle une erreur de calcul.
+     A : Dans le rêve, c’était magnifique.
+     B : Dans la réalité, c’est la gravité.
+  Scène 7
+     A : Tu sais pourquoi on a des cornes ?
+     B : Pour accrocher nos blouses ?
+     A : Pour avoir l’air sérieux.
+     C : Moi je m’en sers pour tenir mon crayon.
+  Scène 8
+     A : Il pleut.
+     B : La pluie fait dériver les balles, tu sais.
+     A : Peu.
+     B : Peu, c’est déjà trop pour un physicien.
+  Scène 9
+     A : J’ai compté : on a écrit quatre cents pages ce mois-ci.
+     B : Et combien sont justes ?
+     A : Trois cent quatre-vingt-dix-neuf.
+     B : Et la dernière ?
+     A : C’est la mienne. Je la refais.
+  Scène 10
+     A : Tu as vu mon carnet ?
+     B : Lequel ? Tu en as six.
+     A : Le bleu, avec les taches de café.
+     B : Ils ont tous des taches de café.
+  Scène 11
+     A : Si on finit tôt, on va voir l’essai de tir ?
+     B : Seulement si on se met derrière le mur.
+     A : Évidemment, derrière le mur.
+     B : Et avec du coton dans les oreilles.
+  Scène 12
+     A : Tu as entendu le bruit tout à l’heure ?
+     B : C’était le labo. Encore une pesée qui a mal tourné.
+     A : Personne n’est blessé ?
+     B : Juste les sourcils d’un chimiste.
+
+—————— Un grade ——————
+  Scène 1
+     A : Je suis {grade}, maintenant.
+     B : Félicitations ! Tu vas devoir porter une blouse plus longue.
+     A : Et diriger des assistants.
+     C : Moi, je veux bien être dirigé. Tant qu’on m’explique.
+  Scène 2
+     A : Comment on devient Sommité, à ton avis ?
+     B : En se trompant plus souvent que les autres.
+     A : Ça ne devrait pas être l’inverse ?
+     B : Non : il faut avoir beaucoup cherché.
+
+—————— Rivaux ——————
+  Scène 1
+     A : Tu as encore objecté à ma proposition, {B}.
+     B : Tes chiffres de pression étaient faux.
+     A : Ils étaient arrondis !
+     B : Arrondis à quarante mégapascals près ?
+     A : … Bon. Je les refais.
+  Scène 2
+     A : {B}, je t’ai vu sourire quand la reine a refusé mon idée.
+     B : Je souriais à cause du café.
+     A : Le café n’est pas drôle.
+     B : Le tien, si.
+  Scène 3
+     A : À la prochaine réunion, je te bats avec mes calculs.
+     B : Je t’attends.
+     A : Et pas d’objection gratuite.
+     B : Seulement les méritées.
+
+—————— Amis ——————
+  Scène 1
+     A : Merci pour ton coup de main sur mes tables, {B}.
+     B : Tu ferais pareil pour moi.
+     A : Je le ferai.
+     C : Vous deux, vous devriez proposer ensemble à la réunion.
+  Scène 2
+     A : On fait équipe pour la prochaine piste ?
+     B : Toi la poudre, moi la balle.
+     A : Et la reine aura une arme.
+     B : Et nous un peu de gloire.
+
+—————— Le métier : chimiste ——————
+  Scène 1
+     A : Ça sent le soufre ici.
+     B : C’est la poudre lente. Elle sent toujours un peu.
+     A : Tu pourrais ouvrir la fenêtre ?
+     B : Si j’ouvre, la balance ne pèse plus juste.
+  Scène 2
+     A : J’ai réussi un grain qui brûle deux fois moins vite.
+     B : Et la pression ?
+     A : Elle baisse. La vitesse aussi, un peu.
+     B : C’est toujours ça : rien n’est gratuit en chimie.
+  Scène 3
+     A : Combien de sourcils tu as perdus cette année ?
+     B : Deux paires.
+     A : Et tu continues ?
+     B : Ils repoussent. Les découvertes, non.
+  Scène 4
+     A : Le gel incendiaire colle à tout.
+     B : Même aux blouses ?
+     A : Surtout aux blouses.
+     B : On devrait en informer la reine.
+
+—————— Le métier : ingénieur ——————
+  Scène 1
+     A : Le tour broute encore à ce diamètre.
+     B : Change l’outil.
+     A : J’ai changé l’outil, le tour, et l’ouvrier.
+     B : Alors c’est le métal.
+  Scène 2
+     A : Cette culasse se verrouille une fois sur dix mal.
+     B : Une fois sur dix, c’est l’enrayage au front.
+     A : Je sais. Je lime encore.
+     B : Lime, mais mesure entre chaque passe.
+  Scène 3
+     A : Tu as vu mon affût ? Il tient trois tonnes.
+     B : Il pèse combien ?
+     A : … Trois tonnes aussi.
+     B : Les servants vont te maudire.
+  Scène 4
+     A : Un tube plus long, ça tire plus droit.
+     B : Et ça se porte moins bien.
+     A : Tout est compromis, ici.
+     B : C’est pour ça qu’on est payés.
+
+—————— Le métier : physicien ——————
+  Scène 1
+     A : J’ai refait l’intégrale de la trajectoire.
+     B : Et ?
+     A : Six mètres de plus. Six mètres !
+     B : Tu sais que les Bèè ne verront pas la différence ?
+  Scène 2
+     A : La stabilité de Miller, tu y crois ?
+     B : J’y crois tant qu’elle colle aux essais.
+     A : Elle colle presque.
+     B : Presque, c’est le début d’une découverte.
+  Scène 3
+     A : Tu as vu la lunette ×6 ? On voit les moustaches des Bèè.
+     B : Les Bèè n’ont pas de moustaches.
+     A : Avec ×6, si.
+     B : … Je veux regarder.
+  Scène 4
+     A : La dérive, c’est le vent ou la rotation ?
+     B : Les deux. Plus la Terre qui tourne.
+     A : La Terre aussi ?
+     B : À cette distance, tout compte.
+
+
+======================== IV. LE QUOTIDIEN (SAYS) ========================
+
+— ecole
+   · Recopiez la formule.
+   · Encore une fois, lentement.
+   · Qui peut me dire pourquoi ?
+   · Au tableau !
+
+— oisif
+   · Que fait-on, maintenant ?
+   · Un programme, vite !
+   · Je relis les rapports d’essai.
+   · Si seulement on avait des plans…
+
+— cafe
+   · Encore un café ?
+   · Tu as vu l’essai d’hier ?
+   · Meuh.
+
+— eureka
+   · Eurêka !
+   · Ça y est !
+   · Je l’ai !
+   · Mais oui, bien sûr !
+
+— accident
+   · Tout le monde dehors !
+   · Ça a sauté !
+   · Mes sourcils !
+   · Ouvrez les fenêtres !
+
+— dort
+   · Zzz…
+
+— attente
+   · On attend la décision.
+   · La reine viendra-t-elle ?
+
+
+(Plus les répliques calculées : la présentation de la conception, l’avancement, le prévu et le mesuré, chaque proposition avec ses chiffres, les objections
+et soutiens chiffrés, compromis, combinaisons, contre-propositions — elles sont composées à partir des vraies valeurs, donc toujours différentes.)

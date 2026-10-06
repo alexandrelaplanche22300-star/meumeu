@@ -68,7 +68,8 @@ export function applyWound(h,rec,rnd,from='tir'){if(h.state==='mort')return null
   // tout de suite : la mort, le choc de ce qu'on a reçu, ou rien encore
   // la troupe de choc (h.tough < 1) : ses nouvelles plaies saignent moins, le choc la fait moins tomber, elle souffre moins
   const T=h.tough||1;if(T!==1){for(let i=nb0;i<h.bleeds.length;i++)h.bleeds[i].rate*=T;out.bleed*=T;}
-  const ePerKg=rec.E/BODY_KG;const torso=['thorax','abdomen','bassin','tete','cou'].some(r=>rec.regions.has(r));
+  const ePerKg=rec.E/BODY_KG;const RG=rec.regions,inR=r=>RG instanceof Set?RG.has(r):Array.isArray(RG)?RG.includes(r):Object.keys(rec.dmg||{}).some(k=>k.startsWith(r));   // (une balle en vol à la sauvegarde : le Set des régions revient vide du JSON)
+  const torso=['thorax','abdomen','bassin','tete','cou'].some(inR);
   const pIncap=(clamp((ePerKg-3)/22)*(torso?1:.45)+(h.heart?.7:0)+(out.bleed>BLOOD*.02?.4:0))*T;
   h.pain=Math.min(10,(h.pain||0)+out.sev*T);
   if(kill){h.state='mort';h.cause=kill;h.dead={t:0};out.now='mort';}

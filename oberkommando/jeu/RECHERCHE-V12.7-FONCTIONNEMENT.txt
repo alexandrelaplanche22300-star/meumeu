@@ -1,0 +1,253 @@
+OBERKOMMANDO DER MEUMEU — LA RECHERCHE V12.7
+Comment elle marche, en détail (pour reprendre le travail sans rien perdre)
+==========================================================================================================
+
+0. LA DEMANDE DU JOUEUR (la direction, à garder)
+----------------------------------------------------------------------------------------------------------
+- À GARDER de la V12.6 : les projets, les scientifiques, le fait qu'ils traversent des bâtiments comme un convoyeur.
+- REJETÉ : les bonus seuls, les 18 découvertes réservées (une liste qu'on attend), les savants hors du monde, « une école avec des
+  jauges », les propositions scriptées et linéaires, un système fermé à l'ajout de contenu.
+- L'usine chimique disparaît chez les Meumeu au profit du LABORATOIRE DE CHIMIE : il produit (poudre, explosifs) et développe (poudres,
+  explosifs, gaz de combat pour obus, ergols de fusée) ; ses chimistes interviennent automatiquement dans les programmes du bureau d'études.
+- Les CONCEPTIONS DU JOUEUR (le concepteur d'armes) deviennent des programmes : l'équipe du bureau d'études présente la conception en réunion
+  au centre de recherche ; plusieurs centres et spécialistes y travaillent séparément sur des tâches complexes.
+- Moins de rôles de chercheurs (trois métiers) ; l'ancien métier d'un villageois ne compte pas.
+- Intérieurs vivants : les chercheurs cherchent vraiment, cogitent ; en réunion, des bulles qui reprennent les éléments du concepteur
+  (valeurs, complexité, tâches).
+- Chaque réunion présente l'avancement ; LE JOUEUR Y ASSISTE ET TRANCHE ; beaucoup de propositions de toutes sortes : alternatives,
+  améliorations, refontes, idées, et surtout des CALCULS de chercheurs qui stabilisent l'arme, font baisser les statistiques au rouge (recul
+  trop fort, calibre, longueur de balle…). Pas parfaites : elles changent le projet au fur et à mesure.
+- Quand un bâtiment de recherche est choisi : tout le flux (déplacements, bâtiments reliés) visible ; intérieurs visibles ; interfaces bien
+  dessinées avec directives et équipes. Le joueur décide quand la conception est terminée ; les Meumeu peuvent continuer sur des variantes
+  et des prototypes.
+- RIEN DE LINÉAIRE NI PRÉ-CODÉ : de vraies réflexions, une vraie vie, une vraie dynamique ; beaucoup de propositions pendant les réunions et
+  PAR PHASES ; on accepte x propositions, puis y ; elles deviennent les nouvelles caractéristiques du design et sont re-brainstormées de retour
+  au labo / bureau d'études. Complexe et vivant. Les variantes peuvent être raisonnables MAIS AUSSI RADICALES.
+- Tout s'appuie sur l'outil concepteur d'arme : les propositions s'affichent dans un menu, avec les estimations de ce qu'elles améliorent,
+  et les visuels. Direction artistique et créative laissée à Claude.
+
+1. LES FICHIERS
+----------------------------------------------------------------------------------------------------------
+js/techaxes.js     LE MOTEUR DE PENSÉE (pur calcul, sans monde) : métiers, axes de l'état de l'art, analyse d'une conception en tâches,
+                   ce qu'on mesure d'une conception (nums/effects), les paramètres qu'un savant fait varier (PARAMS, applyEdit), et le
+                   CARNET DE PISTES (GOALS, CHOICES, thinkStep, believe, defectsSeen, rebaseLead, proposalOf, debate, merge).
+js/research.js     Le mixin World « RESEARCH » : savants unités du monde, école, programmes, réflexion (thinkTick), réunions en phases et
+                   vagues, décisions, directives, variantes, adoption, accidents, effondrement.
+js/researchdata.js Données : LAB_KIND (bâtiment → métier), LAB_SEATS, GRADES, MEETINGS (types et attente), MEET_PHASES, BLOCKS, SAYS.
+js/research-ui.js  Le panneau de la vue recherche (onglets) et LA FENÊTRE DE RÉUNION (meetModal), avec les dessins (portrait()).
+js/labview.js      Mixin View : la vue recherche (vol de caméra, toit enlevé), la surcouche : bulles de réunion / de pensée, flux entre
+                   bâtiments, bandeaux, noms, icônes, clics.
+js/scene3d.js      labFigures : les savants dans les intérieurs (depuis les unités u.inLab), le poste selon ce qu'ils font, l'orateur
+                   gesticule, les autres le regardent ; LAB_WANT (postes par activité) ; les unités u.inLab ne sont pas dessinées dehors.
+js/labs3d.js       Les intérieurs : centre de recherche, laboratoire de chimie (paillasse, hotte, balance, étagères + PRODUCTION : cuve de
+                   cuivre, condenseur, tonneaux, postes d'ouvriers), bureau d'études. L'intérieur de l'usine chimique est supprimé.
+js/world.js        SAVE_VERSION=13 ; s.research={art,programs,log,nid} ; art initialisé par artInit ; propose → launchProgram ;
+                   targetAt ignore les unités u.inLab (le clic va au bâtiment) ; tâche 'labwork'.
+js/view.js         drawUnit / unitAt / sélection au cadre ignorent u.inLab ; le cadre ne prend pas les savants ni les élèves.
+js/ui.js           Fenêtre 'reunion' (rui.meetModal), rafraîchie en direct ; évènements 'decision' (alerte + « Assister ») et 'meeting' ;
+                   le panneau d'un bâtiment de recherche compte les savants dedans (u.inLab).
+js/designer.js     « Lancer le programme » : la liste des tâches du programme (programPreview) au lieu des « 14 h de prototype ».
+js/explosive.js    flight() exporté (portée maximale calculée sur quelques angles).
+js/data.js         labo = « Laboratoire de chimie » (3×3, produit poudre/explosifs, lab) ; poudrerie réservée aux Bèè ; INNOV sans les 18
+                   découvertes savantes ; madeAt().
+css/style.css      Bloc « (V12.7) la recherche » : rprog, rlead, rdir, rcard, rfx (barres d'estimation), rm-* (réunion), dz-prog.
+test/recherche.mjs Critères R1–R12 (à remettre à jour pour les pistes : R3, R7 utilisent encore l'ancienne API brainstorm).
+test/_outils_captures/recherche_save.mjs  Fabrique test/_saves/recherche.json (v13) : centre bâti, 6 savants, obusier 50 lancé, réunion
+                   de lancement en attente du commandement. recherche_vue.cjs : captures en jeu (clic, réunion, vagues, labo, nuit).
+
+2. LES SAVANTS : DES UNITÉS DU MONDE
+----------------------------------------------------------------------------------------------------------
+- Trois métiers (techaxes.ROLES) : INGÉNIEUR (bureau d'études : tube, culasse, mécanisme, fusée d'obus, affût, dossier, essai),
+  CHIMISTE (laboratoire de chimie : poudres, charges, explosifs, chargement des obus, moteurs-fusées), PHYSICIEN (centre de recherche :
+  trajectoires, tables de tir, stabilité, optique, guidage).
+- Un villageois va à l'école du centre (trainSavant : 40 vivres, 6 pièces, 24 h ; 4 bancs ; un savant gradé libre fait cours et accélère),
+  en sort savant : u.k='savant', u.sci={role,xp,born,task,pid,papers,bold}. bold (0..1) = son AUDACE (part de refontes radicales).
+- Il reste dans s.units : il marche dans les rues (tâche {kind:'lab',b}) — on le voit, l'ennemi aussi, les obus le blessent ; dans un
+  bâtiment il a u.inLab=id et la tâche {kind:'labwork'} (caché dehors, dessiné dedans par scene3d.labFigures).
+- Grades (GRADES) selon l'expérience : Assistant, Chercheur, Chercheur confirmé, Maître de recherche, Sommité ; k = valeur d'une heure.
+- Ce qu'il fait (u.sci.act) : travail, reflexion, reunion, attente, etude, cours, dort, marche, oisif.
+- Ce qu'il pense (u.sci.think) : {t,pid,lead,goal,txt,good,st} — le dernier calcul de sa piste (bulle de pensée dans la vue recherche).
+- Le bâtiment détruit : labCollapse — on évacue, un sur cinq meurt, les élèves redeviennent villageois.
+
+3. LES PROGRAMMES
+----------------------------------------------------------------------------------------------------------
+- Une conception lancée au bureau d'études (world.propose → launchProgram) devient un programme P :
+  {id,kind:'arme',ref,name,b0,st,p,tasks,ev,applied,meetings,team,leads,lid,dir,lastMeet,d0,meet,rev50,variants,mk,parent,readyT}
+  st : 'lancement' → 'actif' → ('pret') → 'fini' (adoptée) / 'suivi' (variantes) / 'abandon'.
+- analyze(p, art) découpe la conception en TÂCHES chiffrées avec SES valeurs, contre l'ÉTAT DE L'ART (s.research.art : ce que nos armes
+  adoptées ont prouvé, axe par axe — tube MPa/paroi, calibre, énergie de charge, cadence, explosif par remplissage, portée, moteur, optique…,
+  et les techniques connues : mécanismes, projectiles, fusées d'obus, coques, guidages…). Ce qui est maîtrisé ne coûte rien ; chaque écart a
+  son métier, son bâtiment, ses heures-savants (W×(0,6+1,6n), n = doublements). Plus le DOSSIER de fabrication et l'ESSAI de tir (après tout).
+  Une tâche finie fait avancer l'état de l'art (artPush). Les défauts (stabilité Sg<1,3, surcharge) sont des tâches « problème ».
+- Les tâches : chaque métier à son bâtiment (ingénieurs au bureau d'origine), au plus 3 savants ; sans savant, le personnel du bâtiment s'y met
+  lentement (BASE_STAFF .35) ; la nuit ×0,35 ; eurêka, blocage (→ revue), accident au laboratoire (les axes chimiques).
+- Petits programmes sans réunion : les idées des ouvriers (launchIdea) et les protections (launchArmor).
+
+4. LE CARNET DE PISTES : COMMENT PENSE UN SAVANT (techaxes.js)
+----------------------------------------------------------------------------------------------------------
+Rien n'est écrit d'avance : aucune liste d'études. Chaque savant ouvre des PISTES et les creuse sur la vraie balistique du concepteur.
+- Une PISTE L = {id,pid,owner,role,goal,origin,why,inspiredBy,bold,steps,exp,edits,step,bias,tried,score,fx,st,notes,fails,refused,titleAt}
+  goal : le BUT (GOALS : range portée, moa précision, Sg stabilité, rk recul, P pression, life usure, mass légèreté, lethal létalité,
+  pen perforation, sustain chauffe, jam fiabilité, cost coût) ; edits : la meilleure idée du moment, une liste [champ, valeur] que
+  applyEdit applique à la conception ; st : exploration → mure → proposee → retenue / refusee / impasse / caduque.
+- D'OÙ VIENT UNE PISTE (research.openLead) : un DÉFAUT que son métier voit (defectsSeen : GOALS[g].bad, avec les chiffres, « la balle
+  bascule (Sg 0,54) », « recul violent (73 J) »… ; EYES = ce que chaque métier regarde), une DIRECTIVE du commandement, une INTUITION
+  (un but où son métier peut quelque chose), une REPRISE d'une idée refusée (autrement), une INSPIRATION (un collègue tient une piste qui
+  abîme quelque chose dans son domaine : il cherche à compenser ; ou une autre idée sur le même but).
+- LES LEVIERS de chaque métier pour chaque but (GOALS[g].levers[role]) : paramètres continus (PARAMS : calibre, balle = longueur du projectile,
+  tube, paroi, pas de rayure, charge, vivacité de la poudre, ogive, culot, cadence, remplissage, moteur, ailettes) ou choix (CHOICES : frein
+  de bouche, lunette ×2…×6, affût, métal du tube, coque d'obus, fusée d'obus, explosif, guidage, étages). LEVER_OK / metricOk : seulement ce qui
+  a un sens pour l'arme (pas de recul pour une pièce sur roues, pas de perforation pour un obus explosif, pas de stabilité pour une fusée…).
+- UN PAS DE RÉFLEXION (thinkStep) : il choisit un levier — d'abord ceux qu'il n'a pas encore essayés (méthodique), sinon il affine un levier
+  de son idée, sinon un autre (les COMBINAISONS naissent ainsi) ; il fait varier la valeur (pas adaptatif : plus grand après un succès, plus
+  petit après un échec ; quand un sens échoue il essaie l'autre ; un débutant tâtonne plus large et suit moins la pente) ; la balistique
+  (derive) répond ; il garde si c'est mieux, note sinon (« Essai 6 : la charge 55 % → 70 % — rien de mieux. »).
+  BORNES : raisonnable (BOUNDS, ex. balle ×0,65–1,5), RADICALE (RADICAL, ex. calibre ×0,55–1,8, leviers en plus BOLD_LEVERS, l'affût peut
+  changer) ; ABS = bornes physiques absolues (balle 1,6–7 calibres…) ; le calibre reste à ×0,6–1,6 du calibre d'origine du programme (P.d0).
+- LA VALEUR D'UNE IDÉE (leadScore) : 60 × gain sur le but (× le poids de l'emploi de l'arme, ROLE_W : une pièce vit de létalité et portée, un
+  fusil de portée et précision, une mitrailleuse de chauffe et fiabilité, un antichar de perforation) + les priorités du commandement − ce qui
+  se dégrade ailleurs (25 × perte, 40 pour le poids d'une arme portée seule) − les interdits (pression > 620 MPa, Sg < 1, surcharge, affût qui
+  ne tient plus) − changer d'affût / un servant de plus (moins pour une refonte radicale).
+- MÛRE : score ≥ 25 en 3 pas, ou ≥ 8 après 4 pas et (3 échecs ou 10 pas). IMPASSE : après 6 + 2×(nb de leviers) pas, score < 4.
+- CONFIANCE (confOf) : 1 − e^(−(pas + 2×essais au banc)/7) — un pas fait à son poste (laboratoire, bureau, centre) compte double.
+- CE QU'IL CROIT (believe) : son estimation de chaque effet est bruitée selon son grade (assistant ±35 %, sommité ±5 %) et sa confiance ;
+  il peut NE PAS VOIR un effet néfaste (40 % de risque pour un assistant peu sûr). La marge d'erreur (err) s'affiche sur les cartes.
+- COMBIEN IL PENSE (research.thinkTick, toutes les 0,1 h) : pas/heure × grade : libre à son poste 1,2 ; à son poste pendant une tâche 0,6 ;
+  en marchant 0,35 ; en attendant la décision à la table 0,35 ; la nuit ×0,15. Un bureau sans ingénieur : « l'équipe du bureau »
+  (dessinateurs, grade 0) pense à 0,45/h. Un savant sans tâche rejoint de lui-même un programme où son métier sert (il entre dans l'équipe).
+  Au plus 2 pistes vivantes (3 dès chercheur confirmé). Une piste qui mûrit : pev « X tient une piste », eurêka, et INSPIRE les collègues.
+- RETOUR AU LABO (rebaseLead, après une décision) : une piste qui touchait ce que la décision a tranché devient caduque ; les autres sont
+  recalculées sur la conception nouvelle (score, effets), leur confiance diminue (pas ×0,6) ; elles repartent en exploration.
+
+5. LES RÉUNIONS : PAR PHASES, PAR VAGUES (research.js)
+----------------------------------------------------------------------------------------------------------
+Types (MEETINGS) : lancement (à la création), revue (à mi-chemin, quand une tâche bloque, quand ≥ 3 pistes sont mûres et 8 h depuis la
+dernière, ou à la main « Convoquer une revue »), finale (après l'essai), variante (l'arme en service : ≥ 3 pistes mûres et 12 h, ou les
+études de variantes finies). Lieu : le centre de recherche le plus proche du bureau d'origine (sinon le bureau).
+P.meet = {type,focus,b,ids,who,phase,t0,script,props,chosen,wave,p,p0,seg,deadline,seen}
+ 1. RASSEMBLEMENT : les convoqués marchent jusqu'au centre (2 h au plus).
+ 2. TOUR DE TABLE (meetOpen) : la conception présentée (presentLines : vitesse, pression, portée, obus, masse, tâches et écarts) ou
+    l'avancement (progressLines) ; LE PRÉVU ET LE MESURÉ (« X annonçait éclats +19 % ; mesuré +22 % » / « imprévu ») ; ce qui bloque ;
+    combien de pistes dans les carnets.
+ 3. PROPOSITIONS (meetPropose) : chacun refait ses calculs AU TABLEAU (burst : 1+grade pas, 3+grade au lancement où chacun ouvre deux
+    pistes) et présente ses pistes mûres ou valables (score ≥ 6 ; jusqu'à 3 pour un gradé), parfois une IDÉE EN L'AIR (score ≥ 3).
+    Deux savants au même calcul (mêmes champs, valeurs à 12 % près) : une seule carte, plus sûre (« J'arrive au même calcul que X »).
+    Chaque proposition dit : le titre, d'où elle vient (« J'ai vu : … »), ses calculs (« 5 calculs, dont 2 vérifiés au banc : … »), le
+    travail en plus et les tâches nouvelles.
+ 4. DÉBAT (meetDebate) : chacun regarde les cartes des autres avec les yeux de son métier — OBJECTIONS (ce qui se dégrade dans son domaine,
+    surtout ce que l'auteur n'a pas vu) et SOUTIENS ; CONTRE-PROPOSITIONS (celui qui objecte calcule sur-le-champ de quoi compenser, en
+    gardant l'idée : « Je garde l'idée de X, et je compense : … ») ; COMPROMIS (deux cartes sur le même champ : à mi-chemin, par le plus gradé) ;
+    COMBINAISONS (deux cartes compatibles calculées ensemble par le physicien : gardées si elles se renforcent, synergie ≥ 3 ; signalées si
+    elles se nuisent).
+ 5. DÉCISION DU COMMANDEMENT : le joueur retient UNE OU PLUSIEURS cartes compatibles (decide(pid,picks)) — la conception change aussitôt
+    (reshape : les tâches recalculées, le travail fait gardé, l'essai à refaire) ; les cartes en conflit tombent ; les autres sont
+    RECALCULÉES sur la nouvelle conception (recalcProp ; « vaut davantage / vaut moins » ; retirées si elles n'apportent plus rien) ;
+    des REBONDS naissent (la conception nouvelle fait voir autre chose ; ce que la décision abîme, un collègue cherche à le compenser) ;
+    débat des nouvelles cartes ; phase « On redessine », puis vague suivante. Jusqu'à 3 VAGUES. « Clore la réunion » / « Ne rien retenir ».
+    Sans le joueur : au bout de wait heures (lancement 6, revue 5, finale 5, variante 8) le chef de projet garde la conception ; les
+    propositions retournent au carnet (non refusées). Les savants attendent à la table (ils griffonnent) : y assister compte.
+ 6. FIN (meetEnd) : ce qui n'est pas retenu est REFUSÉ (si le joueur a décidé) — la piste peut être reprise autrement plus tard ; toutes
+    les pistes sont refaites sur la conception nouvelle ; chacun repart à son poste. Finale sans changement → « prête » : au commandement
+    de la déclarer terminée (adoptNow) ; sinon le chef de projet la clôt au bout de 36 h. Variante avec changements → un PROTOTYPE (Mk 2,
+    Mk 3…) : nouvelle conception, nouveau programme, les pistes vivantes le suivent ; l'arme adoptée reste en fabrication.
+- meetingAt(b) : la réplique en cours (selon l'avancement de la phase : M.seg) — pour les bulles et l'orateur dans la vue.
+- Le script : {role,text,by,k,ref} ; k = parole, calcul, prop, objection, soutien, compromis, decision.
+
+6. LES DIRECTIVES DU COMMANDEMENT
+----------------------------------------------------------------------------------------------------------
+P.dir = {prio:{but:1|2}, frozen:[levier]}. setPriority(pid,goal,w) : « important » / « essentiel » — les pistes valent plus si elles servent
+ce but, coûtent plus si elles l'abîment ; les savants ouvrent des pistes sur ce but (origine « directive »). setFrozen(pid,lever,on) : on ne
+touche plus à ce levier — les pistes qui le touchaient tombent. Dans le panneau : chips « Priorités » (clic : normal → ★ → ★★) et
+« Ne pas toucher à… ».
+
+7. L'INTERFACE
+----------------------------------------------------------------------------------------------------------
+- LA VUE RECHERCHE (clic sur un bâtiment de recherche, ou touche I) : le toit s'envole, tous les bâtiments de recherche montrent leur
+  intérieur ; les savants à leur poste ; en réunion autour de la grande table, celui qui parle gesticule, les autres le regardent ;
+  bulles : la réplique en cours (couleur selon le genre : proposition, objection, soutien, compromis, décision), sinon des bulles de pensée
+  pointillées (« Stabilité : le pas de rayure 11,0 → 6,2 cm — mieux ! ») ; le FLUX : traits pointillés animés entre le bureau d'origine d'un
+  programme et les bâtiments où travaillent ou se réunissent ses savants (nom du programme), les savants en chemin (point de la couleur
+  du métier, trait vers où ils vont, nom) ; bandeaux : tâches en cours, savants qui réfléchissent, réunion et phase, école, production.
+- LE PANNEAU (research-ui.js) : en-tête (bâtiments, alerte pulsante « N propositions attendent votre décision · Assister ») ; onglets
+  Programmes (dessin de l'arme, chiffres, ruban d'étapes, réunion en cours « Assister et décider / Écouter », tâches avec équipe/progression/
+  blocage, Directives, LES CARNETS : pistes vivantes par savant avec but, radicale, état, confiance, dernière note ; pistes closes ;
+  « Conception terminée : adopter », « Convoquer une revue », variantes après l'adoption, Abandonner ; idées des ouvriers ; clos),
+  Savants (grade, expérience, ce qu'il fait, où, sa pensée, ses pistes, son audace), École (trois métiers), État de l'art, Carnet, Bâtiment.
+- LA FENÊTRE DE RÉUNION (meetModal, ui.modal 'reunion', rafraîchie en direct) : ruban des phases ; la conception sur la table (dessin — avec
+  en transparence celle du début de réunion dès qu'une vague a changé quelque chose — et chiffres) ; qui est autour de la table ; le fil de
+  la discussion (le plus récent en haut) ; la barre de décision ; LES CARTES : genre (piste, idée en l'air, rebond, compromis, combinaison,
+  contre-proposition, refonte radicale), titre, auteur et grade (et ceux arrivés au même calcul), DESSIN de la conception proposée sur
+  l'ancienne en transparence, ce qui change, LES ESTIMATIONS de l'auteur en barres centrées sur zéro avec sa marge d'erreur (± : il peut se
+  tromper, et ne pas voir un effet), sa confiance, l'origine, objections et soutiens, le travail en plus, ses calculs (détail repliable),
+  « Retenir » (grisé si en conflit avec une carte retenue), « Voir dans le concepteur » (ouvre le concepteur sur la conception proposée).
+- LE CONCEPTEUR : « Lancer le programme » ; la liste des tâches que la conception demande (métier, écart à l'état de l'art, heures).
+
+7 bis. LA REINE MEUMEU (LE JOUEUR) ; LES MODÈLES DÉTAILLÉS
+----------------------------------------------------------------------------------------------------------
+- Le joueur est LA REINE MEUMEU. Toutes les répliques s'adressent à elle (« La reine retient… », « Majesté… », « Décision de la reine »).
+- Modèles fournis par le joueur (zips « meumeu king 3d model » et « cute cow researcher 3d model »), convertis par oberkommando-v12.0/outils/
+  convertir.cjs avec un budget de 14 000 triangles (la copie du scratchpad convertir_hd.cjs lit OKM_BUDGET ; le budget habituel des peluches,
+  1 800, dégradait trop) : assets3d/meumeu_reine.json (couronne, cape rouge d'hermine, sceptre) et assets3d/meumeu_chercheur.json (blouse,
+  stylos) — 14 000 triangles, ~190 Ko chacun. Le roi bricolé (meumeu + cape de l'élite) et son générateur sont supprimés.
+  Contrôle : la page de dev _cape.html?m=<modèle> (huit angles ; règles de sélection #r=…, t.red, t.d) ; test/_outils_captures/modele_page.cjs.
+- EN JEU : ouvrir la fenêtre de réunion (« Assister ») = la reine présente : world.attendMeeting(pid,true) à chaque rafraîchissement
+  (M.king, M.kingT) ; « La reine Meumeu entre ; tout le monde se lève. » ; un savant la salue ; tant qu'elle est là la réunion l'attend ; fenêtre
+  fermée : elle s'en va (au plus tard une demi-heure de jeu). « Assister » fait voler la caméra jusqu'au bâtiment. « 👑 Voir la table » réduit
+  la fenêtre en un bandeau : on la voit entrer, aller au fauteuil du bout de la table (poste 'reine', labs3d) et s'asseoir ; quand elle tranche,
+  c'est elle qui parle (« Je retiens : … ») et on lui répond (« Sage décision, Majesté. »).
+
+7 ter. LES CONVERSATIONS, LES CALCULS, LA VIE
+----------------------------------------------------------------------------------------------------------
+- researchdata.TALK : le répertoire des répliques (une entrée = une ligne) ; talkLine(clé,champs) ne prend qu'un modèle dont tous les champs
+  sont connus, met les majuscules. METRIC_ART : les grandeurs avec leur article.
+- research.talkTick (toutes les 0,1 h) : dans chaque bâtiment de recherche, de temps en temps, une conversation (talkMake) tirée des VRAIES
+  pistes : l'essai qu'un savant vient de faire (« Pesée faite : charge 67 %… portée +4 %. » — le geste selon le métier : le chimiste pèse,
+  l'ingénieur tourne une pièce, le physicien calcule au tableau), « Mieux ! » / « Fausse piste. », ce que le collègue d'un autre métier en voit
+  (une objection chiffrée, une question, un encouragement ou une consolation), une idée neuve, une intuition, une refonte, une inspiration,
+  une impasse, une CONCLUSION (« Sur 10 essais (3 prometteurs), je retiens : … »), et la pause (l'avancement d'un programme, la vie).
+  s.research.talk : {id,t,b,by,to,text,k,pid}, 240 au plus.
+- Les ENTENTES (u.sci.aff) : une objection éloigne, un soutien rapproche, deux propositions retenues ensemble rapprochent ; rivaux (« Encore
+  toi ? Tes chiffres sont faux. ») ou amis (« Bien vu ! »).
+- La FEUILLE DE CALCULS d'une piste (L.hist : chaque essai, sa valeur courte — « pas 6,2 cm », « culot 0,00 » —, mieux ou non, l'effet).
+  En réunion : « J'ai essayé paroi ×0,68 ✓, tube 105 cm ✗, … — le meilleur : paroi ×0,65. » ; dans le panneau (Ses calculs) ; sur les cartes.
+- LA RÉUNION VIVANTE : on ouvre les propositions (« Majesté, voici ce que nous proposons. »), chacun introduit la sienne selon son grade
+  (« Euh… si je peux me permettre » … « Mes calculs sont formels » ; l'équipe du bureau : « Notre équipe propose, après maintes réflexions : »),
+  dit ses calculs, un collègue réagit (« Je n'y avais pas pensé. », « Audacieux ! »), les objections ont leur « Si je puis me permettre… »,
+  l'auteur refusé se lamente, la séance est levée.
+- « À CREUSER » (bouton sur une carte, world.deepenProp) : ni retenue ni refusée ; son auteur y retourne en priorité (L.prio) et la
+  représentera.
+- LE RYTHME DE LECTURE : une heure de jeu dure 4 s ; la vue (labview.labPaced) montre une réplique à la fois par bâtiment, 2,4 à 6 s selon sa
+  longueur, et saute les plus anciennes quand elle prend du retard. Celui qui parle se tourne vers celui à qui il parle et gesticule
+  (view.labTalkNow → scene3d).
+- L'ARME EN VRAI : scene3d.labProps pose la conception en 3D (gunModel du concepteur) sur la grande table du centre pendant une réunion (elle
+  change à chaque vague retenue) et le prototype sur l'établi du bureau d'études.
+
+8. LE LABORATOIRE DE CHIMIE
+----------------------------------------------------------------------------------------------------------
+data.js labo : 3×3, bois 80, pierre 90, pièces 12, 16 h, 3 ouvriers, 600 PV, lab:true, factory ; produit poudre, explosifs, mélange
+incendiaire, explosifs brisants (PRODUCTS.at:['poudrerie','labo'], madeAt) ; l'usine chimique (poudrerie) est réservée aux Bèè ; le départ
+assisté pose un labo. Intérieur : paillasse, hotte, balance, étagères, évier + cuve de cuivre, condenseur, tonneaux et postes d'ouvriers.
+Les chimistes y mènent les tâches chimiques des programmes (charge, explosif, remplissage, moteur) ; accidents possibles.
+À FAIRE (phase suivante) : un vrai concepteur de composés (poudres, explosifs, gaz de combat avec nuage réel, ergols de missiles).
+
+9. TESTER, MESURER
+----------------------------------------------------------------------------------------------------------
+Pas de Node sur ce PC : l'Electron empaqueté sert de Node.
+  E="/c/Users/alexa/Downloads/oberkommando der meumeu OKM/oberkommando-v12.0/.runtime/electron.exe"
+  ELECTRON_RUN_AS_NODE=1 "$E" test/recherche.mjs                    (depuis resources/jeu)
+  ELECTRON_RUN_AS_NODE=1 "$E" test/_outils_captures/recherche_save.mjs   (fabrique la sauvegarde v13)
+  OKM_ROOT=".../resources/jeu" OUT=<dossier> "$E" test/_outils_captures/recherche_vue.cjs   (captures, SANS RUN_AS_NODE)
+Mesures faites pendant le développement (scripts dans le scratchpad de la session : essai_pistes.mjs, vie.mjs) :
+  - un pas de réflexion ≈ 1 ms (le cache de derive ; rangeOf et nums gardés sur la conception calculée ; la portée maximale sur 4 angles) ;
+  - 72 h de jeu d'un programme d'obusier, 6 savants : ≈ 4 s ; 9 réunions, 1 à 3 vagues, 3 à 11 propositions par réunion ;
+  - exemples de pistes trouvées seules : lunette ×2 (portée +225 %), pas de rayure 11 → 6 cm (Sg 0,54 → 2,1), billes d'acier + fusée
+    fusante (éclats +27 %), explosif brisant à 36 % (souffle +42 %), frein de bouche (recul −40 %), refonte au calibre 42,8 mm…
+
+10. LIMITES CONNUES, SUITE
+----------------------------------------------------------------------------------------------------------
+- test/recherche.mjs R3/R7 parlent encore de brainstorm/cat : à réécrire pour les pistes ; test/chimie.mjs K2, test/run.mjs banc 12,
+  test/bot.mjs utilisent l'ancienne API (canStartProject, startProject) ; les sauvegardes de test anciennes (v12) sont refusées (pas de
+  code de compatibilité, par principe) — les refaire en v13.
+- Un pilote automatique qui retient toujours la meilleure carte fait dériver l'arme (calibre qui fond) : c'est au joueur de trancher.
+- À faire : le concepteur de composés chimiques ; l'essai de tir visible dehors ; le plan de la conception affiché sur les tables à dessin
+  et le prototype sur l'établi ; l'IA alliée qui lance aussi des programmes ; régression complète (scratchpad regress.sh).

@@ -29,7 +29,11 @@ P(r4.every(r=>r.minRation>=.9),'R4. pas de famine due à la croissance (ration �
 const r5=run(seeds[0],{food:1500,hours:400});
 const rate=r5.W.cityFoodRate(r5.cap);
 P(r5.births>0&&r5.births<200,'R5. la croissance se borne d\'elle-même (pas d\'emballement) sur 400 h sans production',`${r5.births} naissances · ${r5.n} villageois · stock ${r5.food.toFixed(0)} · ration finale ${(r5.cap.ration??1).toFixed(2)} (INFO : sans moulin la ville finit par avoir faim)`);
-{const W=new World(seeds[0]);for(let h=0;h<96;h++)W.update(1);const bc=W.s.buildings.filter(b=>b.k==='centre'&&b.f==='beee'&&!b.ruin&&b.done);
+// R6bis (corrigé) : l'ancien R6 comptait aussi les soldats rentrés de mission, rattachés à la ville de la caserne (une garnison ne loge pas en maison) : il dépendait de la trajectoire.
+//   Ce que « Bèè inchangé » veut dire : aucune naissance bèè dans une ville déjà pleine.
+{const W=new World(seeds[0]);let born=0,over=0;const T0=W.train.bind(W);W.train=(b,k,...r)=>{if(b.f==='beee'&&k==='villageois'&&b.k==='centre'){const st=W.cityStats(b);born++;if(st.res>=st.cap)over++;}return T0(b,k,...r);};for(let h=0;h<96;h++)W.update(1);
+ P(born>0&&over===0,'R6bis. Bèè inchangé : aucune naissance bèè dans une ville pleine',`${born} naissances, ${over} dans une ville pleine`);}
+if(process.env.ANCIENS){const W=new World(seeds[0]);for(let h=0;h<96;h++)W.update(1);const bc=W.s.buildings.filter(b=>b.k==='centre'&&b.f==='beee'&&!b.ruin&&b.done);
  const over=bc.map(b=>{const st=W.cityStats(b);return st.res-st.cap;});P(bc.length>0&&over.every(d=>d<=1),'R6. Bèè inchangé : habitants ≤ places + 1 dans chaque ville bèè',over.map(d=>d>0?`+${d}`:String(d)).join(' '));}
 {const W=new World(seeds[0]),cap=W.capital();let famine=null,peak=civ(W);const n0=peak;for(let h=1;h<=240&&famine===null;h++){W.update(1);peak=Math.max(peak,civ(W));if((cap.ration??1)<.5)famine=h;}
  P(famine===null||famine>=72,'R7. partie neuve sans moulin : pas de famine avant 72 h',`famine à l'heure ${famine??'>240'} · villageois ${n0} → ${peak} · vivres ${(cap.stock.vivres||0).toFixed(0)}`);}

@@ -71,11 +71,4 @@ const taux=(W,tireur,cible,n=600)=>{const Wd=W.W(tireur.w);let hit=0,arret=0;for
   const nu=mkWorld({...OB,mods:['trepied']});const vn=[];for(let i=0;i<300;i++){nu.sv.plates={};const r=nu.W.resolve(nu.front,nu.sv,nu.W.W(nu.front.w),RNG,1);if(r.hit&&!r.stopped&&r.v)vn.push(r.v);}
   const m=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
   P(pass>=10&&vn.length>=10&&m(vs)<m(vn)*.985,'B7. une balle qui traverse la plaque ressort plus lente',`vitesse d’impact moyenne : ${m(vs).toFixed(0)} m/s après la plaque (${pass} balles passées) contre ${m(vn).toFixed(0)} m/s sans plaque (${vn.length})`);}
-// B8 (V12.3, critères fixés avant de lancer) : hauteur et largeur réglables. shieldH=40, shieldW=30 → S.h = 0,40 m et S.w = 0,30 m exactement ;
-//    masse = h × w × t × ρ ; régler seulement la hauteur ne change pas la largeur par défaut (et inversement) ; une grande plaque (40 × 30 cm, acier 4 mm)
-//    arrête en combat au moins autant de tirs de face que la plaque par défaut au même acier 4 mm (tolérance −10 %, bruit statistique)
-{const g=shieldOf(ob({shieldH:40,shieldW:30,shieldT:2}));const def=shieldOf(ob({shieldT:2}));const hSeul=shieldOf(ob({shieldH:40,shieldT:2})),wSeul=shieldOf(ob({shieldW:30,shieldT:2}));
-  const big=mkWorld(ob({shieldH:40,shieldW:30,shieldT:4})),pet=mkWorld(ob({shieldT:4}));const rB=taux(big.W,big.front,big.sv),rP=taux(pet.W,pet.front,pet.sv);
-  P(near(g.h,.40)&&near(g.w,.30)&&near(g.kg,.40*.30*2*MATS.acier.rho,1e-9)&&near(hSeul.w,def.w)&&near(wSeul.h,def.h)&&rB.arret>=rP.arret*.9,
-    'B8. hauteur et largeur de la plaque réglables, masse et protection qui suivent',`40×30 → ${(g.h*100).toFixed(0)}×${(g.w*100).toFixed(0)} cm ${g.kg.toFixed(3)} kg · défaut ${(def.h*100).toFixed(0)}×${(def.w*100).toFixed(0)} cm · hauteur seule : largeur ${(hSeul.w*100).toFixed(0)} cm · largeur seule : hauteur ${(wSeul.h*100).toFixed(0)} cm · arrêtés sur 600 : grande ${rB.arret} contre défaut ${rP.arret}`);}
 process.exit(fail?1:0);

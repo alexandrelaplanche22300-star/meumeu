@@ -47,14 +47,15 @@ export const STRATEGY={
   // La mobilisation d'une ville : ses soldats en ronde ou en fouille, et la place qu'il lui reste avant le plafond (40 % de la garnison,
   // 60 % face à un danger avéré). Les éclaireurs de campagne comptent aussi : ils quittent la ville.
   // (la reconnaissance lointaine — task.recon — ne compte pas dans les sorties de la ville et n'est jamais rappelée : c'est la mission de l'état-major)
-  beeeOut(c){return this.s.units.filter(u=>u.f==='beee'&&u.city===c.id&&alive(u)&&!u.band&&!u.task?.recon&&(u.task?.kind==='patrol'||u.task?.kind==='search')).length;},
+  beeeByCity(id){if(this._bcT!==this.s.t||this._bcN!==this.s.units.length){this._bcT=this.s.t;this._bcN=this.s.units.length;const M=this._bc??=new Map();for(const a of M.values())a.length=0;for(const u of this.s.units){if(u.f!=='beee'||u.city==null)continue;let a=M.get(u.city);if(!a)M.set(u.city,a=[]);a.push(u);}}return this._bc.get(id)||[];},
+  beeeOut(c){return this.beeeByCity(c.id).filter(u=>u.f==='beee'&&u.city===c.id&&alive(u)&&!u.band&&!u.task?.recon&&(u.task?.kind==='patrol'||u.task?.kind==='search')).length;},
   // la bande de défense de la ville compte aussi : ses membres sont dehors et dans le total
   // (comptés par ville d'ORIGINE : un renfort venu d'une voisine pèse sur le plafond de sa ville, pas sur celui de la ville défendue)
   beeeBandOut(c){return (this.s.beee.bands||[]).filter(b=>b.kind==='defense').reduce((n,b)=>n+b.m.filter(id=>{const u=this.unit(id);return u&&alive(u)&&u.from===c.id;}).length,0);},
   // les soldats de la ville engagés localement face à un intrus (assault) : ils comptent parmi les sorties
-  beeeEngaged(c){return this.s.units.filter(u=>u.f==='beee'&&u.k==='soldat'&&u.city===c.id&&alive(u)&&!u.band&&u.task?.kind==='assault').length;},
+  beeeEngaged(c){return this.beeeByCity(c.id).filter(u=>u.f==='beee'&&u.k==='soldat'&&u.city===c.id&&alive(u)&&!u.band&&u.task?.kind==='assault').length;},
   // la garnison sert de base au plafond : gardes, rondes, fouilles ET soldats engagés localement (assault), plus la bande de défense
-  beeeAll(c){return this.s.units.filter(u=>u.f==='beee'&&u.k==='soldat'&&u.city===c.id&&alive(u)&&!u.band&&['guard','patrol','search','assault'].includes(u.task?.kind)).length;},
+  beeeAll(c){return this.beeeByCity(c.id).filter(u=>u.f==='beee'&&u.k==='soldat'&&u.city===c.id&&alive(u)&&!u.band&&['guard','patrol','search','assault'].includes(u.task?.kind)).length;},
   beeeCap(c,danger=false){const n=this.beeeAll(c)+this.beeeBandOut(c),reserve=Math.max(2,Math.ceil(this.beeeGarrisonMin(c)/2));return Math.max(0,Math.min(Math.floor(n*(danger?.6:.4)),n-reserve));},
   beeeRoom(c,danger=false){return Math.max(0,this.beeeCap(c,danger)-this.beeeOut(c)-this.beeeBandOut(c)-this.beeeEngaged(c));},
   // Le rappel : si la garnison a fondu (une offensive est partie, des pertes) les sorties au-delà du plafond rentrent, une par veille, en
@@ -73,7 +74,10 @@ export const STRATEGY={
       out.push(pts);}
     return out;},
   beeeSearch(cities){this.beeeScout();const B=this.s.beee,t=this.t;B.searchT=(B.searchT||0)+this.dt;if(B.searchT<.1)return;const el=B.searchT;B.searchT=0;
+    B.srch=(B.srch||[]).filter(q=>t-q.t<1.5);
     for(const a of B.alerts||[]){if(a.done||t-a.t>3||t<(a.readyAt||a.t+.15))continue;
+      // (une fouille par secteur de 15 cases toutes les 1,5 h : chaque « mouvement suspect » relançait la sienne, les mêmes soldats faisaient la navette)
+      if(a.why!=='camarade abattu'&&B.srch.some(q=>distance(q,a)<15)){a.done=true;continue;}
       const c=cities.slice().sort((p,q)=>distance(p,a)-distance(q,a))[0];if(!c||distance(c,a)>150)continue;
       const keep=this.beeeGarrisonMin(c),g=this.beeeGuards(c),pat=this.s.units.filter(u=>u.f==='beee'&&alive(u)&&!u.band&&u.task?.kind==='patrol'&&distance(u,a)<55);
       // À son minimum de garnison, la ville ne se vide pas mais détache un binôme d'écoute : au moins la moitié du minimum reste à son poste.
@@ -82,7 +86,7 @@ export const STRATEGY={
       // Les rondes déjà dehors (`pat`) sont réaffectées sans compter de nouveau ; seuls les gardes neufs consomment la place restante.
       const danger=a.why==='vu'||a.why==='explosion'||a.why==='camarade abattu',room=this.beeeRoom(c,danger);
       const want=a.why==='vu'?6:a.why==='explosion'?5:a.why==='traces'?3:2,pool=[...pat,...g.slice(0,Math.min(spare,room))].slice(0,want);if(!pool.length)continue;
-      a.done=true;a.level=a.why==='vu'?'confirmation':'recherche';const pts=[];
+      a.done=true;B.srch.push({x:a.x,y:a.y,t});a.level=a.why==='vu'?'confirmation':'recherche';const pts=[];
       if(!a.cone)for(let n=0;n<5;n++){const an=n*2.4,rr=Math.max(3,a.r)*(.4+n*.15);pts.push(this.freeSpot(a.x+Math.cos(an)*rr,a.y+Math.sin(an)*rr,6));}
       const sweep=a.cone?this.coneSweep(a,pool.length):null;   // un bruit : on balaie un cône ; une vue : on converge sur le point vu
       // un balayage plus long dure plus longtemps : la fouille doit pouvoir atteindre le bout du cône avant de rentrer
@@ -115,19 +119,26 @@ export const STRATEGY={
     }
   },
   reachablePatrol(c,p){const N=this.N,cl=v=>Math.max(0,Math.min(N-1,Math.floor(v))),cost=this.costFn('beee'),ti=cl(p[0]),tj=cl(p[1]);
-    const home=this.freeSpot(c.x,c.y,8),r=this.pather.find(cl(home[0]),cl(home[1]),ti,tj,cost,k=>Math.abs(k%N-ti)<=2&&Math.abs((k/N|0)-tj)<=2&&cost(k)!==Infinity,100000);
+    const home=this.freeSpot(c.x,c.y,8);{const L=this.landComp(),q=this.walkTarget({x:home[0],y:home[1]},p[0],p[1]);if(!q||L[cl(q[1])*N+cl(q[0])]!==L[cl(home[1])*N+cl(home[0])])return [];}   // (une autre rive : pas à pied)
+    const r=this.pather.find(cl(home[0]),cl(home[1]),ti,tj,cost,k=>Math.abs(k%N-ti)<=2&&Math.abs((k/N|0)-tj)<=2&&cost(k)!==Infinity,100000);
     if(!r.done||r.path.length<4)return [];const pts=r.path.filter((_,n)=>n%15===0).map(([x,y])=>[x+.5,y+.5]);const end=r.path.at(-1);pts.push([end[0]+.5,end[1]+.5]);return [...pts,...pts.slice(0,-1).reverse(),home];
   },
   // Les défenseurs autour d'un point, d'après les relevés datés. Chaque relevé compte les soldats à 18 cases DE SON bâtiment : les mêmes
   // soldats figurent dans tous les relevés d'une base (mesuré : jusqu'à 7 fois trop dans la somme). On garde le plus fort relevé, plus les
   // ouvrages de défense (chacun est un bâtiment distinct).
-  defendersAt(x,y){let seen=0,works=0;for(const I of Object.values(this.s.beee.known||{})){if(typeof I!=='object'||I.ruin||this.t-I.t>DAY*3)continue;if(Math.hypot(I.x-x,I.y-y)<20){seen=Math.max(seen,I.troops);works+=I.defense;}}return seen+works;},
-  beeePlanRaid(from,guard,aimed=[],small=false){const avail=guard.length;if(avail<4)return null;const weights={centre:5,gare:7,mine:5,arsenal:6,poudrerie:6,entrepot:5,camp:3,moulin:4,atelier:4,manufacture:5,caserne:4,tour:1};
+  defendersAt(x,y){let seen=0,works=0;for(const I of Object.values(this.s.beee.known||{})){if(typeof I!=='object'||I.ruin||this.t-I.t>DAY*3)continue;if(Math.hypot(I.x-x,I.y-y)<35){seen=Math.max(seen,I.troops);works+=I.defense;}}
+    // (et les pertes que leur a coûtées ce secteur : ce qui les a tués était là, même s'ils ne l'ont pas vu)
+    const lost=(this.s.beee.lossAt||[]).filter(p=>this.t-p.t<DAY*3&&Math.hypot(p.x-x,p.y-y)<45).length;return Math.max(seen,Math.ceil(lost*.35))+works;},
+  beeePlanRaid(from,guard,aimed=[],small=false){const avail=guard.length;if(avail<4)return null;const weights={centre:5,gare:7,mine:5,arsenal:6,poudrerie:6,labo:6,centre_recherche:6,armurerie:5,entrepot:5,camp:3,moulin:4,atelier:4,manufacture:5,caserne:4,tour:1};   // (V12.7 : la recherche meumeu — ses savants, ses programmes — est une cible)
+    /* (V12.5) seulement une cible sur la même terre : sur la carte mer, les colonnes visaient l'autre rive et restaient « en rassemblement » des semaines
+       (mesuré : 230 à 510 soldats immobiles, jusqu'à 22 jours) — la mer, c'est l'affaire de la flotte (amphibee.js) */
+    const L=this.landComp(),N=this.N,home=L[Math.floor(from.y)*N+Math.floor(from.x)];
     const candidates=[];for(const I of Object.values(this.s.beee.known||{})){if(typeof I!=='object'||I.ruin||!I.done||this.t-I.t>DAY*4||aimed.some(p=>Math.hypot(p[0]-I.x,p[1]-I.y)<25))continue;
+      if(home>=0&&L[Math.floor(I.y)*N+Math.floor(I.x)]!==home)continue;
       // un relevé plus vieux dit moins bien ce qui garde la base : la marge grandit avec son âge (un demi-soldat par jour)
       const def=this.defendersAt(I.x,I.y),need=small?Math.max(4,Math.ceil(def*1.6+2+(this.t-I.t)/DAY*.5)):Math.max(this.raidK().armyMin,Math.ceil(def*this.raidK().odds+4+(this.t-I.t)/DAY*.5));if(need>avail)continue;   // small : les commandos de sabotage gardent l'ancien calcul
       const target=this.building(I.id);if(!target)continue;const distance=Math.hypot(I.x-from.x,I.y-from.y),age=(this.t-I.t)/DAY;
-      candidates.push({target,at:[I.x,I.y],def,need,aim:I.capital?'finale':distance<90?'avant-poste':'affaiblir',s:(weights[I.k]||2)/(1+distance/90)/(1+def*.25)/(1+age*.5),size:Math.min(avail,Math.max(need+6,Math.ceil(avail*.9)))});}
+      candidates.push({target,at:[I.x,I.y],def,need,aim:I.capital?'finale':distance<90?'avant-poste':'affaiblir',s:(weights[I.k]||2)/(1+distance/90)/(1+def*.25)/(1+age*.5),size:avail});}
     candidates.sort((a,b)=>b.s-a.s);return candidates[0]||null;
   },
   beeeRally(pool,at){const x=pool.reduce((n,u)=>n+u.x,0)/pool.length,y=pool.reduce((n,u)=>n+u.y,0)/pool.length,d=Math.hypot(at[0]-x,at[1]-y)||1;return this.freeSpot(x+(at[0]-x)*Math.min(.35,18/d),y+(at[1]-y)*Math.min(.35,18/d),8);},
@@ -135,13 +146,13 @@ export const STRATEGY={
     const plan=cities.map(c=>({c,g:this.beeeGuards(c)})).filter(q=>q.g.length>this.beeeGarrisonMin(q.c)+3).map(q=>({...q,plan:this.beeePlanRaid(q.c,q.g,[],true)})).find(q=>q.plan&&['gare','mine','arsenal','entrepot','poudrerie'].includes(q.plan.target.k));if(!plan)return;
     const n=Math.floor(this.take('beee',plan.c.x,plan.c.y,'explosifs',2,40));for(const u of plan.g.slice(0,n)){u.charges=1;u.fuse=1;u.task={kind:'sabotage',b:plan.plan.target.id,back:[plan.c.x,plan.c.y]};u.path=null;}
   },
-  beeeStaff(cities,offense=true){const B=this.s.beee;if(!this.atWar||!cities.length)return;B.bands??=[];B.defT=(B.defT||0)+this.dt;if(B.defT>=.25){B.defT=0;this.beeeDefend(cities);}B.staffT=(B.staffT||0)+this.dt;if(B.staffT<1)return;B.staffT=0;
+  beeeStaff(cities,offense=true){const B=this.s.beee;if(!this.atWar||!cities.length)return;B.bands??=[];B.defT=(B.defT||0)+this.dt;if(B.defT>=.25){B.defT=0;this.beeeDefend(cities);this.beeeTankHunt?.();}B.staffT=(B.staffT||0)+this.dt;if(B.staffT<1)return;B.staffT=0;
     this.beeeGarrison(cities);this.beeeCounterBattery(cities);this.beeeRetake(cities);this.beeeFortify(cities);this.beeeRecon(cities);this.beeeHeavy(cities);this.beeeSawArmor();this.beeeSabotage(cities);
     // Les colonnes en route (ni repliées, ni défense, ni contre-batterie, ni diversion). Une colonne de plus part seulement si le surplus
     // restant en vaut une, et jusqu'à trois à la fois.
     const cols=B.bands.filter(b=>b.state!=='repli'&&b.kind!=='defense'&&b.kind!=='contre'&&b.aim!=='diversion');
     const K=this.raidK();if(!offense||this.t<(B.nextWave||0)||cols.length>=K.maxcol)return;
-    const groups=cities.map(c=>({c,g:this.beeeGuards(c)})).map(q=>({...q,g:q.g.slice(0,Math.max(0,q.g.length-Math.max(4,Math.ceil(this.beeeGarrisonMin(q.c)*K.keep))))})).sort((a,b)=>b.g.length-a.g.length),from=groups[0]?.c;if(!from)return;
+    const groups=cities.map(c=>({c,g:this.beeeTroops(c).filter(u=>u.task?.kind!=='assault')})).map(q=>({...q,g:q.g.slice(0,Math.max(0,q.g.length-Math.max(3,Math.ceil(this.beeeGarrisonMin(q.c)*K.keep))))})).sort((a,b)=>b.g.length-a.g.length),from=groups[0]?.c;if(!from)return;
     const mobile=groups.filter(q=>distance(q.c,from)<240).flatMap(q=>q.g);if(mobile.length<K.armyMin)return;   // pas d'armée tant qu'elle ne serait pas massive : on rassemble, on ne fait pas partir de petits groupes
     const plan=this.beeePlanRaid(from,mobile);if(!plan){B.nextWave=this.t+4;return;}
     const main=mobile.slice().sort((a,b)=>Math.hypot(a.x-plan.at[0],a.y-plan.at[1])-Math.hypot(b.x-plan.at[0],b.y-plan.at[1])).slice(0,plan.size),band=this.makeBand(main,plan.target,from);

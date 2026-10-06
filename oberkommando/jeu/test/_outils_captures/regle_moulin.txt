@@ -1,0 +1,1 @@
+(()=>{const z=Math.abs(t.cz),P=y=>y<.34?.16:y<.38?.18:y<.42?.155:y<.46?.13:y<.5?.08:.045;const lo=t.cx<-.09&&z>.04&&t.cy>.12&&Math.abs(t.cy-(.454-.95*z))/1.379<.085,hi=t.cx<-.09&&z>.04&&t.cy<.6&&Math.abs(t.cy-(.454+.78*z))/1.264<.07,hub=t.cx<-.06&&z<.1&&t.cy>.28&&t.cy<.62&&t.r>P(t.cy)+.005;return lo||hi||hub;})()

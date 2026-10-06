@@ -19,6 +19,9 @@ import {layout,drawWeapon,drawRound} from './gunart.js';
 import {FixedClock} from './clock.js';
 import {resumeWorld} from './persistence.js';
 import {operationUI} from './operations-ui.js';
+import {VEHDEF} from './vehicules.js';
+import {researchUI} from './research-ui.js';
+import {EnginsBureau} from './engins-ui.js';
 
 const $=s=>document.querySelector(s);
 // Une erreur de démarrage ne doit plus laisser une fenêtre muette : elle est
@@ -53,10 +56,11 @@ const view=new View($('#view'),world,{
   describe:t=>describe(t),
   pickOperation:(w,button)=>ops.map(w,button),
   unitLabel:u=>unitLabel(u),
+  labPick:uid=>{rui.pick(uid);renderPanel(true);},
   unitInfo:u=>openFiche(u.id),
   zoneAt:(w,keep)=>{const r=world.zoneFire([...view.sel],w.x,w.y,{n:ui.zoneN||Infinity,high:ui.zoneHigh});say(r.ok?r.text:r.why[0],r.ok?'':'bad');audio.play(r.ok?'order':'bad');view.marks.push({x:w.x,y:w.y,age:0,bad:!r.ok});renderPanel(true);return r;},
   order:(ids,t)=>{const r=world.order(ids,t);say(r.ok?r.text:r.why[0],r.ok?'':'bad');audio.play(r.ok?'order':'bad');if(r.ok){const u=world.unit(ids[0]);if(u)audio.play('ack',null,{f:u.f,n:ids.length});}renderPanel(true);return r;},
-  place:(k,i,j)=>{const r=world.place('meumeu',k,i,j);if(!r.ok){say(r.why[0],'bad');audio.play('bad');return r;}
+  place:(k,i,j,rot=0)=>{const r=world.place('meumeu',k,i,j,rot);if(!r.ok){say(r.why[0],'bad');audio.play('bad');return r;}
     // ceux qu'on a choisis y vont ; sinon, les villageois oisifs les plus proches
     let vil=[...view.sel].map(id=>world.unit(id)).filter(u=>u?.k==='villageois');const B=BUILDINGS[k];
     if(!vil.length)vil=world.idle().filter(u=>Math.hypot(u.x-i,u.y-j)<45).sort((a,b)=>Math.hypot(a.x-i,a.y-j)-Math.hypot(b.x-i,b.y-j)).slice(0,B.size[0]*B.size[1]>=9?4:3);
@@ -64,13 +68,13 @@ const view=new View($('#view'),world,{
     // la fiche du chantier s'ouvre : ce qu'il lui faut, qui y travaille, d'où viennent les matériaux
     view.sel.clear();view.selV=null;view.selB=r.b.id;
     say(`${B.name} posé${vil.length?` : ${vil.length} villageois ${view.sel.size?'y vont':'oisifs y vont d’eux-mêmes'}`:' — aucun villageois libre : choisissez-en, clic droit sur le chantier'}.`,'good');audio.play('order');renderPanel(true);return r;},
-  planLine:(kind,cells)=>{if(kind==='gomme'){let n=0;const N=world.N;for(const [i,j] of cells){const k=j*N+i;n+=world.cancelLine('meumeu','rail',k)+world.cancelLine('meumeu','mur',k)+world.cancelLine('meumeu','tranchee',k);}
+  planLine:(kind,cells)=>{if(kind==='gomme'){let n=0;const N=world.N;for(const [i,j] of cells){const k=j*N+i;n+=world.cancelLine('meumeu','rail',k)+world.cancelLine('meumeu','mur',k)+world.cancelLine('meumeu','sacs',k)+world.cancelLine('meumeu','fosses',k)+world.cancelLine('meumeu','mines',k);}
       say(n?`Tracé annulé : ${n} case${n>1?'s':''} prévue${n>1?'s':''} retirée${n>1?'s':''} ; ce qui était payé revient au dépôt.`:'Aucun tracé prévu ici (seules les cases pas encore bâties s’annulent).',n?'good':'bad');renderPanel(true);return;}
     // une voie trouée ne servirait à rien : on ne la pose pas, on dit pourquoi
     if(kind==='rail'){const N=world.N;const ok=new Set(world.canLine('meumeu','rail',cells));const bad=cells.filter(([i,j])=>!ok.has(j*N+i)&&!world.rail[j*N+i]).length;
       if(bad){say(`Voie impossible : ${bad} case${bad>1?'s':''} barrée${bad>1?'s':''} (roc, eau, bâtiment, filon). Tracez vers une case libre : la voie contourne d’elle-même ce qui la gêne.`,'bad');return;}}
     const r=world.planLine('meumeu',kind,cells);if(!r.ok){say('rien à poser là','bad');return;}let vil=[...view.sel].map(id=>world.unit(id)).filter(u=>u?.k==='villageois');
-    const [i,j]=cells[0];if(!vil.length)vil=world.idle().filter(u=>Math.hypot(u.x-i,u.y-j)<45).slice(0,4);if(vil.length)world.order(vil.map(u=>u.id),{type:kind==='rail'?'rail':kind==='tranchee'?'tranchee':'wall',k:j*world.N+i});
+    const [i,j]=cells[0];if(!vil.length)vil=world.idle().filter(u=>Math.hypot(u.x-i,u.y-j)<45).slice(0,4);if(vil.length)world.order(vil.map(u=>u.id),{type:kind==='rail'?'rail':kind==='sacs'||kind==='fosses'?'sacs':kind==='mines'?'mines':kind==='piste'?'piste':'wall',k:j*world.N+i});
     say(`${LINES[kind].name} : ${r.n} cases en plan · ${Object.entries(r.cost).map(([k,v])=>v+' '+RES[k].name.toLowerCase()).join(', ')}, payés case par case${vil.length?` · ${vil.length} villageois y vont`:' — envoyez des villageois (clic droit sur le tracé)'}.`);},
   inspect:t=>{ui.inspect=t;},
   // à la sélection, ils répondent « meu ? » (« bè ? » si l'on clique un Bèè) ; à l'ordre, « meu ! »
@@ -81,6 +85,8 @@ const view=new View($('#view'),world,{
   vehicleHint:w=>{const v=world.s.vehicles.find(x=>x.id===view.selV);return v?.k==='bombardier'?'clic droit : bombarder ici':null;},
   get pickStop(){return ui.pick?pickStop:null;}});
 const ops=operationUI({world:()=>world,view,ui,say,open:openModal,close:()=>{ui.modal=null;renderModal();},speed:setSpeed});
+// (V12.6) le panneau de la vue recherche
+const rui=researchUI({world:()=>world,view,ui,say,esc,ico,costHtml,hours,buildingPane:b=>buildingPane(b),audio,open:(k,id)=>openModal(k,id),close:()=>{ui.modal=null;renderModal();},draft:(p,n)=>designer.showDraft(p,n)});
 const room=new XRoom($('#xroom'));const body3d=new BodyView();
 const xray=new XRay($('#xray'),{onGo:(x,y)=>view.lookAt(x,y),room,onFiche:id=>openFiche(id),hostL:$('#xrayL')});
 const designer=new Designer($('#dz'),{world:()=>world,
@@ -93,6 +99,12 @@ designer.close=(orig=>function(){orig.call(this);if(ui.dzSpeed!=null){setSpeed(u
 function pauseForBureau(){if(ui.dzSpeed==null){ui.dzSpeed=ui.speed;setSpeed(0);}}
 function resumeAfterBureau(){if(ui.dzSpeed!=null&&designer.host.hidden){setSpeed(ui.dzSpeed);ui.dzSpeed=null;}renderPanel(true);}
 function openDesigner(from){pauseForBureau();designer.show(from);}
+// (V12.8) le bureau des engins : ses armes se retouchent au concepteur d'armes (mode engin) ; une conception enregistrée devient un prototype d'engin
+const engins=new EnginsBureau($('#vz'),{world:()=>world,
+  editWeapon:(p,name,onDone,onCancel)=>{designer.editP(p,name,{onDone:q=>{pauseForBureau();onDone(q);},onCancel:()=>{pauseForBureau();onCancel?.();}});},
+  save:(v,name)=>{const s=world.s;s.vdesigns??={};const id='e'+world.id();s.vdesigns[id]={id,f:'meumeu',name,status:'prototype',v,t:s.t};world.enginsSync();audio.play('built');say(`Conception d’engin enregistrée : ${name}.`,'good');return {ok:true,text:`« ${name} » enregistrée au bureau d’études.`};}});
+engins.close=(orig=>function(){orig.call(this);resumeAfterBureau();})(engins.close);
+function openEngins(){pauseForBureau();engins.show();}
 function openArmorer(from){pauseForBureau();armorer.show(from);}
 
 // ---------- les mots ----------
@@ -106,7 +118,7 @@ function describe(t){if(!t)return null;const peace=!world.atWar;
   if(t.type==='building'){const b=world.building(t.id);const B=BUILDINGS[b.k];if(b.f==='beee')return `à l’assaut : ${B.name.toLowerCase()} bèè${peace?' — ce sera la guerre':''}`;if(!b.done)return `${b.ruin?'rebâtir':'bâtir'} : ${B.name.toLowerCase()}${b.why?' · '+b.why:''}`;
     if(b.fire>0||b.hp<b.max-1)return b.fire>0?'éteindre le feu, réparer':'réparer';if(B.hub)return `récolter autour du camp (${world.workers(b).length}/${B.workers})`;if(B.workers)return `travailler : ${B.name.toLowerCase()} (${world.workers(b).length}/${B.workers})`;if(B.airfield)return 'embarquer dans les avions';if(B.store)return 'déposer';return B.name;}
   if(t.type==='node'){const nd=world.s.nodes[t.id];return nd.type==='ore'?`extraire ${RES[nd.res].name.toLowerCase()} à la main (${n0(nd.left)})`:`${nd.type==='tree'?'couper':nd.type==='rock'?'casser':'cueillir'} (${n0(nd.left)})`;}
-  if(t.type==='rail')return 'poser la voie';if(t.type==='tranchee')return world.s.trenches[t.k]?.b?'occuper la tranchée (soldats) · la creuser (villageois)':'creuser la tranchée';if(t.type==='wall'){const w=world.s.walls[t.k];return w?.f==='beee'?`abattre le mur${peace?' — ce sera la guerre':''}`:'bâtir le mur';}return 'aller là';}
+  if(t.type==='rail')return 'poser la voie';if(t.type==='sacs')return world.s.sacs[t.k]?.b?(world.s.sacs[t.k]?.t==='fosses'?'occuper la fosse (soldats)':'occuper les sacs de sable (soldats)'):(world.s.sacs[t.k]?.t==='fosses'?'creuser la fosse (villageois)':'poser les sacs de sable (villageois)');if(t.type==='wall'){const w=world.s.walls[t.k];return w?.f==='beee'?`abattre le mur${peace?' — ce sera la guerre':''}`:'bâtir le mur';}return 'aller là';}
 function say(text,tone=''){const h=$('#hint');h.textContent=text;h.className='hint show '+tone;clearTimeout(ui.sayT);ui.sayT=setTimeout(()=>h.className='hint',4500);}
 // La taille de l'interface (A− / A+, Ctrl + / Ctrl −). Dans l'application : un vrai zoom de page, net, les clics justes ;
 // dans un navigateur : le zoom CSS. Par défaut, calée pour que l'écran fasse ~1650 points de large quel que soit le
@@ -125,6 +137,14 @@ const uiZ={auto(){return Math.min(1,near((window.okmApp?.zoom?screen.width:inner
     say(`Taille de l’interface : ${Math.round(this.cur*100)} % (Ctrl + / Ctrl −).`);},
   init(){let z=NaN;try{z=parseFloat(localStorage.getItem('okm-zoom'));}catch(e){}this.set(z>0?z:this.auto(),false);}};
 window.okmZoom=d=>uiZ.step(d);
+// Le bandeau du haut ne rétrécit jamais en cours de partie : ses chiffres (ressources, horloge, puces) changent de largeur à chaque instant, et
+// une ligne de puces qui passait à la ligne puis revenait faisait sauter la carte de 29 points, plusieurs fois par minute. Il garde sa plus grande
+// hauteur ; elle se recalcule quand la fenêtre ou la taille de l'interface change.
+{const top=document.querySelector('.top');let maxH=0;
+  new ResizeObserver(()=>{const h=top.getBoundingClientRect().height;if(h>maxH+.5){maxH=h;top.style.minHeight=h+'px';}}).observe(top);
+  let vw=innerWidth,vh=innerHeight;addEventListener('resize',()=>{if(innerWidth===vw&&innerHeight===vh)return;vw=innerWidth;vh=innerHeight;maxH=0;top.style.minHeight='';});}
+// après un plantage du rendu (la page rechargée par l'application, la partie reprise à la sauvegarde automatique) : on le dit au joueur
+window.okmNotice=why=>{say(`Le rendu du jeu a planté (${why}) et a été relancé : la partie a repris à la dernière sauvegarde automatique.`,'bad');try{world?.log?.('Front',`Le rendu a planté (${why}) : partie reprise à la dernière sauvegarde automatique.`,'bad');}catch(e){}};
 uiZ.init();
 function setSpeed(v){ui.speed=v;document.querySelectorAll('[data-speed]').forEach(b=>b.classList.toggle('on',+b.dataset.speed===v));}
 const wounded=()=>{const L=world.s.units.filter(u=>u.f==='meumeu'&&u.h&&u.h.state!=='ok').map(u=>({u,where:'terrain'}));for(const b of world.s.buildings)if(b.f==='meumeu')for(const u of b.wardList||[])L.push({u,where:b});return L;};
@@ -147,7 +167,7 @@ function topbar(){const cap=world.capital();const p=world.pop('meumeu');const st
   const sq=world.s.squads.map((q,i)=>{const ms=world.members(q);const up=ms.filter(u=>u.h?.state!=='hors').length;const on=ms.length&&ms.every(u=>view.sel.has(u.id));
     return `<button class="sqchip ${on?'on':''} ${q.broken?'broken':''}" data-squad="${q.id}" title="Clic : choisir · double-clic : y aller"><b>${i+1}</b> ${esc(q.name)} <span>${up}/${ms.length}</span><i style="--m:${Math.round(q.morale*100)}%"></i></button>`;}).join('');
   if(sq!==ui.sqHtml){$('#squads').innerHTML=sq;ui.sqHtml=sq;}
-  const xm={sel:'Radios : la sélection',ecran:'Radios : tout l’écran',off:'Radios : coupées'}[xray.mode];if($('#xmode').textContent!==xm)$('#xmode').textContent=xm;
+  const xm={sel:'Radios : la sélection',off:'Radios : coupées'}[xray.mode];if($('#xmode').textContent!==xm)$('#xmode').textContent=xm;
   buildBar();}
 // ---------- la barre de construction ----------
 // Toujours là, en bas : les familles, les bâtiments en image, ce qu'ils coûtent (en rouge ce qui manque près de la vue).
@@ -155,7 +175,7 @@ function buildBar(){const el=$('#buildbar');if(!ui.bb){if(el.innerHTML!=='')el.i
   const now=performance.now();if(now-(ui.bbAt||0)<500&&ui.bbHtml)return;ui.bbAt=now;
   const cat=BUILD_CATS.find(c=>c.k===ui.bbCat)||BUILD_CATS[0];const have=world.have('meumeu',view.cx,view.cy,RADIUS+8);
   const cards=cat.items.map((k,n)=>{const B=BUILDINGS[k],cost=B.cost;const can=Object.entries(cost).every(([r,v])=>(have[r]||0)>=v);const lim=B.unique&&world.s.buildings.some(b=>b.f==='meumeu'&&b.k===k&&!b.ruin);
-      const need=[B.onOre?'sur un filon':'',B.station?'au bord d’une voie':'',B.unique?'un seul':'',k==='centre'?'à 24 cases d’une autre ville':''].filter(Boolean).join(' · ');
+      const need=[B.onOre?'sur un filon':'',B.station?'au bord d’une voie':'',B.unique?'un seul':'',k==='centre'?`à ${24*(world.mapK||1)} cases d’une autre ville`:''].filter(Boolean).join(' · ');
       return `<button class="bb-card ${view.placing===k?'on':''} ${lim?'far':''}" data-build="${k}" title="${esc(B.why)}${can?'':' — les matériaux en rouge manquent près d’ici : le chantier les commandera.'}"><span class="bb-img">${bthumb(k)?`<img src="${bthumb(k)}" alt="">`:''}<i>${n+1}</i></span><b>${B.name}</b><span class="costs">${costHtml(cost,have)}</span><small>${B.size.join('×')}${need?' · '+need:''}${lim?' · déjà bâti':''}</small></button>`;}).join('')+
     (cat.lines||[]).map(k=>{const L=LINES[k];return `<button class="bb-card line ${view.lining?.kind===k?'on':''}" data-line="${k}" title="${k==='rail'?'Cliquez-glissez : la voie va droit et tourne à angle droit, en contournant ce qui la barre. Partez d’une voie existante pour un embranchement.':'Cliquez-glissez sur la carte pour tracer.'} Maj : plusieurs tracés."><span class="bb-img line-${k}"></span><b>${L.name}</b><span class="costs">${costHtml(L.cost)}<small>/case</small></span><small>à tracer</small></button>`;}).join('')+
     ((cat.lines||[]).length?`<button class="bb-card line ${view.lining?.kind==='gomme'?'on':''}" data-line="gomme" title="Balayez un tracé prévu (pointillés dorés) : il est retiré, et ce qui était payé revient au dépôt. Suppr sur un tracé prévu fait de même."><span class="bb-img line-gomme"></span><b>Annuler un tracé</b><span class="costs"><small>rembourse</small></span><small>voie ou mur prévu</small></button>`:'');
@@ -165,7 +185,8 @@ function buildBar(){const el=$('#buildbar');if(!ui.bb){if(el.innerHTML!=='')el.i
 // ---------- le panneau ----------
 function renderPanel(force){const now=performance.now();if(!force&&now-ui.panelAt<400)return;const act=document.activeElement;if(!force&&act&&(act.tagName==='SELECT'||act.tagName==='INPUT')&&$('#panel')?.contains(act))return;if(!force&&ui.pointerIn&&now-(ui.lastPointer||0)<900)return;ui.panelAt=now;
   let h='';const sel=[...view.sel].map(id=>world.unit(id)).filter(Boolean);
-  if(ui.pick)h=pickPane();else if(view.selV!=null)h=vehiclePane();else if(sel.length)h=unitsPane(sel);else if(view.selVs.size)h=vehiclesPane();else if(view.selB!=null&&world.building(view.selB))h=buildingPane(world.building(view.selB));else h=overviewPane();
+  document.body.classList.toggle('labmode',!!view.lab);
+  if(ui.pick)h=pickPane();else if(view.lab&&world.building(view.lab.b))h=rui.pane(world.building(view.lab.b));else if(view.selV!=null)h=vehiclePane();else if(sel.length)h=unitsPane(sel);else if(view.selVs.size)h=vehiclesPane();else if(view.selB!=null&&world.building(view.selB))h=buildingPane(world.building(view.selB));else h=overviewPane();
   if(h!==ui.lastPanel){const p=$('#panel');const top=p.scrollTop;p.innerHTML=h;p.scrollTop=top;ui.lastPanel=h;}
   renderModal();}
 function pickPane(){return `<section class="pane"><h2>Tracer une ligne</h2><p>${ui.pick.a?'Cliquez l’arrêt d’arrivée.':'Cliquez l’arrêt de départ (le plus souvent : la ville).'}</p><p class="quiet small">${ui.pick.need}</p><button class="ghost small" data-act="pick-off">Annuler</button></section>`;}
@@ -292,10 +313,11 @@ function unitsPane(sel){const by={};for(const u of sel)by[u.k]=(by[u.k]||0)+1;co
   if(vil.length)h+=`<section class="pane"><h2>Bâtir <small>la barre en bas de la carte (B)</small></h2><p class="small">Choisissez un bâtiment en bas, cliquez sa place : ces ${vil.length} villageois y iront. Clic droit sur un arbre, un rocher, un buisson : ils ramassent et rapportent au dépôt le plus proche — ou envoyez-les à un camp, ils récoltent tout autour.</p></section>`;
   return h;}
 // Le cinéma : l'interface s'efface, des bandes noires et une vignette cadrent l'image, et la caméra suit l'action (director.js).
-// la vue 3D (V) : les modèles à la place des images ; un choix retenu d'une partie à l'autre
-async function toggle3d(force,quiet){const on=force??!view.g3;const ok=await view.set3d(on);const b=document.getElementById('b3d');if(b)b.classList.toggle('on',ok);if(!quiet)say(ok?'Vue 3D.':on?'La 3D n’est pas disponible ici.':'Vue dessinée.','good');}
+// la vue 3D : les modèles à la place des images ; un choix retenu d'une partie à l'autre
+async function toggle3d(force,quiet){const on=true;   // la vue 2D d'origine est retirée : toujours la 3D
+const ok=await view.set3d(on);const b=document.getElementById('b3d');if(b)b.classList.toggle('on',ok);if(!quiet)say(ok?'Vue 3D.':on?'La 3D n’est pas disponible ici.':'Vue dessinée.','good');}
 // la 3D est la vue par défaut ; le choix « vue dessinée » est retenu
-setTimeout(()=>{let v=null;try{v=localStorage.getItem('okm-3d');}catch(e){}if(v!=='0')toggle3d(true,true);},0);
+setTimeout(()=>toggle3d(true,true),0);
 function toggleCine(force){const cs=document.body.classList,on=force??!cs.contains('cine');if(on===cs.contains('cine'))return;
   if(on){ui.cinePanelWas=cs.contains('nopanel');cs.add('cine','nopanel');}else{cs.remove('cine');if(!ui.cinePanelWas)cs.remove('nopanel');}
   view.dir.on=on;view.dir.reset();dispatchEvent(new Event('resize'));
@@ -327,7 +349,7 @@ function linksPane(b){const near=world.reach(b);
   if(need&&sup){const {inb}=world.demandLines(sup);h+=`<h3>Sa commande au dépôt d’approvisionnement</h3>${Object.entries(need).map(([k,n])=>{const have=sup.stock[k]||0;return `<div class="kv"><span>${ico(k)} ${esc(world.goodName(k))}</span><b class="${have>=n-1e-6?'good':have>0?'':'warn'}">${n1(have)} / ${n1(n)}${inb[k]?` · <span class="good">+${n1(inb[k])} en route</span>`:''}</b></div>`;}).join('')}`;}
   else if(world.takesIn(b))h+=`<p class="quiet small">Pas de commande en ce moment (${b.halt?'usine arrêtée':!b.prod?'aucune production':'plafond atteint'}).</p>`;
   h+=`<p class="quiet small">Le dépôt d’approvisionnement porte la commande : le bureau du fret y amène ce qui manque, dans l’ordre des priorités. Reliez-le : porteurs, rail.</p></section>`;return h;}
-function wantGoods(){return [...GOODS,...world.designsOf('meumeu').flatMap(d=>['m:'+d.id,'a:'+d.id]),...world.armorsOf('meumeu').map(a=>'p:'+a.id)];}
+function wantGoods(){return [...GOODS,...world.designsOf('meumeu').flatMap(d=>['m:'+d.id,'a:'+d.id]),...world.designsOf('meumeu','engin').map(d=>'m:'+d.id),...world.armorsOf('meumeu').map(a=>'p:'+a.id)];}
 function depotPane(b){const B=BUILDINGS[b.k];const st=Object.entries(b.stock).filter(([,v])=>v>=.05);const used=world.stored(b);const {lines,inb,outb,def}=world.demandLines(b);const L=world.linkedTo(b);const p=b.prio??3;
   let h=`<section class="pane"><h2>Dépôt <small>${n0(used)}/${B.store} caisses</small></h2><i class="gauge"><i style="width:${Math.min(100,used/B.store*100)}%"></i></i>
     <div class="stockrow">${st.map(([k,v])=>`<span class="rchip" title="${esc(world.goodName(k))}">${ico(k)}<b>${n1(v)}</b></span>`).join('')||'<span class="quiet">vide</span>'}</div>${(b.pass||[]).length?`<p class="small">${b.pass.length} passagers attendent l’avion.</p>`:''}
@@ -376,13 +398,14 @@ function buildingPane(b){if(b.f==='beee'&&world.s.fog!==false&&!world.visibleAt(
   if(b.k==='centre'&&!beee&&b.done){const st=world.cityStats(b);h+=`<section class="pane"><h2>La ville <small>${esc(b.city||'')}</small></h2><div class="kv"><span>Habitants</span><b>${st.res}</b></div><div class="kv"><span>Rations</span><b class="${(b.ration??1)<.5?'bad':(b.ration??1)<1?'warn':''}">${Math.round((b.ration??1)*100)} % des besoins</b></div>
     <div class="kv"><span>Rations</span><b class="${(b.ration??1)<.999?'warn':''}">${(b.ration??1)<.999?`${Math.round((b.ration??0)*100)} % couverts`:'Approvisionnées'}</b></div><div class="kv"><span>Vivres en ville</span><b>${n1(b.stock.vivres||0)} · ${n1(world.cityFoodRate(b)*24)} / jour</b></div>
     <div class="row"><button class="small ${b.grow===false?'ghost':''}" data-act="grow">${b.grow===false?'Croissance arrêtée':'Croissance : le centre forme des villageois'}</button><span class="quiet small">25 vivres chacun, automatiquement, tant que la ville a de quoi tenir (une réserve de vivres pour un à trois jours, selon qu’un moulin tourne)</span></div>
+    <div class="row">${b.alarm?`<button class="small" data-act="shelter-end">Fin d’alerte</button><span class="quiet small">${world.shelterHidden(b)} villageois à l’abri dans la ville ; ils y restent jusqu’à la fin d’alerte</span>`:`<button class="small bad" data-act="shelter-city">Aux abris</button><span class="quiet small">les villageois à 30 cases de ce centre courent au centre-ville (place illimitée) ou dans une maison proche ; le reste du pays continue de produire</span>`}</div>
     <p class="quiet small">Chaque ville consomme ses vivres et réclame deux jours de réserve au fret. Les soldats consomment davantage. Sous 50 % de rations, la croissance ralentit ; sans vivres, le recrutement attend. Une maison compte pour la ville la plus proche (26 cases).</p></section>`;}
   if(b.stock&&!beee&&b.done)h+=depotPane(b);
   if(beee){h+=`<section class="pane war"><p>Choisissez des soldats, puis clic droit sur ce bâtiment : au contact, ils le saccagent et y mettent le feu ; les commandos y posent leurs charges. Les canons l’abattent de loin ; un bombardier, d’en haut.${!world.atWar?' <b>Nous sommes en paix : attaquer, c’est déclarer la guerre.</b>':''}</p></section>`;return h;}
   if(!b.done)return h;
   const mine=world.designsOf('meumeu');
-  if(B.lab){const dev=b.dev&&INNOV.find(x=>x.id===b.dev.id);h+=`<section class="pane"><h2>Recherche</h2>${dev?`<p>En développement : <b>${esc(dev.name)}</b> — encore ${hours(b.dev.left)}.</p><i class="gauge"><i style="width:${Math.round((1-b.dev.left/b.dev.total)*100)}%"></i></i>`:'<p class="quiet small">Rien en cours.</p>'}
-    <div class="row"><button data-modal="innov">Les idées des Meumeu (${world.s.innov.ideas.length})</button></div><p class="quiet small">${world.s.innov.done.length} innovation${world.s.innov.done.length>1?'s':''} adoptée${world.s.innov.done.length>1?'s':''}.</p></section>`;}
+  // (V12.6) la recherche : un clic ouvre la vue recherche (le toit s'envole) ; ce bouton aussi, depuis la carte ou en 2D
+  if((B.lab||b.k==='armurerie')&&!view.lab){const n=world.s.units.filter(u=>u.inLab===b.id&&u.hp>0).length;h+=`<section class="pane"><h2>Recherche <small>${n} savant${n>1?'s':''} ici</small></h2><div class="row"><button data-r="go:${b.id}" ${view.g3?'':'disabled title="la vue recherche demande la 3D"'}>Ouvrir la vue recherche</button></div><p class="quiet small">${world.activePrograms().length} programme${world.activePrograms().length>1?'s':''} en cours · ${world.s.innov.done.length} innovation${world.s.innov.done.length>1?'s':''} adoptée${world.s.innov.done.length>1?'s':''}.</p></section>`;}
   if(B.factory)h+=factoryPane(b);else if(b.need)h+=reservePane(b);
   else if(B.makes||b.k==='mine'){const nd=b.k==='mine'&&world.s.nodes[b.ore];h+=nd?`<section class="pane"><div class="kv"><span>Filon</span><b>${ico(nd.res)} ${esc(RES[nd.res].name)} · ${n0(nd.left)} restant</b></div></section>`:'';
     // le moulin : le blé récolté, les vivres moulus, combien de bouches ça nourrit
@@ -395,12 +418,13 @@ function buildingPane(b){if(b.f==='beee'&&world.s.fog!==false&&!world.visibleAt(
       <p class="quiet small">Il s’arrête quand son dépôt de sortie en a ${lim||'…'} (il en a ${n0(out?.stock[k0]||0)}).</p></section>`;}
     h+=linksPane(b);}
   if(B.design){const ds=Object.values(world.s.designs).filter(d=>d.f==='meumeu'&&!d.relance),nb=s=>ds.filter(d=>d.status===s).length;h+=`<section class="pane"><h2>Bureau d’études</h2>${b.proto?`<p>Prototype en fabrication : <b>${esc(world.design(b.proto.id)?.name)}</b> — encore ${hours(b.proto.left)}.</p>`:''}
-    <div class="row"><button data-act="design">Concevoir une arme</button><button data-act="armor">Concevoir une protection</button></div>${b.protoA?`<p>Protection en fabrication : <b>${esc(world.s.armors[b.protoA.id]?.name)}</b> — encore ${hours(b.protoA.left)}.</p>`:''}<div class="row"></div>
+    <div class="row"><button data-act="design">Concevoir une arme</button><button data-act="armor">Concevoir une protection</button><button data-act="engin">Concevoir un engin</button></div>${b.protoA?`<p>Protection en fabrication : <b>${esc(world.s.armors[b.protoA.id]?.name)}</b> — encore ${hours(b.protoA.left)}.</p>`:''}<div class="row"></div>
     <p class="quiet small">${nb('adopte')} conception${nb('adopte')>1?'s':''} adoptée${nb('adopte')>1?'s':''}${nb('prototype')?`, ${nb('prototype')} en étude`:''}${nb('perdu')?`, <span class="warn">${nb('perdu')} à relancer</span>`:''}.</p></section>`;}
   if(B.archives){const man=world.s.buildings.find(x=>x.f==='meumeu'&&x.k==='manufacture'&&!x.ruin);const far=man?Math.hypot(man.i-b.i,man.j-b.j):null;h+=`<section class="pane"><p>${man?(far>=20?`À ${Math.round(far)} cases de la manufacture : les plans sont à l’abri.`:`<span class="warn">Trop près de la manufacture (${Math.round(far)} cases) : une même bombe emporterait tout.</span>`):'Pas encore de manufacture.'}</p></section>`;}
   if(B.ward){const L=b.wardList||[];h+=`<section class="pane"><h2>${B.tent?'Sous la tente':'Blessés'} <small>${L.length}/${B.ward} lits${B.tent?' · on y opère, on y stabilise':B.ward<=4?' · un poste de secours : on y guérit lentement':''}</small></h2>${L.map(u=>{const tr=triage(u.h);return `<div class="kv"><span><i class="tri" style="background:${tr.c}"></i><a data-fiche="${u.id}">${esc(unitName(u))}</a></span><b>${Math.round(u.h.blood/BLOOD*100)} % de sang${needsSurgery(u.h)?' · <span class="bad">à opérer</span>':''}${u.h.legs||u.h.arms?` · os : ${Math.max(0,Math.round(72-(u.h.bone||0)))} h`:''}</b></div>`;}).join('')||`<p class="quiet small">${B.tent?'Personne. Les infirmiers y portent ceux qui tombent près d’ici ; un médecin y opère.':'Personne. Les soignants y ramènent ceux qui sont à terre ; les blessés qui le peuvent y viennent d’eux-mêmes.'}</p>`}
     ${B.tent?`<p class="small ${world.s.units.some(u=>u.task?.kind==='operer'&&u.task.b===b.id)?'good':'warn'}">${world.s.units.some(u=>u.task?.kind==='operer'&&u.task.b===b.id)?'Un médecin opère.':'Aucun médecin sur place : on y stabilise sans opérer.'}</p>`:''}</section>`;}
   if((B.trains?.includes('soldat')||B.trains?.includes('choc'))&&b.f==='meumeu'){const elite=B.trains.includes('choc');const L=(b.inside||[]).slice().sort((a,z)=>(z.xp||0)-(a.xp||0));const n=Math.min(L.length,ui.relN??L.length)||0;
+    h+=`<section class="pane"><h2>Tenue des recrues</h2><div class="kv"><span>Les soldats sortent en</span><b><select data-skin="${b.id}">${[['meumeu','Soldat classique (casque ; avec protection : casque et plaque)'],['meumeu_soldat','Soldat camouflé'],['plush_cow_knight','Élite à cape']].map(([v,n])=>`<option value="${v}" ${(b.skin||'meumeu')===v?'selected':''}>${n}</option>`).join('')}</select></b></div></section>`;
     h+=`<section class="pane"><h2>À l’entraînement <small>${L.length} dans la caserne</small></h2>
       ${L.map(u=>`<div class="kv"><span>${esc(unitName(u))} <small class="quiet">${u.k==='villageois'?'villageois':esc(UNITS[u.k]?.name||u.k)}</small></span><b>${hours(u.drillT||0)} · ${rankOf(u.xp)}${(u.xp||0)>=DRILL_MAX?' <small class="quiet">(le reste au combat)</small>':''} <button class="small ghost" data-relone="${u.id}">Sortir</button></b></div>`).join('')||'<p class="quiet small">Personne. Choisissez des villageois (ou des soldats), clic droit sur la caserne : ils y entrent et s’entraînent. Plus ils y restent, mieux ils tirent — jusqu’à « entraîné » ; au-delà, seul le combat les aguerrit.</p>'}
       ${(()=>{const hv=world.have('meumeu',b.i+1,b.j+1);return `<div class="kv"><span>Équipement au dépôt</span><b>${ico('jumelles')} ${n0(hv.jumelles||0)} jumelles · ${ico('tenue_camo')} ${n0(hv.tenue_camo||0)} tenues · ${ico('jumelles_ir')} ${n0(hv.jumelles_ir||0)} IR · ${ico('explosifs')} ${n1(hv.explosifs||0)} explosifs</b></div>`;})()}
@@ -419,14 +443,21 @@ function buildingPane(b){if(b.f==='beee'&&world.s.fog!==false&&!world.visibleAt(
       ${B.trains.some(k=>UNITS[k]?.arm)?`<label class="row small">Armés de <select data-trainw="${b.id}">${guns.map(d=>`<option value="${d.id}" ${d.id===wsel?'selected':''}>${esc(d.name)} — ${n0(have['a:'+d.id]||0)} en stock</option>`).join('')}</select></label>
         <label class="row small">Protégés par <select data-traina="${b.id}"><option value="">rien</option>${world.armorsOf('meumeu').map(a=>`<option value="${a.id}" ${a.id===asel?'selected':''}>${esc(a.name)} (${Math.round(deriveArmor(a.a).mass*1000)} g) — ${n0(have['p:'+a.id]||0)} en stock</option>`).join('')}</select></label>
         ${(()=>{const Wd=world.W(wsel);const Ar=asel&&world.armorOf(asel);const kg=Wd.mass+(Ar?Ar.D.mass:0)+Wd.carry*Wd.rm/1000;return `<p class="quiet small">Dotation : ${Math.round(kg*1000)} g portés (${Math.round(kg/1.5*100)} % de son poids) · marche ×${fmt(Ar?Ar.D.move:1,2)}.</p>`;})()}<label class="row small">Rôle des recrues armées <select data-trainrole="${b.id}"><option value="tireur" ${(ui.trainRole[b.id]||'tireur')==='tireur'?'selected':''}>Tireur</option><option value="munitions" ${ui.trainRole[b.id]==='munitions'?'selected':''}>Porteur de munitions</option></select></label><p class="quiet small">Ralliez le porteur à l’escouade qu’il ravitaille depuis sa fiche.</p>`:''}
-      <div class="offers">${B.trains.map(k=>{const D=PD(k);const r=world.canTrain(b,k,wsel,asel||null);
+      <div class="offers">${B.trains.filter(k=>!(VEHDEF[k]?.faction&&VEHDEF[k].faction!==b.f)).map(k=>{const D=PD(k);const r=world.canTrain(b,k,wsel,asel||null);
       return `<div class="offer ${r.ok?'can':''}"><div class="ohead"><b>${D.name}</b><small class="quiet">${D.hours} h</small></div><p>${esc(D.why)}</p><div class="row between"><span class="costs">${costHtml(r.cost||D.cost,have)}</span><button class="small" data-train="${k}" ${r.ok?'':'disabled'} title="${esc(r.why.join(', '))}">${UNITS[k]?'Former':'Construire'}</button></div></div>`;}).join('')}</div><p class="quiet small">Clic droit sur la carte : point de ralliement.</p></section>`;}
   return h;}
 // Un véhicule de combat : son état (et ce qui l'arrête), ce qu'il est, sa vitesse, son blindage face par face, ses armes et leurs munitions, ses places
 function combatVehiclePane(v){const V=world.vehDef(v);const FACE={avant:'Avant',flanc:'Flancs',arriere:'Arrière',dessus:'Dessus',tourelle:'Tourelle',tourelle_flanc:'Tourelle (flancs)'};
   const etat=v.hp<=0?'<span class="bad">détruit</span>':v.why?`<span class="warn">${esc(v.why)}</span>`:v.state==='go'?'en route':'à l’arrêt';
   let h=`<section class="pane"><h2>${esc(v.name)} <small>${etat}</small></h2><p class="quiet small">${esc(V.why)}</p>`;
-  h+=`<div class="kv"><span>État</span><b>${Math.max(0,Math.round(v.hp))} / ${v.max}</b></div><div class="kv"><span>Vitesse</span><b>${Math.round(v.spd||0)} / ${V.vmax} cases/h · ${V.roues==='roues'?`roues, rayon ${V.r} cases`:'chenilles, pivote sur place'}</b></div>`;
+  h+=`<div class="kv"><span>État</span><b>${Math.max(0,Math.round(v.hp))} / ${v.max}</b></div><div class="kv"><span>Vitesse</span><b>${Math.round(v.spd||0)} / ${V.vmax} cases/h · ${V.nav==='eau'?'navigue (eau seulement), vire sur place':V.roues==='roues'?`roues, rayon ${V.r} cases`:'chenilles, pivote sur place'}</b></div>`;
+  if(V.engin){const E=V.engin,f=v.fuel||0,u=E.carbu==='charbon'?'caisses de charbon':'bidons';
+    h+=`<div class="kv"><span>${E.carbu==='charbon'?'Charbon':'Essence'}</span><b>${n1(f)} / ${E.plein} ${u} · ≈ ${Math.round(f/E.perCase)} cases</b></div><i class="gauge"><i style="width:${Math.min(100,f/E.plein*100)}%"></i></i>
+      <p class="quiet small">Il refait le plein tout seul dès qu’il s’arrête : dans sa soute, auprès d’un engin ravitailleur arrêté à 3 cases (soute chargée ${E.carbu==='charbon'?'de charbon':'d’essence'}), ou à un dépôt à 5 cases.</p>`;}
+  if(V.nav==='eau'){const down=(v.ramp||0)>.5,cvs=(v.cargoVehs||[]).map(id=>world.s.vehicles.find(o=>o.id===id)).filter(Boolean),free=world.boatDeckFree(v);
+    h+=`<h3>Barge</h3><div class="kv"><span>Rampe</span><b>${down?'baissée (la proue est ouverte)':'relevée (la proue arrête les balles)'}${v.beached?' · échouée':''}</b></div><div class="kv"><span>Pont</span><b>${cvs.length?cvs.map(c=>esc(c.name)).join(', '):V.pont?'aucun véhicule':'pas de véhicule à bord de ce bateau'}${V.pont?` · ${free.toLocaleString('fr-FR',{maximumFractionDigits:1})} case${free>=2?'s':''} libre${free>=2?'s':''}`:''}</b></div>
+      <div class="row"><button class="small" data-act="boat-ramp">${down?'Relever la rampe':'Baisser la rampe'}</button>${down?'<button class="small" data-act="boat-unload">Débarquer</button>':''}</div>
+      <p class="quiet small">Clic droit sur l’eau : naviguer. Clic droit sur une plage : s’y échouer (la barge recule d’abord pour se dégager si elle est déjà à terre). Rampe baissée : les passagers sortent par l’avant et courent ; le pilote reste. Un véhicule monte à bord quand vous le choisissez et faites un clic droit sur la barge (rampe baissée, tout près).</p>`;}
   // les dégâts : les organes touchés, le feu, et ce qu'a fait le dernier coup (l'épaisseur effective sous l'angle, contre ce que le projectile perçait)
   const CMP={moteur:'moteur détruit : immobilisé',train:'train de roulement brisé : immobilisé',tourelle:'tourelle bloquée'},mm=x=>x.toLocaleString('fr-FR',{maximumFractionDigits:2});
   const dmg=[...Object.keys(v.comp||{}).filter(k=>v.comp[k]).map(k=>CMP[k]||k),...(v.fire>0?['en feu']:[])];
@@ -439,6 +470,10 @@ function combatVehiclePane(v){const V=world.vehDef(v);const FACE={avant:'Avant',
   h+=`<h3>À bord <small>${crew.length} / ${1+V.places.servants+V.places.passagers}</small></h3>${crew.length?crew.map(u=>`<div class="kv"><span>${esc(u.name||UNITS[u.k]?.name||'Meumeu')}</span><b>${ROLE[u.vrole]||u.vrole}${u.h&&u.h.state!=='ok'?` · <span class="warn">${u.h.state==='hors'?'hors de combat':'blessé'}</span>`:''}</b></div>`).join(''):'<p class="quiet small">Personne : il ne roule ni ne tire. Désignez des Meumeu, puis clic droit sur l’engin.</p>'}`;
   if(crew.length)h+=`<div class="row">${crew.some(u=>u.vrole==='passager')?'<button class="small" data-act="veh-out-pass">Débarquer les passagers</button>':''}<button class="small" data-act="veh-out-all">Tout le monde descend</button></div>`;
   h+=`<div class="kv"><span>Places</span><b>conducteur${V.places.servants?` · ${V.places.servants} servant${V.places.servants>1?'s':''}`:''}${V.places.passagers?` · ${V.places.passagers} passager${V.places.passagers>1?'s':''}`:''}${V.soute?` · ${V.soute} caisses`:''}</b></div>`;
+  if(V.soute){const used=world.souteUsed(v),items=Object.entries(v.cargo||{}).filter(([,n])=>n>=.05);
+    h+=`<h3>Soute <small>${Math.round(used*10)/10} / ${V.soute} caisses</small></h3>${items.length?items.map(([k,n])=>`<div class="kv"><span>${ico(k)} ${esc(world.goodName(k))}</span><b>${n1(n)} <button class="small ghost" data-vunl="${esc(k)}">décharger</button></b></div>`).join(''):'<p class="quiet small">Vide.</p>'}
+      <div class="row"><select data-vcargo>${wantGoods().map(k=>`<option value="${esc(k)}" ${ui.vcargoK===k?'selected':''}>${esc(world.goodName(k))}</option>`).join('')}</select><button class="small" data-vload="1">Charger 1</button><button class="small" data-vload="4">Charger 4</button>${items.length?'<button class="small ghost" data-vunl="*">Tout décharger</button>':''}</div>
+      <p class="quiet small">On charge et décharge à un dépôt à moins de 4 cases (une caisse de munitions = 1, 10 unités d’une ressource = 1). À l’arrêt, l’équipage, les Meumeu tout près et les armes de l’engin se ravitaillent dans la soute.</p>`;}
   return h+`<p class="quiet small">Clic droit sur la carte : y aller.</p></section>`;}
 // plusieurs engins choisis : une ligne chacun (état, structure, équipage, coups à bord) ; un nom ouvre l'engin seul
 function vehiclesPane(){const vs=[...view.selVs].map(id=>world.s.vehicles.find(v=>v.id===id)).filter(v=>v&&v.hp>0);if(!vs.length){view.selVs.clear();return overviewPane();}
@@ -448,7 +483,7 @@ function vehiclesPane(){const vs=[...view.selVs].map(id=>world.s.vehicles.find(v
   return `<section class="pane"><h2>${vs.length} engins <small>clic droit : ils y vont de front</small></h2>${vs.map(row).join('')}<p class="quiet small">Maj+clic sur un engin : l’ajouter ou le retirer. Un nom : l’ouvrir seul.</p></section>`;}
 function vehiclePane(){const v=world.s.vehicles.find(x=>x.id===view.selV);if(!v){view.selV=null;return overviewPane();}if(world.isCombatVehicle(v))return combatVehiclePane(v);const V=VEHICLES[v.k];
   let h=`<section class="pane"><h2>${V.name} « ${esc(v.name)} » <small>${v.why?`<span class="warn">${esc(v.why)}</span>`:v.mode==='fret'?esc(world.jobText(v)):v.state}</small></h2><p class="quiet small">${esc(V.why)}</p>`;
-  if(v.k==='bombardier'){const home=world.building(v.home);h+=`<div class="kv"><span>Solidité</span><b>${n0(v.hp)}/${v.max}</b></div><p>Clic droit sur la carte : il y va, lâche ${V.bombs} bombes, rentre. Il lui faut, à son aérodrome, ${V.bombs} caisses d’explosifs et du carburant.${!world.atWar?' <b>En paix : bombarder les Bèè, c’est déclarer la guerre.</b>':''}</p>${home?`<p class="small">Aérodrome : ${n0(home.stock.explosifs||0)} explosifs, ${n0(home.stock.carburant||0)} carburant.</p>`:''}</section>`;return h;}
+  if(v.k==='bombardier'){const home=world.building(v.home);h+=`<div class="kv"><span>Solidité</span><b>${n0(v.hp)}/${v.max}</b></div><p>Clic droit sur la carte : il y va, lâche ${V.bombs} bombes, rentre. Il lui faut, à son aérodrome, ${V.bombs} caisses d’explosifs et de l’essence.${!world.atWar?' <b>En paix : bombarder les Bèè, c’est déclarer la guerre.</b>':''}</p>${home?`<p class="small">Aérodrome : ${n0(home.stock.explosifs||0)} explosifs, ${n0(home.stock.essence||0)} essence.</p>`:''}</section>`;return h;}
   const cap=world.capOf(v);
   h+=`<div class="kv"><span>À bord</span><b>${Object.entries(v.cargo).filter(([,n])=>n>=.05).map(([k,n])=>`${ico(k)}${n1(n)}`).join(' ')||'vide'}${v.pass?.length?` · ${v.pass.length} passagers`:''}</b></div><i class="gauge"><i style="width:${Math.min(100,world.cargoW(v)/cap*100)}%"></i></i><p class="quiet small">${n1(world.cargoW(v))} / ${n1(cap)} caisses · ${v.trips||0} voyages</p>`;
   if(v.k==='train')h+=`<div class="kv"><span>Tender</span><b class="${(v.coal||0)<2?'warn':''}">${fmt(v.coal||0,1)} / ${fmt(world.tender(),0)} charbon</b></div><i class="gauge coal"><i style="width:${Math.min(100,(v.coal||0)/world.tender()*100)}%"></i></i><p class="quiet small">Une caisse de charbon pour ${Math.round(1/FRET.COAL_PER_CASE)} cases. Elle fait le plein en gare avant chaque trajet.</p>`;
@@ -457,7 +492,7 @@ function vehiclePane(){const v=world.s.vehicles.find(x=>x.id===view.selV);if(!v)
     if(v.k==='porteur'){const base=world.building(v.base)||world.building(v.home);const deps=world.s.buildings.filter(d=>d.f==='meumeu'&&world.isDepot(d)).sort((a,z)=>world.distB(a,v.x,v.y)-world.distB(z,v.x,v.y)).slice(0,14);
       h+=`<label class="row small">Basée à <select data-vbase>${deps.map(d=>`<option value="${d.id}" ${base?.id===d.id?'selected':''}>${esc(BUILDINGS[d.k].name)} · ${esc(world.cityName(d))}</option>`).join('')}</select></label>
         <div class="kv"><span>Rayon de service</span><b class="kctl"><button class="small ghost" data-vrange="-5">−</button> ${v.range||VEHICLES.porteur.range} cases <button class="small ghost" data-vrange="5">+</button></b></div><div class="row"><button class="small ghost" data-act="porter-free">Rendre au village</button></div>`;}
-    h+=`<p class="quiet small">À la demande : il prend le manque le plus prioritaire qu’il peut servir, le charge au dépôt qui en a de trop le plus commode, et le livre. ${v.k==='train'?'Il sert les gares de son réseau.':v.k==='avion'?'Il sert les aérodromes ; le carburant est pris au départ.':'Il sert les dépôts de son rayon, sur la même terre.'}</p>`;}
+    h+=`<p class="quiet small">À la demande : il prend le manque le plus prioritaire qu’il peut servir, le charge au dépôt qui en a de trop le plus commode, et le livre. ${v.k==='train'?'Il sert les gares de son réseau.':v.k==='avion'?'Il sert les aérodromes ; l’essence est prise au départ.':'Il sert les dépôts de son rayon, sur la même terre.'}</p>`;}
   else{const A=v.route&&world.building(v.route.a),B=v.route&&world.building(v.route.b);
     h+=`<div class="kv"><span>Ligne</span><b>${A&&B?`${esc(world.cityName(A))} (${BUILDINGS[A.k].name.toLowerCase()}) ↔ ${esc(world.cityName(B))} (${BUILDINGS[B.k].name.toLowerCase()})`:'aucune'}</b></div><div class="row"><button class="small" data-act="route">${v.route?'Changer la ligne':'Tracer la ligne'}</button></div>`;
     if(v.route){const sets=[['guerre','munitions, armes, explosifs, santé'],['vivres','vivres'],['industrie','pièces'],['materiaux','bois, pierre'],['minerais','fer, cuivre, plomb, salpêtre'],['rare','le rare']];
@@ -468,7 +503,7 @@ function vehiclePane(){const v=world.s.vehicles.find(x=>x.id===view.selV);if(!v)
 const has=(W,k,more=()=>true)=>W.s.buildings.some(b=>b.f==='meumeu'&&b.k===k&&b.done&&more(b));
 const STEP_OK={bois:W=>(W.capital()?.stock.bois||0)>=260||(W.s.innov.prac.bois||0)>4,maisons:W=>W.s.buildings.some(b=>b.f==='meumeu'&&b.k==='moulin'&&b.done),
   camp:W=>has(W,'camp',b=>W.workers(b).length),charbon:W=>has(W,'mine',b=>W.s.nodes[b.ore]?.res==='charbon'),charrette:W=>W.s.vehicles.some(v=>v.f==='meumeu'&&v.k==='porteur'&&(v.trips||0)>0),
-  atelier:W=>has(W,'atelier'),labo:W=>has(W,'labo'),hopital:W=>has(W,'hopital'),
+  atelier:W=>has(W,'atelier'),labo:W=>has(W,'centre_recherche'),hopital:W=>has(W,'hopital'),
   caserne:W=>has(W,'caserne')&&W.s.units.filter(u=>u.f==='meumeu'&&u.w).length>=6,arsenal:W=>has(W,'arsenal',b=>(b.made||0)>0),
   rail:W=>W.s.buildings.filter(b=>b.f==='meumeu'&&b.k==='gare'&&b.done).length>=2&&W.s.vehicles.some(v=>v.f==='meumeu'&&v.k==='train'),
   defense:W=>W.s.buildings.filter(b=>b.f==='meumeu'&&b.k==='tour'&&b.done).length>=2&&Object.values(W.s.walls).filter(w=>w.f==='meumeu'&&w.b).length>=6,
@@ -477,29 +512,38 @@ function stepsPane(){const S=world.s;S.steps??={};for(const st of STEPS)if(!S.st
   return `<section class="pane"><h2>Les étapes <small>${done}/${STEPS.length} · rien n’est obligatoire</small></h2><i class="gauge"><i style="width:${Math.round(done/STEPS.length*100)}%"></i></i>
     ${next.map((s,n)=>`<div class="step ${n?'':'now'}"><b>${esc(s.name)}</b><span>${esc(s.hint)}</span></div>`).join('')||'<p class="good">Tout est prêt. Tenez.</p>'}
     <details class="drawer"><summary>Déjà fait</summary>${STEPS.filter(s=>S.steps[s.k]).map(s=>`<div class="step done"><b>✓ ${esc(s.name)}</b><span>jour ${S.steps[s.k]}</span></div>`).join('')||'<p class="quiet small">rien encore</p>'}</details></section>`;}
-function overviewPane(){const s=world.s;const cap=world.capital();const st=cap?.stock||{};const ours=s.buildings.filter(b=>b.f==='meumeu');const army=s.units.filter(u=>u.f==='meumeu'&&u.k!=='villageois');const idle=world.idle();
+function overviewPane(){const s=world.s;const cap=world.capital();const st=cap?.stock||{};const ours=s.buildings.filter(b=>b.f==='meumeu'&&!b.ally);const army=s.units.filter(u=>u.f==='meumeu'&&!u.ally&&u.k!=='villageois');const idle=world.idle();
   const W=wounded();
   let h=stepsPane()+`<section class="pane"><h2>${esc(cap?.city||'La capitale')} <small>la capitale</small></h2>
     <p class="quiet small">Bâtissez vos villes, reliez vos industries, développez la recherche et choisissez quand négocier. La chute des villes bèè reste un aboutissement possible.</p>${s.won?`<p class="good"><b>Gagné au jour ${s.won.day}.</b></p>`:''}${s.lost?`<p class="bad"><b>La civilisation meumeu est tombée au jour ${s.lost.day}.</b></p>`:''}</section>`;
   h+=`<section class="pane"><h2>Civilisation</h2><div class="kv"><span>Villes</span><b>${ours.filter(b=>b.k==='centre'&&!b.ruin).map(b=>{const st=b.done?world.cityStats(b):null;return `<a data-goto="${b.id}">${esc(b.city)}</a>${st?` <small>${st.res}</small>`:' <small>chantier</small>'}`;}).join(', ')}</b></div>
-    <div class="kv"><span>Villageois</span><b>${s.units.filter(u=>u.f==='meumeu'&&u.k==='villageois').length}${idle.length?` · <a data-act="idle">${idle.length} sans rien à faire</a>`:''}</b></div>
-    <div class="kv"><span>Main-d’œuvre disponible</span><b>${Math.max(0,idle.length-s.buildings.reduce((n,b)=>n+(b.queue||[]).filter(q=>q.draftId!=null).length,0))} · ${s.units.filter(u=>u.f==='meumeu'&&u.k==='villageois'&&u.task).length} affectés</b></div>
+    <div class="kv"><span>Villageois</span><b>${s.units.filter(u=>u.f==='meumeu'&&!u.ally&&u.k==='villageois').length}${idle.length?` · <a data-act="idle">${idle.length} sans rien à faire</a>`:''}</b></div>
+    <div class="kv"><span>Main-d’œuvre disponible</span><b>${Math.max(0,idle.length-s.buildings.reduce((n,b)=>n+(b.queue||[]).filter(q=>q.draftId!=null).length,0))} · ${s.units.filter(u=>u.f==='meumeu'&&!u.ally&&u.k==='villageois'&&u.task).length} affectés</b></div>
     <div class="kv"><span>Armée</span><b>${army.length?Object.entries(army.reduce((o,u)=>(o[u.k]=(o[u.k]||0)+1,o),{})).map(([k,n])=>`${n} ${UNITS[k].name.toLowerCase()}${n>1?'s':''}`).join(', '):'aucune'}${army.length?` · <a data-act="army">choisir</a>`:''}</b></div>
     ${W.length?`<div class="kv"><span>Blessés</span><b><a data-modal="med">${W.length} · ${W.filter(x=>triage(x.u.h).k==='rouge').length} en urgence</a></b></div>`:''}
-    <div class="kv"><span>Logistique</span><b>${s.vehicles.filter(v=>v.f==='meumeu').map(v=>`<a data-vehicle="${v.id}">${esc(v.name)}</a>`).join(', ')||'aucun véhicule'} · ${Object.values(s.rails).filter(r=>r.b).length} cases de voie · <a data-modal="eco">l’économie</a></b></div>
-    <div class="row"><button class="small bad" data-act="shelter">Aux abris !</button><span class="quiet small">les villageois courent au centre-ville ou dans une maison</span></div>
+    <div class="kv"><span>Logistique</span><b>${s.vehicles.filter(v=>v.f==='meumeu'&&!v.ally).map(v=>`<a data-vehicle="${v.id}">${esc(v.name)}</a>`).join(', ')||'aucun véhicule'} · ${Object.values(s.rails).filter(r=>r.b).length} cases de voie · <a data-modal="eco">l’économie</a></b></div>
+    <div class="row"><button class="small bad" data-act="shelter">Aux abris !</button><span class="quiet small">les villes menacées (un ennemi vu à 60 cases du centre) : leurs villageois courent au centre-ville ou dans une maison ; les autres villes produisent</span></div>
     <div class="row"><button class="small ghost" data-act="design">Bureau d’études</button><button class="small ghost" data-modal="innov">Les idées (${s.innov.ideas.length})</button><button class="small ghost" data-modal="med">Santé</button></div></section>`;
+  if(s.ally){const A=s.ally,AC=world.allyCities(),us=world.allyUnits(),sold=us.filter(u=>u.k!=='villageois'),boats=s.vehicles.filter(v=>v.ally&&v.k==='barge'&&v.hp>0),lastA=s.log.find(l=>/allié/i.test(l.text)||/\(allié\)/.test(l.where||''));
+    h+=`<section class="pane"><h2>L’allié <small>la moitié ${A.up?'haute':'basse'} de l’île, mené par l’IA</small></h2>
+    <div class="kv"><span>Villes</span><b>${AC.map(c=>`<a data-goto="${c.b.id}">${esc((c.b.city||'').replace(' (allié)',''))}</a>${c.b.done?'':' <small>chantier</small>'}`).join(', ')||'tombées'}</b></div>
+    <div class="kv"><span>Population</span><b>${us.filter(u=>u.k==='villageois').length} villageois · ${sold.length} soldats</b></div>
+    <div class="kv"><span>Flotte</span><b>${boats.length} barge${boats.length>1?'s':''}${A.navalN?` · ${A.navalN} débarquement${A.navalN>1?'s':''}`:''}</b></div>
+    ${lastA?`<p class="quiet small">Jour ${Math.floor(lastA.t/24)+1} : ${esc(lastA.text)}</p>`:''}</section>`;}
   const B=s.beee;const cities=B.cities;h+=`<section class="pane war"><h2>Les Bèè <small>${B.phase==='truce'?'cessez-le-feu en cours':B.phase==='peace'?'traité de paix en vigueur':world.atWar?`guerre depuis le jour ${B.warDay} · ${B.waves} vague${B.waves>1?'s':''}`:`tensions · guerre possible dès le jour ${B.warDay}`}</small></h2>
     ${cities.filter(c=>!s.fog||s.intel?.[c.centre]).map(c=>{const I=s.intel?.[c.centre];return `<div class="kv"><span><a data-gotoxy="${c.x},${c.y}">${esc(c.name)}</a></span><b>${I?.ruin?'centre vu en ruine':I?.counts?`${I.counts.mil} soldats observés · âge ${Math.round((s.t-I.t)*HOUR_REAL)} s`:'effectifs inconnus'}</b></div>`;}).join('')||'<p class="quiet">Aucune ville reconnue.</p>'}
     <div class="kv"><span>Contacts actuels</span><b class="bad">${s.units.filter(u=>u.f==='beee'&&u.w&&world.spotted(u,'meumeu')).length} soldats repérés</b></div>
-    <p class="quiet small">Leurs patrouilles cherchent nos convois. Les tranchées protègent les défenseurs ; mines, villes et rails alimentent le front.</p></section>`;
+    <p class="quiet small">Leurs patrouilles cherchent nos convois. Les sacs de sable, les murs et les bunkers protègent les défenseurs ; mines, villes et rails alimentent le front.</p></section>`;
   h+=`<details class="drawer" data-k="log" open><summary>Journal</summary>${s.log.filter(l=>!s.fog||!s.beee.cities.some(c=>c.name===l.where&&!s.intel?.[c.centre])).slice(0,30).map(l=>`<div class="logline ${l.tone}"><time>j${Math.floor(l.t/DAY)+1} ${String(Math.floor(l.t%DAY)).padStart(2,'0')}h</time><b>${esc(l.where)}</b> ${esc(l.text)}</div>`).join('')}</details>`;
   return h;}
 
 // ---------- les grandes fenêtres : santé, fiche médicale, idées, économie ----------
 function openModal(kind,id=null){ui.modal={kind,id};ui.modalHtml='';renderModal();}
-function renderModal(){const el=$('#modal');if(!ui.modal){if(!el.hidden){el.hidden=true;el.innerHTML='';}return;}
-  let body='';try{body={med:medModal,fiche:ficheModal,innov:innovModal,eco:ecoModal,squad:squadModal,operation:id=>ops.modal(id)}[ui.modal.kind]?.(ui.modal.id)||'';}catch(e){console.error(e);body=`<p class="bad">${esc(e.message)}</p>`;}
+function renderModal(){const el=$('#modal');
+  {const pid=ui.modal?.kind==='reunion'?+ui.modal.id:null;if(ui.kingPid!=null&&ui.kingPid!==pid)world.attendMeeting?.(ui.kingPid,false);if(pid!=null)world.attendMeeting?.(pid,true);ui.kingPid=pid;
+    el.classList.toggle('rmini',pid!=null&&!!ui.R?.mini);}
+  if(!ui.modal){if(!el.hidden){el.hidden=true;el.innerHTML='';}return;}
+  let body='';try{body={med:medModal,fiche:ficheModal,innov:()=>rui.modal(),reunion:id=>rui.meetModal(id),eco:ecoModal,squad:squadModal,operation:id=>ops.modal(id)}[ui.modal.kind]?.(ui.modal.id)||'';}catch(e){console.error(e);body=`<p class="bad">${esc(e.message)}</p>`;}
   if(!body){ui.modal=null;el.hidden=true;return;}
   if(body!==ui.modalHtml){const box=el.querySelector('.mbody');const top=box?box.scrollTop:0;el.innerHTML=`<div class="mbox ${ui.modal.kind}" role="dialog">${body}</div>`;el.hidden=false;ui.modalHtml=body;const nb=el.querySelector('.mbody');if(nb)nb.scrollTop=top;
     const slot=el.querySelector('#f3dslot');if(slot)slot.appendChild(body3d.cv);}}
@@ -562,26 +606,6 @@ function ficheModal(id){const f=findUnit(id);if(!f)return '';const {u,where}=f;c
       ${where==='terrain'&&u.f==='meumeu'?`<div class="row">${needsCare(h)||h.state==='hors'?`<button class="small" data-sendmed="${u.id}">Envoyer le soignant le plus proche</button>`:''}${h.state==='hors'?`<button class="small warn" data-evac="${u.id}">Évacuer (deux porteurs)</button>`:''}<button class="small ghost" data-gotoxy="${u.x},${u.y}">Voir</button></div>`:''}
       <h3>Les blessures</h3><div class="wounds">${wl||'<p class="quiet small">aucune</p>'}</div>
       <h3>Les soins reçus</h3><div class="mlog">${(h.log||[]).slice().reverse().map(l=>`<div><time>j${Math.floor((l.t||0)/DAY)+1} ${String(Math.floor((l.t||0)%DAY)).padStart(2,'0')}h${String(Math.floor(((l.t||0)%1)*60)).padStart(2,'0')}</time> ${l.by?`<b>${esc(l.by)}</b> `:''}${esc(l.what)}</div>`).join('')||'<p class="quiet small">aucun</p>'}</div></div></div>`;}
-// les idées des Meumeu
-function researchParts(){const I=world.s.innov;const lab=world.s.buildings.find(b=>b.f==='meumeu'&&BUILDINGS[b.k].lab&&b.done);const dev=lab?.dev&&INNOV.find(x=>x.id===lab.dev.id);const have=lab?world.have('meumeu',lab.i+1,lab.j+1):{};
-  const card=(x,idea)=>{const X=INNOV.find(y=>y.id===x.id);const r=world.canDevelop(x.id);return `<article class="idea"><header><span class="dom">${esc(DOMAINS[X.dom])}</span><b>${esc(X.name)}</b></header><p>${esc(X.text)}</p>
-      <p class="fx">${Object.entries(X.mod).map(([k,v])=>`<span>${esc(MODN[k]||k)} ${v>=1?'+':'−'}${Math.round(Math.abs(v-1)*100)} %</span>`).join('')}${(X.unlock||[]).map(k=>`<span class="new">ouvre : ${esc(unlockName(k))}</span>`).join('')}</p>
-      ${X.needs?.length?`<p class="quiet small">demande : ${X.needs.map(n=>{const ok=world.s.innov.done.includes(n);return `<b class="${ok?'':'warn'}">${esc(INNOV.find(y=>y.id===n)?.name||n)}${ok?' ✓':''}</b>`;}).join(' · ')}</p>`:''}
-      <div class="row between"><span class="costs">${costHtml(X.cost,have)} · ${X.hours} h</span>${idea?`<span><button class="small ghost" data-drop="${x.id}">Écarter</button> <button class="small" data-dev="${x.id}" ${r.ok?'':'disabled'} title="${esc(r.why.join(', '))}">Développer</button></span>`:''}</div>
-      ${idea&&x.who?`<small class="who">idée de <b>${esc(x.who.name||x.who)}</b>, ${esc(UNITS[x.who.k]?.name.toLowerCase()||'')}</small>`:''}</article>`;};
-  const doms=Object.entries(DOMAINS).map(([k,n])=>{const p=I.prac[k]||0,nx=I.next[k]||14;const left=INNOV.filter(x=>x.dom===k&&!I.done.includes(x.id)).length;return `<div class="dm"><span>${esc(n)}</span><i class="gauge inline"><i style="width:${nx>=1e8?100:Math.min(100,p/nx*100)}%"></i></i><small>${nx>=1e8?'plus d’idée':left?`${left} à trouver`:'tout trouvé'}</small></div>`;}).join('');
-  const status=`${I.ideas.length} en attente · ${I.done.length} adoptées · ${lab?(dev?`au laboratoire : ${esc(dev.name)}, encore ${hours(lab.dev.left)}`:'le laboratoire attend une idée'):'il faut un laboratoire pour les développer'}`;
-  return {status,html:`<p class="quiet small">Ceux qui travaillent ont des idées : à force de couper du bois, de miner, de soigner, de tirer, l’un d’eux propose quelque chose. Chaque partie les amène dans un autre ordre.</p>
-    <div class="ideas">${I.ideas.map(x=>card({...x,who:typeof x.who==='object'?x.who:{name:x.who}},true)).join('')||'<p class="quiet">Pas d’idée en attente : travaillez, elles viendront.</p>'}</div>
-    <h3>Ce qu’on pratique</h3><div class="doms">${doms}</div>
-    <h3>L’arbre : ce qui demande une découverte préalable</h3><div style="display:block">${INNOV.filter(x=>x.needs?.length).map(x=>{const st=I.done.includes(x.id)?'<b>acquise</b>':x.needs.every(n=>I.done.includes(n))?'<b class="good">à trouver</b>':'<b class="warn">verrouillée</b>';return `<div style="display:flex;flex-wrap:wrap;gap:.2rem .7rem;align-items:baseline;padding:.3rem 0;border-bottom:1px solid rgba(255,255,255,.07)"><b style="min-width:11rem">${esc(x.name)}</b><span>${st}</span><small class="quiet">demande ${x.needs.map(n=>(I.done.includes(n)?'✓ ':'✗ ')+esc(INNOV.find(y=>y.id===n)?.name||n)).join(' · ')}${x.unlock?.length?' — ouvre '+x.unlock.map(k=>esc(unlockName(k))).join(', '):''}</small></div>`;}).join('')}</div>
-    <h3>Adoptées</h3><div class="ideas done">${I.done.map(id=>card({id},false)).join('')||'<p class="quiet small">aucune encore</p>'}</div>`};}
-// la recherche vit désormais au bureau d'études (onglet Recherche) ; l'ancienne modale garde le même contenu
-const researchHtml=()=>researchParts().html;
-const innovModal=()=>{const R=researchParts();return mhead('Les idées des Meumeu',R.status)+`<div class="mbody">${R.html}</div>`;};
-const unlockName=k=>{const [t,id]=k.split(':');return t==='fill'?`explosif « ${FILLS[id]?.name||id} »`:t==='preset'?`modèle « ${KIT_PRESETS.find(P=>P.id===id)?.design.name||id} »`:k;};
-const MODN={gather_tree:'coupe du bois',gather_rock:'taille de pierre',gather_bush:'cueillette',gather_ore:'extraction à la main',ferme:'moulins',mine:'mines',atelier:'ateliers',carburant_bois:'bois par carburant',cap_porteur:'charge des portettes',cap_train:'charge des trains',vit_train:'vitesse des trains',
-  construction:'vitesse de construction',charbon_machines:'charbon des machines',briques:'briqueteries',tender:'tender des locomotives',mur:'solidité des murs',fer_munitions:'fer par caisse',armement:'arsenal et manufacture',napalm:'durée des flaques incendiaires',tir:'précision',garrot:'durée d’un garrot',plasma:'plasma',brancard:'vitesse des brancardiers',antiseptique:'vitesse de l’infection',chirurgie:'vitesse de la chirurgie',creneaux:'tireurs par tour',couvert:'protection des murs'};
 // l'économie : ce qui produit, où sont les stocks, ce qui roule
 function ecoModal(){const tab=ui.ecoTab||'fret';const bs=world.s.buildings.filter(b=>b.f==='meumeu'&&b.done);let body='';
   const dn=id=>{const d=world.building(id);return d?`<a data-selb="${d.id}">${esc(BUILDINGS[d.k].name)}</a> <small>${esc(world.cityName(d))}</small>`:'<span class="warn">aucun</span>';};
@@ -617,7 +641,8 @@ function groupVehicleOrder(ids,w){const vs=ids.map(id=>world.s.vehicles.find(v=>
   vs.forEach((v,i)=>{const off=(i-(vs.length-1)/2)*gap,tx=w.x+nx*off,ty=w.y+ny*off;const ok=world.vehMove(v,tx,ty)||world.vehMove(v,w.x,w.y);if(!ok)bad++;view.marks.push({x:tx,y:ty,age:0,bad:!ok});});
   if(bad)say(`${bad} engin${bad>1?'s':''} sur ${vs.length} ne peu${bad>1?'vent':'t'} pas y aller (pas de conducteur, ou pas de chemin).`,'bad');else audio.play('order');renderPanel(true);}
 function vehicleOrder(w){const v=world.s.vehicles.find(x=>x.id===view.selV);if(!v)return;
-  if(world.isCombatVehicle(v)){const ok=world.vehMove(v,w.x,w.y);view.marks.push({x:w.x,y:w.y,age:0,bad:!ok});if(!ok)say(v.why,'bad');else audio.play('order');renderPanel(true);return;}
+  if(world.isCombatVehicle(v)){const tg=world.targetAt(w.x,w.y);const tv=tg?.type==='vehicle'?world.s.vehicles.find(o=>o.id===tg.id):null;if(tv&&tv!==v&&tv.f==='meumeu'&&world.vehDef(tv).nav==='eau'&&world.vehDef(v).nav!=='eau'){const r=world.vehEmbarkOrder(v,tv);say(r.ok?r.text:r.why[0],r.ok?'good':'bad');if(r.ok)audio.play('order');renderPanel(true);return;}
+    const ok=world.vehMove(v,w.x,w.y);view.marks.push({x:w.x,y:w.y,age:0,bad:!ok});if(!ok)say(v.why,'bad');else audio.play('order');renderPanel(true);return;}
   if(v.k==='porteur'&&v.u){const u=v.u;world.releasePorter(v);view.selV=null;view.sel.clear();view.sel.add(u.id);const t=world.targetAt(w.x,w.y);const r=ui.order?null:null;view.ui.order([u.id],t||{type:'point',x:w.x,y:w.y});renderPanel(true);return;}if(v.k==='bombardier'){const r=world.bomb(v.id,w.x,w.y);say(r.ok?r.text:r.why[0],r.ok?'good':'bad');audio.play(r.ok?'order':'bad');if(r.ok)view.marks.push({x:w.x,y:w.y,age:0,bad:true});return;}
   const t=world.targetAt(w.x,w.y);if(t?.type==='building'){if(!ui.pick)ui.pick={v:v.id,a:null,need:''};pickStop(t.id);}}
 function selectSquad(id,go){const sq=world.squad(id);if(!sq)return;view.sel.clear();view.selB=null;view.selV=null;for(const u of world.members(sq))view.sel.add(u.id);if(go){const L=world.unit(sq.leader)||world.members(sq)[0];if(L)view.lookAt(L.x,L.y);}renderPanel(true);}
@@ -631,6 +656,7 @@ function evacuate(id){const e=world.unit(id);if(!e)return;const c=world.s.units.
 // ---------- les clics ----------
 document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b||b.closest('#dz')||b.closest('#hub')||b.closest('#xray')||b.closest('#xroom'))return;audio.init();const d=b.dataset;
   if(d.speed!==undefined){setSpeed(+d.speed);return;}
+  if(d.r!=null){rui.click(d.r);renderPanel(true);if(ui.modal){ui.modalHtml='';renderModal();}return;}   // (V12.6) la vue recherche
   if(d.op){ops.action(d.op);renderModal();renderPanel(true);return;}
   if(d.build){view.placing=view.placing===d.build?null:d.build;view.lining=null;ui.bbHtml='';say(view.placing?`${BUILDINGS[d.build].name} : choisissez la place (une case d’écart avec les autres). Clic droit : annuler.`:'');renderPanel(true);return;}
   if(d.line){view.lining=view.lining?.kind===d.line?null:{kind:d.line};view.placing=null;ui.bbHtml='';say(!view.lining?'':d.line==='gomme'?'Annuler un tracé : balayez les pointillés dorés d’une voie ou d’un mur prévus. Clic droit : fini.':`${LINES[d.line].name} : cliquez-glissez sur la carte${d.line==='rail'?' — droites et virages, en contournant les obstacles':''}. Maj : plusieurs tracés. Clic droit : fini.`);renderPanel(true);return;}
@@ -639,7 +665,6 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   if(d.fiche){openFiche(+d.fiche);return;}
   if(d.sendmed){sendMedic(+d.sendmed);ui.modalHtml='';return;}
   if(d.evac){evacuate(+d.evac);ui.modalHtml='';return;}
-  if(d.dev){const r=world.develop(d.dev);say(r.ok?r.text:r.why[0],r.ok?'good':'bad');audio.play(r.ok?'built':'bad');ui.modalHtml='';renderPanel(true);return;}
   if(d.drop){world.dropIdea(d.drop);ui.modalHtml='';renderPanel(true);return;}
   if(d.b3){body3d.mode=d.b3;ui.modalHtml='';renderModal();return;}
   if(d.gisf!==undefined){ui.gisF=d.gisf;ui.modalHtml='';renderModal();return;}
@@ -655,6 +680,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   if(d.want){const bd=world.building(view.selB);const i=d.want.lastIndexOf(':');const k=d.want.slice(0,i);if(bd)world.setWant(bd,k,(bd.want?.[k]||0)+(+d.want.slice(i+1)));renderPanel(true);return;}
   if(d.vmode){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v){const r=world.setMode(v,d.vmode);say(r.ok?r.text:r.why[0],r.ok?'':'bad');}renderPanel(true);return;}
   if(d.fam){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v)world.toggleFamily(v,d.fam);renderPanel(true);return;}
+  if(d.vload!=null||d.vunl!=null){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v){let r;if(d.vload!=null){const k=$('[data-vcargo]')?.value;ui.vcargoK=k;r=k?world.vehLoad(v,k,+d.vload):{ok:false,why:['choisissez quoi charger']};}else r=world.vehUnload(v,d.vunl==='*'?null:d.vunl);say(r.ok?r.text:r.why[0],r.ok?'good':'bad');}renderPanel(true);return;}
   if(d.vrange){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v)v.range=Math.max(6,Math.min(30,(v.range||VEHICLES.porteur.range)+Math.sign(+d.vrange)*2));renderPanel(true);return;}
   if(d.zonen!=null){ui.zoneN=+d.zonen;renderPanel(true);return;}
   if(d.zoneh!=null){ui.zoneHigh=d.zoneh==='1';renderPanel(true);return;}
@@ -682,11 +708,12 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   else if(a==='bb'){ui.bb=!ui.bb;ui.bbHtml='';$('#buildbar').innerHTML='';buildBar();return;}
   else if(a==='tent'){pitchTent();return;}
   else if(a==='idle'){const idle=world.idle();if(idle.length){view.sel.clear();view.selB=null;view.selV=null;idle.forEach(u=>view.sel.add(u.id));view.lookAt(idle[0].x,idle[0].y);}}
-  else if(a==='army'){view.sel.clear();view.selB=null;view.selV=null;world.s.units.filter(u=>u.f==='meumeu'&&u.k!=='villageois').forEach(u=>view.sel.add(u.id));}
+  else if(a==='army'){view.sel.clear();view.selB=null;view.selV=null;world.s.units.filter(u=>u.f==='meumeu'&&!u.ally&&u.k!=='villageois').forEach(u=>view.sel.add(u.id));}
   else if(a==='squad')formSquad();
   else if(a==='dissolve'){const u=world.unit([...view.sel][0]);if(u?.sq){const n=world.squad(u.sq)?.name;world.dissolve(u.sq);say(`${n} dissoute.`);}}
   else if(a==='to-hosp'){const u=world.unit([...view.sel][0]);const hb=u&&(world.hospitalFor(u)||world.careFor(u));if(hb){u.task={kind:'hosp',b:hb.id};u.path=null;say(`${unitName(u)} va vers ${BUILDINGS[hb.k].name.toLowerCase()}.`);}else say('Aucun lit libre : une tente médicale, un hôpital, ou le poste de secours d’un centre-ville.','bad');}
   else if(a==='design')openDesigner('mle1');
+  else if(a==='engin')openEngins();
   else if(a==='armor')openArmorer('gilet');
   else if(a==='smoke'){const n=world.smokeOrder([...view.sel]);say(n?`${n} fumigène${n>1?'s':''} lancé${n>1?'s':''}.`:'Plus de fumigène.',n?'':'bad');}
   else if(a==='send-idle'){const bd=world.building(view.selB);const B=BUILDINGS[bd.k];const n=B.workers-world.workers(bd).length;const ids=world.idle().sort((p,q)=>Math.hypot(p.x-bd.i,p.y-bd.j)-Math.hypot(q.x-bd.i,q.y-bd.j)).slice(0,n).map(u=>u.id);const r=world.order(ids,{type:'building',id:bd.id});say(r.ok?r.text:r.why[0]);}
@@ -701,6 +728,8 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   else if(a==='grow'){const bd=world.building(view.selB);if(bd){bd.grow=bd.grow===false;say(bd.grow?`${bd.city} : croissance.`:`${bd.city} : croissance arrêtée.`);}}
   else if(a==='porters'){const bd=world.building(view.selB);const r=world.addPorters(bd,1);say(r.ok?`${world.porters(bd).length} porteur${world.porters(bd).length>1?'s':''} pour ${world.depotName(bd)}.`:r.why[0],r.ok?'good':'bad');}
   else if(a==='porters-off'){const bd=world.building(view.selB);const v=bd&&world.porters(bd).pop();if(v){world.releasePorter(v);say('Un porteur rendu au village.');}}
+  else if(a==='boat-ramp'){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v){const r=world.boatRamp(v,(v.rampTo||0)<.5);say(r.ok?r.text:r.why[0],r.ok?'':'bad');}renderPanel(true);}
+  else if(a==='boat-unload'){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v){const r=world.boatUnload(v,'passagers');say(r.ok?r.text:r.why[0],r.ok?'good':'bad');}renderPanel(true);}
   else if(a==='veh-out-pass'||a==='veh-out-all'){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v){const out=world.vehUnboard(v,a==='veh-out-pass'?'passagers':'tous');say(`${out.length} Meumeu descend${out.length>1?'ent':''} de ${v.name}.`);}renderPanel(true);}
   else if(a==='porter-free'){const v=world.s.vehicles.find(x=>x.id===view.selV);if(v){world.releasePorter(v);view.selV=null;say('Rendu au village.');}}
   else if(a==='evac'){const bd=world.building(view.selB);if(bd){bd.evac=bd.evac===false?true:false;say(bd.evac?'Le trop-plein part au grand dépôt le plus proche.':'Le trop-plein reste ici.');}}
@@ -714,11 +743,18 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
       // un équipage complet, ou des servants : la pièce se choisit dans « Pièce servie » ; des soldats : dans « Armés de »
       const r=mode==='equipage'?world.releaseCrew(bd,$('#relp')?.value,{armor}):world.releaseRecruits(bd,n,mode,mode==='servant'?$('#relp')?.value:(ui.trainW[bd.id]||$(`[data-trainw="${bd.id}"]`)?.value),armor,null,+($('#relc')?.value||0),$('#relnv')?.value||null);
       say(r.ok?r.text:r.why[0],r.ok?'good':'bad');if(r.ok)audio.play('ack',null,{f:'meumeu',n:r.n});}renderPanel(true);}
-  else if(a==='shelter'){const n=world.shelterAll();say(n?`${n} villageois courent aux abris.`:'Aucun abri à portée.',n?'':'bad');audio.play('siren');}
+  else if(a==='shelter-city'){const bd=world.building(view.selB);if(bd){const r=world.shelterZone(bd);say(r.n?`${bd.city} : ${r.n} villageois courent aux abris${r.full?` · ${r.full} sans place (bâtissez des maisons)`:''}.`:r.full?`${bd.city} : plus de place à l’abri (${r.full} villageois dehors) — bâtissez des maisons.`:`${bd.city} : aucun villageois dans la zone.`,r.n?'':'bad');audio.play('siren');renderPanel(true);}}
+  else if(a==='shelter-end'){const bd=world.building(view.selB);if(bd){const n=world.shelterEnd(bd);say(`${bd.city} : fin d’alerte, ${n} villageois reprennent le travail.`,'good');renderPanel(true);}}
+  else if(a==='shelter'||a==='shelter-near'){const L=a==='shelter'?world.shelterThreatened('meumeu'):world.shelterThreatened('meumeu',+b.dataset.x,+b.dataset.y);const n=L.reduce((s,q)=>s+q.n,0);
+    say(L.length?`Aux abris : ${L.map(q=>`${q.c.city} (${q.n})`).join(', ')} — ${n} villageois ; les autres villes produisent.`:a==='shelter'?'Aucune ville n’est menacée : aucun ennemi vu à 60 cases d’un centre-ville.':'Aucune de nos villes n’est à moins de 90 cases de cette armée.',L.length?'':'bad');audio.play('siren');renderPanel(true);}
   else if(a==='sound'){b.textContent=audio.toggle()?'🔈':'🔇';}
   else if(a==='zoom-in')uiZ.step(1);else if(a==='zoom-out')uiZ.step(-1);else if(a==='zoom-auto'){uiZ.step(0);say(`Taille de l’interface : automatique (${Math.round(uiZ.cur*100)} %).`);}
   else if(a==='new'){if(confirm('Nouvelle partie : une nouvelle carte. La partie en cours sera perdue.')){setWorld(new World());say('Une nouvelle carte.','good');}}
+  else if(a==='new-v2'){if(confirm('Nouvelle partie sur la carte normale V2 : deux fois plus grande, des gisements en grappes espacées, des villes plus espacées. La partie en cours sera perdue.')){setWorld(new World(undefined,{map:'v2'}));say('Une nouvelle carte V2.','good');}}
+  else if(a==='new-sea'){if(confirm('Nouvelle partie sur la carte « mer » : deux rives séparées par la mer, 2,5 fois plus grande. La partie en cours sera perdue.')){setWorld(new World(undefined,{map:'mer'}));say('Une nouvelle carte, avec la mer.','good');}}
+  else if(a==='new-sci'){if(confirm('Partie de test de la recherche : carte V2, départ établi, centre de recherche, mines sur tous les filons, six savants formés. La partie en cours sera perdue.')){setWorld(new World(undefined,{map:'v2',assisted:true,sci:true}));say('Partie de test de la recherche : concevez une arme au bureau d’études, puis « Lancer le programme ».','good');}}
   else if(a==='new-assisted'){if(confirm('Départ établi : une nouvelle carte avec une base, des ressources et une petite garde. La partie en cours sera perdue.')){setWorld(new World(undefined,{assisted:true}));say('Départ établi : infrastructure et réserves prêtes.','good');}}
+  else if(a==='scen-front'){if(confirm('Scénario de test « front » : notre batterie (2 obusiers, 1 lance-fusées, 2 mitrailleuses lourdes, 12 fusiliers) à 55 cases de la capitale bèè, 100 soldats bèè en face, guerre déclarée, brouillard levé. La partie en cours sera perdue.')){const w=new World(undefined,{dev:true});setWorld(w);const r=scenarioFront(w);say(r,'good');}}
   else if(a==='new-dev'){if(confirm('Partie de test (Dev) : base équipée, mines en service, usines d’armes, gros stocks. La partie en cours sera perdue.')){setWorld(new World(undefined,{dev:true}));say('Partie de test prête. Brouillard en place : bouton « Brouillard » ou touche N pour le lever.','good');}}
   else if(a==='fog'){toggleFog();}
   else if(a==='panel'){togglePanel();}
@@ -728,7 +764,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   renderPanel(true);});
 // le curseur du retard : chaque cran règle tout de suite les charges de la sélection (le panneau n'est redessiné qu'au lâcher)
 document.addEventListener('input',e=>{const r=e.target.closest?.('[data-fusev]');if(!r)return;const v=+r.value/6;for(const id of view.sel){const u=world.unit(id);if(u&&(u.charges>0||u.torch>0))u.fuse=v;}const l=document.getElementById('fuse-l');if(l)l.textContent=fuseTxt(v);});
-document.addEventListener('change',e=>{if(e.target.closest?.('[data-fusev]')){renderPanel(true);return;}const sr=e.target.closest('[data-sqr],[data-sqw],[data-sqa]');if(sr){const d=sr.dataset;const u=world.unit(+(d.sqr||d.sqw||d.sqa));if(u){const r=d.sqr?world.setRole(u,sr.value):d.sqw?world.rearm(u,sr.value):world.rearmor(u,sr.value||null);if(!r.ok)say(r.why[0],'bad');ui.modalHtml='';renderModal();renderPanel(true);}return;}
+document.addEventListener('change',e=>{{const rs=e.target.closest?.('[data-rsel]');if(rs){rui.change(rs.dataset.rsel,rs.value,rs);renderPanel(true);return;}}{const sk=e.target.closest?.('[data-skin]');if(sk){const b=world.building(+sk.dataset.skin);if(b)b.skin=sk.value;return;}}if(e.target.closest?.('[data-fusev]')){renderPanel(true);return;}const sr=e.target.closest('[data-sqr],[data-sqw],[data-sqa]');if(sr){const d=sr.dataset;const u=world.unit(+(d.sqr||d.sqw||d.sqa));if(u){const r=d.sqr?world.setRole(u,sr.value):d.sqw?world.rearm(u,sr.value):world.rearmor(u,sr.value||null);if(!r.ok)say(r.why[0],'bad');ui.modalHtml='';renderModal();renderPanel(true);}return;}
   const rk=e.target.closest('[data-relk]');if(rk){ui.relK=rk.value;renderPanel(true);}const rp=e.target.closest('[data-relp]');if(rp){ui.relP=rp.value;renderPanel(true);}
   const s=e.target.closest('[data-trainw]');if(s){ui.trainW[+s.dataset.trainw]=s.value;renderPanel(true);}const a=e.target.closest('[data-traina]');if(a){ui.trainA[+a.dataset.traina]=a.value;renderPanel(true);}const r=e.target.closest('[data-trainrole]');if(r){ui.trainRole[+r.dataset.trainrole]=r.value;renderPanel(true);}
   const t=e.target;const bd=world.building(view.selB);
@@ -745,7 +781,9 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','=','-',
   if(e.target.closest('input,textarea,select'))return;if(e.key==='Escape'&&document.body.classList.contains('cine')&&!designer.open){toggleCine(false);return;}if(designer.open){if(e.key==='Escape')designer.close();return;}if(room.isOpen){if(e.key==='Escape')room.close();return;}audio.init();const k=e.key;
   // V12.4 : Origine (Home) remet la caméra libre dans l'isométrie d'origine
   if(k==='Home'){view.resetCam();say('Caméra : vue isométrique d’origine (bouton du milieu : orienter ; Maj + milieu : déplacer).','info');return;}
-  if(ui.modal&&k==='Escape'){ui.modal=null;renderModal();return;}keys.add(k.toLowerCase());
+  if(ui.modal&&k==='Escape'){ui.modal=null;renderModal();return;}
+  if(k==='Escape'&&view.lab){view.exitLab();renderPanel(true);return;}keys.add(k.toLowerCase());
+  if((k==='r'||k==='R')&&view.placing&&BUILDINGS[view.placing]?.bunker){view.placeRot=((view.placeRot||0)+1)%4;e.preventDefault();return;}
   if(k==='Escape'){view.zoning=false;view.placing=null;view.lining=null;ui.pick=null;view.sel.clear();view.selVs.clear();view.selB=null;view.selV=null;renderPanel(true);}
   else if(k===' '){e.preventDefault();setSpeed(ui.speed?0:(ui.lastSpeed||1));if(ui.speed)ui.lastSpeed=ui.speed;}
   else if(k==='1'||k==='2'||k==='3'){if(ui.bb&&view.placing==null&&!view.sel.size&&view.selB==null){}setSpeed({1:1,2:2,3:4}[k]);ui.lastSpeed=ui.speed;}
@@ -755,14 +793,14 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','=','-',
   else if(k==='b'||k==='B'){ui.bb=!ui.bb;ui.bbHtml='';$('#buildbar').innerHTML='';buildBar();}
   else if(k==='n'||k==='N'){toggleFog();}
   else if(k==='k'||k==='K'){toggleCine();}
-  else if(k==='v'||k==='V'){toggle3d();}
   else if(k==='c'||k==='C'){view.cones=!view.cones;say(view.cones?'Vigilance : le regard de chaque Bèè repéré près de nos soldats choisis (debout · accroupi · couché), et jusqu’où s’entend chacun de nos coups. La nuit, elle s’affiche d’elle-même pour une équipe d’infiltration. (C)':'Vigilance masquée (la nuit, elle reste pour une équipe d’infiltration).','info');}
   else if(k==='l'||k==='L'){view.logi=!view.logi;say(view.logi?'Carte logistique : dépôts, convois, voies coupées, usines arrêtées, soldats à sec. (L pour fermer)':'Carte logistique fermée.','info');}
-  else if(k==='v'||k==='V'){const L=[...view.sel].map(id=>world.unit(id)).filter(u=>u?.irMax);if(!L.length)say('Aucun appareil de vision nocturne dans la sélection.','info');else{const on=!L.every(u=>u.nvOn);for(const u of L)u.nvOn=on;say(`Vision nocturne ${on?'allumée':'éteinte'} (${L.length}) — batterie ${fmt(Math.min(...L.map(u=>u.irLeft??0)),1)} min.`,'info');renderPanel(true);}}
+  // V (V12.5) : l'affichage de la vision nocturne de nos armes à viseur infrarouge (toujours allumés) — filtre vert-gris ou cônes classiques
+  else if(k==='v'||k==='V'){view.nirClassic=!view.nirClassic;say(`Vision nocturne affichée en ${view.nirClassic?'cônes classiques':'filtre vert-gris'} (V pour changer).`,'info');}
   else if(k==='t'||k==='T'){pitchTent();}
   else if((k==='f'||k==='F')&&view.sel.size){const n=world.smokeOrder([...view.sel]);say(n?`${n} fumigène${n>1?'s':''} lancé${n>1?'s':''}.`:'Plus de fumigène.',n?'':'bad');}
   else if(k==='f'||k==='F'){view.soil=!view.soil;say(view.soil?'Carte des sols : du gris (roche, lande) au vert sombre (terre noire). Les fermes et les moulins y rendent jusqu’à trois fois plus. (F pour fermer)':'Carte des sols fermée.','info');}
-  else if(k==='i'||k==='I'){openModal('innov');}
+  else if(k==='i'||k==='I'){if(view.lab){view.exitLab();renderPanel(true);}else if(!rui.open())openModal('innov');}
   else if(k==='m'||k==='M'){ui.modal?.kind==='med'?(ui.modal=null,renderModal()):openModal('med');}
   else if(k==='e'||k==='E'){ui.modal?.kind==='eco'?(ui.modal=null,renderModal()):openModal('eco');}
   else if(k==='h'||k==='H'){const c=world.capital();if(c)view.lookAt(c.i+2,c.j+2);}
@@ -788,12 +826,30 @@ function moans(){const [i0,i1,j0,j1]=view.vis||[0,0,0,0];const down=world.s.unit
 function where(x,y){const q=view.toScreen(x,y);const w=view.canvas.width,h=view.canvas.height;const off=Math.hypot((q.x-w/2)/w,(q.y-h/2)/h);const on=q.x>-w*.2&&q.x<w*1.2&&q.y>-h*.2&&q.y<h*1.2;
   return {vol:on?Math.max(.08,1-off*.9)*Math.min(1,.5+view.zoom*.5):Math.max(0,.25-off*.08),pan:(q.x-w/2)/(w/2),far:!on};}
 function alertBox(text,x,y,tone='bad'){const box=$('#alert');box.innerHTML=`${text}${x!=null?` <button class="small" data-gotoxy="${x},${y}">Voir</button>`:''}`;box.className='alert '+tone;box.hidden=false;clearTimeout(ui.alertT);ui.alertT=setTimeout(()=>box.hidden=true,9000);}
-function woundCard(e){if(xray.mode==='off')return;const shooterUnit=e.shooter!=null?world.unit(e.shooter):null,ours=e.vf==='meumeu'||shooterUnit?.f==='meumeu';if(!ours)return;
-  const selected=view.sel.has(e.victim)||(e.shooter!=null&&view.sel.has(e.shooter)),mine=xray.mode==='sel'?selected||!!e.frag&&e.vf==='meumeu':selected||e.vf==='meumeu'||!!e.frag&&shooterUnit?.f==='meumeu'||!where(e.x,e.y).far;if(!mine)return;
-  const hiddenIntel=e.vf==='beee'&&!world.visibleAt('meumeu',e.x,e.y);
-  const vD=e.vf==='beee'?BEEE.units[e.vk]:UNITS[e.vk];const victim=e.name||(e.vf==='beee'?(vD?.name||'Bèè'):(vD?.name||'Meumeu'));const shooter=e.frag?`${{grenade:'Charge',obus:'Obus',bombe:'Bombe'}[e.frag]}${e.sname?' de '+e.sname:''}`:(e.sname||(e.vf==='meumeu'?'Un Bèè':'Un Meumeu'));
-  const received=e.vf==='meumeu';const d=e.w?world.design(e.w):null;if(d)e.cons=d.p.cons;
-  xray.add({...e,hiddenIntel},{side:received?'L':'R',title:`${received?'Reçu · ':'Envoyé · '}${shooter} → ${hiddenIntel?'Bèè non localisé':victim}`,sub:`${e.frag?`éclat de ${fmt(e.rec.E0*1000/Math.max(1,e.v*e.v)*2,2)} g`:(d?.name||'')} · ${fmt(e.R,e.R<10?1:0)} m · ${Math.round(e.v)} m/s à l’impact${e.cover?` · à travers : ${e.cover}`:''}${hiddenIntel?' · impact hors ligne de mire':''}`});}
+// Les radiographies « Envoyé / Reçu » : seulement les tirs des soldats choisis et ceux qu'ils reçoivent (V12.5 : rétablies, légères — deux fenêtres par côté,
+// une nouvelle au plus toutes les 0,7 s, une seule visible par côté, peinte à 15 images/s puis figée ; elles avaient été coupées parce qu'elles ralentissaient les combats)
+// (V12.8) les engins choisis comptent aussi : leurs tirs (à droite) ; les coups sur leur blindage, le souffle et les blessures de leur équipage
+// à bord (à gauche). Quand plusieurs arrivent à la fois, ils attendent leur tour dans l'ordre (xray.js).
+const selVehs=()=>{const S=new Set(view.selVs||[]);if(view.selV!=null)S.add(view.selV);return S;};
+const picked=e=>{const SV=selVehs();return view.sel.has(e.victim)||e.shooter!=null&&(view.sel.has(e.shooter)||SV.has(e.shooter))||e.veh!=null&&SV.has(e.veh);};
+const vehName=id=>world.s.vehicles.find(v=>v.id===id)?.name;
+const FRAG={grenade:'Charge',obus:'Obus',bombe:'Bombe'};
+function victimOf(e){const vD=e.vf==='beee'?BEEE.units[e.vk]:UNITS[e.vk];const n=e.name||(e.vf==='beee'?(vD?.name||'Bèè'):(vD?.name||'Meumeu'));return e.veh!=null&&vehName(e.veh)?`${n} (à bord de ${vehName(e.veh)})`:n;}
+function woundCard(e){if(xray.mode==='off'||!picked(e))return;
+  const hiddenIntel=e.vf==='beee'&&!world.visibleAt('meumeu',e.x,e.y);const by=e.sname||vehName(e.shooter);
+  const shooter=e.inside?`${e.inside[0].toUpperCase()+e.inside.slice(1)}${by?' ('+by+')':''}`:e.frag?`${FRAG[e.frag]}${by?' de '+by:''}`:(by||(e.vf==='meumeu'?'Un Bèè':'Un Meumeu'));
+  const received=e.vf==='meumeu';const d=e.w?world.design(e.w):null;if(d)e.cons=d.p.cons;const g=e.v>0&&e.rec?.E0?fmt(e.rec.E0*1000/Math.max(1,e.v*e.v)*2,2):null;
+  const sub=e.inside?`${g&&!d?`${g} g · `:''}${Math.round(e.v||0)} m/s dans l’habitacle`:`${e.frag?`éclat de ${g} g`:(d?.name||'')}${e.R!=null?` · ${fmt(e.R,e.R<10?1:0)} m`:''} · ${Math.round(e.v)} m/s à l’impact${e.cover?` · à travers : ${e.cover}`:''}${hiddenIntel?' · impact hors ligne de mire':''}`;
+  xray.add({...e,hiddenIntel},{side:received?'L':'R',title:`${received?'Reçu · ':'Envoyé · '}${shooter} → ${hiddenIntel?'Bèè non localisé':victimOf(e)}`,sub});}
+// la surpression : un Meumeu (ou un Bèè) que le souffle d'une explosion atteint
+function blastCard(e){if(xray.mode==='off'||!picked(e))return;const hiddenIntel=e.vf==='beee'&&!world.visibleAt('meumeu',e.x,e.y);const received=e.vf==='meumeu';const by=e.sname||vehName(e.shooter);
+  xray.add({...e,hiddenIntel},{kind:'souffle',side:received?'L':'R',title:`${received?'Reçu · ':'Envoyé · '}souffle ${FRAG[e.frag]?'('+FRAG[e.frag].toLowerCase()+(by?' de '+by:'')+')':''} → ${hiddenIntel?'Bèè non localisé':victimOf(e)}`,
+    sub:`${fmt(e.W*1000,e.W<.01?1:0)} g de TNT à ${fmt(e.r,1)} m · ${fmt(e.pk,e.pk<10?1:0)} kPa`});}
+// un coup sur le blindage d'un engin : ricochet, arrêté, percé (la plaque en coupe)
+function plateCard(e){const c=e.card;if(!c||xray.mode==='off')return;const SV=selVehs();const mine=SV.has(c.veh),byMe=c.shooter!=null&&(view.sel.has(c.shooter)||SV.has(c.shooter));if(!mine&&!byMe)return;
+  const received=c.vf==='meumeu';const d=c.w?world.design(c.w):null;const by=world.unit(c.shooter)?.name||vehName(c.shooter)||(received?'Un Bèè':'Un Meumeu');
+  xray.add({...e,victim:c.veh,shooter:c.shooter},{kind:'plaque',side:received?'L':'R',title:`${received?'Reçu · ':'Envoyé · '}${by} → ${c.vname} (${c.where})`,
+    sub:`${d?.name||''}${c.R!=null?` · ${fmt(c.R,c.R<10?1:0)} m`:''} · ${Math.round(c.v)} m/s à l’impact`});}
 function soundWhere(e){if(e.x==null)return null;const ears=[...view.sel].map(id=>world.unit(id)).filter(u=>u?.f==='meumeu'&&u.hp>0&&u.h?.state!=='hors');if(!ears.length)return where(e.x,e.y);
   const ear=ears.reduce((a,b)=>Math.hypot(a.x-e.x,a.y-e.y)<Math.hypot(b.x-e.x,b.y-e.y)?a:b),dx=e.x-ear.x,dy=e.y-ear.y,d=Math.hypot(dx,dy),db=e.dB||({shot:150,boom:180,cannon:175,fire:135,collapse:165,stop:185}[e.type]||128),R=Math.max(4,(db-110)/1.6),blocked=!world.los(ear.x,ear.y,e.x,e.y),range=R*(blocked?.62:1);
   const vol=d>range?0:Math.max(.03,Math.pow(1-d/range,.8)),raw=(dx-dy)/Math.max(1,d*Math.SQRT2),pan=d>18?Math.round(raw*3)/3:raw;
@@ -806,18 +862,23 @@ function events(){for(const e of world.events.splice(0)){view.onEvent(e);const P
     case 'shot':audio.play('shot',P,e);whiz(e);break;case 'cannon':audio.play('cannon',P);break;
     case 'wound':{const v=world.unit(e.victim);if(v){hurtRefs.delete(e.victim);hurtRefs.set(e.victim,v);if(hurtRefs.size>80)hurtRefs.delete(hurtRefs.keys().next().value);}woundCard(e);audio.play('hit',P,e);break;}
     case 'down':audio.play('down',P);if(e.f==='meumeu'&&P&&!P.far)say(`${unitName(world.unit(e.id)||{k:'soldat',f:'meumeu'})} est à terre : ${e.cause||''}.`,'bad');break;
-    case 'throw':audio.play('throw',P);break;case 'plate':audio.play('plate',P);if(e.rec)woundCard(e);break;case 'smoke':audio.play('smoke',P);break;case 'reload':audio.play('reload',P);break;case 'pierce':audio.play('pierce',P);break;case 'ricochet':audio.play('ricochet',P);break;case 'impact':if(e.mat==='pierre'||e.mat==='mur'||e.mat==='rocher')audio.play('ricochet',P);else if(!e.hit&&P&&P.vol>.35)audio.play('thud',P,e);break;
+    case 'throw':audio.play('throw',P);break;case 'plate':audio.play('plate',P);if(e.rec)woundCard(e);if(e.card)plateCard(e);break;case 'smoke':audio.play('smoke',P);break;case 'reload':audio.play('reload',P);break;case 'pierce':audio.play('pierce',P);if(e.card)plateCard(e);break;case 'ricochet':audio.play('ricochet',P);if(e.card)plateCard(e);break;case 'blast':blastCard(e);break;case 'impact':if(e.mat==='pierre'||e.mat==='mur'||e.mat==='rocher')audio.play('ricochet',P);else if(!e.hit&&P&&P.vol>.35)audio.play('thud',P,e);break;
     case 'boom':audio.play(e.kind==='bomb'?'bomb':'boom',P,e);break;case 'flak':audio.play('flak',P);break;
     case 'collapse':audio.play('collapse',P);if(e.k&&e.f==='meumeu'&&!e.small)alertBox(`<b>${BUILDINGS[e.k].name} détruit !</b>`,e.x,e.y);break;
     case 'fire':audio.play('fire',P);break;case 'felled':audio.play('felled',P);break;case 'death':audio.play('death',P,e);break;
     case 'built':audio.play('built',P);break;case 'trained':if(e.f==='meumeu')audio.play('trained',P);break;case 'design':audio.play('built');alertBox('<b>Nouvelle arme adoptée.</b> Réglez l’arsenal et la manufacture pour la fabriquer.',null,null,'good');break;
-    case 'idea':audio.play('trained');alertBox(`<b>${esc(e.who||'Un Meumeu')} a une idée :</b> ${esc(INNOV.find(x=>x.id===e.id)?.name||'')} <button class="small" data-modal="innov">Les idées</button>`,e.x,e.y,'good');break;
-    case 'innov':audio.play('built');say(`Innovation adoptée : ${INNOV.find(x=>x.id===e.id)?.name}.`,'good');break;
+    case 'idea':audio.play('trained');alertBox(`<b>${esc(e.who||'Un Meumeu')} a une idée :</b> ${esc(INNOV.find(x=>x.id===e.id)?.name||'')} <button class="small" data-r="open:projets">Vue recherche</button>`,e.x,e.y,'good');break;
+    case 'innov':audio.play('built');say(`${e.perc?'Percée ! ':''}Innovation adoptée : ${INNOV.find(x=>x.id===e.id)?.name}.`,'good');break;
+    // (V12.6) la recherche : l'accident, l'eurêka, la sortie d'école
+    case 'labboom':audio.play('boom',P,e);alertBox(`<b>Accident ${{centre_recherche:'au centre de recherche',labo:'au laboratoire de chimie',armurerie:'au bureau d’études'}[world.building(e.b)?.k]||''} !</b> <button class="small" data-r="go:${e.b}">Voir</button>`,e.x,e.y,'warn');break;
+    case 'decision':{const Pg=world.program(e.pid);if(!Pg)break;audio.play('horn');alertBox(`<b>${esc(Pg.name)} :</b> ${e.n} proposition${e.n>1?'s attendent':' attend'} votre décision${e.wave>1?` (vague ${e.wave})`:''}. <button class="small" data-r="meet:${e.pid}">Assister</button>`,null,null,'warn');break;}
+    case 'meeting':{const Pg=world.program(e.pid);if(Pg&&e.kind==='lancement')say(`« ${Pg.name} » : réunion de lancement convoquée.`,'info');break;}
+    case 'eureka':audio.play('trained');break;case 'graduate':{audio.play('trained');const u=world.sci(e.id);if(u)say(`${u.name} sort de l’école.`,'good');break;}
     case 'stop':if(e.kind==='train')audio.play('train',P);break;case 'takeoff':audio.play('takeoff',P);break;case 'rail-cut':audio.play('rail',P);if(P?.vol>.05)say('Une voie ferrée est coupée : il faut la reposer.','bad');break;
     case 'tension':audio.play('drums');alertBox(`<b>Frontière.</b> ${esc(e.text)}`,null,null,'warn');break;
     case 'war':audio.play('horn');alertBox(`<b>${esc(e.text)}</b> Les tours, les soldats et les Bèè tirent désormais à vue.`);break;
     case 'rout':audio.play('horn',P);break;
-    case 'wave':audio.play('horn',null);alertBox(`<b>Une armée bèè de ${e.n} marche sur nous !</b> <button class="small" data-act="shelter">Aux abris</button>`,e.x,e.y);break;
+    case 'wave':audio.play('horn',null);alertBox(`<b>Une armée bèè de ${e.n} marche sur nous !</b> <button class="small" data-act="shelter-near" data-x="${Math.round(e.x)}" data-y="${Math.round(e.y)}">Aux abris (villes proches)</button>`,e.x,e.y);break;
     case 'air-raid':audio.play('siren',null);alertBox('<b>Bombardier bèè en approche !</b> La DCA, les abris.',e.x,e.y);break;
     case 'downed':audio.play('bomb',P);break;
     case 'won':audio.play('won');$('#win').innerHTML=`<div class="scbox"><b class="big">Gagné !</b><p>Toutes les villes bèè sont tombées au jour ${world.s.won.day}. Votre civilisation continue de vivre.</p><button class="ghost" data-act="win-off">Continuer</button></div>`;$('#win').hidden=false;break;
@@ -833,6 +894,24 @@ function toggleFog(){world.s.fog=world.s.fog===false;say(world.s.fog!==false?'Br
 function syncFogBtn(){const b=document.querySelector('[data-act="fog"]');if(!b)return;const on=world.s.fog!==false;const t='Brouillard : '+(on?'oui':'non');if(b.textContent!==t)b.textContent=t;b.classList.toggle('on',on);}
 function setWorld(w){simClock.reset();world=w;view.world=w;view.fogT=0;view.fogVis=null;view.tiles=null;view.overview=null;view.shadeCv=null;view.sel.clear();view.selVs.clear();view.selB=null;view.selV=null;view.parts=[];view.decals=[];view.streaks=[];view.toppling=[];ui.pick=null;ui.modal=null;for(const c of [...xray.cards])xray.remove(c);const c=w.capital();if(c)view.lookAt(c.i+2,c.j+2);$('#win').hidden=true;renderPanel(true);}
 
+// ---------- le scénario de test « front » : voir les Bèè réagir à notre feu ----------
+function scenarioFront(w){const c=w.s.beee.cities.find(x=>!x.fallen);const cap=w.capital();if(!c||!cap)return 'Scénario impossible : pas de ville bèè.';
+  if(!w.atWar)w.declareWar('meumeu');w.s.fog=false;
+  const dx=cap.i-c.x,dy=cap.j-c.y,L=Math.hypot(dx,dy)||1;const [px,py]=w.freeSpot(c.x+dx/L*55,c.y+dy/L*55,10);const ux=dx/L,uy=dy/L,sx=-uy,sy=ux;
+  const at=(f,b)=>w.freeSpot(px+ux*b+sx*f,py+uy*b+sy*f,3);const face=u=>{u.fx=-ux;u.fy=-uy;};
+  for(const id of ['canon_mle1','fusees_mle1'])if(w.s.designs[id])w.s.designs[id].status='adopte';   // (V12.7 : des références, que le scénario adopte)
+  const rocket=w.designsOf('meumeu').find(d=>/fus[ée]e/i.test(d.name)&&w.W(d.id).crew>1);
+  const crewGun=(wid,f,b,rounds)=>{const [x,y]=at(f,b);const g=w.addUnit('meumeu','soldat',x,y,{w:wid,rounds});g.task={kind:'guard',tx:x,ty:y};face(g);
+    const n=Math.max(0,w.W(wid).crew-1);for(let k=0;k<n;k++){const [sx2,sy2]=at(f+(k%3-1)*.8,b+1+Math.floor(k/3)*.8);const s=w.addUnit('meumeu','soldat',sx2,sy2,{w:'mle1'});s.serve=g.id;s.task={kind:'guard',tx:sx2,ty:sy2};face(s);}return g;};
+  crewGun('canon_mle1',-6,10,40);crewGun('canon_mle1',6,10,40);if(rocket)crewGun(rocket.id,0,12,24);
+  crewGun('mg_lourde_mle1',-4,0,1500);crewGun('mg_lourde_mle1',4,0,1500);
+  for(let k=0;k<12;k++){const [x,y]=at((k-5.5)*1.2,2);const u=w.addUnit('meumeu','soldat',x,y,{w:'mle1',rounds:300});u.task={kind:'guard',tx:x,ty:y};face(u);}
+  // en face : 100 soldats bèè armés, en garnison dans leurs villes (60 à la capitale, le reste dans les autres)
+  const cities=w.s.beee.cities.filter(x=>!x.fallen);for(let k=0;k<100;k++){const cc=k<60?c:cities[1+(k%Math.max(1,cities.length-1))]||c;const [x,y]=w.freeSpot(cc.x+(Math.random()-.5)*14,cc.y+(Math.random()-.5)*14,4);
+    const u=w.addUnit('beee','soldat',x,y,{w:'bee_fusil'});u.city=cc.id;u.home=cc.centre;u.task={kind:'guard',tx:x,ty:y};}
+  view.lookAt(px,py);view.zoom=.9;
+  return `Scénario « front » prêt : notre batterie à 55 cases de ${c.name}, 100 soldats bèè en face. Sélectionnez les obusiers et faites « Tir sur zone » sur la ville.`;}
+
 // ---------- la boucle ----------
 const simClock=new FixedClock();
 let last=performance.now(),miniAt=0,saveAt=performance.now();
@@ -846,18 +925,22 @@ function frame(now){const elapsed=Math.max(0,(now-last)/1000),dt=Math.min(.1,ela
     ui.catchup=simClock.debt>.5;
     const sp=900*dt;if(keys.has('arrowleft')||keys.has('q')||keys.has('a'))view.pan(-sp,0);if(keys.has('arrowright')||keys.has('d'))view.pan(sp,0);if(keys.has('arrowup')||keys.has('z')||keys.has('w'))view.pan(0,-sp);if(keys.has('arrowdown')||keys.has('s'))view.pan(0,sp);
     view.draw(dt*ui.speed);xray.step(dt);if(ui.modal?.kind==='fiche'){const f=findUnit(ui.modal.id);if(f)body3d.draw(f.u.h,dt,f.u.f);}if(now-miniAt>250){miniAt=now;view.drawMini(mini);ambience();}
-    topbar();renderPanel(false);if(ui.modal?.kind==='operation')renderModal();if(now-saveAt>30000){try{world.save();saveAt=now;}catch(e){saveAt=now;say('Sauvegarde automatique impossible : '+e.message,'bad');}}
+    topbar();renderPanel(false);if(ui.modal?.kind==='operation'||ui.modal?.kind==='reunion')renderModal();if(now-saveAt>30000){try{world.save();saveAt=now;}catch(e){saveAt=now;say('Sauvegarde automatique impossible : '+e.message,'bad');}}
   }catch(e){
     bootError({error:e});
     // La boucle continue et affiche le diagnostic sans mettre la partie en pause.
   }
   requestAnimationFrame(frame);}
-$('#xmode').addEventListener('click',()=>{xray.setMode({sel:'ecran',ecran:'off',off:'sel'}[xray.mode]);topbar();});
+$('#xmode').addEventListener('click',()=>{xray.setMode(xray.mode==='off'?'sel':'off');topbar();});
 $('#squads').addEventListener('click',e=>{const b=e.target.closest('[data-squad]');if(b)selectSquad(+b.dataset.squad,e.detail>=2);});
 await loadManifest();
 {const P=new URLSearchParams(location.search);
   const c=world.capital();if(c)view.lookAt(c.i+2,c.j+2);if(P.get('speed'))setSpeed(+P.get('speed'));if(P.get('at')){const [x,y,z]=P.get('at').split(',').map(Number);view.lookAt(x,y);if(z)view.zoom=z;}}
 try{setSpeed(ui.speed);renderPanel(true);}catch(e){bootError({error:e});}
 requestAnimationFrame(frame);
-window.world=()=>world;window.view=view;window.ui=ui;window.audio=audio;window.xray=xray;window.designer=designer;window.toggleCine=toggleCine;window.toggle3d=toggle3d;window.room=room;window.openModal=openModal;window.renderPanel=renderPanel;window.openFiche=id=>openFiche(id);
+window.world=()=>world;window.view=view;window.ui=ui;window.audio=audio;window.xray=xray;window.designer=designer;window.engins=engins;window.toggleCine=toggleCine;window.toggle3d=toggle3d;window.room=room;window.openModal=openModal;window.renderPanel=renderPanel;window.openFiche=id=>openFiche(id);
+// (V12.7) un démarrage commandé de l'extérieur : demarrage.json ({"partie":"recherche","id":"…"}) — une seule fois par id
+fetch('demarrage.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(d=>{if(!d?.partie||!d.id)return;let seen=null;try{seen=localStorage.getItem('okm-demarrage');}catch(e){}if(seen===d.id)return;try{localStorage.setItem('okm-demarrage',d.id);}catch(e){}
+  if(d.partie==='recherche'){setWorld(new World(undefined,{map:'v2',assisted:true,sci:true}));say('Partie de test de la recherche : carte V2, jour 1, centre de recherche, six savants, mines sur tous les filons.','good');}}).catch(()=>{});
+window.__load=data=>{setWorld(new World(1).restore(data));return world.day;};   // les bancs de captures : charger une sauvegarde
 window.__step=(n=1,dt=1/30)=>{for(let i=0;i<n;i++){if(ui.speed>0)world.update(dt*ui.speed/HOUR_REAL);events();view.draw(dt*ui.speed);xray.step(dt);if(ui.modal?.kind==='fiche'){const f=findUnit(ui.modal.id);if(f)body3d.draw(f.u.h,dt,f.u.f);}}view.drawMini(mini);renderPanel(true);topbar();};

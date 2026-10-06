@@ -5,7 +5,7 @@
 const out={textContent:''};globalThis.document??={getElementById:()=>out};
 const {World}=await import('../js/world.js');const {player}=await import('./bot.mjs');const {BUILDINGS}=await import('../js/data.js');
 const [seed,DAYS,EVERY]=[+(process.argv[2]||301),+(process.argv[3]||40),+(process.argv[4]||5)];
-const W=new World(seed);const P=player(W);const N=W.N;const t0=Date.now();const d2=(a,b,c,d)=>Math.hypot(a-c,b-d);
+const W=new World(seed,{map:process.env.OKM_MAP});const P=player(W);const N=W.N;const t0=Date.now();const d2=(a,b,c,d)=>Math.hypot(a-c,b-d);
 const live=u=>u.hp>0&&u.h?.state!=='hors'&&u.h?.state!=='mort';const r=v=>Math.round(v);
 const made={};const snap={};
 function bilan(d){const B=W.s.beee,pl=B.plan||{},nat=pl.nat||{};const cs=B.cities.filter(c=>!c.fallen);const us=W.s.units.filter(u=>u.f==='beee'&&live(u));
@@ -34,6 +34,9 @@ function bilan(d){const B=W.s.beee,pl=B.plan||{},nat=pl.nat||{};const cs=B.citie
     const siteW=bs.filter(b=>!b.done&&!b.ruin&&/attend|chercher|arrivent/.test(b.why||'')).length,facW=bs.filter(b=>b.done&&!b.ruin&&BUILDINGS[b.k].factory&&/attend/.test(b.why||'')).length;const jams=W.jams('beee').length;
     const idle=civ.filter(u=>!u.task).length;const tr=V.filter(v=>v.k==='train');const po=B.plan?.porters||{};
     console.log(`  flux : manques ${Math.round(unmet)} (${items} lignes ; ${Object.entries(byK).sort((a,z)=>z[1]-a[1]).slice(0,5).map(([k,n])=>k+' '+Math.round(n)).join(', ')}) · chantiers qui attendent ${siteW} · usines qui attendent ${facW} · dépôts engorgés ${jams} · porteurs ${po.have}/${po.want} · trains en marche ${tr.filter(v=>v.state==='go').length}/${tr.length} · sans tâche ${idle} · stable ${W.beeeStable()?'oui':'non'}`);}
+  if(W.fortActive?.()){const F=W.fortStats();const fo=W.s.beee.fort||{};const nat=pl.nat||{};console.log(`  côte : ${fo.on?'programme actif':'pas encore'} · ouvrages finis ${F.total} (${Object.entries(F.bunkers).map(([k,n])=>k+' '+n).join(', ')||'aucun'}) · lignes posées : sacs ${F.lines.sacs}, fosses ${F.lines.fosses}, mines ${F.lines.mines} · secteurs ouverts ${F.open}/${F.sectors} · garnison ${F.garrison}/${F.posts} postes (manque ${fo.need||0}) · pierre ${r(nat.pierre||0)} fer ${r(nat.fer||0)} mines ${r(nat.mine||0)} explosifs ${r(nat.explosifs||0)}`);
+    const arm={};let serv=0;for(const b of W.s.buildings)if(b.f==='beee'&&b.done&&!b.ruin&&BUILDINGS[b.k]?.bunker)for(const id of Object.values(b.occ||{})){const u=W.unit(id);if(!u)continue;if(u.serve!=null){serv++;continue;}arm[u.w||'aucune']=(arm[u.w||'aucune']||0)+1;}
+    console.log(`  armes dans les ouvrages : ${Object.entries(arm).map(([k,n])=>k.replace('bee_','')+' '+n).join(' · ')||'—'} · servants ${serv} · stock mg_lourde ${r(nat['a:bee_mg_lourde']||0)} canon ${r(nat['a:bee_canon']||0)} mg ${r(nat['a:bee_mg']||0)}`);}
   console.log(`  fondation : ${B.colonyWhy||"-"} (fondées ${B.founded||0})`);
   console.log(`  guerre : vagues ${B.waves||0} · bandes ${(B.bands||[]).map(b=>`${b.aim||b.kind||'raid'}/${b.state}/${W.bandMembers(b).length}`).join(', ')||'aucune'} · pertes bèè ${B.lossT||'?'} · bâtiments meumeu détruits ${W.s.buildings.filter(b=>b.f==='meumeu'&&b.ruin).length}`);}
 const seenB=new Map();

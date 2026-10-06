@@ -1,0 +1,113 @@
+OBERKOMMANDO DER MEUMEU — V12.8 « ENGINS » : LE JOURNAL DES MODIFICATIONS
+=========================================================================
+(le plan : PLAN-ENGINS-V12.8.txt ; chaque entrée : ce qui change, pourquoi, ce qui est mesuré)
+
+ÉTAPE A — le modèle de conception (js/engins.js), test/engins.mjs N1-N6 : commit e50b0f5.
+ÉTAPE B — le bureau des engins (js/engins-ui.js) : commit b899076.
+
+ÉTAPE C (en cours) — les engins conçus en jeu
+- Commit cf9afb2 (session sur le PC puis session cloud) : fiche d'engin par conception (vehDefOf), garage qui ne propose qu'eux, engins3d.js,
+  sponsons au débattement centré sur leur direction de repos, réinscription à chaque partie et chargement (enginsSync), châssis « Transport
+  chenillé » (chenT), « carburant » → « essence » partout. Une conception enregistrée au bureau s'inscrit aussitôt (ui.js : world.enginsSync()).
+- Passagers et soute sur tous les chenillés : le modèle le permettait déjà, limité par la place. Mesuré (en plus des exemples) : chenillé léger
+  +7 passagers / +55 caisses ; char moyen +4 / +56 ; char lourd +17 / +125 ; géant +60 / +200 ; chaque passager alourdit et ralentit.
+  test/engins_transport.mjs T1-T5 : tout passe (graine 101 : 8 Meumeu libres seulement — 7 montent, 1 reste).
+- L'essence (vehicules.js vehBurn, vehRefuel ; ui.js jauge dans le panneau de l'engin) :
+  * brûlée à chaque case roulée (perCase du modèle) ; à 20 % du plein, un avis ; à sec, l'engin s'arrête et dit ce qu'il attend ;
+  * le plein se refait tout seul quand l'engin est arrêté (sans ordre de route) : sa soute, puis un engin ravitailleur ami arrêté à 3 cases
+    (sa soute chargée d'essence), puis un dépôt à 5 cases ; 40 bidons par heure de jeu (char moyen : une demi-heure) ;
+  * mesuré : au premier essai, un char qui démarrait d'un dépôt refaisait son plein tant qu'il roulait à moins de 0,5 case/h (11 → 20 bidons
+    en partant) ; corrigé : jamais pendant un ordre de route.
+  test/engins_essence.mjs R1-R7 : tout passe, graines 101 et 107.
+- Régression (avant / après, même lot) : vehicules_equipage, vehicules_blindage : tout passe ; vehicules_feu F3 et vehicules_conduite C1, C5
+  échouaient déjà avant. vehicules_garage G1, G2, G4, G5 échouent : le test commande l'ancien « char » et la jeep, que le garage ne propose plus
+  (voulu) — à réécrire pour les engins conçus.
+
+- Retrait des anciens engins : les fiches jeep, jeep_mg, automitrailleuse, char, automoteur (vehicules.js), leurs canons canon_char_mle1 et
+  canon_auto_mle1 (designs.js), sept modèles (assets3d : jeeps, automitrailleuses, armored_*, guncarrier_casemate), la liste VEH_KINDS (figée au
+  chargement, elle ignorait les engins conçus), sept scripts test/_dbg_* qui ne servaient qu'à eux. Le garage ne propose que les conceptions.
+  Le dessin 3D : tout véhicule qui n'était ni engin ni train ni porteur recevait une jeep (lu dans le code) — chaque charrette et chaque avion
+  avait une jeep par-dessus ; retiré. Nouvel exemple du bureau : « Automoteur à casemate » (chenillé moyen, canon 28 mm, 2 × 15 obus).
+- Les tests de véhicules roulent avec des engins conçus (test/_engins_types.mjs, sous les anciens identifiants) ; critères recalés, chacun noté
+  dans son test avec la raison : équipage E5/E6 (la jeep à mitrailleuse conçue a 1 passager), garage G2/G4 (heures de la conception : 51 h, 23 h),
+  naval 14/17 (emprises : char lourd 2,4 × 1,4 ; une automitrailleuse conçue à 1,9 × 1,0). Résultats : équipage, garage, blindage : tout passe ;
+  naval : seul 16 échoue (échouait déjà avant) ; feu : F3 (déjà avant), F1 et F5 échouent ; conduite : C1 et C3 échouent.
+  * conduite : le test ne testait plus rien (VEH_KINDS vide → « tout passe », 0 µs par pas) ; il roule maintenant avec les engins conçus et
+    montre de vrais défauts : jeep à mitrailleuse 2 buts sur 4, automitrailleuse 4×4 à 3,8 cases du chemin en moyenne (avant : 0,4).
+  * feu F5 : un engin conçu à vide ne se recharge pas au dépôt (ses armes sont des conceptions « engin » dont aucun dépôt n'a les caisses).
+  * feu F1 : l'automitrailleuse conçue met 1 Bèè sur 8 hors de combat en 4 h (l'ancienne 8 sur 8) : à comprendre.
+
+- Les tests d'engins et de véhicules roulent sur la CARTE V2 (le mode du joueur ; OKM_CARTE=classique pour l'ancienne). Les barges : laissées
+  de côté à la demande du joueur.
+- Munitions des engins conçus (vehicules.js vehResupply) : à l'arrêt près d'un dépôt, si le dépôt n'a pas leurs caisses, l'engin les fait avec
+  les matières de leur recette (celle de l'arsenal). Feu F5 recalé (le dépôt reçoit des matières, plus des caisses de l'ancienne mitrailleuse) :
+  passe, au prix exact (une caisse de la jeep à mitrailleuse : plomb 0,52, cuivre 0,83, poudre 0,28, pièces 0,09 — 388 coups).
+- Carte V2, résultats : engins_essence, engins_transport, équipage, garage, blindage : tout passe ; feu : F1 et F3 échouent ; conduite : C1
+  (automitrailleuse 4×4 1 but sur 4, jeep à mitrailleuse et char lourd 3 sur 4).
+
+RADIOGRAPHIES « ENVOYÉ / REÇU » (demande du joueur)
+- La file : une fenêtre par côté (reçu à gauche, envoyé à droite) ; les suivantes attendent leur tour dans l'ordre et s'ouvrent à la fermeture
+  de la précédente (lecture raccourcie à 0,9 s quand d'autres attendent ; 40 au plus en attente par côté). Avant : une blessure arrivée moins de
+  0,7 s après la dernière fenêtre était oubliée. En attente, une blessure n'est qu'un événement : sa scène ne se calcule qu'à son tour.
+- Les engins choisis comptent : leurs tirs (à droite) ; à gauche, les coups sur leur blindage (nouvelle fenêtre « plaque » : la plaque en coupe,
+  le projectile sous son obliquité, ricochet / arrêté dans l'acier / percé avec sa vitesse restante et les éclats de la face intérieure vers
+  l'équipage), le souffle sur un équipage découvert, et chaque blessure de l'équipage à bord (balle à travers la tôle, éclat de blindage, obus
+  éclaté dans l'habitacle, éclat à travers la caisse), avec le tireur.
+- La surpression : un événement « blast » par victime du souffle (world.js heBlast, vehicules.js vehBlast) — tué net, lésions internes,
+  commotion, sonné, étourdi, renversé ; nouvelle fenêtre « souffle » : le front de l'onde traverse le Meumeu, les organes atteints s'allument
+  (poumons, intestins, cerveau, oreilles), la pression de crête, la distance, la charge.
+- test/radiographies.mjs X1-X5 : tout passe. Régression (balistique_blessure, vehicules_blindage, vehicules_feu ; avant / après) : identique.
+  (chimie plante avant comme après : W.canStartProject n'existe plus.)
+
+EXPLOSIONS PLUS BRUTALES (demande du joueur : « pas assez brutales et létales, pour les bâtiments aussi »)
+- Mesuré avant (test/_mesure_explosions.mjs, graine 101, carte V2) : à découvert, l'obus de 36 mm tue 100 % jusqu'à 4 m, met hors de combat 94 % à
+  8 m et 46 % à 12 m ; une maison tombe au premier obus, une caserne au deuxième, le centre-ville au quatrième. MAIS une maison bèè pleine
+  (5 villageois à l'abri), bombardée jusqu'à la ruine : 0 % de morts, 0 % de blessés — les occupants (abri, caserne, hôpital, aérodrome) étaient
+  hors d'atteinte, et l'effondrement relâchait ceux de l'abri indemnes, laissait les recrues de la caserne dans la ruine.
+- world.js : occupants(), shellIndoors (les éclats de l'obus et des murs dans les pièces, d'autant plus que le coup emporte la structure ; la fusée
+  à retard et le souffle enfermé ×2 ; le bunker ×0,2), roomHit (la vraie blessure, sa radiographie), collapseOn (écrasés 30 %, ensevelis 35 %, les
+  vivants ressortent ; bunker 12 %). test/explosions_batiments.mjs O1-O5 : tout passe — abri plein : 100 % morts ou hors de combat (dont 43 %
+  morts) ; un obus sur une caserne de dix : 8,6 touchés ; caserne effondrée : 59 % morts, personne dans la ruine ; bunker 0,5 touché par obus contre
+  5 dans une maison. O6 (à découvert, rien ne change) : la mesure refaite est identique au chiffre près.
+- L'échelle des obus de pièce (20 mm et plus) suit la CHARGE (∛ de l'équivalent tolite, l'obusier Mle 1 pour référence) et non plus le seul
+  calibre : un explosif plus puissant porte plus loin (avant, tous les chargements d'un même calibre tuaient au même rayon).
+
+LA SCIENCE THERMOBARIQUE (demande du joueur : plusieurs variantes selon le mélange, sa proportion, la construction de l'obus)
+- explosive.js : trois mélanges — thermobarique au charbon (bon marché), à la poudre de fer (chaleur, feu), explosif air-essence (énorme, il lui faut
+  l'obus à deux temps) ; la part de combustible (p.tbf) avec un optimum (le cœur doit disperser le combustible ; trop, il ne brûle plus à temps) ;
+  deux coques — mince (plus de chargement, peu d'éclats), à deux temps (le nuage détone : il entre dans les tranchées). thermo() : W = cœur +
+  postcombustion (Hc, part brûlée à temps, dispersion), le nuage, le facteur enfermé (bâtiments, abris, tranchées).
+- Recherche : deux sciences de chimie (data.js INNOV « La science thermobarique », puis « L'explosif air-essence »), chacune trois tâches longues
+  (chimiste, physicien, ingénieur : 165 h et 210 h de travail) que des équipes entières font avancer ; elles ouvrent mélanges et coques à l'atelier.
+  Les chimistes proposent en réunion le mélange et sa proportion (techaxes : levier « combustible »), les ingénieurs la coque.
+- Atelier : le curseur « Part de combustible » (avec ce que la charge en tire : cœur, postcombustion, nuage, facteur enfermé), les coques ouvertes.
+- test/thermobarique.mjs T1-T7 : tout passe — au charbon 1,43 × la tolite du même obus, 21 % d'éclats en moins ; optimum vers 40 % de combustible ;
+  air-essence sans deux temps : 35 % de son effet ; dans le nuage (2,95 m pour un 36 mm), couchés en tranchée : 100 % morts (tolite : 0 %) ;
+  enfermé : 4,5 occupants touchés par obus (tolite 1,5). Corrigé au premier essai : la postcombustion comptait à moitié (+4 % seulement), la coque
+  mince rendait 4 × plus d'explosif ; le nuage était à l'échelle physique (0,7 m) devant un souffle de jeu de 4,3 m (T5 compare donc les morts).
+
+LES MODÈLES DE SOLDAT DU JOUEUR (6 octobre)
+- « meumeu soldat(1) » → assets3d/meumeu_soldat_classique.json ; « meumeu soldat protection ballistique » → meumeu_soldat_protege.json. Convertis
+  (outils/convertir.cjs, budget porté à 6 000 faces — l'option --budget ajoutée à la copie de travail) puis CUITS (outils/cuire.cjs : la texture
+  d'origine sur le modèle réduit, cases de 36 px, atlas 1980 × 1980) pour que les textures se voient.
+- Un soldat en tenue normale prend le modèle classique (casque) ; protégé (u.armor : casque et plaque), le modèle protégé ; villageois, médecins,
+  infirmiers, savants gardent la peluche ; « Soldat camouflé » et « Élite à cape » inchangés (les modèles meumeu_soldat et plush_cow_knight
+  ne sont pas touchés). Le bras droit tendu avec l'arme : SKIN_ARM, règles vérifiées sur _modele.html (bras entier, rien du flanc ni du gilet).
+- Capture : test/_outils_captures/pw_soldats.cjs (Chromium, sans Electron).
+
+A1 — LA BALISTIQUE 3D SUR LES ENGINS CONÇUS (demande du joueur)
+- js/blindage3d.js : le tir est un rayon dans le repère de la caisse (cm de peluche) ; il frappe les VRAIES plaques de la conception (deriveVeh :
+  D.plates, normales, épaisseurs ; une tourelle tournée de son pointage) sous l'incidence exacte ; puis l'habitacle (D.mods) dans l'ordre ; le cône
+  d'éclats de la face intérieure, chacun son rayon. seatsOf : qui est assis où (conducteur, servants aux postes des armes, passagers aux bancs).
+- vehicules.js vehImpact3D (pour les engins conçus ; barges et avions gardent l'ancien calcul) : ricochet (angle critique selon épaisseur/calibre ;
+  la charge creuse ne glisse qu'en rasant), arrêt (l'obus explosif éclate alors contre la plaque, dehors), perforation (vitesse restante ; la
+  charge creuse perce selon son calibre, son jet d'autant plus vif qu'il restait à percer) ; dedans : le Meumeu du poste traversé, le râtelier
+  (explosion : la charge creuse 60 %, une balle selon son énergie), le moteur, l'essence (le feu) ; la tourelle (couronne, arme dans le masque),
+  le train (flanc bas). La fiche de l'engin donne enfin sa hauteur (haut), pour viser. La radiographie de la plaque dit le trajet dans l'habitacle.
+- test/blindage3d.mjs D1-D8 : tout passe (glacis à 60° frappé sous 60,0° ; tourelle tournée → son flanc ; fusil antichar bèè : perce la
+  chenillette, pas le char moyen ; le chargeur touché à son poste ; charge creuse 26 explosions de munitions sur 30, balle 2 sur 30 ; éclats 6
+  contre 1 ; tir rasant 18 ricochets sur 30). Corrigé au premier essai : D7 tirait presque perpendiculairement au flanc (erreur de géométrie du test).
+- Régression : vehicules_blindage B8 recalé (impacts répartis sur la silhouette au lieu du centre : la face n'est plus tirée au sort) ; radiographies,
+  engins_transport : tout passe ; vehicules_feu F1, F3 : comme avant.
+
+RESTE DE L'ÉTAPE C : conduite (C1) ; efficacité de l'automitrailleuse (F1).
