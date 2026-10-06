@@ -24,6 +24,7 @@ import {STRATEGY} from './strategy.js';
 import {ESCALADE} from './escalade.js';
 import {ANTICHAR} from './antichar.js';
 import {VEHICULES,VEHDEF} from './vehicules.js';
+import {techNeeded} from './engins.js';
 import {PERSISTENCE} from './persistence.js';
 import {BUNKERS} from './bunkers.js';
 import {NAVAL} from './naval.js';
@@ -741,7 +742,8 @@ export class World{
     if(UNITS[k]&&!UNITS[k]?.arm){const c=this.cityOf(b)||b;if(c.k==='centre'&&(c.ration??1)<.5)why.push('la ville a faim : moins de la moitié des rations');}if(k==='train'&&!this.platform(b))why.push('la gare n’a pas de voie');
     const cost={...D.cost};if(UNITS[k]?.arm){const d=this.design(w||'mle1');if(!d||d.status!=='adopte')why.push('une arme adoptée');else cost['a:'+d.id]=1;if(armor){const ar=this.s.armors[armor];if(!ar||ar.status!=='adopte')why.push('une protection adoptée');else cost['p:'+armor]=1;}}
     const pay=this.canPay(b.f,b.i+1,b.j+1,cost);if(!pay.ok)why.push('il manque : '+pay.miss.join(', '));return {ok:!why.length,why,cost,draftId:draft?.id??null};}
-  train(b,k,w=null,armor=null,role='tireur'){const r=this.canTrain(b,k,w,armor);if(!r.ok)return r;const D=UNITS[k]||VEHICLES[k]||{name:VEHDEF[k].name,hours:VEHDEF[k].heures};this.pay(b.f,b.i+1,b.j+1,r.cost);b.queue.push({k,left:D.hours,w:w||'mle1',armor:UNITS[k]?.arm?armor:null,role:UNITS[k]?.arm&&role==='munitions'?'munitions':'tireur',...(r.draftId!=null?{draftId:r.draftId}:{})});return {ok:true,text:D.name+(role==='munitions'&&UNITS[k]?.arm?' · porteur de munitions':'')+(r.draftId!=null?' — un civil mobilisé':'')+' en préparation'};}
+  train(b,k,w=null,armor=null,role='tireur'){{const E=VEHDEF[k]?.engin;if(E){const miss=techNeeded(E.v).filter(id=>!(this.s.innov?.done||[]).includes(id));if(miss.length)return {ok:false,why:['il faut d’abord la recherche : '+miss.map(id=>INNOV.find(I=>I.id===id)?.name||id).join(', ')]};}}   /* (V12.8) */
+    const r=this.canTrain(b,k,w,armor);if(!r.ok)return r;const D=UNITS[k]||VEHICLES[k]||{name:VEHDEF[k].name,hours:VEHDEF[k].heures};this.pay(b.f,b.i+1,b.j+1,r.cost);b.queue.push({k,left:D.hours,w:w||'mle1',armor:UNITS[k]?.arm?armor:null,role:UNITS[k]?.arm&&role==='munitions'?'munitions':'tireur',...(r.draftId!=null?{draftId:r.draftId}:{})});return {ok:true,text:D.name+(role==='munitions'&&UNITS[k]?.arm?' · porteur de munitions':'')+(r.draftId!=null?' — un civil mobilisé':'')+' en préparation'};}
   pop(f){const cap=this.s.buildings.filter(b=>b.f===f&&!b.ally&&b.done&&BUILDINGS[b.k].pop).reduce((a,b)=>a+BUILDINGS[b.k].pop,0);const used=this.s.units.filter(u=>u.f===f&&!u.ally).reduce((a,u)=>a+(UDEF(u).pop||1),0)+this.s.buildings.filter(b=>b.f===f&&!b.ally).reduce((a,b)=>a+(b.inside?.length||0),0)+this.s.vehicles.filter(v=>v.f===f&&!v.ally&&v.k==='porteur').length;return {cap,used};}
 
   // S'équiper à la caserne : un fusil (la conception adoptée dont il y a le plus au dépôt), ses munitions, une protection s'il y en a
