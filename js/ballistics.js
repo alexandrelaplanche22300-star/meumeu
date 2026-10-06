@@ -53,6 +53,8 @@ const CONS0={
   duplex:{name:'Duplex (deux balles)',rho:10.6,frag:Infinity,fr:0,K:5e-4,pellets:2,spread:5,fill:.9,disp:.2,desc:'deux balles l’une derrière l’autre : deux trous par coup, la seconde un peu à côté ; chacune plus légère'},
   slug:{name:'Balle unique lourde (slug)',rho:11.3,expand:[260,600,1.3],frag:Infinity,fr:0,K:3e-4,disp:.6,soft:1,desc:'un gros cylindre de plomb : énorme choc de près, retombe vite, perce peu'},
   apfsds:{name:'Flèche sous-calibrée empennée',rho:17.5,frag:Infinity,fr:0,K:2.6e-3,core:1,sub:.32,minD:5,disp:.5,ferx:3,desc:'une longue flèche de métal lourd, trois fois plus fine que le canon, stabilisée par ses ailettes : la plus forte perforation par l’énergie (5 mm et plus)'},
+  // (V12.8) la charge creuse des Bèè, faite dans l'urgence : un cône d'acier embouti, mal centré — elle ne perce qu'un calibre et demi d'acier
+  creuse_bee:{name:'Charge creuse rustique',rho:6.2,frag:0,fr:.5,K:0,he:1,shaped:1.6,minD:8,disp:.9,desc:'un cône d’acier embouti, mal centré : le jet perce un calibre et demi d’acier quelle que soit la vitesse ; il faut s’approcher (8 mm et plus)'},
   creuse:{name:'Charge creuse',rho:6.2,frag:0,fr:.5,K:0,he:1,shaped:5,minD:8,disp:.7,desc:'un cône de cuivre qu’une charge écrase en jet : perce cinq calibres d’acier quelle que soit la vitesse ; petit effet autour (8 mm et plus)'},
   flechette:{name:'Fléchettes (20 dards)',rho:7.85,frag:Infinity,fr:0,K:9e-4,core:1,pellets:20,dart:1,spread:16,fill:.45,disp:0,desc:'vingt dards d’acier empennés : ils ne basculent pas, percent un peu, font de petits trous — beaucoup'},
 };

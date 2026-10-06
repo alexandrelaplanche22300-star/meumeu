@@ -146,7 +146,7 @@ export const STRATEGY={
     const plan=cities.map(c=>({c,g:this.beeeGuards(c)})).filter(q=>q.g.length>this.beeeGarrisonMin(q.c)+3).map(q=>({...q,plan:this.beeePlanRaid(q.c,q.g,[],true)})).find(q=>q.plan&&['gare','mine','arsenal','entrepot','poudrerie'].includes(q.plan.target.k));if(!plan)return;
     const n=Math.floor(this.take('beee',plan.c.x,plan.c.y,'explosifs',2,40));for(const u of plan.g.slice(0,n)){u.charges=1;u.fuse=1;u.task={kind:'sabotage',b:plan.plan.target.id,back:[plan.c.x,plan.c.y]};u.path=null;}
   },
-  beeeStaff(cities,offense=true){const B=this.s.beee;if(!this.atWar||!cities.length)return;B.bands??=[];B.defT=(B.defT||0)+this.dt;if(B.defT>=.25){B.defT=0;this.beeeDefend(cities);}B.staffT=(B.staffT||0)+this.dt;if(B.staffT<1)return;B.staffT=0;
+  beeeStaff(cities,offense=true){const B=this.s.beee;if(!this.atWar||!cities.length)return;B.bands??=[];B.defT=(B.defT||0)+this.dt;if(B.defT>=.25){B.defT=0;this.beeeDefend(cities);this.beeeTankHunt?.();}B.staffT=(B.staffT||0)+this.dt;if(B.staffT<1)return;B.staffT=0;
     this.beeeGarrison(cities);this.beeeCounterBattery(cities);this.beeeRetake(cities);this.beeeFortify(cities);this.beeeRecon(cities);this.beeeHeavy(cities);this.beeeSawArmor();this.beeeSabotage(cities);
     // Les colonnes en route (ni repliées, ni défense, ni contre-batterie, ni diversion). Une colonne de plus part seulement si le surplus
     // restant en vaut une, et jusqu'à trois à la fois.

@@ -363,7 +363,7 @@ export const VEHICULES={
   // ---------- le blindage ----------
   // Ce que vaut un engin comme cible pour un tireur : l'antichar le prend avant tout ; une arme légère seulement si elle peut percer sa face la plus
   // mince à cette distance (une jeep, oui ; un char, non — on ne gâche pas ses cartouches sur de l'acier)
-  vehThreatFor(u,v,d,r){const W=u.w&&this.W(u.w);if(!W)return -9;const V=VEHDEF[v.k];const at=W.p.action==='verrou'&&W.p.d>=4||!!CONS_SHAPED(W);
+  vehThreatFor(u,v,d,r){const W=u.w&&this.W(u.w);if(!W)return -9;const V=VEHDEF[v.k];{const k=this.atKind?.(u.w);if(k==='lrac'&&d>this.atFireMax(W,k))return -9;}   /* (V12.8 : le lance-roquettes ne tire que de près) */const at=W.p.action==='verrou'&&W.p.d>=4||!!CONS_SHAPED(W);
     const thin=Math.min(...Object.entries(V.blindage).filter(([k])=>k!=='dessus').map(([,b])=>b[0]));const pen=W.pen(W.at(d*TILE).v);
     return (at?14:pen>thin*1.15?6:-6)-d/Math.max(1,r)*3;},
   // Un coup au but sur un engin : la face (selon d'où il vient ; la tourelle s'il frappe haut et que l'engin en a une, orientée selon son pointage),

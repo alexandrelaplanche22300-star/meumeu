@@ -22,6 +22,7 @@ import {PERCEPTION} from './perception.js';
 import {OPERATIONS} from './operations.js';
 import {STRATEGY} from './strategy.js';
 import {ESCALADE} from './escalade.js';
+import {ANTICHAR} from './antichar.js';
 import {VEHICULES,VEHDEF} from './vehicules.js';
 import {PERSISTENCE} from './persistence.js';
 import {BUNKERS} from './bunkers.js';
@@ -963,6 +964,7 @@ export class World{
         {const nx=(T0.next||[]).map(id=>this.building(id)).find(b2=>b2&&!b2.ruin);if(nx&&(u.charges>0||u.torch>0)){u.task={kind:'sabotage',b:nx.id,back:T0.back,next:T0.next.filter(id=>id!==nx.id)};u.path=null;return;}}
         u.orderPost='accroupi';u.sneakHome=true;   // on décroche courbé, sans traîner
         u.task=T0.back?{kind:u.f==='beee'?'guard':'move',tx:T0.back[0],ty:T0.back[1]}:{kind:'guard',tx:u.x,ty:u.y};u.path=null;return;}
+      case 'tankhunt':{this.tankHuntTick(u,T0);return;}   // (V12.8) la chasse au char des Bèè (antichar.js)
       case 'assault':{if(u.blockedBy!=null&&!this.wall[u.blockedBy])u.blockedBy=null;
         if(!this.atWar){if(this.go(u,T0.tx,T0.ty))u.task={kind:'guard',tx:T0.tx,ty:T0.ty};return;}
         const enemy=this.nearestEnemy(u,Math.max(this.sight(),this.engageRange(u)+2));
@@ -1172,7 +1174,8 @@ export class World{
     const hear=Math.max(4,(dB-110)/1.6),crack=W.crackDb>dB+2?Math.max(4,(W.crackDb-110)/1.6):0;const see=this.sight()*.8;
     return !this.near(e.x,e.y,Math.max(hear,crack,see)+2,o=>o!==e&&o.f===e.f&&active(o)&&this.spotted(o,u.f)&&(d2(o.x,o.y,u.x,u.y)<hear||crack&&d2(o.x,o.y,e.x,e.y)<crack*.7||d2(o.x,o.y,e.x,e.y)<see&&this.los(o.x,o.y,e.x,e.y)));}
   spotted(e,f,mem=.3){if(e.inLab!=null)return false;const m=e.spot?.[f];return m!=null&&this.s.t-m<=mem;}
-  nearestEnemy(u,r){let best=null,score=-Infinity;const D0=UDEF(u);this.nearF(u.x,u.y,r,u.f==='meumeu'?'beee':'meumeu',e=>{if(e.f===u.f||!active(e))return;const d=d2(e.x,e.y,u.x,u.y);if(d>r||!this.spotted(e,u.f)||!this.los(u.x,u.y,e.x,e.y))return;
+  nearestEnemy(u,r){let best=null,score=-Infinity;const D0=UDEF(u);const atOnly=this.atKind?.(u.w)==='lrac';   /* (V12.8 : le lance-roquettes antichar ne vise que les engins) */
+    this.nearF(u.x,u.y,r,u.f==='meumeu'?'beee':'meumeu',e=>{if(atOnly||e.f===u.f||!active(e))return;const d=d2(e.x,e.y,u.x,u.y);if(d>r||!this.spotted(e,u.f)||!this.los(u.x,u.y,e.x,e.y))return;
       const armed=!!(e.w||UDEF(e).img),reach=d<=this.engageRange(u),threat=(armed?4:0)+(e.task?.kind==='attack'||e.task?.kind==='assault'?2:0)
         +(D0.sniper?(e.serve?4:0)+(e.w&&this.W(e.w).crew>1?5:0)+(UDEF(e).scout?3:0)+(UDEF(e).medic?2:0)+(e.k==='commando'?2:0):0);
       // un vrai feu se répartit : une cible déjà prise à partie par des camarades vaut moins ; chacun préfère ce qu'il a devant lui
@@ -1872,6 +1875,7 @@ Object.assign(World.prototype,PERCEPTION);
 Object.assign(World.prototype,OPERATIONS);
 Object.assign(World.prototype,STRATEGY);
 Object.assign(World.prototype,ESCALADE);
+Object.assign(World.prototype,ANTICHAR);
 Object.assign(World.prototype,VEHICULES);
 Object.assign(World.prototype,PERSISTENCE);
 Object.assign(World.prototype,BUNKERS);

@@ -23,6 +23,11 @@ export const DEFAULT_DESIGNS=[
   {id:'bee_mg_lourde',f:'beee',name:'Mitrailleuse lourde bèè',status:'adopte',base:true,p:HMG_P({d:2.0,l:7.0,c:.027,L:230,mag:120,cons:'fmj',nose:'ogive',twist:74,caseMat:'acier'})},
   {id:'fpl_meumeu1',f:'meumeu',name:'Fusil de précision lourd FPLMeumeu-1',status:'adopte',base:true,p:{noseScale:1.8,boat:.65,rocketBurn:1,nozzle:1,caseMat:'laiton',rim:'sans',stock:'bois',finish:'bleui',guide:'aucun',feed:'boite',tube:'lourd',carriage:'roues',d:2.6,l:13,nose:'pointue',base:'bt',cons:'monolithique',c:.12,L:420,twist:50,action:'verrou',rof:20,mag:5,heavy:true,burn:.65,wallx:1.7,jacket:1.5,core:.2,hef:.3,fragm:4,zero:240,prop:'cartouche',fill:'tolite',shell:'lisse',fuse:'impact',mods:['lunette','bipied','frein']}},
   {id:'bee_at',f:'beee',name:'Fusil antichar bèè',status:'adopte',base:true,p:AT_P({d:4.3,l:16,c:.18})},
+  // (V12.8) les armes d'URGENCE des Bèè contre nos blindés (escalade.js : développées quand leur fusil antichar ne perce plus nos flancs) :
+  // le fusil antichar lourd (7,2 mm : 5,8 mm d'acier à 30 m — cinq servants, treize coups par caisse) et le lance-roquettes antichar (9 mm, charge
+  // creuse rustique : 14 mm à toute distance, mais une portée utile de 16 m — il faut ramper jusqu'au char)
+  {id:'bee_at_lourd',f:'beee',name:'Fusil antichar lourd bèè',status:'urgence',base:true,p:AT_P({d:7.2,l:24,c:.6,L:900,mag:3})},
+  {id:'bee_lrac',f:'beee',name:'Lance-roquettes antichar bèè',status:'urgence',base:true,p:{...kitToP({...KIT_PRESETS.find(p=>p.id==='rocket').design,name:'Lance-roquettes antichar bèè',caliberMm:9,massG:23.4,motorNs:8,barrelLengthCm:36}),cons:'creuse_bee'}},
   {id:'mle1',f:'meumeu',name:'Fusil Mle 1',status:'adopte',base:true,
     p:{d:1.8,l:6.5,nose:'pointue',base:'plat',cons:'fmj',c:.032,L:140,twist:60,action:'verrou',rof:600,mag:5,heavy:false}},
   {id:'fam1',f:'meumeu',name:'Fusil d’assaut FAM-1',status:'adopte',base:true,
