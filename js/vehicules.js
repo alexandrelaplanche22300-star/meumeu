@@ -276,12 +276,27 @@ export const VEHICULES={
     for(const m of v.mounts||[])crate(m.w,0,Wd=>{if((m.pouch||0)>=Wd.p.mag*2)return false;m.pouch=(m.pouch||0)+(Wd.perCrate||Wd.p.mag);return true;});
     const near=[...(v.crew||[]),...this.s.units.filter(u=>u.f===v.f&&!u.inVeh&&u.hp>0&&Math.hypot(u.x-v.x,u.y-v.y)<2.5)];
     for(const u of near){if(!u.w)continue;crate(u.w,0,Wd=>{const carry=Wd.carry||Wd.p.mag*4;if((u.pouch||0)+(u.mag||0)>=carry*.5)return false;u.pouch=Math.min(carry,(u.pouch||0)+(Wd.perCrate||Wd.p.mag));return true;});}},
+  // (V12.8) L'essence d'un engin conçu : il en brûle à chaque case roulée (perCase, tiré de sa masse et de son moteur) ; à sec, il s'arrête.
+  // Le plein se refait tout seul dès qu'il est arrêté (sans ordre de route : mesuré, un char qui démarrait d'un dépôt refaisait son plein tant qu'il roulait
+  // à moins de 0,5 case/h, 11 → 20 bidons en partant) : d'abord sa propre soute, puis un engin ravitailleur ami arrêté à 3 cases (sa soute),
+  // puis un dépôt à 5 cases — 40 bidons par heure de jeu (un char moyen refait son plein en une demi-heure, dix secondes de combat).
+  vehBurn(v,V,d){if(!(d>0))return;const E=V.engin,was=v.fuel;v.fuel=Math.max(0,v.fuel-d*E.perCase);
+    if(v.f==='meumeu'&&was>E.plein*.2&&v.fuel<=E.plein*.2)this.log('Front',`${v.name} : réservoir presque vide (${Math.round(v.fuel*10)/10} / ${E.plein}).`,'bad');},
+  vehRefuel(v,V){const E=V.engin,k=E.carbu;if(v.state==='go'||(v.spd||0)>.5||this.s.t<(v.fuelT||0))return;v.fuelT=this.s.t+.25;let want=Math.min(E.plein-v.fuel,40*.25);if(want<.05)return;
+    const got0=v.fuel,give=q=>{v.fuel+=q;want-=q;};
+    if((v.cargo?.[k]||0)>0){const q=Math.min(want,v.cargo[k]);v.cargo[k]-=q;if(v.cargo[k]<=1e-6)delete v.cargo[k];give(q);}
+    if(want>.05)for(const o of this.s.vehicles){if(o===v||o.f!==v.f||o.hp<=0||o.state==='go'||(o.spd||0)>.5||!((o.cargo?.[k]||0)>0)||Math.hypot(o.x-v.x,o.y-v.y)>3)continue;
+      const q=Math.min(want,o.cargo[k]);o.cargo[k]-=q;if(o.cargo[k]<=1e-6)delete o.cargo[k];give(q);if(want<=.05)break;}
+    if(want>.05){const q=this.take(v.f,v.x,v.y,k,want,5);if(q>0)give(q);}
+    if(v.fuel>got0&&v.dry){v.dry=false;v.why=null;}},
   combatVehicleTick(v,dt){const V=VEHDEF[v.k];if(V.air){this.airTick(v,V,dt);return;}if(V.nav==='eau'){this.vehSouteSupply(v);this.boatTick(v,V,dt);if(V.armes.length&&v.hp>0){this.vehResupply(v,V);if(this.atWar)this.vehFire(v,V,dt);}return;}if(v.k==='char'&&v.name?.startsWith('Char léger'))v.name=v.name.replace('Char léger','Automitrailleuse à canon');if(v.hp<=0){v.spd=0;return;}this.vehSouteSupply(v);
     if(v.fire>0){v.fire-=dt;v.hp-=dt*35;if(v.hp<=0){this.vehDestroyed(v,'brûlé');return;}}
     if(v.comp?.moteur||v.comp?.train){if(v.state==='go'){v.state='idle';v.path=null;v.itin=null;}v.why=v.comp.moteur?'moteur détruit : immobilisé':'train de roulement brisé : immobilisé';}
-    const drv=this.vehDriver(v);
+    if(V.engin&&!(v.fuel>1e-6)){v.fuel=0;if(v.state==='go'){v.state='idle';v.path=null;v.itin=null;}v.dry=true;v.why=`à sec : il attend ${V.engin.carbu==='charbon'?'du charbon':'de l’essence'} (un dépôt à 5 cases, ou un engin ravitailleur à 3)`;}
+    const drv=this.vehDriver(v),x0=v.x,y0=v.y;
     if(v.state==='go'&&v.itin&&drv){if(!v.path||!v.path.fin&&this.vehRemainLocal(v)<4&&!(this.s.t<v.localWait))this.vehLocal(v);this.vehDrive(v,V,dt);this.vehWatch(v,V);}else this.vehBrake(v,V,dt);
     v.odo+=v.spd*(v.dir||1)*dt;v.x=clamp(v.x,1,this.N-2);v.y=clamp(v.y,1,this.N-2);
+    if(V.engin){this.vehBurn(v,V,Math.hypot(v.x-x0,v.y-y0));this.vehRefuel(v,V);}
     if(V.armes.length){this.vehResupply(v,V);if(this.atWar)this.vehFire(v,V,dt);}},
   // personne au volant, le véhicule reste où il est (v.debugDriver : les essais de conduite, sans équipage)
   vehDriver(v){return !!v.debugDriver||(v.crew||[]).some(u=>u.vrole==='conducteur'&&u.hp>0&&u.h?.state!=='hors');},

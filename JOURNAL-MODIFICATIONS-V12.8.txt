@@ -1,0 +1,27 @@
+OBERKOMMANDO DER MEUMEU — V12.8 « ENGINS » : LE JOURNAL DES MODIFICATIONS
+=========================================================================
+(le plan : PLAN-ENGINS-V12.8.txt ; chaque entrée : ce qui change, pourquoi, ce qui est mesuré)
+
+ÉTAPE A — le modèle de conception (js/engins.js), test/engins.mjs N1-N6 : commit e50b0f5.
+ÉTAPE B — le bureau des engins (js/engins-ui.js) : commit b899076.
+
+ÉTAPE C (en cours) — les engins conçus en jeu
+- Commit cf9afb2 (session sur le PC puis session cloud) : fiche d'engin par conception (vehDefOf), garage qui ne propose qu'eux, engins3d.js,
+  sponsons au débattement centré sur leur direction de repos, réinscription à chaque partie et chargement (enginsSync), châssis « Transport
+  chenillé » (chenT), « carburant » → « essence » partout. Une conception enregistrée au bureau s'inscrit aussitôt (ui.js : world.enginsSync()).
+- Passagers et soute sur tous les chenillés : le modèle le permettait déjà, limité par la place. Mesuré (en plus des exemples) : chenillé léger
+  +7 passagers / +55 caisses ; char moyen +4 / +56 ; char lourd +17 / +125 ; géant +60 / +200 ; chaque passager alourdit et ralentit.
+  test/engins_transport.mjs T1-T5 : tout passe (graine 101 : 8 Meumeu libres seulement — 7 montent, 1 reste).
+- L'essence (vehicules.js vehBurn, vehRefuel ; ui.js jauge dans le panneau de l'engin) :
+  * brûlée à chaque case roulée (perCase du modèle) ; à 20 % du plein, un avis ; à sec, l'engin s'arrête et dit ce qu'il attend ;
+  * le plein se refait tout seul quand l'engin est arrêté (sans ordre de route) : sa soute, puis un engin ravitailleur ami arrêté à 3 cases
+    (sa soute chargée d'essence), puis un dépôt à 5 cases ; 40 bidons par heure de jeu (char moyen : une demi-heure) ;
+  * mesuré : au premier essai, un char qui démarrait d'un dépôt refaisait son plein tant qu'il roulait à moins de 0,5 case/h (11 → 20 bidons
+    en partant) ; corrigé : jamais pendant un ordre de route.
+  test/engins_essence.mjs R1-R7 : tout passe, graines 101 et 107.
+- Régression (avant / après, même lot) : vehicules_equipage, vehicules_blindage : tout passe ; vehicules_feu F3 et vehicules_conduite C1, C5
+  échouaient déjà avant. vehicules_garage G1, G2, G4, G5 échouent : le test commande l'ancien « char » et la jeep, que le garage ne propose plus
+  (voulu) — à réécrire pour les engins conçus.
+
+RESTE DE L'ÉTAPE C : retirer les anciens VEHDEF terrestres et leurs modèles (jeep, jeep_mg, automitrailleuse, char, automoteur) ; réécrire
+vehicules_garage pour les engins conçus ; munitions des râteliers rechargées depuis les ressources.
