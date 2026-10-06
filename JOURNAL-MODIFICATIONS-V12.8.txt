@@ -59,4 +59,31 @@ RADIOGRAPHIES « ENVOYÉ / REÇU » (demande du joueur)
 - test/radiographies.mjs X1-X5 : tout passe. Régression (balistique_blessure, vehicules_blindage, vehicules_feu ; avant / après) : identique.
   (chimie plante avant comme après : W.canStartProject n'existe plus.)
 
+EXPLOSIONS PLUS BRUTALES (demande du joueur : « pas assez brutales et létales, pour les bâtiments aussi »)
+- Mesuré avant (test/_mesure_explosions.mjs, graine 101, carte V2) : à découvert, l'obus de 36 mm tue 100 % jusqu'à 4 m, met hors de combat 94 % à
+  8 m et 46 % à 12 m ; une maison tombe au premier obus, une caserne au deuxième, le centre-ville au quatrième. MAIS une maison bèè pleine
+  (5 villageois à l'abri), bombardée jusqu'à la ruine : 0 % de morts, 0 % de blessés — les occupants (abri, caserne, hôpital, aérodrome) étaient
+  hors d'atteinte, et l'effondrement relâchait ceux de l'abri indemnes, laissait les recrues de la caserne dans la ruine.
+- world.js : occupants(), shellIndoors (les éclats de l'obus et des murs dans les pièces, d'autant plus que le coup emporte la structure ; la fusée
+  à retard et le souffle enfermé ×2 ; le bunker ×0,2), roomHit (la vraie blessure, sa radiographie), collapseOn (écrasés 30 %, ensevelis 35 %, les
+  vivants ressortent ; bunker 12 %). test/explosions_batiments.mjs O1-O5 : tout passe — abri plein : 100 % morts ou hors de combat (dont 43 %
+  morts) ; un obus sur une caserne de dix : 8,6 touchés ; caserne effondrée : 59 % morts, personne dans la ruine ; bunker 0,5 touché par obus contre
+  5 dans une maison. O6 (à découvert, rien ne change) : la mesure refaite est identique au chiffre près.
+- L'échelle des obus de pièce (20 mm et plus) suit la CHARGE (∛ de l'équivalent tolite, l'obusier Mle 1 pour référence) et non plus le seul
+  calibre : un explosif plus puissant porte plus loin (avant, tous les chargements d'un même calibre tuaient au même rayon).
+
+LA SCIENCE THERMOBARIQUE (demande du joueur : plusieurs variantes selon le mélange, sa proportion, la construction de l'obus)
+- explosive.js : trois mélanges — thermobarique au charbon (bon marché), à la poudre de fer (chaleur, feu), explosif air-essence (énorme, il lui faut
+  l'obus à deux temps) ; la part de combustible (p.tbf) avec un optimum (le cœur doit disperser le combustible ; trop, il ne brûle plus à temps) ;
+  deux coques — mince (plus de chargement, peu d'éclats), à deux temps (le nuage détone : il entre dans les tranchées). thermo() : W = cœur +
+  postcombustion (Hc, part brûlée à temps, dispersion), le nuage, le facteur enfermé (bâtiments, abris, tranchées).
+- Recherche : deux sciences de chimie (data.js INNOV « La science thermobarique », puis « L'explosif air-essence »), chacune trois tâches longues
+  (chimiste, physicien, ingénieur : 165 h et 210 h de travail) que des équipes entières font avancer ; elles ouvrent mélanges et coques à l'atelier.
+  Les chimistes proposent en réunion le mélange et sa proportion (techaxes : levier « combustible »), les ingénieurs la coque.
+- Atelier : le curseur « Part de combustible » (avec ce que la charge en tire : cœur, postcombustion, nuage, facteur enfermé), les coques ouvertes.
+- test/thermobarique.mjs T1-T7 : tout passe — au charbon 1,43 × la tolite du même obus, 21 % d'éclats en moins ; optimum vers 40 % de combustible ;
+  air-essence sans deux temps : 35 % de son effet ; dans le nuage (2,95 m pour un 36 mm), couchés en tranchée : 100 % morts (tolite : 0 %) ;
+  enfermé : 4,5 occupants touchés par obus (tolite 1,5). Corrigé au premier essai : la postcombustion comptait à moitié (+4 % seulement), la coque
+  mince rendait 4 × plus d'explosif ; le nuage était à l'échelle physique (0,7 m) devant un souffle de jeu de 4,3 m (T5 compare donc les morts).
+
 RESTE DE L'ÉTAPE C : conduite (C1) ; efficacité de l'automitrailleuse (F1).

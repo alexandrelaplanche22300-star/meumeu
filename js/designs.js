@@ -42,7 +42,7 @@ export const DEFAULT_DESIGNS=[
     p:{d:4.5,l:4.5,nose:'ronde',base:'plat',cons:'chevrotine',c:.05,L:80,twist:4000,action:'pompe',rof:600,mag:5,heavy:false}},
 ];
 // Les bornes du bureau d'études : larges, pour inventer — la physique se charge du reste.
-export const LIMITS={d:[.3,100,.05],l:[.5,400,.1],noseScale:[.3,2.2,.01],boat:[0,.9,.01],fragm:[.2,400,.2],c:[.0005,400,.001],L:[8,3000,1],twist:[3,4000,1],rof:[1,4000,1],mag:[1,1000,1],zero:[5,1500,1],sightObj:[3,60,.5],sightMag:[1,16,.5],sightRadius:[2,120,1],sightHeight:[.5,12,.1],hef:[.02,.85,.005],core:[0,.95,.01],jacket:[.2,3.5,.05],wallx:[.35,5,.02],burn:[.25,3,.01],rocketBurn:[.2,5,.01],nozzle:[.5,1.6,.01],
+export const LIMITS={tbf:[.1,.92,.01],d:[.3,100,.05],l:[.5,400,.1],noseScale:[.3,2.2,.01],boat:[0,.9,.01],fragm:[.2,400,.2],c:[.0005,400,.001],L:[8,3000,1],twist:[3,4000,1],rof:[1,4000,1],mag:[1,1000,1],zero:[5,1500,1],sightObj:[3,60,.5],sightMag:[1,16,.5],sightRadius:[2,120,1],sightHeight:[.5,12,.1],hef:[.02,.85,.005],core:[0,.95,.01],jacket:[.2,3.5,.05],wallx:[.35,5,.02],burn:[.25,3,.01],rocketBurn:[.2,5,.01],nozzle:[.5,1.6,.01],
   // l'étui et la balle, dedans et dehors
   caseD:[1.02,2.6,.01],neck:[0,3.5,.05],shoulder:[8,80,1],meplat:[0,.9,.01],cavity:[0,.9,.01],bands:[0,4,1],coreD:[.25,.9,.01],
   // la balle-fusée

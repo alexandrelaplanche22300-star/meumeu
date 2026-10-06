@@ -164,6 +164,8 @@ export const PARAMS={
   ogive:{name:'l’ogive',u:'',dec:2,get:p=>p.kit?(p.kit.ogive??.5):({pointue:.78,ogive:.5,ronde:.28,plate:.1}[p.nose]??.5),set:(k,q,v)=>{if(k)k.ogive=+clamp(v,0,.95).toFixed(2);else q.nose=v>.65?'pointue':v>.38?'ogive':v>.2?'ronde':'plate';}},
   culot:{name:'le culot en dépouille',u:'',dec:2,get:p=>p.kit?(p.kit.boattail??0):(p.boat??(p.base==='bt'?.3:0)),set:(k,q,v)=>{v=+clamp(v,0,.4).toFixed(2);if(k)k.boattail=v;else{q.boat=v;q.base=v>.1?'bt':'plat';}}},
   cadence:{name:'la cadence',u:'coups/min',dec:0,get:p=>p.kit?(p.kit.rof??p.rof??500):(p.rof||500),set:(k,q,v)=>{v=Math.max(30,Math.round(v));if(k)k.rof=v;q.rof=v;}},
+  // (V12.8) la proportion de combustible d'un thermobarique (le reste : le cœur de tolite)
+  combustible:{name:'la part de combustible',u:'%',dec:2,ok:p=>!!FILLS[p.fill]?.tb,get:p=>FILLS[p.fill]?.tb?(p.tbf??FILLS[p.fill].tb.f0):null,set:(k,q,v)=>{q.tbf=+clamp(v,.1,.92).toFixed(2);}},
   remplissage:{name:'la part d’explosif',u:'%',dec:2,get:p=>p.kit?(p.kit.filler??0):(p.hef??.3),set:(k,q,v)=>{if(k)k.filler=+clamp(v,.1,.55).toFixed(3);q.hef=+clamp(v,.02,.85).toFixed(3);}},
   moteur:{name:'l’impulsion du moteur',u:'N·s',dec:0,get:p=>p.kit?(p.kit.motorNs||0):(p.c||0),set:(k,q,v)=>{if(k)k.motorNs=+Math.max(1,v).toFixed(1);else q.c=+Math.max(.001,v).toFixed(4);}},
   ailettes:{name:'les ailettes',u:'',dec:0,get:p=>p.kit?(p.kit.fins??4):(p.fins??4),set:(k,q,v)=>{v=Math.round(clamp(v,0,8));if(k)k.fins=v;q.fins=v;q.finSize=Math.min(3,(q.finSize??1)+(v>4?.2:0));}},
@@ -204,7 +206,7 @@ export const GOALS={
   mass:{name:'la légèreté',sign:-1,bad:D=>D.overload||!D.mountOk?`trop lourde pour son affût (${kg(D.mass)})`:D.crew<=1&&(D.verdicts||[]).some(v=>v.tone==='bad'&&/^Arme lourde/.test(v.t))?`${kg(D.mass)} à porter pour un seul soldat`:null,
     levers:{ingenieur:['paroi','tube','material','affut'],physicien:['calibre']}},
   lethal:{name:'la létalité',sign:1,bad:D=>D.he&&!D.he.shaped&&D.he.lethal<1.6*Math.cbrt(Math.max(.001,D.he.g))?`éclats mortels à ${fmt(D.he.lethal,1)} m seulement`:null,
-    levers:{chimiste:['remplissage','explosif'],ingenieur:['coque','fusee','balle']}},
+    levers:{chimiste:['remplissage','explosif','combustible'],ingenieur:['coque','fusee','balle']}},
   pen:{name:'la perforation',sign:1,bad:()=>null,levers:{physicien:['balle','calibre'],chimiste:['charge']}},
   sustain:{name:'la chauffe',sign:1,bad:D=>ACTIONS[D.p.action]?.auto&&D.sustain<D.rpm?`le tube surchauffe (${D.sustain} coups/min tenus pour ${D.rpm})`:null,levers:{ingenieur:['cadence','paroi']}},
   jam:{name:'la fiabilité',sign:-1,bad:D=>(D.jam||0)>.012?`un enrayage tous les ${Math.round(1/D.jam)} coups`:null,levers:{ingenieur:['cadence'],chimiste:['charge']}},
@@ -219,14 +221,14 @@ export const CHOICES={
   lunette:{name:'la visée',opts:(p,D)=>D.rocket||indirect(D)?[]:[2,3,4,6],key:'sight',cur:(p,D)=>D.sightMag>1?D.sightMag:1,txt:v=>v>1?`une lunette ×${v}`:'les organes de visée seuls'},
   affut:{name:'l’affût',opts:p=>p.kit?['shoulder','bipod','tripod','wheels']:[],key:'carriage',cur:p=>p.kit?.carriage||'shoulder',txt:v=>({shoulder:'tirée à l’épaule',bipod:'un bipied',tripod:'un trépied',wheels:'un affût à roues'})[v]},
   material:{name:'le métal',opts:p=>p.kit?['steel','iron','bronze']:[],key:'material',cur:p=>p.kit?.material||'steel',txt:v=>({steel:'un tube en acier',iron:'un tube en fonte',bronze:'un tube en bronze'})[v]},
-  coque:{name:'la coque',opts:(p,D)=>D.he&&!D.he.shaped?Object.keys(SHELLS):[],key:'shell',cur:p=>p.shell||'lisse',txt:v=>(SHELLS[v]?.name||v).toLowerCase()},
+  coque:{name:'la coque',opts:(p,D,ctx)=>D.he&&!D.he.shaped?(ctx?.shells||['lisse','rainuree','billes']).filter(x=>SHELLS[x]):[],key:'shell',cur:p=>p.shell||'lisse',txt:v=>(SHELLS[v]?.name||v).toLowerCase()},
   fusee:{name:'la fusée d’obus',opts:(p,D)=>D.he&&!D.he.shaped?Object.keys(FUSES).filter(f=>f!=='fusant'||p.d>=8):[],key:'fuse',cur:p=>p.fuse||'impact',txt:v=>`une fusée ${(FUSES[v]?.name||v).toLowerCase()}`},
   explosif:{name:'l’explosif',opts:(p,D,ctx)=>D.he&&!D.he.shaped?(ctx?.fills||['poudre','tolite','brisant']).filter(f=>FILLS[f]):[],key:'fill',cur:p=>p.fill||'tolite',txt:v=>`un chargement en ${(FILLS[v]?.name||v).toLowerCase()}`},
   gyro:{name:'le guidage',opts:(p,D)=>D.rocket?['aucun','gyro']:[],key:'guide',cur:p=>p.guide||'aucun',txt:v=>v==='gyro'?'un guidage gyroscopique':'aucun guidage'},
   etages:{name:'les étages',opts:(p,D)=>D.rocket&&!p.kit?[1,2]:[],key:'stages',cur:p=>p.stages||1,txt:v=>v>=2?'deux étages':'un seul étage'},
 };
 // un levier continu n'a de sens que pour certaines armes
-const LEVER_OK={moteur:D=>!!D.rocket,ailettes:D=>!!D.rocket,remplissage:D=>!!(D.he&&!D.he.shaped),cadence:D=>!!ACTIONS[D.p.action]?.auto,
+const LEVER_OK={combustible:D=>!!D.he?.tb,moteur:D=>!!D.rocket,ailettes:D=>!!D.rocket,remplissage:D=>!!(D.he&&!D.he.shaped),cadence:D=>!!ACTIONS[D.p.action]?.auto,
   pas:D=>!D.rocket&&!mortarD(D),charge:D=>!D.rocket,vivacite:D=>!D.rocket,tube:D=>!D.rocket,paroi:D=>!D.rocket};
 export const leverOk=(id,p,D,ctx)=>CHOICES[id]?CHOICES[id].opts(p,D,ctx).length>1:!!PARAMS[id]&&pv(p,id)!=null&&(PARAMS[id].ok?.(p)??true)&&(LEVER_OK[id]?.(D)??true);
 const leverCur=(p,D,id)=>CHOICES[id]?CHOICES[id].cur(p,D):pv(p,id);

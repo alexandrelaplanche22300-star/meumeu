@@ -445,7 +445,8 @@ function compute(p){if(ACTIONS[p.action]?.mortar&&p.mag!==1)p={...p,mag:1};const
   // la hausse : on règle la visée pour toucher juste à `zero` m ; la ligne de visée est 1,2 cm au-dessus de l'axe du canon
   const hs=K?Math.max(.005,(p.kit.sightHeightCm||1.2)/100):Math.max(.005,(p.sightHeight??(mods.has('lunette')?1.8:mods.has('reflex')?1.6:1.2))/100);const th=(at(zero).drop+hs)/Math.max(1,zero);const los=x=>th*x-at(x).drop-hs;
   // la charge explosive : sa masse, le souffle (Hopkinson), les éclats (la chemise brisée en éclats de 4 mg)
-  let he=null;if(C.he){const rho=C.rho*(1-hef)+1.6*hef;const vol=m/rho;const g=vol*hef*1.6;const casing=Math.max(0,m-g);
+  // (V12.8) une coque mince rend au chargement une part de la paroi (thin)
+  let he=null;if(C.he){const Sh=SHELLS[p.shell];const hefE=Sh?.thin&&!C.shaped?Math.min(.85,hef+(1-hef)*Sh.thin):hef;const rho=C.rho*(1-hefE)+1.6*hefE;const vol=m/rho;const g=vol*hefE*1.6;const casing=Math.max(0,m-g);
     if(C.shaped){const W=g/1000;const n=Math.round(casing*.2/.004);const vg=2400*Math.sqrt((g/Math.max(1e-6,casing))/(1+g/Math.max(1e-6,casing)/2));
       he={g,casing,vg,W,blast:2.2*Math.cbrt(W),conc:4.5*Math.cbrt(W),stun:7*Math.cbrt(W),inj:3.2*Math.cbrt(W),n,lethal:0,danger:0,safe:0,shaped:true,cls:[],geo:0,dmgB:40*Math.cbrt(W/.004)};}
     else{he=charge(g,casing,p);if(C.inc){he.inc=true;he.fire=Math.max(he.fire||0,8*Math.cbrt(Math.max(1e-9,he.W)));}}}
@@ -464,7 +465,8 @@ function compute(p){if(ACTIONS[p.action]?.mortar&&p.mag!==1)p={...p,mag:1};const
   if(C.inc){costK.poudre-=m*.1/CRATE_KG;costK.melange_inc=Math.max(.35,m*.45/CRATE_KG);}
   if(C.shaped)costK.explosifs=(costK.explosifs||0)+m*.45/CRATE_KG;
   // la charge explosive : de la poudre noire, ou des explosifs de l'usine chimique ; la coque et la fusée coûtent des pièces
-  if(he&&!he.shaped){const F=FILLS[p.fill]||FILLS.tolite;costK.fer=(costK.fer||0)+he.casing*.8/CRATE_KG;costK.plomb=0;costK[F.res]=(costK[F.res]||0)+4*he.g*F.x/CRATE_KG;for(const o of [SHELLS[p.shell],FUSES[p.fuse]])for(const [k,v] of Object.entries(o?.cost||{}))costK[k]=(costK[k]||0)+v;}
+  // (V12.8) un thermobarique : la tolite du cœur, et son combustible (charbon, fer, essence) — un peu plus que sa masse (les pertes au mélange)
+  if(he&&!he.shaped){const F=FILLS[p.fill]||FILLS.tolite;costK.fer=(costK.fer||0)+he.casing*.8/CRATE_KG;costK.plomb=0;costK[F.res]=(costK[F.res]||0)+4*(he.tb?he.tb.gCore:he.g)*F.x/CRATE_KG;if(he.tb)costK[he.tb.fuel]=(costK[he.tb.fuel]||0)+4*he.tb.gFuel*1.15/CRATE_KG;for(const o of [SHELLS[p.shell],FUSES[p.fuse]])for(const [k,v] of Object.entries(o?.cost||{}))costK[k]=(costK[k]||0)+v;}
   if(CM.res!=='cuivre'&&!rocket){const cm=caseMass/CRATE_KG;costK.cuivre=Math.max(0,(costK.cuivre||0)-cm);if(CM.res==='poudre')costK.poudre=(costK.poudre||0)+c/(CRATE_KG*500)*300;else costK[CM.res]=(costK[CM.res]||0)+cm*(CM.res==='pieces'?.6:1);}
   if(rocket){const G=GUIDES[p.guide]||GUIDES.aucun;costK.pieces=(costK.pieces||0)+G.cost+fins*.02+((p.stages||1)>=2?.2:0);}
   if(C.rare)costK[C.rare]=m*.55/CRATE_KG;if(salvo>1)for(const k in costK)costK[k]*=salvo;

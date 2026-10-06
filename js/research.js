@@ -97,7 +97,9 @@ export const RESEARCH={
     if(R.programs.some(P=>(P.st==='actif'||P.st==='lancement')&&P.kind==='idee'&&P.ref===id))return {ok:false,why:['déjà en programme']};const miss=(I.needs||[]).filter(n=>!this.s.innov.done.includes(n));if(miss.length)return {ok:false,why:['il faut d’abord : '+miss.map(n=>INNOV.find(y=>y.id===n)?.name||n).join(', ')]};
     const role=DOM_ROLE[I.dom]||'ingenieur',b=this.labs().find(x=>x.k===ROLES[role].at)||this.labs()[0];if(!b)return {ok:false,why:['un bâtiment de recherche']};
     const p=this.canPay('meumeu',b.i+1,b.j+1,I.cost);if(!p.ok)return {ok:false,why:['il manque : '+p.miss.join(', ')]};this.pay('meumeu',b.i+1,b.j+1,I.cost);
-    const P={id:R.nid++,kind:'idee',ref:id,name:I.name,b0:b.id,st:'actif',t0:this.s.t,tasks:[{i:0,ax:'idee',role,label:I.name,gap:I.text,v:0,a:null,n:.3,work:+(I.hours*1.4).toFixed(1),done:0,ids:[]}],ev:[],applied:[],meetings:[],team:[]};
+    // (V12.8) une science (I.tasks) : une tâche par métier, chacune son équipe ; sinon, l'idée d'un ouvrier : une seule tâche
+    const tasks=I.tasks?I.tasks.map((T,i)=>({i,ax:'idee',role:T.role,label:T.label,gap:I.text,v:0,a:null,n:.3,work:T.work,done:0,ids:[]})):[{i:0,ax:'idee',role,label:I.name,gap:I.text,v:0,a:null,n:.3,work:+(I.hours*1.4).toFixed(1),done:0,ids:[]}];
+    const P={id:R.nid++,kind:'idee',ref:id,name:I.name,b0:b.id,st:'actif',t0:this.s.t,tasks,ev:[],applied:[],meetings:[],team:[]};
     R.programs.push(P);this.s.innov.ideas=this.s.innov.ideas.filter(x=>x.id!==id);this.rlog(b,`Petit programme : ${I.name} (${ROLES[role].plural}).`,'good');return {ok:true,text:`Programme lancé : ${I.name}`,P};},
   launchArmor(b,a){const R=this.s.research,D=deriveArmor(a.a);const mats=[...new Set(Object.values(a.a||{}).map(z=>z?.[0]).filter(Boolean))];const chem=mats.some(m=>['composite','ceramique','soie'].includes(m));
     const P={id:R.nid++,kind:'protection',ref:a.id,name:a.name,b0:b.id,st:'actif',t0:this.s.t,ev:[],applied:[],meetings:[],team:[],
@@ -131,7 +133,9 @@ export const RESEARCH={
   pseudoOf(P){return {id:-P.b0,name:'L’équipe du bureau',role:'ingenieur',grade:0,pseudo:true};},
   whoOf(u){return {id:u.id,name:u.name,role:u.sci.role,grade:gradeOf(u.sci.xp)};},
   boldOf(w){if(w.pseudo)return .15;const u=this.unit(w.id);return u?.sci?.bold??((w.id*.6180339)%1);},
-  fillsCtx(P=null){const A=this.s.research.art;if(P&&P.p&&P.d0==null)P.d0=PARAMS.calibre.get(P.p);return {fills:[...new Set(['poudre','tolite','brisant','gelinc',...(A.remplissage||[])])],d0:P?.d0};},
+  // (V12.8) les explosifs et les coques que la chimie a ouverts entrent aussi dans les propositions des savants
+  fillsCtx(P=null){const A=this.s.research.art;if(P&&P.p&&P.d0==null)P.d0=PARAMS.calibre.get(P.p);const open=k=>INNOV.some(I=>I.unlock?.includes(k))&&this.unlocked(k);
+    return {fills:[...new Set(['poudre','tolite','brisant','gelinc',...(A.remplissage||[]),...['tb_charbon','tb_fer','tb_essence'].filter(f=>open('fill:'+f))])],shells:['lisse','rainuree','billes',...['mince','deux_temps'].filter(x=>open('shell:'+x))],d0:P?.d0};},
   // le programme auquel pense un savant : celui de sa tâche, sinon l'un de ses équipes ; libre, il rejoint de lui-même un programme où son métier sert
   thinkProgram(u){const S=u.sci,all=this.s.research.programs,ok=P=>P.kind==='arme'&&['lancement','actif','suivi','pret'].includes(P.st);
     const P0=S.pid?this.program(S.pid):null;if(P0)return ok(P0)?P0:null;const mine=all.filter(x=>ok(x)&&x.team.includes(u.id));if(mine.length)return mine[Math.floor(this.rand()*mine.length)];

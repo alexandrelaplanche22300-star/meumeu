@@ -1545,6 +1545,35 @@ export class World{
     return out;}
   nearCity(u){const c=this.s.buildings.filter(b=>b.k==='centre'&&b.f===u.f).sort((a,z)=>d2(a.i,a.j,u.x,u.y)-d2(z.i,z.j,u.x,u.y))[0];return c&&d2(c.i,c.j,u.x,u.y)<30?c.city:'Campagne';}
   unhide(b){const [w,h]=this.sizeOf(b);for(const u of b.hide){u.x=b.i+this.rand()*w;u.y=b.j+h+.5;this.shelterBack(u);this.s.units.push(u);this.uIndex.set(u.id,u);}b.hide=[];b.hideT=0;}
+  // (V12.8) ceux qui sont DANS un bâtiment : l'abri (hide), la caserne (recrues, garnison : inside), l'hôpital (les blessés), l'aérodrome (les passagers).
+  // Avant, les obus ne les atteignaient jamais (mesuré : une maison bèè pleine, bombardée jusqu'à la ruine — 0 % de morts, 0 % de blessés).
+  occupants(b){return [...(b.hide||[]),...(b.inside||[]),...(b.wardList||[]),...(b.pass||[])].filter(u=>u&&u.hp>0&&u.h);}
+  // Un coup qui frappe un bâtiment occupé : la part de la structure qu'il emporte (impact / max) dit combien d'éclats — de l'obus, des murs, du toit —
+  // traversent les pièces ; la fusée à retard éclate dedans (deux fois plus), le bunker arrête presque tout. Le souffle enfermé déchire les poumons.
+  shellIndoors(b,impact,E,by,o={}){const occ=this.occupants(b);if(!occ.length)return;const B=BUILDINGS[b.k];const part=Math.min(1.5,impact/Math.max(1,b.max));
+    const inside=(E.bld||1)>1.5?2:1,armor=B.bunker?.2:1,lam=3*part*inside*armor;const [w,h]=this.sizeOf(b);const shooter=by!=null?this.unit(by):null;
+    for(const u of occ){u.x=b.i+w/2;u.y=b.j+h/2;const k=Math.min(6,this.poisson(lam));
+      for(let n=0;n<k&&u.hp>0&&u.h.state!=='mort';n++){const debris=this.rand()<.55;const P=debris?fragDesign(1+this.rand()*6,3+this.rand()*4):fragDesign(.4+this.rand()*2.4,2+this.rand()*2);
+        this.roomHit(b,u,P,debris?120+this.rand()*160:350+this.rand()*450,debris?'éclat de mur':'éclat d’obus',by,shooter);}
+      // le souffle enfermé : renvoyé par les murs, il dure (les lésions internes) — d'autant plus que le coup emporte la pièce
+      if(u.hp>0&&u.h.state!=='mort'&&this.rand()<Math.min(.85,part*.6*inside*armor)){u.h.shock=Math.max(u.h.shock,25+this.rand()*50);u.h.bleeds.push({name:'poumons (souffle enfermé)',rate:.02+this.rand()*.04,limb:null,internal:true});
+        if(u.h.state!=='hors'){u.h.state='hors';u.h.cause='souffle enfermé : poumons déchirés';this.stateChange?.(u,'hors');}
+        this.emit({type:'blast',victim:u.id,vf:u.f,vk:u.k,name:u.name,x:u.x,y:u.y,dir:[1,0],r:Math.max(.5,Math.min(w,h)*TILE_M/2),pk:E.pressure?.(Math.max(.5,Math.min(w,h)*TILE_M/2))*2||0,W:E.W,eff:'lesions',shooter:by,sname:shooter?.name||null,frag:o.kind||'obus',post:'accroupi',inB:b.id});}}}
+  // un éclat dans une pièce : la même blessure que dehors (un rayon qui frappe le corps, le modèle de blessure), et sa radiographie
+  roomHit(b,u,P,vel,cause,by,shooter){setSpecies(u.f);let hit=null;for(let t=0;t<6&&!hit;t++)hit=this.bodyRay([(this.rand()-.5)*.22,this.rand()*BODY_H*.8,2],[(this.rand()-.5)*.04,(this.rand()-.5)*.04,-1],this.rand()*6.283,'accroupi',u.f);if(!hit)return false;
+    const rec=wound(P,vel,hit.p,hit.d,this.rand,this.rand()*1.3);const out=applyWound(u.h,rec,this.rand,cause);u.hitAt=this.s.t;(u.h.log??=[]).push({t:this.s.t,what:`touché dans ${BUILDINGS[b.k].name.toLowerCase()} (${cause})`,by:shooter?.name||''});
+    this.emit({type:'wound',cause:u.h.cause,len:(P.p?.d||2)/1000,victim:u.id,vf:u.f,vk:u.k,rec,out,x:u.x,y:u.y,dir:[0,1],name:u.name,inB:b.id,inside:cause,v:vel,shooter:by,sname:shooter?.name||null});
+    if(out?.now==='mort'){this.dropOcc(b,u);this.death(u);}return true;}
+  dropOcc(b,u){for(const L of [b.hide,b.inside,b.wardList,b.pass])if(L){const i=L.indexOf(u);if(i>=0)L.splice(i,1);}}
+  // Le bâtiment s'effondre sur ses occupants : écrasés, ensevelis, ou sortis des décombres blessés. Les survivants de l'abri et de la caserne
+  // ressortent sur la carte (avant, ils en sortaient indemnes, ou restaient dans la ruine) ; les blessés de l'hôpital, les passagers : comme avant.
+  // (occ : ceux de l'abri et de la caserne relevés avant le coup — collapse() fait déjà sortir ceux de l'abri)
+  collapseOn(b,by,occ){const B=BUILDINGS[b.k];const crush=B.bunker?.12:.3;let dead=0;const [w,h]=this.sizeOf(b);
+    if(b.inside?.length){for(const u of [...b.inside]){b.inside.splice(b.inside.indexOf(u),1);u.inBarracks=null;u.x=b.i+this.rand()*w;u.y=b.j+h+.5;u.task=null;u.path=null;if(u.hp>0){this.s.units.push(u);this.uIndex.set(u.id,u);}}}
+    for(const u of occ){if(u.hp<=0||!u.h||u.h.state==='mort')continue;const r=this.rand();
+      if(r<crush){u.h.state='mort';u.h.cause=`écrasé sous les décombres (${B.name.toLowerCase()})`;this.dropOcc(b,u);this.death(u);dead++;}
+      else if(r<crush+.35){u.h.shock=Math.max(u.h.shock,30+this.rand()*50);u.h.bleeds.push({name:'écrasement (décombres)',rate:.015+this.rand()*.04,limb:null,internal:true});if(u.h.state!=='hors'){u.h.state='hors';u.h.cause='enseveli sous les décombres';if(this.s.units.includes(u))this.stateChange(u,'hors');}}}
+    if(dead)this.log(this.cityName(b),`${B.name} s’effondre : ${dead} écrasé${dead>1?'s':''} sous les décombres.`,b.f==='meumeu'?'bad':'good');}
   collapse(b){const B=BUILDINGS[b.k];const [w,h]=this.sizeOf(b);if(BUILDINGS[b.k].shelter)this.shelterLost(b);if(BUILDINGS[b.k].lab||b.k==='armurerie')this.labCollapse(b);b.ruin=true;b.done=false;b.progress=.2;b.hp=b.max*.2;b.fire=Math.max(b.fire,2);b.queue=[];b.batch=null;b.paid={...B.cost};
     for(const v of this.s.vehicles)if(v.job&&(v.job.to===b.id||v.job.from===b.id)&&v.job.phase==='src')v.job=null;
     if(b.stock){for(const k of Object.keys(b.stock)){b.stock[k]-=b.stock[k]*.7;}}
@@ -1622,15 +1651,25 @@ export class World{
     E={...E,blast:E.blast*1.45,inj:E.inj*1.35,conc:E.conc*1.2,stun:E.stun*1.15,dmgB:E.dmgB*3.4,radius:(E.radius||0)*1.2};if(o.rB!=null)o={...o,rB:o.rB*1.25};
     // (V12.5, demande du joueur : « l'artillerie devrait être plus létale ») un obus de pièce (20 mm et plus) : souffle, lésions et commotion à la mesure du calibre,
     // éclats plus nombreux à porter — mesuré avant : un 36 mm au milieu de 60 Bèè serrés ne tuait personne (0,8 hors de combat), le souffle ne tuait qu'à 0,6 m
-    {const Wo=o.w&&this.W(o.w),cal=Wo?.p?.d||0;if(cal>=20&&!o.at){const k=cal/36;E={...E,blast:Math.max(E.blast,4.3*k),inj:Math.max(E.inj,8*k),conc:Math.max(E.conc,12.5*k),stun:Math.max(E.stun,20*k),geo:(E.geo||.6)*1.8};}}
+    // (V12.8) l'échelle suit la CHARGE (∛ de l'équivalent tolite, l'obusier Mle 1 et ses 17,5 g pour référence) et non plus le seul calibre : un même
+    // calibre chargé d'un explosif plus puissant porte plus loin (mesuré : avant, un 36 mm thermobarique ou en tolite tuait exactement au même rayon,
+    // 4,3 m) ; l'obus de référence ne change pas. Le nuage d'un obus à deux temps grandit d'autant.
+    {const Wo=o.w&&this.W(o.w),cal=Wo?.p?.d||0;if(cal>=20&&!o.at){const k=Math.cbrt(Math.max(1e-9,E.W)/.0175),b0=E.blast;E={...E,blast:Math.max(E.blast,4.3*k),inj:Math.max(E.inj,8*k),conc:Math.max(E.conc,12.5*k),stun:Math.max(E.stun,20*k),geo:(E.geo||.6)*1.8};
+      if(E.tb?.cloud)E.tb={...E.tb,cloud:E.tb.cloud*E.blast/Math.max(1e-6,b0)};}}
     const fd=new Map();const Df=c=>{let d=fd.get(c);if(!d){d=fragDesign(c.m,c.d);fd.set(c,d);}return d;};
     const shooter=by!=null?this.unit(by):null;const fragReach=Math.min(250,Math.max(0,...(E.cls||[]).map(c=>c.lam*Math.log(Math.max(1,E.vg)/55))));const Rmax=Math.max(E.radius||0,E.stun*1.5,fragReach)+.1;if(shooter?.f==='meumeu'&&f==='meumeu')this.beeeShelled(x,y,shooter,E);const note=(u,what)=>(u.h.log??=[]).push({t:s.t,what,by:shooter?.name||''});
     // (V12.8) chaque Meumeu ou Bèè que le souffle atteint : un événement « blast » (la radiographie de la surpression, si la victime ou le tireur est choisi)
     const blastEv=(u,r,eff)=>this.emit({type:'blast',victim:u.id,vf:u.f,vk:u.k,name:u.name,x:u.x,y:u.y,dir:[u.x-x,u.y-y],r,pk:E.pressure?.(r)||0,W:E.W,eff,shooter:by,sname:shooter?.name||null,frag:kind,post:u.post||'debout',w:o.w||null});
-    for(const u of [...s.units]){if(!alive(u)||u.id===o.skip)continue;let r=Math.max(.05,d2(u.x,u.y,x,y)*TILE_M);if(E.air)r=Math.hypot(r,.6);if(o.at?.id===u.id)r=o.at.r;if(this.s.sacs[Math.floor(u.y)*N+Math.floor(u.x)]?.b)r*=1.9;if(r>Math.max(Rmax,E.fire||0))continue;
+    for(const u of [...s.units]){if(!alive(u)||u.id===o.skip)continue;let r=Math.max(.05,d2(u.x,u.y,x,y)*TILE_M);if(E.air)r=Math.hypot(r,.6);if(o.at?.id===u.id)r=o.at.r;
+      // (V12.8) la tranchée protège du souffle d'une charge (×1,9 de distance) ; d'un thermobarique beaucoup moins (l'onde y entre et y reste), et pas du tout
+      // dans le nuage d'un obus à deux temps (il coule dans la tranchée et y détone)
+      const cloud=E.tb?.cloud&&r<E.tb.cloud;if(this.s.sacs[Math.floor(u.y)*N+Math.floor(u.x)]?.b&&!cloud)r*=E.tb?1.3:1.9;if(r>Math.max(Rmax,E.fire||0))continue;
       if(!u.h){this.damage(u,E.dmgB*Math.max(0,1-r/Rmax)*.6,f);continue;}
       u.supp=Math.min(1.5,(u.supp||0)+.9*Math.max(0,1-r/(E.stun*1.5+.5)));if(u.f==='beee')this.beeeAlarm(u);
       if(r<E.blast){u.h.state='mort';u.h.cause='souffle de l’explosion';note(u,'tué net par le souffle');blastEv(u,r,'mort');this.death(u);continue;}
+      // (V12.8) dans le nuage qui détone : la pression d'une détonation tout autour, quelle que soit la posture — tué, ou les poumons déchirés
+      if(cloud){if(this.rand()<.8){u.h.state='mort';u.h.cause='détonation du nuage air-essence';note(u,'tué dans le nuage thermobarique');blastEv(u,r,'mort');this.death(u);continue;}
+        u.h.shock=Math.max(u.h.shock,40+this.rand()*50);u.h.bleeds.push({name:'poumons (nuage détonant)',rate:.03+this.rand()*.05,limb:null,internal:true});if(u.h.state!=='hors'){u.h.state='hors';u.h.cause='nuage détonant : poumons brûlés et déchirés';this.stateChange(u,'hors');}blastEv(u,r,'lesions');continue;}
       {const pk0=E.pressure?.(r)||0;const eff0=r<E.inj?'lesions':r<E.conc?'conc?':r<E.stun?'etourdi':pk0>12?'renverse':null;if(eff0&&eff0!=='conc?')blastEv(u,r,eff0);}
       if(r<E.inj){u.h.shock=Math.max(u.h.shock,30+this.rand()*60);u.h.bleeds.push({name:'poumons (souffle)',rate:.02+this.rand()*.05,limb:null,internal:true});if(u.h.state!=='hors'){u.h.state='hors';u.h.cause='souffle : poumons et tympans déchirés';this.stateChange(u,'hors');}note(u,'soufflé : lésions internes');}
       else if(r<E.conc){const p=.3+.6*(1-(r-E.inj)/Math.max(.01,E.conc-E.inj));if(this.rand()<p){u.h.conc=Math.max(u.h.conc,20+this.rand()*70);if(u.h.state!=='hors'){u.h.state='hors';u.h.cause='commotion (souffle)';this.stateChange(u,'hors');}note(u,'assommé par le souffle');blastEv(u,r,'commotion');}
@@ -1654,7 +1693,7 @@ export class World{
     // les engins (voir vehBlast)
     for(const v of [...(this.cvs||[])])if(v.hp>0)this.vehBlast(v,x,y,E,by,Df,Rmax);
     // les bâtiments, les murs, les voies (la fusée à retard enferme le souffle : bien plus de dégâts)
-    const vsB=o.vsB||1;const rB=o.rB??Math.max(.3,E.blast*2.5/TILE_M),fireR=(E.fire||0)/TILE_M;for(const b of s.buildings){const d=this.distB(b,x,y);if(d<rB){const impact=E.dmgB*vsB*(1-d/rB*.45);this.damage(b,impact,f);if(!b.ruin&&b.fire<=0&&impact>Math.max(12,b.max*.12)&&(d<rB*.35||this.rand()<Math.min(.7,impact/Math.max(1,b.max)*.55))){b.fire=FIRE.hours*(.45+.4*(1-d/rB));this.emit({type:'fire',x:b.i+1,y:b.j+1});}}if(E.inc&&d<fireR&&!b.ruin){b.fire=Math.max(b.fire||0,FIRE.hours*(1-d/Math.max(.1,fireR)*.5));this.emit({type:'fire',x:b.i+1,y:b.j+1});}}
+    const vsB=o.vsB||1;const rB=o.rB??Math.max(.3,E.blast*2.5/TILE_M),fireR=(E.fire||0)/TILE_M;for(const b of s.buildings){const d=this.distB(b,x,y);if(d<rB){const impact=E.dmgB*vsB*(1-d/rB*.45);const ruin0=b.ruin;this.shellIndoors(b,impact,E,by,o);const occ0=ruin0?null:[...(b.hide||[]),...(b.inside||[])];this.damage(b,impact,f);if(!ruin0&&b.ruin&&occ0.length)this.collapseOn(b,by,occ0);if(!b.ruin&&b.fire<=0&&impact>Math.max(12,b.max*.12)&&(d<rB*.35||this.rand()<Math.min(.7,impact/Math.max(1,b.max)*.55))){b.fire=FIRE.hours*(.45+.4*(1-d/rB));this.emit({type:'fire',x:b.i+1,y:b.j+1});}}if(E.inc&&d<fireR&&!b.ruin){b.fire=Math.max(b.fire||0,FIRE.hours*(1-d/Math.max(.1,fireR)*.5));this.emit({type:'fire',x:b.i+1,y:b.j+1});}}
     for(let j=Math.floor(y-rB);j<=y+rB;j++)for(let i=Math.floor(x-rB);i<=x+rB;i++){if(i<0||j<0||i>=N||j>=N||d2(i+.5,j+.5,x,y)>rB)continue;const k=j*N+i;
       if(this.wall[k]===2||this.wall[k]===-2)this.damage({wall:k,x:i+.5,y:j+.5},E.dmgB*vsB*.6,f);
       if(this.rail[k]===2){const rr=s.rails[k];rr.hp-=E.dmgB*vsB*.5;if(rr.hp<=0){this.lineBroken('rail',k);this.emit({type:'rail-cut',x:i+.5,y:j+.5});}}
