@@ -343,7 +343,7 @@ export const FIRE={hours:6,dps:6};  // un bâtiment qui brûle perd des points j
 // Les Bèè, c'est le nombre : un fusil simple, une mitraillette, pas d'artillerie ni d'armes exotiques (la qualité, l'invention, c'est nous) ;
 // mais près de la moitié du peuple sous les armes.
 // Les Bèè démarrent plus nombreux et mieux pourvus (leur terre est maigre, leurs filons loin) : le nombre, dès le début.
-export const BEEE={cities:2,firstRaid:7,every:3,wave:3,grow:0,cap:180,armed:.6,villagers:28,garrison:12,frugal:.78,boost:{bois:3.2,pierre:3.2,vivres:4,pieces:2.4,charbon:2.4,fer:3},colonyDay:3,colonyCost:.25,   // colonyCost : les colons partent avec leur équipement — le centre d'une colonie coûte la moitié (les matériaux venaient de 100 cases : 4 à 10 jours par fondation)
+export const BEEE={cities:2,firstRaid:2,every:3,wave:3,grow:0,cap:180,armed:.6,villagers:28,garrison:18,frugal:.78,boost:{bois:3.2,pierre:3.2,vivres:4,pieces:2.4,charbon:2.4,fer:3},colonyDay:3,colonyCost:.25,   // colonyCost : les colons partent avec leur équipement — le centre d'une colonie coûte la moitié (les matériaux venaient de 100 cases : 4 à 10 jours par fondation)
 
   units:{
     villageois:{...UNITS.villageois,sheet:'beee_player-villager',name:'Villageois bèè'},

@@ -42,7 +42,7 @@ export const BEEE_AI={
     this.beeeLevelTick();this.fortTick?.();this.cityFortTick?.();this.amphiBeeTick?.();
     const cities=B.cities.filter(c=>!c.fallen&&this.building(c.centre)?.done);if(this.atWar)this.beeeSearch(cities);
     // l'état-major veille toujours (défense, contre-batterie, reprise) ; l'offensive attend que les deux peuples soient installés
-    this.beeeStaff(cities,this.day>=BEEE.firstRaid&&this.beeeReady());},
+    this.beeeStaff(cities,this.day>=BEEE.firstRaid);},
   // L'escalade : la guerre ne reste pas polie. Un niveau de 0 à 5, qui ne redescend jamais, monte avec les jours de guerre (jours 4, 8, 13, 19, 27)
   // et avec les pertes bèè (un cran par quarante morts). Chaque niveau rend l'état-major plus audacieux (colonnes plus nombreuses, plus tôt, avec
   // moins de marge), fait creuser plus tôt et plus profond, et — voir les autres modules — ouvre les armes lourdes.
@@ -56,7 +56,7 @@ export const BEEE_AI={
   // plus de fondations — la guerre continue avec ce qu'ils ont. Mesuré sans plafond : 6 763 Bèè et 62 villes à J60, une riposte sans fin pour toute tête de pont,
   // 10 s de calcul par heure de jeu. (w.beeePopCap le change pour un banc.)
   beeeFull(){const t=this.s.t;if(this._bfT!==t){this._bfT=t;let n=0;for(const u of this.s.units)if(u.f==='beee'&&u.hp>0)n++;this._bfN=n;}return this._bfN>=(this.beeePopCap??BEE_POP_CAP);},
-  raidK(){const L=this.beeeLevel();return {maxcol:1+(L>=3?1:0)+(L>=5?1:0),armyMin:Math.max(24,30-2*L),odds:2.5,keep:Math.max(.3,.5-.04*L),gap:Math.max(.25,.6-.07*L)};},
+  raidK(){const L=this.beeeLevel();return {maxcol:2+(L>=5?1:0),armyMin:Math.max(24,30-2*L),odds:2.5,keep:Math.max(.3,.5-.04*L),gap:Math.max(.2,.45-.05*L)};},
   beeeReady(){return [FOOD,'atelier','poudrerie','caserne','arsenal'].every(k=>this.s.buildings.some(b=>b.f==='beee'&&b.k===k&&b.done&&!b.ruin));},
   meumeuReady(){return [FOOD,'atelier'].every(k=>this.s.buildings.some(b=>b.f==='meumeu'&&b.k===k&&b.done&&!b.ruin));},
   beeeCrowded(b){return this.s.buildings.some(o=>o!==b&&o.f==='beee'&&o.k==='centre'&&!o.ruin&&distance(o.i,o.j,b.i,b.j)<SPACE*(this.mapK||1));},

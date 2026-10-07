@@ -140,7 +140,7 @@ for(let s=sec.smin;s<=sec.smax;s+=2)for(const d of band?[4,6]:[3,5]){const p=thi
     return P[c.id]={els};},
   cityFortTick(){const B=this.s.beee,t=this.s.t;if(!this.atWar&&this.day<8)return;if(t-(B.cityFortT??-99)<3)return;B.cityFortT=t;B.fort??={on:false,t:-99,count:0};
     const plan=B.plan;if(!plan?.nat)return;const cities=B.cities.filter(c=>!c.fallen&&this.building(c.centre)?.done);
-    if(this.day<6||!['caserne','arsenal'].every(k=>this.beeeBuildings(k).some(b=>b.done)))return;
+    if(this.day<2)return;if(this.day<4&&!this.beeeBuildings('caserne').some(b=>b.done))return;
     const reserve={pierre:130,fer:60,bois:110,pieces:40};for(const [k,n] of Object.entries(this.amphiBeeReserve?.()||{}))reserve[k]=(reserve[k]||0)+n;
     let open=0;const all=[];for(const c of cities){const P=this.cityFortPlan(c);for(const el of P.els){if(el.placed&&this.fortLost(el)){el.placed=false;el.pid=null;}if(el.placed&&!this.fortDone(el)){open++;
         const b=this.building(el.pid);const have=this.s.units.filter(u=>u.task?.b===b.id&&u.task.kind==='build').length;for(const u of this.beeeAvailable(b.i,b.j,300).slice(0,Math.max(0,3-have)))this.beeeAssign(u,{kind:'build',b:b.id});}}all.push([c,P]);}

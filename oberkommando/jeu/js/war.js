@@ -215,7 +215,7 @@ export const WAR={
   // Ce qu'il voit nourrit le renseignement (beeeScout) : sans lui, les offensives attendaient que nous passions à portée de leurs villes.
   // (ils connaissent notre direction, pas notre position : l'éclaireur la suit jusqu'au bout — bornée à 140 + 60 × niveau, la reconnaissance ne nous
   // trouvait qu'au jour 27 quand nous sommes à 430 cases)
-  beeeRecon(cities){const B=this.s.beee,t=this.s.t,L=this.beeeLevel();if(L<1||!cities.length||t<(B.reconT||0))return;
+  beeeRecon(cities){const B=this.s.beee,t=this.s.t,L=this.beeeLevel();if(!cities.length||t<(B.reconT||0))return;
     // la ville la plus avancée QUI PEUT céder deux éclaireurs (mesuré : la plus avancée, une jeune colonie de 2 à 5 gardes, ne le pouvait jamais —
     // aucune reconnaissance lointaine en 30 jours, aucun bâtiment meumeu connu, aucune offensive)
     const N=this.N,goal=[N*.12,N*.88];const c=cities.slice().sort((a,z)=>d2(a.x,a.y,goal[0],goal[1])-d2(z.x,z.y,goal[0],goal[1])).find(c=>{const n=this.beeeGuards(c).length;return n>=6||n>=this.beeeGarrisonMin(c)+2;});if(!c)return;
@@ -224,7 +224,7 @@ export const WAR={
     const d=d2(c.x,c.y,goal[0],goal[1]),reach=d*.97,ang=Math.atan2(goal[1]-c.y,goal[0]-c.x)+Math.atan2((((B.reconN=(B.reconN||0)+1)%3)-1)*25,Math.max(30,reach));   // ±25 cases à l'arrivée (±0,35 rad, c'était ±150 cases à 430 : deux paires sur trois passaient loin de nous)
     const tx=Math.max(4,Math.min(N-5,c.x+Math.cos(ang)*reach)),ty=Math.max(4,Math.min(N-5,c.y+Math.sin(ang)*reach));const fs=this.freeSpot(tx,ty,8);const route=this.scoutRoute(c,[fs[0],fs[1]]);
     for(const u of g.slice(0,2)){u.task={kind:'patrol',pts:route,i:0,until:t+20+reach*.8,home:[c.x,c.y],city:c.id,sector:1,road:1,recon:1};u.path=null;}
-    B.reconT=t+DAY*(L>=3?1.2:2.4);},
+    B.reconT=t+DAY*(L>=3?1:L>=1?1.6:1);},
   // l'itinéraire d'une reconnaissance : un vrai chemin (calculé une fois), en étapes de 15 cases, aller et retour
   scoutRoute(c,p){const N=this.N,cl=v=>Math.max(0,Math.min(N-1,Math.floor(v)));const ti=cl(p[0]),tj=cl(p[1]);const cost=this.costFn('beee');
     const r=this.pather.find(cl(c.x),cl(c.y),ti,tj,cost,k=>Math.abs(k%N-ti)<=3&&Math.abs(((k/N)|0)-tj)<=3,Math.max(60000,N*300));const P=r.path||[];
@@ -284,6 +284,14 @@ export const WAR={
          used.set(u.keyB,(used.get(u.keyB)||0)-1);used.set(b.id,1);
          const [w,h]=this.sizeOf(b);const [x,y]=this.freeSpot(b.i+w/2+(w/2+.8),b.j+h+.8,2);u.keyB=b.id;u.orderPost=null;u.task.tx=x;u.task.ty=y;u.path=null;}}
     }},
+  // Une ville menacée (Meumeu vus, bombardement, alerte) reçoit des gardes des villes calmes : ils marchent jusqu'à elle et y tiennent garnison.
+  beeeRelieve(cities){const t=this.s.t;const hot=c=>{const I=this.intrudersNear(c.x,c.y,42);return I.length>0||(c.threat||0)>=1.2||!!(c.shelled&&t-c.shelled.at<8);};
+    const danger=cities.filter(hot);if(!danger.length)return;
+    for(const c of danger){const I=this.intrudersNear(c.x,c.y,42).length,want=this.beeeGarrisonMin(c)+Math.min(14,6+I);let have=this.beeeTroops(c).length;if(have>=want)continue;let sent=0;
+      for(const o of cities.filter(o=>o!==c&&!hot(o)).sort((a,z)=>d2(a.x,a.y,c.x,c.y)-d2(z.x,z.y,c.x,c.y))){if(have>=want)break;if(d2(o.x,o.y,c.x,c.y)>150)continue;
+        const spare=this.beeeGuards(o).slice(0,Math.max(0,this.beeeGuards(o).length-this.beeeGarrisonMin(o)));
+        for(const u of spare.slice(0,want-have)){u.city=c.id;u.home=c.centre;u.keyB=null;u.band=null;u.orderPost=null;u.task={kind:'guard',tx:c.x+(this.rand()-.5)*6,ty:c.y+(this.rand()-.5)*6};u.path=null;have++;sent++;}}
+      if(sent&&!this.s.fog&&t-(c.relT||-99)>8){c.relT=t;this.log(c.name,`${sent} Bèè partent renforcer ${c.name}.`,'warn');}}},
   // La défense, tous les quarts d'heure : une ville qui voit des Meumeu à 34 cases sort sa garnison et appelle ses voisines.
   beeeDefend(cities){const B=this.s.beee;B.bands??=[];
     // la défense : la garnison sort (sauf deux), les villes voisines à moins de 110 cases envoient ce qu'elles ont au-delà de la
@@ -291,8 +299,8 @@ export const WAR={
     for(const c of cities){const I=this.intrudersNear(c.x,c.y,34);if(!I.length)continue;const cur=B.bands.find(b=>b.kind==='defense'&&b.city===c.id);
       const need=Math.max(4,Math.ceil(I.filter(u=>u.w||UDEF(u).img).length*1.6)+1);let pool=cur?[]:this.beeeGuards(c).slice(0,Math.max(0,this.beeeGuards(c).length-Math.max(2,Math.ceil(this.beeeGarrisonMin(c)/2)))).slice(0,this.beeeRoom(c,true));
       if(cur&&cur.m.map(id=>this.unit(id)).filter(active).length>=need)continue;
-      for(const o of cities.filter(o=>o!==c).sort((a,z)=>d2(a.x,a.y,c.x,c.y)-d2(z.x,z.y,c.x,c.y))){if(pool.length>=need)break;if(d2(o.x,o.y,c.x,c.y)>80||this.rand()<.35)continue;const g=this.beeeGuards(o);pool=pool.concat(g.slice(0,Math.max(0,g.length-Math.ceil(this.beeeGarrisonMin(o)/2))).slice(0,this.beeeRoom(o,true)));}
-      // (les secours tardent : pas toutes les voisines, pas tout de suite — seulement celles à moins de 80 cases, deux fois sur trois)
+      for(const o of cities.filter(o=>o!==c).sort((a,z)=>d2(a.x,a.y,c.x,c.y)-d2(z.x,z.y,c.x,c.y))){if(pool.length>=need)break;if(d2(o.x,o.y,c.x,c.y)>130)continue;const g=this.beeeGuards(o);pool=pool.concat(g.slice(0,Math.max(0,g.length-Math.ceil(this.beeeGarrisonMin(o)/2))).slice(0,this.beeeRoom(o,true)));}
+      // les voisines à moins de 130 cases envoient ce qu'elles ont au-delà de la moitié de leur garnison
       if(cur){if(pool.length){pool=pool.slice(0,need);for(const u of pool){cur.m.push(u.id);u.from=u.city??u.from;u.city=null;u.band=cur.id;u.keyB=null;u.task={kind:'band',tx:u.x,ty:u.y};u.path=null;}cur.peak=Math.max(cur.peak,cur.m.length);
         if(!this.s.fog&&this.s.t-(c.helpT??-99)>6&&(c.helpT=this.s.t))this.log(c.name,`${pool.length} Bèè accourent des villes voisines au secours de ${c.name}.`,'warn');}continue;}
       pool=pool.slice(0,need);if(pool.length<2)continue;const centre=this.building(c.centre)||this.s.buildings.find(b=>b.f==='beee'&&b.k==='centre'&&!b.ruin);if(!centre)continue;

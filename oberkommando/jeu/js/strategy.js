@@ -133,7 +133,7 @@ export const STRATEGY={
     /* (V12.5) seulement une cible sur la même terre : sur la carte mer, les colonnes visaient l'autre rive et restaient « en rassemblement » des semaines
        (mesuré : 230 à 510 soldats immobiles, jusqu'à 22 jours) — la mer, c'est l'affaire de la flotte (amphibee.js) */
     const L=this.landComp(),N=this.N,home=L[Math.floor(from.y)*N+Math.floor(from.x)];
-    const candidates=[];for(const I of Object.values(this.s.beee.known||{})){if(typeof I!=='object'||I.ruin||!I.done||this.t-I.t>DAY*4||aimed.some(p=>Math.hypot(p[0]-I.x,p[1]-I.y)<25))continue;
+    const candidates=[];for(const I of Object.values(this.s.beee.known||{})){if(typeof I!=='object'||I.ruin||!I.done||this.t-I.t>DAY*4||aimed.some(p=>Math.hypot(p[0]-I.x,p[1]-I.y)<60))continue;
       if(home>=0&&L[Math.floor(I.y)*N+Math.floor(I.x)]!==home)continue;
       // un relevé plus vieux dit moins bien ce qui garde la base : la marge grandit avec son âge (un demi-soldat par jour)
       const def=this.defendersAt(I.x,I.y),need=small?Math.max(4,Math.ceil(def*1.6+2+(this.t-I.t)/DAY*.5)):Math.max(this.raidK().armyMin,Math.ceil(def*this.raidK().odds+4+(this.t-I.t)/DAY*.5));if(need>avail)continue;   // small : les commandos de sabotage gardent l'ancien calcul
@@ -147,16 +147,22 @@ export const STRATEGY={
     const n=Math.floor(this.take('beee',plan.c.x,plan.c.y,'explosifs',2,40));for(const u of plan.g.slice(0,n)){u.charges=1;u.fuse=1;u.task={kind:'sabotage',b:plan.plan.target.id,back:[plan.c.x,plan.c.y]};u.path=null;}
   },
   beeeStaff(cities,offense=true){const B=this.s.beee;if(!this.atWar||!cities.length)return;B.bands??=[];B.defT=(B.defT||0)+this.dt;if(B.defT>=.25){B.defT=0;this.beeeDefend(cities);this.beeeTankHunt?.();}B.staffT=(B.staffT||0)+this.dt;if(B.staffT<1)return;B.staffT=0;
-    this.beeeGarrison(cities);this.beeeCounterBattery(cities);this.beeeRetake(cities);this.beeeFortify(cities);this.beeeRecon(cities);this.beeeHeavy(cities);this.beeeSawArmor();this.beeeSabotage(cities);
-    // Les colonnes en route (ni repliées, ni défense, ni contre-batterie, ni diversion). Une colonne de plus part seulement si le surplus
-    // restant en vaut une, et jusqu'à trois à la fois.
+    this.beeeGarrison(cities);this.beeeRelieve(cities);this.beeeCounterBattery(cities);this.beeeRetake(cities);this.beeeFortify(cities);this.beeeRecon(cities);this.beeeHeavy(cities);this.beeeSawArmor();this.beeeSabotage(cities);
+    // Deux colonnes peuvent marcher en même temps, sur deux villes distantes (pas le même bourg). La plus grosse part d'abord ;
+    // la seconde, au moins armyMin hommes, seulement s'il en reste assez pour qu'elle soit une vraie armée.
     const cols=B.bands.filter(b=>b.state!=='repli'&&b.kind!=='defense'&&b.kind!=='contre'&&b.aim!=='diversion');
     const K=this.raidK();if(!offense||this.t<(B.nextWave||0)||cols.length>=K.maxcol)return;
     const groups=cities.map(c=>({c,g:this.beeeTroops(c).filter(u=>u.task?.kind!=='assault')})).map(q=>({...q,g:q.g.slice(0,Math.max(0,q.g.length-Math.max(3,Math.ceil(this.beeeGarrisonMin(q.c)*K.keep))))})).sort((a,b)=>b.g.length-a.g.length),from=groups[0]?.c;if(!from)return;
-    const mobile=groups.filter(q=>distance(q.c,from)<240).flatMap(q=>q.g);if(mobile.length<K.armyMin)return;   // pas d'armée tant qu'elle ne serait pas massive : on rassemble, on ne fait pas partir de petits groupes
-    const plan=this.beeePlanRaid(from,mobile);if(!plan){B.nextWave=this.t+4;return;}
-    const main=mobile.slice().sort((a,b)=>Math.hypot(a.x-plan.at[0],a.y-plan.at[1])-Math.hypot(b.x-plan.at[0],b.y-plan.at[1])).slice(0,plan.size),band=this.makeBand(main,plan.target,from);
-    band.aim=plan.aim;band.state='rassemblement';band.rally=this.beeeRally(main,plan.at);band.patience=6;band.intelAt=this.t;B.waves=(B.waves||0)+1;B.nextWave=this.t+DAY*K.gap;
-    // (plus de groupe de diversion : une armée, un objectif)
+    const mobile=groups.filter(q=>distance(q.c,from)<240).flatMap(q=>q.g);if(mobile.length<K.armyMin)return;
+    const aimed=[];for(const b of cols){const t=this.building(b.target);if(t)aimed.push(this.bc(t));}
+    const go=(offer)=>{const plan=this.beeePlanRaid(from,offer,aimed);if(!plan||offer.length<K.armyMin)return null;
+      const main=offer.slice().sort((a,b)=>Math.hypot(a.x-plan.at[0],a.y-plan.at[1])-Math.hypot(b.x-plan.at[0],b.y-plan.at[1])).slice(0,offer.length),band=this.makeBand(main,plan.target,from);
+      band.aim=plan.aim;band.state='rassemblement';band.rally=this.beeeRally(main,plan.at);band.patience=6;band.intelAt=this.t;B.waves=(B.waves||0)+1;aimed.push(plan.at);return new Set(main.map(u=>u.id));};
+    const canTwo=cols.length+1<K.maxcol&&mobile.length>=K.armyMin+30;
+    const first=canTwo?mobile.slice(0,mobile.length-K.armyMin):mobile;let ids=canTwo?go(first):go(mobile);
+    if(!ids&&canTwo)ids=go(mobile);
+    if(!ids){B.nextWave=this.t+4;return;}
+    if(canTwo){const rest=mobile.filter(u=>!ids.has(u.id));if(rest.length>=K.armyMin)go(rest);}
+    B.nextWave=this.t+DAY*K.gap;
   }
 };

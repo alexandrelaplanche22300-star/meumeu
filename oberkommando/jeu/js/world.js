@@ -1182,7 +1182,7 @@ export class World{
       this.blast(c.x,c.y,'grenade',c.f,c.by,1,'shell');if(!b||b.ruin)continue;const B=BUILDINGS[b.k];
       if(BUILDINGS[b.k].bunker){this.breakDoorsNear(b,c.x,c.y);}
       if(b.k==='mine'){b.sabUntil=this.t+24;b.why='accès saboté : remise en état';}
-      if(BUILDINGS[b.k]?.bunker){this.damage(b,b.max*.03,c.f);const ds=this.bunkerDoors(b).length;this.bunkerBlast?.(b,c);}else if(this.volatile?.(b)>2)this.depotBlow?.(b,c.by);else{this.damage(b,b.max*.5,c.f);if(B.factory||B.store){b.sabUntil=this.s.t+14;b.why='saboté : réparations en cours';}}
+      if(BUILDINGS[b.k]?.bunker){this.damage(b,b.max*.1,c.f);const ds=this.bunkerDoors(b).length;this.bunkerBlast?.(b,c);}else if(this.volatile?.(b)>2)this.depotBlow?.(b,c.by);else{this.damage(b,b.max*.5,c.f);if(B.factory||B.store){b.sabUntil=this.s.t+14;b.why='saboté : réparations en cours';}}
       const who=b.f==='meumeu';this.log(this.cityName(b),who?`Sabotage ! ${B.name} a sauté dans la nuit${b.sabUntil>this.s.t?' — arrêt le temps des réparations':''}.`:`Nos saboteurs ont fait sauter ${B.name.toLowerCase()} bèè.`,who?'bad':'good');}}
   quietOk(u,e){if(!u.w)return false;const W=this.W(u.w);const d=d2(u.x,u.y,e.x,e.y);if(d>14)return false;
     const S=W.sup;let dB=W.dB;if(S){let R=S.R;const use=(u.supUse||0)+1;if(S.life)R*=1-(1-S.floor)*Math.min(1,(use-1)/S.life);if(S.wet)R*=use<=S.wet?S.wetK:1;dB=Math.max(W.actDb||100,Math.round(W.dB0-Math.min(38,R)));}
