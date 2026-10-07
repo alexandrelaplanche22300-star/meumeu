@@ -97,6 +97,11 @@ const armorer=new Armorer($('#dz'),{world:()=>world,bureau:()=>designer.bureau()
 designer.close=(orig=>function(){orig.call(this);if(ui.dzSpeed!=null){setSpeed(ui.dzSpeed);ui.dzSpeed=null;}renderPanel(true);})(designer.close);
 // le temps s'arrête pendant qu'on conçoit ; la vitesse d'avant n'est gardée qu'une fois (un second appel ne l'écrase pas)
 function pauseForBureau(){if(ui.dzSpeed==null){ui.dzSpeed=ui.speed;setSpeed(0);}}
+function holdMeeting(){if(ui.meetHold==null)ui.meetHold=ui.speed;if(ui.speed!==0)setSpeed(0);}
+function releaseMeeting(){if(ui.meetHold==null)return;const v=ui.meetHold;ui.meetHold=null;if(ui.speed===0)setSpeed(v);}
+// une décision attend la reine : pause, vol jusqu'au centre, elle s'assied. Rien d'autre ne change.
+function summonMeeting(pid){const P=world.program(pid),b=P?.meet&&world.building(P.meet.b);if(!b||!view.g3||!view.isLab?.(b))return false;
+  ui.R??={tab:'programmes',role:'ingenieur',cand:0,sel:null,confirm:null,picks:{},openP:{}};ui.R.attend=pid;if(view.lab?.b!==b.id)view.enterLab(b);holdMeeting();renderPanel(true);return true;}
 function resumeAfterBureau(){if(ui.dzSpeed!=null&&designer.host.hidden){setSpeed(ui.dzSpeed);ui.dzSpeed=null;}renderPanel(true);}
 function openDesigner(from){pauseForBureau();designer.show(from);}
 // (V12.8) le bureau des engins : ses armes se retouchent au concepteur d'armes (mode engin) ; une conception enregistrée devient un prototype d'engin
@@ -193,7 +198,7 @@ function renderPanel(force){const now=performance.now();if(!force&&now-ui.panelA
   document.body.classList.toggle('labmode',!!view.lab);
   document.body.classList.toggle('meeton',!!(view.lab&&ui.R?.attend!=null));
   {const pid=view.lab&&ui.R?.attend!=null?+ui.R.attend:null;const on=pid!=null&&world.program(pid)?.meet?pid:null;
-    if(ui.kingPid!=null&&ui.kingPid!==on)world.attendMeeting?.(ui.kingPid,false);if(on!=null)world.attendMeeting?.(on,true);ui.kingPid=on;}
+    if(ui.kingPid!=null&&ui.kingPid!==on)world.attendMeeting?.(ui.kingPid,false);if(on!=null)world.attendMeeting?.(on,true);ui.kingPid=on;if(ui.meetHold!=null&&on==null)releaseMeeting();}
   if(ui.pick)h=pickPane();else if(view.lab&&world.building(view.lab.b))h=rui.pane(world.building(view.lab.b));else if(view.selV!=null)h=vehiclePane();else if(sel.length)h=unitsPane(sel);else if(view.selVs.size)h=vehiclesPane();else if(view.selB!=null&&world.building(view.selB))h=buildingPane(world.building(view.selB));else h=overviewPane();
   if(h!==ui.lastPanel){const p=$('#panel');const top=p.scrollTop;p.innerHTML=h;p.scrollTop=top;ui.lastPanel=h;}
   renderModal();}
@@ -890,7 +895,7 @@ function events(){for(const e of world.events.splice(0)){view.onEvent(e);const P
     case 'innov':audio.play('built');say(`${e.perc?'Percée ! ':''}Innovation adoptée : ${INNOV.find(x=>x.id===e.id)?.name}.`,'good');break;
     // (V12.6) la recherche : l'accident, l'eurêka, la sortie d'école
     case 'labboom':audio.play('boom',P,e);alertBox(`<b>Accident ${{centre_recherche:'au centre de recherche',labo:'au laboratoire de chimie',armurerie:'au bureau d’études',bureau_engins:'au bureau des engins'}[world.building(e.b)?.k]||''} !</b> <button class="small" data-r="go:${e.b}">Voir</button>`,e.x,e.y,'warn');break;
-    case 'decision':{const Pg=world.program(e.pid);if(!Pg)break;audio.play('horn');alertBox(`<b>${esc(Pg.name)} :</b> ${e.n} proposition${e.n>1?'s attendent':' attend'} votre décision${e.wave>1?` (vague ${e.wave})`:''}. <button class="small" data-r="meet:${e.pid}">Assister</button>`,null,null,'warn');break;}
+    case 'decision':{const Pg=world.program(e.pid);if(!Pg)break;audio.play('horn');if(summonMeeting(e.pid))say(`« ${Pg.name} » : la table vous attend au centre de recherche. La partie est en pause.`,'warn');else alertBox(`<b>${esc(Pg.name)} :</b> ${e.n} proposition${e.n>1?'s attendent':' attend'} votre décision${e.wave>1?` (vague ${e.wave})`:''}. <button class="small" data-r="meet:${e.pid}">Assister</button>`,null,null,'warn');break;}
     case 'meeting':{const Pg=world.program(e.pid);if(Pg&&e.kind==='lancement')say(`« ${Pg.name} » : réunion de lancement convoquée.`,'info');break;}
     case 'eureka':audio.play('trained');break;case 'graduate':{audio.play('trained');const u=world.sci(e.id);if(u)say(`${u.name} sort de l’école.`,'good');break;}
     case 'stop':if(e.kind==='train')audio.play('train',P);break;case 'takeoff':audio.play('takeoff',P);break;case 'rail-cut':audio.play('rail',P);if(P?.vol>.05)say('Une voie ferrée est coupée : il faut la reposer.','bad');break;
