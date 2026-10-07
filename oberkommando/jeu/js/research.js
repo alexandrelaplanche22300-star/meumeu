@@ -18,7 +18,7 @@ import {deriveArmor} from './armor.js';
 import {LAB_KIND,LAB_SEATS,DOM_ROLE,GRADES,gradeOf,MEETINGS,BLOCKS,TALK,talkLine,METRIC_ART,SCENES,QA,ANSWERS,REPONSE,AVIS} from './researchdata.js';
 import {ROLES,GOALS,EYES,PARAMS,descEdit,analyze,artPush,applyEdit,presentLines,progressLines,effects,fxTxt,newLead,thinkStep,burst,defectsSeen,goalsFor,rebaseLead,ideaTitle,proposalOf,debate,merge,conflictOf,keysOf,leverOfEdit,LEVER_NAME,shortTry,concludeLine,metricOk,KEYNUMS} from './techaxes.js';
 
-const SCHOOL=4,STUDY_H=24,TICK=.1,LOG_MAX=300,BASE_STAFF=.35,CHAIRS=8,LEADS_MAX=60,WAVES=3;
+const SCHOOL=4,STUDY_H=4,TICK=.1,LOG_MAX=300,BASE_STAFF=.35,CHAIRS=8,LEADS_MAX=60,WAVES=3;
 // combien de pas de réflexion par heure : libre à son poste, à son poste pendant une tâche, en marchant ; la nuit ; l'équipe d'un bureau sans ingénieur
 const THINK={free:1.2,task:.6,walk:.35,night:.15,bureau:.45};
 const LIVE=new Set(['exploration','mure']);
@@ -40,6 +40,8 @@ export const RESEARCH={
   labs(){return this.s.buildings.filter(b=>b.f==='meumeu'&&!b.ally&&LAB_KIND[b.k]&&b.done&&!b.ruin);},
   sciUnits(){return this.s.units.filter(u=>u.sci&&u.f==='meumeu'&&u.hp>0);},
   savants(){return this.s.units.filter(u=>u.k==='savant'&&u.f==='meumeu'&&u.hp>0);},
+  researchersNeeded(){if(this.savants().length)return null;const C=this.labs().some(b=>b.k==='centre_recherche');
+    return C?'aucun chercheur formé. Avant de lancer un programme : École, au centre de recherche (4 h).':'aucun chercheur, et pas de centre de recherche. Bâtissez-le, formez-y des savants (4 h), puis lancez le programme.';},
   sci(id){return this.unit(id);},
   where(u){return u?.inLab!=null?this.building(u.inLab):null;},
   seatsUsed(b){return this.s.units.filter(u=>u.k==='savant'&&(u.inLab===b.id||(u.task?.kind==='lab'&&u.task.b===b.id&&!u.task.meet))).length;},
@@ -95,6 +97,7 @@ export const RESEARCH={
     R.programs.push(P);this.pev(P,`Programme lancé : ${P.tasks.length} tâches, ${Math.round(an.work)} heures-savants${an.nov>0?`, ${P.tasks.filter(t=>t.n>0).length} au-delà de l’état de l’art`:''}.`,'good');
     this.rlog(b,`Programme « ${d.name} » : ${P.tasks.length} tâches, ${Math.round(an.work)} heures-savants.`,'good',null,true);this.assignAll(P,true);this.callMeeting(P,'lancement');return P;},
   launchIdea(id){const I=INNOV.find(x=>x.id===id),R=this.s.research;if(!I)return {ok:false,why:['idée inconnue']};if(!this.s.innov.ideas.some(x=>x.id===id))return {ok:false,why:['cette idée n’est plus proposée']};
+    const need=this.researchersNeeded();if(need)return {ok:false,why:[need]};
     if(R.programs.some(P=>(P.st==='actif'||P.st==='lancement')&&P.kind==='idee'&&P.ref===id))return {ok:false,why:['déjà en programme']};const miss=(I.needs||[]).filter(n=>!this.s.innov.done.includes(n));if(miss.length)return {ok:false,why:['il faut d’abord : '+miss.map(n=>INNOV.find(y=>y.id===n)?.name||n).join(', ')]};
     const role=DOM_ROLE[I.dom]||'ingenieur',b=this.labs().find(x=>x.k===ROLES[role].at)||this.labs()[0];if(!b)return {ok:false,why:['un bâtiment de recherche']};
     const p=this.canPay('meumeu',b.i+1,b.j+1,I.cost);if(!p.ok)return {ok:false,why:['il manque : '+p.miss.join(', ')]};this.pay('meumeu',b.i+1,b.j+1,I.cost);
@@ -109,6 +112,7 @@ export const RESEARCH={
     R.programs.push(P);this.rlog(b,`Programme de protection : ${a.name}.`,'good');return P;},
   // une conception d'engin (ui, bureau des engins) : les trois métiers au même bâtiment ; chaque arme repasse par l'analyse balistique du concepteur
   launchEngin(b,vd){const R=this.s.research,v=vd?.v;if(!b||b.k!=='bureau_engins'||!b.done||b.ruin)return {ok:false,why:['un bureau des engins bâti']};if(!v)return {ok:false,why:['pas de conception']};
+    const need=this.researchersNeeded();if(need)return {ok:false,why:[need]};
     const C=CHASSIS[v.chassis]||{},k=C.train==='roues'?.55:1,M=MOTEURS[v.moteur?.type];
     const guns=[];(v.tourelles||[]).forEach((T,i)=>{if(T.arme)guns.push([`tourelle ${i+1}`,T.arme]);if(T.coax)guns.push([`coaxiale ${i+1}`,T.coax]);});if(v.mgCaisse)guns.push(['mitrailleuse de caisse',v.mgCaisse]);
     const tasks=[];const push=t=>tasks.push({gap:'',v:0,a:null,n:0,ids:[],...t,i:tasks.length,done:0});
@@ -466,7 +470,7 @@ export const RESEARCH={
     for(const u of sav)if(u.k==='savant')u.sci.act=null;
     // l'école
     for(const b of labs){if(b.k!=='centre_recherche')continue;const st=sav.filter(u=>u.k!=='savant'&&u.inLab===b.id);if(!st.length)continue;const T=this.teacherOf(b);
-      for(const u of st){u.sci.act='etude';u.sci.study.left-=h*(T?.k||1);if(u.sci.study.left<=0)this.graduate(u,b);}if(T)T.u.sci.act='cours';}
+      for(const u of st){if(u.sci.study?.total>STUDY_H){const done=Math.max(0,u.sci.study.total-u.sci.study.left);u.sci.study.total=STUDY_H;u.sci.study.left=Math.max(0,STUDY_H-done);}u.sci.act='etude';u.sci.study.left-=h*(T?.k||1);if(u.sci.study.left<=0)this.graduate(u,b);}if(T)T.u.sci.act='cours';}
     for(const u of sav)if(u.k!=='savant'&&!this.where(u)&&u.task?.kind!=='lab')delete u.sci;   // (un élève détourné de l'école redevient villageois)
     // les programmes
     for(const P of R.programs){if(P.st!=='lancement'&&P.st!=='actif'&&P.st!=='suivi'&&P.st!=='pret')continue;

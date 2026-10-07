@@ -124,7 +124,7 @@ export const BUILDINGS={
     why:'Ses ouvriers produisent la poudre des cartouches, les explosifs, le mélange incendiaire (une production à la fois) ; ses chimistes (six places) y mènent les tâches de chimie des programmes : charges propulsives, chargement des obus, explosifs nouveaux, moteurs-fusées. Loin des maisons : ça saute. Cliquez dessus : le toit s’ouvre sur la vue recherche.'},
   // V12.6 : le centre de recherche — l'école des savants, leurs bureaux, le tableau noir, la salle de réunion
   centre_recherche:{name:'Centre de recherche',sprite:'research',size:[7,6],cost:{bois:120,pierre:140,pieces:20},hours:24,hp:900,lab:true,
-    why:'On y forme les savants (un villageois, des vivres, une journée d’école) : ingénieurs, chimistes, physiciens. Les physiciens y calculent trajectoires, tables de tir, stabilité, optique ; les programmes s’y réunissent autour de la grande table, où le commandement tranche entre les propositions des savants. Dix places. Cliquez dessus : le toit s’ouvre sur la vue recherche.'},
+    why:'On y forme les savants (un villageois, des vivres, quatre heures d’école) : ingénieurs, chimistes, physiciens. Les physiciens y calculent trajectoires, tables de tir, stabilité, optique ; les programmes s’y réunissent autour de la grande table, où le commandement tranche entre les propositions des savants. Dix places. Cliquez dessus : le toit s’ouvre sur la vue recherche.'},
   caserne:{name:'Caserne',sprite:'school',size:[3,3],cost:{bois:60,pierre:50},stock0:{'a:mle1':4,'m:mle1':2,vivres:60,pieces:8},hours:12,hp:800,trains:['soldat'],
     why:'On y forme ceux qu’on y envoie : ils s’entraînent, puis sortent armés d’une conception adoptée. Un soldat devient commando par son équipement : charges, tenue camouflée, jumelles, arme. Loin des dépôts, le porteur de munitions ravitaille l’escouade.'},
   caserne_elite:{name:'Caserne d’élite',sprite:'school',size:[3,3],cost:{bois:90,pierre:110,fer:30,pieces:16},stock0:{vivres:60},hours:20,hp:1100,trains:['choc'],
@@ -210,7 +210,7 @@ export const UNITS={
   medecin:{name:'Médecin',sheet:'meumeu_scientist',speed:8.5,medic:true,doctor:true,kits:10,tents:1,cost:{vivres:40,sante:4,pieces:2},hours:8,pop:1,
     why:'Il suit l’armée avec une tente pliée : il la plante près du front et y opère. Sur place : drain thoracique, attelle, morphine, transfusion ; sous la tente : hémostase, ligature, suture. Il trie les blessés.'},
   // V12.6 : le savant, formé au centre de recherche à partir d'un villageois ; il vit dans les bâtiments de recherche (b.staff) et n'en sort que pour aller de l'un à l'autre
-  savant:{name:'Savant',sheet:'meumeu_scientist',speed:8.5,cost:{vivres:40,pieces:6},hours:24,pop:1,savant:true,
+  savant:{name:'Savant',sheet:'meumeu_scientist',speed:8.5,cost:{vivres:40,pieces:6},hours:4,pop:1,savant:true,
     why:'Un villageois formé au centre de recherche : ingénieur, chimiste ou physicien ; son grade monte avec l’expérience. Il mène les tâches des programmes dans son bâtiment, propose en réunion ce que ses calculs suggèrent — pas toujours juste.'},
   canon:{name:'Canon',img:'canon',speed:5,range:14,cd:9,vsB:3,dmg:45,hp:160,shell:true,crew:2,cost:{pieces:12,fer:6,bois:5,cuivre:1},hours:16,pop:1,
     why:'Pièce lourde coûteuse à fondre ; ses obus consomment des caisses d’explosifs acheminées par les dépôts.'},

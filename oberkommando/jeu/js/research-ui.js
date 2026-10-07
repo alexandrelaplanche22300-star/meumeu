@@ -138,7 +138,7 @@ export function researchUI({world,view,ui,say,esc,ico,costHtml,hours,buildingPan
   function tabEcole(b){const w=W(),S=R(),C=b.k==='centre_recherche'?b:w.labs().find(x=>x.k==='centre_recherche');if(!C)return `<section class="pane"><h2>L’école</h2><p class="warn small">Il faut un centre de recherche : on y forme les savants.</p></section>`;
     const cands=w.schoolCands(C),c=cands[Math.min(S.cand,cands.length-1)]||null,r=w.canTrainSavant(C,S.role,c?.id??null),T=w.teacherOf(C);
     const stu=w.s.units.filter(u=>u.sci&&u.k!=='savant'&&(u.inLab===C.id||(u.task?.kind==='lab'&&u.task.b===C.id)));
-    return `<section class="pane"><h2>L’école <small>${esc(w.cityName(C))} · 4 bancs · 24 h</small></h2>
+    return `<section class="pane"><h2>L’école <small>${esc(w.cityName(C))} · 4 bancs · 4 h</small></h2>
       <div class="seg">${Object.entries(ROLES).map(([k,D])=>`<button class="${S.role===k?'on':''}" data-r="role:${k}" style="--c:${D.col}">${D.ico} ${D.name}</button>`).join('')}</div>
       <p class="small quiet">${esc(ROLES[S.role].name)} : ${esc(ROLES[S.role].what)} — ${esc(AU[ROLES[S.role].at]||'')}.</p>
       ${c?`<p class="small">Élève : <b>${esc(c.name)}</b> <button class="small ghost" data-r="cand:-1">◀</button><button class="small ghost" data-r="cand:1">▶</button> <small class="quiet">${Math.min(S.cand,cands.length-1)+1}/${cands.length}</small></p>`:'<p class="warn small">Aucun villageois disponible.</p>'}

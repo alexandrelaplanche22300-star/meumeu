@@ -288,6 +288,7 @@ export class World{
     if(p.fuse==='fusant'&&p.d<8&&CONSTRUCTIONS[p.cons].he)why.push('une fusée fusante : 8 mm de calibre au moins');
     if(D.overload)why.push('trop lourde pour son affût : trépied, roues ou plus de servants');
     if((p.mods||[]).includes('bouclier')&&D.have==='epaule')why.push('un bouclier demande un affût');
+    {const need=this.researchersNeeded?.();if(need)why.push(need);}
     if(b){const pay=this.canPay(b.f,b.i+1,b.j+1,protoCost(p));if(!pay.ok)why.push(`il manque : ${pay.miss.join(', ')}`);}return {ok:!why.length,why,D};}
   propose(b,name,p){const r=this.canPropose(b,p);if(!r.ok)return r;this.pay(b.f,b.i+1,b.j+1,protoCost(p));const id='d'+this.id();
     // une seule pièce par attache : ce qui est enregistré est ce que le dessin montre et ce que la balistique compte
@@ -298,7 +299,7 @@ export class World{
   // ---------- les protections ----------
   armorOf(id){const A=id&&this.s.armors[id];return A?{A,D:deriveArmor(A.a)}:null;}
   armorsOf(f,status='adopte'){return Object.values(this.s.armors).filter(a=>a.f===f&&(!status||a.status===status));}
-  proposeArmor(b,name,a){if(!b||b.k!=='armurerie'||!b.done)return {ok:false,why:['un bureau d’études']};if(this.activePrograms().some(P=>P.kind==='protection'&&P.b0===b.id))return {ok:false,why:['une protection est déjà en programme dans ce bureau']};const D=deriveArmor(a);
+  proposeArmor(b,name,a){if(!b||b.k!=='armurerie'||!b.done)return {ok:false,why:['un bureau d’études']};const need=this.researchersNeeded?.();if(need)return {ok:false,why:[need]};if(this.activePrograms().some(P=>P.kind==='protection'&&P.b0===b.id))return {ok:false,why:['une protection est déjà en programme dans ce bureau']};const D=deriveArmor(a);
     const cost=Object.fromEntries(Object.entries(D.cost).map(([k,v])=>[k,+(v*3).toFixed(1)]));const p=this.canPay(b.f,b.i+1,b.j+1,cost);if(!p.ok)return {ok:false,why:[`il manque : ${p.miss.join(', ')}`]};
     this.pay(b.f,b.i+1,b.j+1,cost);const id='p'+this.id();this.s.armors[id]={id,f:b.f,name:name||`Protection ${Object.keys(this.s.armors).length}`,status:'prototype',a:JSON.parse(JSON.stringify(a))};
     this.launchArmor(b,this.s.armors[id]);return {ok:true,id,text:`Programme lancé : ${this.s.armors[id].name}`};}
