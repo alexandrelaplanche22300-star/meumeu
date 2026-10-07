@@ -22,18 +22,29 @@ export const BUNKERS={
   bunkerFree(b){const o=this.bunkerOcc(b);return this.bunkerPosts(b).filter(p=>!o[p.k]);},
   // loger ces soldats : chacun au poste libre qui lui convient (tireur → poste de tir ; pièce lourde → emplacement de pièce ; sans arme → soute ; le reste dans l'abri),
   // le plus proche de lui d'abord ; ils s'y rendent par le pathfinding ordinaire (la porte est la seule entrée), se tournent vers l'embrasure et y restent
-  garrison(b,us,want=null){if(!b||b.ruin||!b.done)return {ok:false,why:['le bunker n’est pas terminé']};const o=this.bunkerOcc(b);
-    // un poste désigné : celui qui l'occupe déjà cède sa place (il retourne à ses affaires)
+  garrison(b,us,want=null){if(!b||b.ruin||!b.done)return {ok:false,why:['le bunker n’est pas terminé']};
+    us=(us||[]).filter(u=>u&&u.hp>0&&u.k!=='savant'&&u.k!=='reine');if(!us.length)return {ok:false,why:['les savants ne tiennent pas un bunker']};
+    const o=this.bunkerOcc(b);
     if(want!=null&&o[want]&&!us.some(u=>u.id===o[want])){const old=this.unit(o[want]);if(old){old.task=null;old.path=null;old.sentry=false;}delete o[want];}
     const posts=this.bunkerFree(b);if(!posts.length)return {ok:false,why:['le bunker est plein']};
-    const pref=u=>{const W=u.w&&this.W(u.w);if(u.k==='medecin'||u.k==='infirmier'||u.k==='villageois')return ['abri','soute'];if(!W)return ['soute','abri'];if(W.crew>1)return ['gun','tir','abri'];return b.f==='beee'?['gun','tir','soute','abri']:['tir','abri','gun'];};   // (les Bèè : la pièce d'abord — l'état-major y met ensuite l'arme lourde)
-    let n=0;const taken=new Set();
-    // l'ordre au poste désigné : le premier soldat qui peut le tenir (une arme lourde pour un emplacement de pièce, un fusil pour un poste de tir), sinon le premier
-    let first=null;const wp=want!=null?posts.find(p=>p.k===want):null;if(wp){first=us.find(u=>{const W=u.w&&this.W(u.w);return wp.kind==='gun'?W&&W.crew>1:wp.kind==='tir'?W&&!(W.crew>1):true;})||us[0];}
-    for(const u of (first?[first,...us.filter(x=>x!==first)]:us)){
-      let best=u===first?wp:null;if(!best)for(const kind of pref(u)){const c=posts.filter(p=>p.kind===kind&&!taken.has(p.k)).sort((p,q)=>Math.hypot(p.i-u.x,p.j-u.y)-Math.hypot(q.i-u.x,q.j-u.y))[0];if(c){best=c;break;}}
-      if(!best)continue;taken.add(best.k);o[best.k]=u.id;n++;
-      u.task={kind:'guard',tx:best.i+.5,ty:best.j+.5,fx:best.fx||null,fy:best.fy||null,hold:true,bunker:b.id,post:best.k,postKind:best.kind};u.path=null;u.goal=null;u.orderPost=best.kind==='tir'||best.kind==='gun'?'debout':null;u.sentry=true;}
+    const P=this.bunkerPlanOf(b),CARD=[[0,-1],[1,0],[0,1],[-1,0]];
+    // un trou de tir = une seule case, celle juste derrière l'embrasure (pas toutes les cases voisines : sinon l'équipe s'entasse sur le trou le plus proche)
+    const holes=[];const seen=new Set();
+    for(const [ea,ec] of P.embr){for(const [dx,dy] of CARD){if(!'.o'.includes(P.at(ea+dx,ec+dy)))continue;const p=posts.find(q=>q.i===b.i+ea+dx&&q.j===b.j+ec+dy&&q.kind==='tir');if(p&&!seen.has(p.k)){seen.add(p.k);holes.push(p);break;}}}
+    const taken=new Set(),left=us.slice();
+    const rifle=u=>{const W=u.w&&this.W(u.w);return !!(W&&!(W.crew>1)&&u.k!=='medecin'&&u.k!=='infirmier'&&u.k!=='villageois');};
+    const heavy=u=>{const W=u.w&&this.W(u.w);return !!(W&&W.crew>1);};
+    const place=(u,p)=>{taken.add(p.k);o[p.k]=u.id;const i=left.indexOf(u);if(i>=0)left.splice(i,1);
+      u.task={kind:'guard',tx:p.i+.5,ty:p.j+.5,fx:p.fx||null,fy:p.fy||null,hold:true,bunker:b.id,post:p.k,postKind:p.kind};u.path=null;u.goal=null;u.pathExact=[p.i+.5,p.j+.5];u.orderPost=p.kind==='tir'||p.kind==='gun'?'debout':null;u.sentry=true;};
+    // une case désignée (clic sur cette case) : un soldat y va, les autres sur les cases restantes
+    if(want!=null){const wp=posts.find(p=>p.k===+want);if(wp&&!o[wp.k]){const who=left.find(u=>wp.kind==='gun'?heavy(u):wp.kind==='tir'?rifle(u):u.k!=='villageois')||left[0];if(who)place(who,wp);}}
+    // priorité : un tireur devant chaque trou encore libre, le plus proche de ce trou
+    let guard=0;while(guard++<64){const open=holes.filter(p=>!taken.has(p.k)&&!o[p.k]);const men=left.filter(rifle);if(!open.length||!men.length)break;let bu=null,bp=null,bd=1e9;
+      for(const u of men)for(const p of open){const d=(p.i+.5-u.x)**2+(p.j+.5-u.y)**2;if(d<bd){bd=d;bu=u;bp=p;}}if(!bu)break;place(bu,bp);}
+    for(const p of posts){if(p.kind!=='gun'||taken.has(p.k)||o[p.k])continue;const u=left.filter(heavy).sort((a,z)=>(p.i-a.x)**2+(p.j-a.y)**2-(p.i-z.x)**2-(p.j-z.y)**2)[0];if(u)place(u,p);}
+    const pref=u=>{if(u.k==='medecin'||u.k==='infirmier'||u.k==='villageois')return ['abri','soute'];if(heavy(u))return ['gun','abri','soute'];if(rifle(u))return ['tir','abri','soute'];return ['soute','abri'];};
+    for(const u of left.slice()){let best=null;for(const kind of pref(u)){best=posts.filter(p=>p.kind===kind&&!taken.has(p.k)&&!o[p.k]).sort((p,q)=>(p.i-u.x)**2+(p.j-u.y)**2-(q.i-u.x)**2-(q.j-u.y)**2)[0];if(best)break;}if(best)place(u,best);}
+    const n=us.length-left.length;
     return n?{ok:true,text:`${n} prennent leur poste dans ${BUILDINGS[b.k].name.toLowerCase()}`}:{ok:false,why:['aucun poste libre qui convienne']};},
   // l'extérieur d'une porte : la case libre voisine (hors du plan), d'où l'on pose une charge
   doorFront(b,key){const P=this.bunkerPlanOf(b),N=this.N;const a=key%N-b.i,c=((key/N)|0)-b.j;for(const [dx,dy] of [[0,-1],[1,0],[0,1],[-1,0]])if(P.at(a+dx,c+dy)===' ')return [b.i+a+dx+.5,b.j+c+dy+.5];return null;},
@@ -50,5 +61,6 @@ export const BUNKERS={
   // une fois par pas : un bunker détruit libère sa garnison et n'a plus de portes ; les occupants qui n'y sont plus sont retirés de la table
   bunkerTick(){for(const b of this.s.buildings){if(!BUILDINGS[b.k]?.bunker)continue;
       if(b.ruin){if(!b.ruinDone){b.ruinDone=true;for(const k of this.bunkerDoors(b))this.wall[k]=0;b.occ={};this.wallV=(this.wallV||0)+1;}continue;}
+      if(b.occ)for(const [k,id] of Object.entries(b.occ)){const u=this.unit(id);if(u&&(u.k==='savant'||u.k==='reine')){delete b.occ[k];if(u.task?.bunker===b.id){u.task=null;u.path=null;u.sentry=false;}}}
       if(b.occ&&this.s.t-(b.occT??-9)>.25){b.occT=this.s.t;this.bunkerOcc(b);}}},
 };
