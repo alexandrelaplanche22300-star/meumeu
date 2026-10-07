@@ -389,7 +389,7 @@ export class Scene3D{
   liftsTick(dt){if(!this.lifts?.length)return;for(const L of this.lifts){L.t+=dt;const k=Math.min(1,L.t/.7);L.g.position.y=k*k*2.6;L.g.traverse(o=>{if(o.isMesh)o.material.opacity=1-k;});}
     for(const L of this.lifts.filter(L=>L.t>=.7)){this.scene.remove(L.g);L.g.traverse(o=>{if(o.isMesh)o.material.dispose();});}this.lifts=this.lifts.filter(L=>L.t<.7);}
   labFigures(view,b,M,dtc){const W=view.world,P=this.pools,[w,h]=W.sizeOf(b),cx=b.i+w/2,cz=b.j+h/2,now=performance.now()/1000;
-    const TN=view.labTalkNow?.get(b.id),F=this.labFig??=new Map(),SEAT=this.labSeat??=new Map(),MA=W.meetingAt?.(b),meet=MA?.M||null,spk=meet&&meet.phase!=='decision'?MA.line?.by??null:null,st=M.st,WANT=LAB_WANT[b.k]||{};
+    const TN=view.labTalkNow?.get(b.id),F=this.labFig??=new Map(),SEAT=this.labSeat??=new Map(),MA=W.meetingAt?.(b),meet=MA?.M||null,spk=meet&&meet.phase!=='decision'?(TN?.by??MA.line?.by??null):null,st=M.st,WANT=LAB_WANT[b.k]||{};
     const people=[];for(const u of W.s.units){if(u.inLab!==b.id||!(u.hp>0))continue;const inMeet=!!(meet&&u.sci?.meet&&meet.ids.includes(u.id));people.push({u,act:u.k!=='savant'?'etude':inMeet?'reunion':u.sci?.act||'oisif',spk:inMeet&&spk===u.id});}
     if(meet?.king)people.unshift({u:KING,act:'reine',spk:spk==='reine'});
     for(const u of this.labWorkers?.get(b.id)||[])people.push({u,act:'ouvrier'});

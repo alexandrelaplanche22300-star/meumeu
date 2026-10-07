@@ -186,9 +186,25 @@ export function researchUI({world,view,ui,say,esc,ico,costHtml,hours,buildingPan
         ${M.phase==='decision'?`<div class="rm-bar"><span>Retenez une ou plusieurs propositions compatibles : elles s’appliquent aussitôt à la conception, et l’équipe rediscute de ce qui reste. <b>${sel.length} sélectionnée${sel.length>1?'s':''}</b> · le chef de projet tranchera dans ${hours(Math.max(0,M.deadline-w.s.t))}</span>
           <button data-r="mdecide:${P.id}" ${sel.length?'':'disabled'}>Retenir la sélection</button><button class="ghost" data-r="mclose:${P.id}">${M.chosen.length?'Clore la réunion':'Ne rien retenir'}</button></div>`:`<p class="rm-bar quiet">${esc(MEET_PHASES[M.phase]||M.phase)}… la décision viendra après le débat.</p>`}
         <div class="rm-cards">${props||'<p class="quiet">Pas encore de proposition sur la table.</p>'}</div></div>`;}
+  // la table est la scène (les Meumeu parlent, bulle sur celui qui a la parole) ; à côté, seulement les propositions
+  function meetDock(P,here){const w=W(),M=P.meet,b=w.building(M.b),sel=picks(P.id,M);
+    const PH=['rassemblement','tour','propositions','debat','decision'];const cur=M.phase==='application'?4:PH.indexOf(M.phase);
+    const who=(M.who||[]).map(x=>`<span class="rwho" style="--c:${roleCol(x.role)}">${ROLES[x.role]?.ico||''} ${esc(x.name)}</span>`).join('');
+    const props=M.props.map((c,i)=>card(P,M,c,i,sel)).join('');
+    const away=here&&b&&here.id!==b.id;
+    return `<section class="pane rv meetdock"><header class="rv-head"><div><small>${esc(MEETINGS[M.type].name)} · vague ${M.wave+1} sur 3</small><b>« ${esc(P.name)} »</b></div><button class="ghost small" data-r="mleave">Quitter la table</button></header>
+      <p class="quiet small">La reine siège au bout de la table. Ce qu’ils disent sort de leur bouche — la bulle est celle de celui qui parle.</p>
+      ${away?`<button class="small" data-r="go:${b.id}">Revenir à la table</button>`:''}
+      <div class="rribbon">${PH.map((k,i)=>`<span class="${i<cur?'done':i===cur?'cur':''}">${esc(MEET_PHASES[k])}${k==='decision'&&M.wave?` (vague ${M.wave+1})`:''}</span>`).join('')}${M.phase==='application'?'<span class="cur">On redessine</span>':''}</div>
+      <p class="small">Autour de la table : ${who||'personne encore'}</p>
+      ${M.chosen.length?`<p class="small"><b>Déjà retenu :</b> ${M.chosen.map(c=>esc(short(c.title))).join(' ; ')}</p>`:''}
+      ${M.phase==='decision'?`<div class="rm-bar"><span>Retenez une ou plusieurs propositions compatibles. Elles s’appliquent aussitôt, et l’équipe rediscute de ce qui reste. <b>${sel.length} sélectionnée${sel.length>1?'s':''}</b> · le chef de projet tranchera dans ${hours(Math.max(0,M.deadline-w.s.t))}</span>
+        <button data-r="mdecide:${P.id}" ${sel.length?'':'disabled'}>Retenir la sélection</button><button class="ghost" data-r="mclose:${P.id}">${M.chosen.length?'Clore la réunion':'Ne rien retenir'}</button></div>`:`<p class="rm-bar quiet">${esc(MEET_PHASES[M.phase]||M.phase)}… les propositions arrivent après le débat.</p>`}
+      <div class="rm-cards">${props||'<p class="quiet">Pas encore de proposition sur la table.</p>'}</div></section>`;}
 
   return {
-    pane(b){const S=R();const t=S.tab;let body='';try{body=t==='programmes'?tabProgrammes():t==='savants'?tabSavants(b):t==='ecole'?tabEcole(b):t==='art'?tabArt():t==='carnet'?tabCarnet():buildingPane(b);}catch(e){console.error(e);body=`<p class="bad">${esc(e.message)}</p>`;}
+    pane(b){const S=R();if(S.attend!=null){const P=W().program(S.attend);if(!P?.meet)S.attend=null;else{let body='';try{body=meetDock(P,b);}catch(e){console.error(e);body=`<p class="bad">${esc(e.message)}</p>`;}return body;}}
+      const t=S.tab;let body='';try{body=t==='programmes'?tabProgrammes():t==='savants'?tabSavants(b):t==='ecole'?tabEcole(b):t==='art'?tabArt():t==='carnet'?tabCarnet():buildingPane(b);}catch(e){console.error(e);body=`<p class="bad">${esc(e.message)}</p>`;}
       return head(b)+body;},
     // la fenêtre de la recherche, sans bâtiment de recherche (touche I) : les programmes et l'état de l'art
     modal(){return `<header class="mhead"><div><b>La recherche des Meumeu</b><small>${W().s.research.programs.length} programmes · ${W().s.innov.done.length} innovations</small></div><button class="ghost" data-act="modal-off">Fermer</button></header><div class="mbody">${tabProgrammes()}${tabArt()}</div>`;},
@@ -197,13 +213,14 @@ export function researchUI({world,view,ui,say,esc,ico,costHtml,hours,buildingPan
     // ouvrir la vue recherche : le centre de recherche d'abord ; rend faux s'il n'y a pas de bâtiment de recherche (ou pas de 3D)
     open(tab=null){const L=W().labs();const b=L.find(x=>x.k==='centre_recherche')||L[0];if(!b||!view.g3)return false;if(tab)R().tab=tab;view.enterLab(b);return true;},
     click(arg){const w=W(),S=R(),[k,a,c]=String(arg).split(':');const ok=r=>{if(!r)return;if(r.text)say(r.text,r.ok?'good':'bad');else if(!r.ok)say(r.why?.[0]||'impossible','bad');audio?.play(r.ok?'order':'bad');};S.confirm=k==='abandon'?S.confirm:null;
-      if(k==='close'){view.exitLab();return;}
+      if(k==='close'){S.attend=null;view.exitLab();return;}
       if(k==='open'){this.open(a||null);return;}
       if(k==='go'){const b=w.building(+a);if(b)view.enterLab(b);return;}
       if(k==='tab'){S.tab=a;return;}
       if(k==='sel'){S.sel=+a;view.labSel=+a;return;}
       if(k==='fold'){S.openP[+a]=!(S.openP[+a]??true);return;}
-      if(k==='meet'){S.mini=false;const P=w.program(+a),b=P?.meet&&w.building(P.meet.b);if(b&&view.g3&&view.enterLab)view.enterLab(b);open?.('reunion',+a);return;}
+      if(k==='meet'){S.attend=+a;const P=w.program(+a),b=P?.meet&&w.building(P.meet.b);if(b&&view.g3&&view.enterLab)view.enterLab(b);return;}
+      if(k==='mleave'){S.attend=null;return;}
       if(k==='mini'){S.mini=a==='1';return;}
       if(k==='adopt'){ok(w.adoptNow(+a));return;}
       if(k==='review'){ok(w.callReview(+a));return;}

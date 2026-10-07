@@ -301,6 +301,9 @@ body.cine .top{opacity:.32;transition:opacity .4s}body.cine .top:hover{opacity:1
 
 /* (V12.6) la vue recherche : le panneau élargi, l'en-tête, les projets (leurs étapes), les équipes, les savants */
 body.labmode .layout{grid-template-columns:minmax(0,1fr) minmax(380px,480px)}
+body.labmode.meeton .layout{grid-template-columns:minmax(0,1fr) minmax(400px,460px)}
+.meetdock .rm-cards{grid-template-columns:1fr}
+.meetdock .rm-bar{position:sticky;top:0;z-index:2}
 .rv{border-color:color-mix(in srgb,var(--gold) 55%,var(--line))}.rv-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}.rv-head small{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--orange2);font-weight:800}.rv-head b{font-size:17px}
 .rv-nav{display:flex;flex-wrap:wrap;gap:4px}.rv-nav small{opacity:.75;font-weight:600}
 button.link{background:none;color:inherit;padding:0;font-weight:800;border-radius:4px;text-decoration:underline dotted;text-underline-offset:3px}

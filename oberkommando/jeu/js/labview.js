@@ -20,8 +20,8 @@ const KCOL={prop:'#fff2c8',objection:'#ffd8d0',soutien:'#d8f2dc',compromis:'#ffe
 const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
 const hash=n=>{n=(n^61)^(n>>>16);n=n+(n<<3);n=n^(n>>>4);n=Math.imul(n,0x27d4eb2d);n=n^(n>>>15);return n>>>0;};
 // couper une réplique en lignes (au plus 3)
-function wrapText(ctx,txt,maxW){const words=String(txt).split(' '),L=[];let cur='';for(const w of words){const t=cur?cur+' '+w:w;if(ctx.measureText(t).width>maxW&&cur){L.push(cur);cur=w;if(L.length===3)break;}else cur=t;}
-  if(L.length<3&&cur)L.push(cur);else if(cur&&L.length===3)L[2]=L[2].replace(/.{0,2}$/,'…');return L;}
+function wrapText(ctx,txt,maxW,maxL=3){const words=String(txt).split(' '),L=[];let cur='';for(const w of words){const t=cur?cur+' '+w:w;if(ctx.measureText(t).width>maxW&&cur){L.push(cur);cur=w;if(L.length===maxL)break;}else cur=t;}
+  if(L.length<maxL&&cur)L.push(cur);else if(cur&&L.length===maxL)L[maxL-1]=L[maxL-1].replace(/.{0,2}$/,'…');return L;}
 
 export const LABVIEW={
   isLab(b){return !!b&&b.f==='meumeu'&&!b.ally&&!!LAB_KIND[b.k]&&b.done&&!b.ruin;},
@@ -52,7 +52,7 @@ export const LABVIEW={
     else if(e.type==='graduate')this.puff(x,y,{n:14,color:'#f6f0d8',size:3,spread:.7,up:1.6,life:1.6});},
   // une bulle (plusieurs lignes) au-dessus de q ; tone : la couleur de fond, col : la bordure (le métier de celui qui parle)
   labBubble(ctx,q,txt,{bg='#fffdf4',fg='#233c43',col='#233c43',think=false,big=false,maxW=230}={}){const dpr=this.dpr;ctx.save();ctx.font=`${big?800:650} ${(big?12.5:11.5)*dpr}px system-ui,"Segoe UI Emoji",sans-serif`;
-    const L=wrapText(ctx,txt,maxW*dpr),lh=(big?15:14)*dpr,tw=Math.max(...L.map(l=>ctx.measureText(l).width)),pad=7*dpr,bw=tw+pad*2,bh=L.length*lh+pad*1.2,bx=q.x-bw/2,by=q.y-bh-14*dpr;
+    const L=wrapText(ctx,txt,maxW*dpr,big?6:3),lh=(big?15:14)*dpr,tw=Math.max(...L.map(l=>ctx.measureText(l).width)),pad=7*dpr,bw=tw+pad*2,bh=L.length*lh+pad*1.2,bx=q.x-bw/2,by=q.y-bh-14*dpr;
     ctx.fillStyle=bg;ctx.strokeStyle=col;ctx.lineWidth=(think?1.2:1.8)*dpr;if(think)ctx.setLineDash([4*dpr,3*dpr]);ctx.beginPath();ctx.roundRect(bx,by,bw,bh,9*dpr);ctx.fill();ctx.stroke();ctx.setLineDash([]);
     if(think){for(const [dx,dy,r] of [[0,6,3.2],[-4,11,2]]){ctx.beginPath();ctx.arc(q.x+dx*dpr,by+bh+dy*dpr,r*dpr,0,7);ctx.fill();ctx.stroke();}}
     else{ctx.beginPath();ctx.moveTo(q.x-5*dpr,by+bh-1);ctx.lineTo(q.x,by+bh+8*dpr);ctx.lineTo(q.x+5*dpr,by+bh-1);ctx.fill();ctx.beginPath();ctx.moveTo(q.x-5*dpr,by+bh);ctx.lineTo(q.x,by+bh+8*dpr);ctx.lineTo(q.x+5*dpr,by+bh);ctx.stroke();}
@@ -78,8 +78,7 @@ export const LABVIEW={
   labPaced(b,MA,now){const W=this.world,Q=this.labQ??=new Map();let q=Q.get(b.id);const meet=!!MA&&MA.M.phase!=='rassemblement',key=meet?'m'+MA.P.id+':'+MA.M.t0:'t';
     if(!q||q.key!==key){q={key,i:meet?Math.max(0,MA.M.script.length-3):0,last:meet?0:((W.s.research.talk||[]).filter(l=>l.b===b.id).at(-1)?.id??0),next:0,cur:null};Q.set(b.id,q);}
     if(now<q.next)return q.cur;
-    if(meet&&MA.M.king){const l=MA.M.script[MA.M.shown??-1]||null;if(l!==q.cur){q.cur=l;}q.next=now+.25;return q.cur;}
-    if(meet){const S=MA.M.script;if(S.length-q.i>7)q.i=S.length-5;if(q.i>=S.length){if(now>q.next+2)q.cur=null;return q.cur;}q.cur=S[q.i++];}
+    if(meet){const S=MA.M.script;if(S.length-q.i>8)q.i=S.length-6;if(q.i>=S.length){if(now>q.next+2)q.cur=null;return q.cur;}q.cur=S[q.i++];}
     else{let T=(W.s.research.talk||[]).filter(l=>l.b===b.id&&l.id>q.last&&l.t<=W.s.t+.001);
       // (une conversation commencée se lit jusqu'au bout ; en retard, on saute des conversations ENTIÈRES, jamais le milieu d'une)
       if(T.length&&T[0].cid!==q.cur?.cid){const cids=[...new Set(T.map(l=>l.cid))];if(cids.length>2)T=T.filter(l=>l.cid===cids.at(-1));}
@@ -113,7 +112,7 @@ export const LABVIEW={
       // l'évènement, sinon la bulle, sinon l'icône de ce qu'il fait
       const ev=f.ev&&EV[f.ev],sp=speak.get(u.id);
       if(ev)this.labBubble(ctx,q,ev[0],{bg:ev[1],fg:ev[2],big:true});
-      else if(sp)this.labBubble(ctx,q,sp.txt,{bg:sp.think?(sp.good?'#eefbe8':'#f4f6fb'):KCOL[sp.k]||'#fffdf4',col:R0?.col||'#233c43',think:!!sp.think,big:!!sp.big,maxW:sp.big?260:210});
+      else if(sp)this.labBubble(ctx,q,sp.txt,{bg:sp.think?(sp.good?'#eefbe8':'#f4f6fb'):KCOL[sp.k]||'#fffdf4',col:R0?.col||'#233c43',think:!!sp.think,big:!!sp.big,maxW:sp.big?300:210});
       else if(!small){const ic=f.spk?ICON.orateur:f.act==='travail'?WORK_ICON[f.k]||ICON.travail:ICON[f.act];if(ic){ctx.save();ctx.font=font(13);ctx.textAlign='center';ctx.textBaseline='bottom';ctx.globalAlpha=.92;ctx.fillText(ic,q.x,q.y-4*dpr);ctx.restore();}}
       // le nom, dans la couleur du métier
       if(!small||sel){ctx.save();ctx.font=font(10.5,800);ctx.textAlign='center';ctx.textBaseline='top';const p=this.toScreen(f.x,f.z);const ny=p.y+3*dpr;ctx.lineWidth=3*dpr;ctx.strokeStyle='#173d44';

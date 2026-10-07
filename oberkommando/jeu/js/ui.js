@@ -191,6 +191,9 @@ function buildBar(){const el=$('#buildbar');if(!ui.bb){if(el.innerHTML!=='')el.i
 function renderPanel(force){const now=performance.now();if(!force&&now-ui.panelAt<400)return;const act=document.activeElement;if(!force&&act&&(act.tagName==='SELECT'||act.tagName==='INPUT')&&$('#panel')?.contains(act))return;if(!force&&ui.pointerIn&&now-(ui.lastPointer||0)<900)return;ui.panelAt=now;
   let h='';const sel=[...view.sel].map(id=>world.unit(id)).filter(Boolean);
   document.body.classList.toggle('labmode',!!view.lab);
+  document.body.classList.toggle('meeton',!!(view.lab&&ui.R?.attend!=null));
+  {const pid=view.lab&&ui.R?.attend!=null?+ui.R.attend:null;const on=pid!=null&&world.program(pid)?.meet?pid:null;
+    if(ui.kingPid!=null&&ui.kingPid!==on)world.attendMeeting?.(ui.kingPid,false);if(on!=null)world.attendMeeting?.(on,true);ui.kingPid=on;}
   if(ui.pick)h=pickPane();else if(view.lab&&world.building(view.lab.b))h=rui.pane(world.building(view.lab.b));else if(view.selV!=null)h=vehiclePane();else if(sel.length)h=unitsPane(sel);else if(view.selVs.size)h=vehiclesPane();else if(view.selB!=null&&world.building(view.selB))h=buildingPane(world.building(view.selB));else h=overviewPane();
   if(h!==ui.lastPanel){const p=$('#panel');const top=p.scrollTop;p.innerHTML=h;p.scrollTop=top;ui.lastPanel=h;}
   renderModal();}
@@ -557,9 +560,7 @@ function overviewPane(){const s=world.s;const cap=world.capital();const st=cap?.
 // ---------- les grandes fenêtres : santé, fiche médicale, idées, économie ----------
 function openModal(kind,id=null){ui.modal={kind,id};ui.modalHtml='';renderModal();}
 function renderModal(){const el=$('#modal');
-  {const pid=ui.modal?.kind==='reunion'?+ui.modal.id:null;if(ui.kingPid!=null&&ui.kingPid!==pid)world.attendMeeting?.(ui.kingPid,false);if(pid!=null)world.attendMeeting?.(pid,true);ui.kingPid=pid;
-    el.classList.toggle('rmini',pid!=null&&!!ui.R?.mini);}
-  if(!ui.modal){if(!el.hidden){el.hidden=true;el.innerHTML='';}return;}
+  if(!ui.modal){if(!el.hidden){el.hidden=true;el.innerHTML='';el.classList.remove('rmini');}return;}
   let body='';try{body={med:medModal,fiche:ficheModal,innov:()=>rui.modal(),reunion:id=>rui.meetModal(id),eco:ecoModal,squad:squadModal,operation:id=>ops.modal(id)}[ui.modal.kind]?.(ui.modal.id)||'';}catch(e){console.error(e);body=`<p class="bad">${esc(e.message)}</p>`;}
   if(!body){ui.modal=null;el.hidden=true;return;}
   if(body!==ui.modalHtml){const box=el.querySelector('.mbody');const top=box?box.scrollTop:0;el.innerHTML=`<div class="mbox ${ui.modal.kind}" role="dialog">${body}</div>`;el.hidden=false;ui.modalHtml=body;const nb=el.querySelector('.mbody');if(nb)nb.scrollTop=top;
@@ -800,7 +801,7 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','=','-',
   // V12.4 : Origine (Home) remet la caméra libre dans l'isométrie d'origine
   if(k==='Home'){view.resetCam();say('Caméra : vue isométrique d’origine (bouton du milieu : orienter ; Maj + milieu : déplacer).','info');return;}
   if(ui.modal&&k==='Escape'){ui.modal=null;renderModal();return;}
-  if(k==='Escape'&&view.lab){view.exitLab();renderPanel(true);return;}keys.add(k.toLowerCase());
+  if(k==='Escape'&&view.lab){if(ui.R)ui.R.attend=null;view.exitLab();renderPanel(true);return;}keys.add(k.toLowerCase());
   if((k==='r'||k==='R')&&view.placing&&BUILDINGS[view.placing]?.bunker){view.placeRot=((view.placeRot||0)+1)%4;e.preventDefault();return;}
   if(k==='Escape'){view.zoning=false;view.placing=null;view.lining=null;ui.pick=null;view.sel.clear();view.selVs.clear();view.selB=null;view.selV=null;renderPanel(true);}
   else if(k===' '){e.preventDefault();setSpeed(ui.speed?0:(ui.lastSpeed||1));if(ui.speed)ui.lastSpeed=ui.speed;}
