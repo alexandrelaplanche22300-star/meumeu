@@ -24,7 +24,7 @@ export const ESCALADE={
     // de se défendre ») ; le fusil antichar d'abord, puis les armes d'urgence quand elles sont prêtes : le lance-roquettes (bon marché, un servant) en
     // nombre, le fusil antichar lourd (cinq servants) un par blindé
     const A=this.s.beee.armor,nT=A?Object.keys(A.ids||{}).length:0,capA=4+3*L+2*nT;
-    if(this.s.beee.sawArmor){add('bee_at',0,Math.min(capA,Math.max(1,n/(L>=4?1:2),1.5*nT)));add('bee_lrac',0,Math.min(capA,Math.max(n,2.5*nT)));add('bee_at_lourd',0,Math.min(capA,Math.max(1,nT)));}
+    if(this.s.beee.sawArmor){add('bee_at',0,Math.min(capA,Math.max(2,n/(L>=4?1:2),2*nT)));add('bee_lrac',0,Math.min(capA,Math.max(n,2.5*nT)));add('bee_at_lourd',0,Math.min(capA,Math.max(1,nT)));}
     return out;},
   // ce qu'il faut au dépôt d'une caserne pour sortir UNE équipe (la règle de releaseCrew) : les caisses de la pièce (tireur + servants), les fusils des servants
   // et leurs cartouches — mesuré : la ville commandait 2 caisses quand l'équipe en demande 2,08 ; la mitrailleuse attendait au dépôt depuis le jour 7
@@ -82,9 +82,10 @@ export const ESCALADE={
       const A=B.armor??={ids:{},flank:0,front:0,t0:t};const fresh=!A.ids[v.id];A.ids[v.id]=t;A.flank=Math.max(A.flank,te(V.blindage.flanc));A.front=Math.max(A.front,te(V.blindage.avant));
       if(!B.sawArmor){B.sawArmor=true;this.log('Front','Les Bèè ont vu nos blindés : ils réclament des fusils antichars.','warn');}
       else if(fresh&&Object.keys(A.ids).length%3===0)this.log('Front',`Les Bèè ont repéré ${Object.keys(A.ids).length} de nos blindés : ils multiplient leurs antichars.`,'warn');}
-    const A=B.armor;if(!A)return;
-    // le développement d'urgence : leur fusil antichar perce-t-il encore nos flancs ?
-    const at=this.W('bee_at'),p30=at?at.pen(at.at(30).v):0;
-    if(!B.atDev&&A.flank>p30*.95){B.atDev={t0:t,lrac:t+2*DAY,lourd:t+3*DAY};this.log('Front',`Les Bèè déclarent le développement d’urgence d’un lance-roquettes antichar et d’un fusil antichar lourd : leur fusil antichar ne perce plus nos flancs (${A.flank.toFixed(1)} mm contre ${p30.toFixed(1)}).`,'bad');}
-    if(B.atDev)for(const [k,id,name] of [['lrac','bee_lrac','lance-roquettes antichar'],['lourd','bee_at_lourd','fusil antichar lourd']]){const d=this.design(id);if(d&&d.status!=='adopte'&&t>=B.atDev[k]){d.status='adopte';this.log('Front',`Les Bèè ont adopté un ${name} : ils en arment leurs villes.`,'bad');}}},
+    if(B.sawArmor&&B.atGun==null){B.atGun=t+DAY;this.log('Front','Les Bèè mettent à l’étude un canon antichar de casemate.','warn');}
+    const A=B.armor;
+    if(A){const at=this.W('bee_at'),p30=at?at.pen(at.at(30).v):0;
+      if(!B.atDev&&A.flank>p30*.95){B.atDev={t0:t,lrac:t+2*DAY,lourd:t+3*DAY};this.log('Front',`Les Bèè déclarent le développement d’urgence d’un lance-roquettes antichar et d’un fusil antichar lourd : leur fusil antichar ne perce plus nos flancs (${A.flank.toFixed(1)} mm contre ${p30.toFixed(1)}).`,'bad');}}
+    if(B.atDev)for(const [k,id,name] of [['lrac','bee_lrac','lance-roquettes antichar'],['lourd','bee_at_lourd','fusil antichar lourd']]){const d=this.design(id);if(d&&d.status!=='adopte'&&t>=B.atDev[k]){d.status='adopte';this.log('Front',`Les Bèè ont adopté un ${name} : ils en arment leurs villes.`,'bad');}}
+    if(B.atGun){const d=this.design('bee_canon_at');if(d&&d.status!=='adopte'&&t>=B.atGun){d.status='adopte';this.log('Front','Les Bèè ont adopté un canon antichar de casemate : leurs casemates le reçoivent.','bad');}}},
 };

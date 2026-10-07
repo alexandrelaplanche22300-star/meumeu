@@ -670,6 +670,7 @@ export class World{
     if(B.station&&!this.platformAt(i,j,w,h))why.push('au bord d’une voie ferrée');
     if(B.needsRunway){const rw=this.airRunwayNear(i+w/2,j+h/2);if(!rw||d2(i+w/2,j+h/2,rw.cx,rw.cy)>rw.len/2+14)why.push('à côté d’une piste (44 cases de long, 3 de large) : posez-la d’abord');}
     if(B.faction&&B.faction!==f)why.push('pas pour ce camp');
+    if(B.unlock&&f==='meumeu'&&!this.unlocked(B.unlock)){const I=INNOV.find(x=>x.unlock?.includes(B.unlock));why.push(I?`il faut d’abord l’innovation « ${I.name} »`:'pas encore découvert');}
     if(B.coastal){let wet=false;for(let a=-3;a<w+3&&!wet;a++)for(let c=-3;c<h+3;c++){const ii=i+a,jj=j+c;if(ii<0||jj<0||ii>=N||jj>=N)continue;const t=this.G.terrain[jj*N+ii];if(t===T.deep||t===T.shallow){wet=true;break;}}if(!wet)why.push('au bord de la mer');}
     // un chantier se paie à mesure : il lui faut un dépôt à moins de RADIUS cases, où le fret apportera ce qui manque (le camp est gratuit)
     const site=Object.keys(B.cost).length?this.nearestDepot(f,i+w/2,j+h/2,SITE_RANGE,d=>!BUILDINGS[d.k].foodOnly):null;

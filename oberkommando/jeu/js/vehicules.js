@@ -74,11 +74,13 @@ export const VEHICULES={
   // Un véhicule neuf (à la sortie du garage) : caisse orientée, armes vides (on les charge au dépôt), personne à bord.
   // (V12.8) les engins conçus au bureau des engins : chacun sa fiche (VEHDEF, sous l'identifiant de sa conception) et ses armes (des conceptions « engin »,
   // invisibles au joueur) ; le garage ne propose qu'eux. Refait à chaque nouvelle partie, au chargement, et à chaque conception enregistrée.
-  enginsSync(){const s=this.s,VD=s.vdesigns||{};for(const k of Object.keys(VEHDEF))if(VEHDEF[k].engin&&!VD[k])delete VEHDEF[k];
-    for(const vd of Object.values(VD)){if(vd.status==='perdu'){delete VEHDEF[vd.id];continue;}try{VEHDEF[vd.id]=vehDefOf(vd);}catch(e){console.warn('engin',vd.name,e);continue;}
+  // (V12.8) les engins conçus au bureau : une étude (status etude) n'entre pas au garage ; adoptée, ou un ancien prototype, si.
+  enginsSync(){const s=this.s,VD=s.vdesigns||{};const live=vd=>vd&&vd.status!=='perdu'&&vd.status!=='etude';
+    for(const k of Object.keys(VEHDEF))if(VEHDEF[k].engin&&!live(VD[k]))delete VEHDEF[k];
+    for(const vd of Object.values(VD)){if(!live(vd)){delete VEHDEF[vd.id];continue;}try{VEHDEF[vd.id]=vehDefOf(vd);}catch(e){console.warn('engin',vd.name,e);continue;}
       const reg=(id,p,name)=>{if(p)s.designs[id]={id,f:vd.f||'meumeu',name,status:'engin',p:JSON.parse(JSON.stringify(p))};};
       vd.v.tourelles.forEach((T,i)=>{reg(vd.id+'_t'+i,T.arme,`${vd.name} — tourelle ${i+1}`);reg(vd.id+'_x'+i,T.coax,`${vd.name} — coaxiale ${i+1}`);});reg(vd.id+'_c',vd.v.mgCaisse,`${vd.name} — mitrailleuse de caisse`);}
-    BUILDINGS.garage.trains=Object.values(VD).filter(vd=>vd.status!=='perdu').map(vd=>vd.id);},
+    BUILDINGS.garage.trains=Object.values(VD).filter(live).map(vd=>vd.id);},
   addCombatVehicle(f,k,x,y,h=0){const V=VEHDEF[k];const v={id:this.id(),f,k,name:V.name+' '+(this.s.vehicles.filter(o=>o.k===k).length+1),x,y,h,spd:0,steer:0,yawRate:0,odo:0,
       hp:V.hp,max:V.hp,pass:[],crew:[],cargo:{},path:null,pi:0,goal:null,state:'idle',alt:0,comp:{},
       mounts:V.armes.map(a=>({id:a.id,yaw:a.garde??a.repos??0,el:0,w:a.w,mag:0,pouch:0,cool:0,reload:0,aimAt:null,target:null}))};

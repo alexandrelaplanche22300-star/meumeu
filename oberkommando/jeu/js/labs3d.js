@@ -125,9 +125,18 @@ function bureauInterior(W,D){const B=new Build(),S=shell(B,W,D,{floor:['plank','
   P('plans',-.02,-.8,0,-1,0,gap);shelf(B,-W/2+.2,.15,.5,.5,0,4);
   return {geo:B.geo(),st,door:S.door,aisle:{z:.03}};}
 
-const MAKE={centre_recherche:centreInterior,labo:laboInterior,armurerie:bureauInterior};
+// ---------- le bureau des engins (5 × 4) : planches, paillasse, maquette de caisse. Les trois métiers y tiennent ensemble. ----------
+function enginsInterior(W,D){const B=new Build(),S=shell(B,W,D,{floor:['concrete','concreteD'],t:.5,hb:.86,door:[.38,.62]});const st=[];const P=(k,x,z,fx,fz,sit=0,via=null)=>st.push({k,x,z,f:[fx,fz],sit,via});
+  board(B,-.2,2.1,D,{seed:11,h:.4});drafting(B,-1.55,-.85,1);P('planche',-1.55,-1.1,0,1,1);drafting(B,-.55,-.85,1);P('planche',-.55,-1.1,0,1,1);drafting(B,.45,-.85,1);P('planche',.45,-1.1,0,1,1);
+  desk(B,1.55,-.55,1,1);P('bureau',1.35,-.55,0,1,1);desk(B,1.55,.45,1,4);P('bureau',1.35,.45,0,1,1);
+  bench(B,-1.45,.85,1.2,0,2);P('paillasse',-1.05,.85,1,0);P('paillasse',-1.7,.85,1,0);
+  B.box(-.1,Y0,.5,.95,.08,.46,C.steelD);B.box(-.1,Y0+.08,.5,.72,.16,.3,C.steel);B.box(.08,Y0+.24,.46,.24,.1,.22,C.steelD);B.cyl(.08,Y0+.28,.6,.02,.02,.18,C.dark,6);P('maquette',-.1,.95,0,-1);
+  shelf(B,-W/2+.18,.15,.7,.55,0,6);plant(B,1.85,1.4);
+  return {geo:B.geo(),st,door:S.door,aisle:{z:.05}};}
+
+const MAKE={centre_recherche:centreInterior,labo:laboInterior,armurerie:bureauInterior,bureau_engins:enginsInterior};
 // la taille pour laquelle chaque intérieur est dessiné (V12.7 : les bâtiments ont grandi — l'intérieur est agrandi d'un seul facteur k, postes et chemins compris)
-const DESIGN={centre_recherche:[5,4],labo:[3,3],armurerie:[2,2]};
+const DESIGN={centre_recherche:[5,4],labo:[3,3],armurerie:[2,2],bureau_engins:[5,4]};
 // les intérieurs, prêts pour la scène : { ':in_<bâtiment>': {ext, geo, st, door, k} } — k : l'agrandissement (les savants aussi)
 export function labInteriors(){const out={};for(const [k,mk] of Object.entries(MAKE)){const [W0,D0]=DESIGN[k],[W,D]=BUILDINGS[k].size,K=Math.min(W/W0,D/D0);const m=mk(W0,D0);
     m.geo.scale(K,K,K);m.geo.computeBoundingBox();const sc=p=>p&&[p[0]*K,p[1]*K];

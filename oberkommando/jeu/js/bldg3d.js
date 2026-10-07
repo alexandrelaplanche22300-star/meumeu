@@ -87,6 +87,11 @@ const MAKERS={
   garage:(W,D)=>{const B=new Build();slab(B,W,D,0x8a8c84,.06);const bw=W*.86,bd=D*.62;B.box(-.1,.06,-D*.12,bw,.95,bd,0x7d8a6e);B.gable(-.1,1.01,-D*.12,bw,bd,.34,0x4e5a48,'x',.1);
     for(const x of [-.3,0,.3].map(v=>v*bw*1.0)){B.box(x-.1,.06,-D*.12+bd/2+.01,bw*.26,.72,.04,PAL.metal);B.box(x-.1,.7,-D*.12+bd/2+.03,bw*.26,.06,.03,PAL.jaune);}
     B.cyl(W*.4,.06,D*.34,.09,.09,.34,PAL.rouge,8);B.box(W*.4-.08,.4,D*.34-.05,.16,.1,.1,PAL.noir);B.box(-W*.42,.06,D*.4,.5,.12,.34,0xbdb39a);return B.geo();},
+  // le bureau des engins : un atelier de dessin, une caisse d'étude devant, une coupole de cuivre (le moteur)
+  bureau_engins:(W,D)=>{const B=new Build();slab(B,W,D,0xb5ae98,.06);B.box(0,.06,-.08,W*.84,.72,D*.62,0xd7d1c2);B.gable(0,.78,-.08,W*.84,D*.62,.28,0x3d5c6e,'x');
+    B.winsZ(-.08+D*.31,.32,[-.7,-.25,.25,.7].map(v=>v*W/2.4),.22,.36,0x4a7a9a);B.box(-W*.22,.06,D*.36,.7,.28,.4,PAL.metal);B.box(-W*.22,.34,D*.36,.46,.12,.28,0x6a7074);
+    B.cyl(-W*.08,.46,D*.36,.02,.02,.22,PAL.metalClair,5);B.box(W*.28,.06,D*.34,.36,.16,.5,PAL.boisClair);B.box(W*.28,.22,D*.34,.3,.02,.4,0xe9e3d0);
+    B.cyl(W*.28,.06,-D*.28,.16,.16,.28,PAL.cuivre,10);B.dome(W*.28,.34,-D*.28,.16,PAL.cuivre);return B.geo();},
   // les archives : bibliothèque de pierre, portique à colonnes, fronton, petit dôme
   archives:(W,D)=>{const B=new Build();slab(B,W,D,0xb8b2a0,.06);B.box(0,.06,-.15,W*.78,.85,D*.62,0xd8cdb2);B.gable(0,.91,-.15,W*.78,D*.62,.34,PAL.ardoise,'x');
     for(const x of [-.5,-.17,.17,.5].map(v=>v*W*.8))B.cyl(x,.1,D*.32,.05,.05,.8,PAL.blanc,8);B.box(0,.9,D*.32,W*.74,.07,.22,PAL.blanc);B.gable(0,.97,D*.32,W*.74,.22,.2,PAL.blanc,'x',0);
@@ -275,6 +280,13 @@ const AZTEC={
     // la girouette : un mât, un fusil en guise de flèche
     B.rod([w*.38,top+.05,-d*.38],[w*.38,top+.85,-d*.38],.02,0x4a4a46);B.box(w*.38,top+.82,-d*.38,.42,.03,.035,0x3a3a36);B.box(w*.38-.12,top+.8,-d*.38,.14,.06,.04,0x7a5a38);
     return B.geo();},
+  // le bureau des engins : la même pierre claire que le bureau d'études, sheds vitrés, une caisse à l'étude et une coupole de cuivre
+  bureau_engins:(W,D)=>{const B=new Build(),w=W*.96,d=D*.96,H=.88,top=.06+H;B.box(0,0,0,W,.06,D,0xb9ad8e);
+    B.box(0,.06,0,w,H,d,SCI.creme);B.box(0,.06,0,w*1.012,.14,d*1.012,AZ.Ls);B.box(0,top,0,w*1.03,.05,d*1.03,SCI.plan);
+    for(let i=0;i<4;i++){const x=-w/2+(i+.5)*w/4;B.gable(x,top+.05,-d*.02,w/4*.94,d*.72,.32,i%2?SCI.verre2:SCI.verre,'z',.02);}
+    B.box(0,.28,d/2+.012,w*.7,.42,.02,SCI.verre);B.box(0,.06,d/2+.014,.42,.5,.03,AZ.dark);
+    B.box(-w*.22,.06,d*.42,.55,.16,.28,SCI.acier);B.box(-w*.22,.22,d*.42,.28,.1,.2,SCI.plan);B.cyl(-w*.22,.28,d*.42+.12,.015,.015,.14,SCI.acier,6);
+    B.cyl(w*.3,.06,-d*.22,.18,.18,.32,SCI.cuivre,12);B.dome(w*.3,.38,-d*.22,.18,SCI.cuivre);return B.geo();},
 };
 // les modèles aztèques, prêts pour la scène : { ':az_nom': {ext, geo} } ; le centre-ville, c'est la pyramide
 export function aztecModels(){const out={};for(const [k,mk] of Object.entries(AZTEC)){const [W,D]=BUILDINGS[k]?.size||[2,2];const geo=mk(W,D);const b=geo.boundingBox;out[':az_'+k]={ext:[b.max.x-b.min.x,b.max.y,b.max.z-b.min.z],geo};}return out;}

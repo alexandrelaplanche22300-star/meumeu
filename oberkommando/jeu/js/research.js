@@ -13,6 +13,7 @@
 // Les idées des ouvriers (la pratique) et les protections du concepteur deviennent de petits programmes, sans réunion.
 import {BUILDINGS,INNOV,UNITS} from './data.js';
 import {derive} from './ballistics.js';
+import {CHASSIS,MOTEURS} from './engins.js';
 import {deriveArmor} from './armor.js';
 import {LAB_KIND,LAB_SEATS,DOM_ROLE,GRADES,gradeOf,MEETINGS,BLOCKS,TALK,talkLine,METRIC_ART,SCENES,QA,ANSWERS,REPONSE,AVIS} from './researchdata.js';
 import {ROLES,GOALS,EYES,PARAMS,descEdit,analyze,artPush,applyEdit,presentLines,progressLines,effects,fxTxt,newLead,thinkStep,burst,defectsSeen,goalsFor,rebaseLead,ideaTitle,proposalOf,debate,merge,conflictOf,keysOf,leverOfEdit,LEVER_NAME,shortTry,concludeLine,metricOk,KEYNUMS} from './techaxes.js';
@@ -31,8 +32,8 @@ const cap1=t=>t.charAt(0).toUpperCase()+t.slice(1);
 // deux propositions qui disent la même chose (mêmes champs, valeurs à 12 % près)
 const sameIdea=(a,b)=>a.edits.length===b.edits.length&&a.edits.every(e=>{const o=b.edits.find(x=>x[0]===e[0]);return o&&(typeof e[1]==='number'&&typeof o[1]==='number'?Math.abs(e[1]-o[1])<=Math.abs(e[1])*.12+1e-6:e[1]===o[1]);});
 const leadIds=c=>[...new Set([c.lead,...(c.leads||[]),...(c.from||[])].filter(x=>x>0))];
-export const AU={centre_recherche:'au centre de recherche',labo:'au laboratoire de chimie',armurerie:'au bureau d’études'};
-export const ART={centre_recherche:'un centre de recherche',labo:'un laboratoire de chimie',armurerie:'un bureau d’études'};
+export const AU={centre_recherche:'au centre de recherche',labo:'au laboratoire de chimie',armurerie:'au bureau d’études',bureau_engins:'au bureau des engins'};
+export const ART={centre_recherche:'un centre de recherche',labo:'un laboratoire de chimie',armurerie:'un bureau d’études',bureau_engins:'un bureau des engins'};
 
 export const RESEARCH={
   // ---------- où sont les savants ----------
@@ -55,7 +56,7 @@ export const RESEARCH={
   // la marche (unitTick, tâche « lab ») : à la porte, on entre — s'il y a de la place (une réunion ne compte pas)
   labWalkTick(u,T){const b=this.building(T.b);if(!b||!b.done||b.ruin){u.task=null;return;}const [w,h]=this.sizeOf(b);if(!this.go(u,b.i+w/2,b.j+h+.7,[b.i,b.j,w,h]))return;
     if(T.study){if(this.s.units.filter(x=>x!==u&&x.sci&&x.k!=='savant'&&x.inLab===b.id).length>=SCHOOL){u.anim='idle';return;}this.labEnter(u,b);return;}
-    if(!T.meet&&u.k==='savant'&&this.s.units.filter(x=>x!==u&&x.k==='savant'&&x.inLab===b.id).length>=(LAB_SEATS[b.k]||0)){const alt=this.labFor(u.sci.role,u.x,u.y);if(alt&&alt!==b){T.b=alt.id;u.path=null;return;}u.anim='idle';return;}
+    if(!T.meet&&u.k==='savant'&&this.s.units.filter(x=>x!==u&&x.k==='savant'&&x.inLab===b.id).length>=(LAB_SEATS[b.k]||0)){const P=u.sci?.pid!=null?this.program(u.sci.pid):null;if(P?.kind==='engin'&&b.k==='bureau_engins'){u.anim='idle';return;}const alt=this.labFor(u.sci.role,u.x,u.y);if(alt&&alt!==b){T.b=alt.id;u.path=null;return;}u.anim='idle';return;}
     this.labEnter(u,b);},
   // dedans : on y reste (la vue recherche les montre à leur poste) ; le bâtiment tombé, on est dehors
   labWorkTick(u,T){const b=this.building(T.b);if(!b||!b.done||b.ruin){u.inLab=null;u.task=null;return;}u.anim='idle';},
@@ -106,9 +107,24 @@ export const RESEARCH={
       tasks:[{i:0,ax:'materiau',role:chem?'chimiste':'ingenieur',label:`Plaques : ${mats.join(', ')||'acier'}, ${Math.round(D.mass*1000)} g`,gap:'',v:0,a:null,n:chem?.6:.2,work:chem?8:5,done:0,ids:[]},
         {i:1,ax:'essai',role:'ingenieur',label:'Essai : tirs sur plaques',gap:'',v:0,a:null,n:0,work:3,done:0,ids:[],after:true}]};
     R.programs.push(P);this.rlog(b,`Programme de protection : ${a.name}.`,'good');return P;},
+  // une conception d'engin (ui, bureau des engins) : les trois métiers au même bâtiment ; chaque arme repasse par l'analyse balistique du concepteur
+  launchEngin(b,vd){const R=this.s.research,v=vd?.v;if(!b||b.k!=='bureau_engins'||!b.done||b.ruin)return {ok:false,why:['un bureau des engins bâti']};if(!v)return {ok:false,why:['pas de conception']};
+    const C=CHASSIS[v.chassis]||{},k=C.train==='roues'?.55:1,M=MOTEURS[v.moteur?.type];
+    const guns=[];(v.tourelles||[]).forEach((T,i)=>{if(T.arme)guns.push([`tourelle ${i+1}`,T.arme]);if(T.coax)guns.push([`coaxiale ${i+1}`,T.coax]);});if(v.mgCaisse)guns.push(['mitrailleuse de caisse',v.mgCaisse]);
+    const tasks=[];const push=t=>tasks.push({gap:'',v:0,a:null,n:0,ids:[],...t,i:tasks.length,done:0});
+    push({ax:'chassis',role:'ingenieur',label:`Châssis ${C.name||v.chassis||''} : longerons, transmission, suspension`,n:.4,work:+(36*k).toFixed(1)});
+    push({ax:'masses',role:'physicien',label:`Masses, centres de gravité et vitesses de « ${vd.name} »`,n:.35,work:+(28*k).toFixed(1)});
+    push({ax:'huiles',role:'chimiste',label:`Aciers d’essai, huiles, carburant${M?' ('+M.name+')':''}`,n:.3,work:+(20*k).toFixed(1)});
+    for(const [where,p] of guns){let an=null;try{an=this.analyzeDesign(p);}catch(e){an=null;}if(!an)continue;
+      for(const t of an.tasks){if(t.ax==='essai'||t.ax==='dossier')continue;push({...t,ax:'arme_'+t.ax,label:`${where} — ${t.label}`,work:+(t.work*.7).toFixed(1),after:false});}}
+    push({ax:'essai_route',role:'ingenieur',label:`Essai sur route et au polygone : ${vd.name}`,work:+(10+4*guns.length).toFixed(1),after:true});
+    const P={id:R.nid++,kind:'engin',ref:vd.id,name:vd.name,b0:b.id,st:'actif',t0:this.s.t,tasks,ev:[],applied:[],meetings:[],team:[]};
+    R.programs.push(P);const hrs=Math.round(tasks.reduce((a,t)=>a+t.work,0));this.pev(P,`Étude d’engin : ${tasks.length} tâches, ${hrs} heures-savants. Les trois métiers travaillent ensemble.`,'good');
+    this.rlog(b,`Étude « ${vd.name} » : ${tasks.length} tâches, ${hrs} heures-savants. Ingénieurs, physiciens et chimistes au même bureau.`,'good',null,true);this.assignAll(P);return {ok:true,text:`Étude lancée : ${vd.name}`,P};},
   pev(P,txt,tone='info'){P.ev.unshift({t:this.s.t,txt,tone});if(P.ev.length>40)P.ev.length=40;},
   abandonProgram(pid){const P=this.program(pid);if(!P||(P.st!=='actif'&&P.st!=='lancement'))return {ok:false,why:['pas de programme en cours']};if(P.meet)this.closeMeet(P);P.st='abandon';P.t1=this.s.t;this.release(P);
     if(P.kind==='arme'){const d=this.design(P.ref);if(d)d.status='perdu';}if(P.kind==='protection'){const a=this.s.armors[P.ref];if(a)a.status='perdu';}
+    if(P.kind==='engin'){const vd=this.s.vdesigns?.[P.ref];if(vd&&vd.status!=='adopte')vd.status='perdu';this.enginsSync?.();}
     if(P.kind==='idee'&&!this.s.innov.done.includes(P.ref))this.s.innov.ideas.push({id:P.ref,who:{name:'l’équipe'},t:this.s.t});
     this.rlog(this.building(P.b0),`Programme abandonné : ${P.name}.`,'bad');return {ok:true,text:`Programme abandonné : ${P.name}`};},
   release(P){for(const u of this.savants())if(u.sci.pid===P.id){u.sci.task=null;u.sci.pid=null;if(u.sci.meet===P.id)u.sci.meet=null;}for(const t of P.tasks)t.ids=[];},
@@ -119,7 +135,8 @@ export const RESEARCH={
       if(t.ids.length<want){const b0=this.building(P.b0);const L=free(t.role).sort((a,z)=>Number(P.team.includes(z.id))-Number(P.team.includes(a.id))||z.sci.xp-a.sci.xp||d2(a.x,a.y,b0?.i??a.x,b0?.j??a.y)-d2(z.x,z.y,b0?.i??z.x,b0?.j??z.y));
         for(const u of L){if(t.ids.length>=want)break;t.ids.push(u.id);u.sci.task=P.id+':'+t.i;u.sci.pid=P.id;if(!P.team.includes(u.id))P.team.push(u.id);}}}},
   // le lieu de travail d'une tâche : le bureau d'origine pour les ingénieurs (sinon un autre), le laboratoire de chimie, le centre
-  workplace(P,t,u=null){const b0=this.building(P.b0);return this.labFor(t.role,b0?.i??0,b0?.j??0,u,t.role==='ingenieur'&&b0&&b0.done&&!b0.ruin?b0:null);},
+  workplace(P,t,u=null){if(P.kind==='engin'){const home=this.building(P.b0);if(home&&home.k==='bureau_engins'&&home.done&&!home.ruin)return home;return this.labs().find(x=>x.k==='bureau_engins')||null;}
+    const b0=this.building(P.b0);return this.labFor(t.role,b0?.i??0,b0?.j??0,u,t.role==='ingenieur'&&b0&&b0.done&&!b0.ruin?b0:null);},
 
   // ---------- les directives du commandement ----------
   // une priorité (1 : important, 2 : essentiel) sur un but ; un levier gelé (on n'y touche plus : les pistes qui le touchaient tombent)
@@ -428,6 +445,7 @@ export const RESEARCH={
       this.rlog(b,`Adoptée : ${P.name}. La manufacture et l’arsenal peuvent la fabriquer.`,'good',null,true);this.emit({type:'design',id:P.ref});
       if(P.variants!==false)this.startSuite(P);}
     else if(P.kind==='protection'){const a=this.s.armors[P.ref];if(a)a.status='adopte';this.rlog(b,`Protection adoptée : ${P.name}.`,'good',null,true);this.emit({type:'design',id:P.ref});}
+    else if(P.kind==='engin'){const vd=this.s.vdesigns?.[P.ref];if(vd)vd.status='adopte';this.enginsSync?.();this.rlog(b,`Engin adopté : ${P.name}. Le garage peut le monter.`,'good',null,true);this.emit({type:'design',id:P.ref});}
     else if(P.kind==='idee'){if(!this.s.innov.done.includes(P.ref))this.s.innov.done.push(P.ref);this.remod();const I=INNOV.find(x=>x.id===P.ref);this.rlog(b,`Innovation : ${I?.name}. ${I?.text||''}`,'good',null,true);this.emit({type:'innov',id:P.ref});}
     for(const id of P.team){const u=this.unit(id);if(u?.sci)u.sci.papers=(u.sci.papers||0)+1;}},
 
@@ -468,7 +486,7 @@ export const RESEARCH={
         const team=t.ids.map(id=>this.unit(id)).filter(u=>u&&u.k==='savant');
         // chacun va à son poste ; un savant en réunion y reste
         for(const u of team){if(u.sci.meet)continue;const wp=this.workplace(P,t,u);if(!wp){u.sci.act='attente';continue;}if(this.where(u)!==wp&&!(u.task?.kind==='lab'&&u.task.b===wp.id))this.sendTo(u,wp);}
-        const wk=ROLES[t.role].at;if(!labs.some(b=>b.k===wk)){t.wait=`il faut ${ART[wk]}`;continue;}
+        const wk=P.kind==='engin'?'bureau_engins':ROLES[t.role].at;if(!labs.some(b=>b.k===wk)){t.wait=`il faut ${ART[wk]}`;continue;}
         const here=team.filter(u=>!u.sci.meet&&this.where(u)?.k===wk);t.wait=team.length&&!here.length?'l’équipe est en chemin':!team.length?`aucun ${ROLES[t.role].name.toLowerCase()} libre — le personnel du bâtiment s’y met`:null;
         let rate=0;for(const u of here){const k=this.skill(u)*(sleep?.35:1);rate+=k;u.sci.act=sleep?'dort':'travail';u.sci.xp+=h*(sleep?.35:1);}
         if(!team.length)rate=BASE_STAFF*(sleep?.35:1);rate*=t.block?.25:1;t.done=Math.min(t.work,t.done+rate*h);

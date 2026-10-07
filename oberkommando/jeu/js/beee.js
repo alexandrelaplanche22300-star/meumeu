@@ -19,20 +19,24 @@ export const BEEE_AI={
   // seulement l'armurerie se permet les équipements coûteux (jugé sur le plan de l'heure précédente)
   beeeStable(P=this.s.beee.plan){if(!P?.T)return false;const n=P.nat,T=P.T;
     return (this.s.beee.hunger||0)<1&&(n.vivres||0)>=(T.vivres||60)*2/3&&P.sold>=P.pop*.25&&(n.fer||0)>=(T.fer||60)*1.3&&(n.pieces||0)>=(T.pieces||30)*1.3&&(n['m:bee_fusil']||0)>=(T['m:bee_fusil']||8);},
-  // les armes du moment : des fusils seulement, sauf en temps de stabilité (toute la doctrine)
-  beeeArms(){const all=Object.keys(DOCTRINE).filter(id=>this.design(id)?.status==='adopte');return this.beeeStable()?all:all.filter(id=>id==='bee_fusil');},
+  // la part de chaque arme. Dès qu'ils ont vu nos blindés, une part de fusils antichars (jusqu'à 16 %), le reste rétréci d'autant.
+  beeeDoctrine(){const D={...DOCTRINE};if(!this.s.beee?.sawArmor||this.design('bee_at')?.status!=='adopte')return D;
+    const nT=Math.max(1,Object.keys(this.s.beee.armor?.ids||{}).length),at=Math.min(.16,.06+.015*(nT-1));
+    const base=Object.values(D).reduce((a,b)=>a+b,0)||1,rest=1-at;for(const k of Object.keys(D))D[k]=D[k]/base*rest;D.bee_at=at;return D;},
+  // les armes du moment : des fusils seulement, sauf en temps de stabilité (toute la doctrine) — et le fusil antichar dès qu'ils ont vu nos blindés
+  beeeArms(){const all=Object.keys(this.beeeDoctrine()).filter(id=>this.design(id)?.status==='adopte');return this.beeeStable()?all:all.filter(id=>id==='bee_fusil'||id==='bee_at');},
   // ce qu'une ville de caserne réclame au réseau : les armes du moment (des fusils seulement hors des temps de stabilité) et leurs cartouches ;
   // les protections en temps de stabilité seulement. Ce qui n'est plus d'actualité est retiré : une demande restée d'une période
   // faste gardait pour toujours des manques qu'aucune usine ne comblait plus. big : une ville de caserne (sinon une colonie).
   beeeArmWants(ct,big){ct.want??={};const keep=new Set();const bk=this.beeeBuildings('caserne').find(b=>b.done&&this.distB(b,ct.i+1,ct.j+1)<28);
     const ex=bk?.armNeed&&this.s.t-bk.armNeed.t<10?bk.armNeed.need:{},set=(k,n)=>{keep.add(k);ct.want[k]=n+(ex[k]||0);};
-    for(const w of this.beeeArms()){const main=w==='bee_fusil';set('a:'+w,main?(big?6:4):(big?2:1));set('m:'+w,main?(big?8:5):(big?3:2));}
+    for(const w of this.beeeArms()){const main=w==='bee_fusil',at=w==='bee_at';set('a:'+w,main?(big?6:4):at?(big?4:2):(big?2:1));set('m:'+w,main?(big?8:5):at?(big?5:3):(big?3:2));}
     if(bk)this.beeeHeavyWants2(ct,set);   // toute ville de caserne (escalade.js choisit lesquelles, face à la menace)
     if(this.beeeStable()){set('p:bee_casque',4);if(big)set('p:bee_plaque',2);}else if(ex['p:bee_casque'])set('p:bee_casque',0);
     for(const k of Object.keys(ct.want))if(/^[amp]:/.test(k)&&!keep.has(k))delete ct.want[k];ct.prio=Math.max(ct.prio||3,4);},
   beeeArmyMix(){const n={};for(const u of this.s.units)if(u.f==='beee'&&u.k==='soldat'&&u.hp>0&&u.w)n[u.w]=(n[u.w]||0)+1;return n;},
   // l'arme qui manque le plus à l'armée (par rapport à la doctrine), parmi celles que la caserne a sous la main
-  beeeNextArm(H,mix){const tot=Object.values(mix).reduce((a,b)=>a+b,0)+1;return this.beeeArms().filter(id=>(H['a:'+id]||0)>=1&&(H['m:'+id]||0)>=.3).sort((a,z)=>(mix[a]||0)/tot/DOCTRINE[a]-(mix[z]||0)/tot/DOCTRINE[z])[0]||null;},
+  beeeNextArm(H,mix){const D=this.beeeDoctrine(),tot=Object.values(mix).reduce((a,b)=>a+b,0)+1;return this.beeeArms().filter(id=>id!=='bee_at'&&(H['a:'+id]||0)>=1&&(H['m:'+id]||0)>=.3).sort((a,z)=>(mix[a]||0)/tot/(D[a]||.05)-(mix[z]||0)/tot/(D[z]||.05))[0]||null;},
   beeeTick(dt){const B=this.s.beee;B.econT=(B.econT||0)+dt;
     if(B.econT>=1){B.econT%=1;this.beeeEconomy();}
     this.beeeLevelTick();this.fortTick?.();this.cityFortTick?.();this.amphiBeeTick?.();
@@ -350,7 +354,7 @@ export const BEEE_AI={
       // l'armement suit l'armée : des fusils pour les recrues à venir, des caisses de munitions pour la tenir au feu
     };
     // le stock de guerre : des armes de chaque sorte pour les recrues à venir, des cartouches pour ceux qui les portent, des protections
-    {const share=[.32,.45,.62][Math.min(2,Math.floor(this.beeeLevel()/2))];const R=Math.max(8,Math.ceil(civ*.12),Math.ceil((civ+sold)*share-sold)),mix=this.beeeArmyMix();   /* (les armes suivent l'armée VOULUE, pas un petit stock : au jour 72 les usines n'avaient plus aucun ouvrier) */for(const w of this.beeeArms()){T['a:'+w]=Math.max(1,Math.ceil(R*DOCTRINE[w]));T['m:'+w]=Math.max(2,Math.ceil((mix[w]||0)*1.2+R*DOCTRINE[w]));}
+    {const share=[.32,.45,.62][Math.min(2,Math.floor(this.beeeLevel()/2))];const R=Math.max(8,Math.ceil(civ*.12),Math.ceil((civ+sold)*share-sold)),mix=this.beeeArmyMix(),D=this.beeeDoctrine();   /* (les armes suivent l'armée VOULUE, pas un petit stock : au jour 72 les usines n'avaient plus aucun ouvrier) */for(const w of this.beeeArms()){T['a:'+w]=Math.max(1,Math.ceil(R*(D[w]||0)));T['m:'+w]=Math.max(2,Math.ceil((mix[w]||0)*1.2+R*(D[w]||0)));}
       if(this.beeeStable())if(this.armorsOf?.('beee')?.some(a=>a.id==='bee_casque'))T['p:bee_casque']=Math.ceil(R*.9);if(this.beeeStable())if(this.armorsOf?.('beee')?.some(a=>a.id==='bee_plaque'))T['p:bee_plaque']=Math.ceil(R*.3);}
     {const AW=this.fortArmsWant?.()||{};for(const [w,n] of Object.entries(AW)){if(!n||!this.design(w))continue;const Wd=this.W(w);T['a:'+w]=Math.max(T['a:'+w]||0,Math.min(12,n));T['m:'+w]=Math.max(T['m:'+w]||0,Math.ceil(Math.min(12,n)*Wd.carry/Math.max(1,Wd.perCrate))+2);}}
     // la flotte d'assaut : ce que coûtent les bateaux qui manquent entre dans le plan (les ateliers font aussi leurs pièces — mesuré : chantiers ouverts à J21,

@@ -154,7 +154,8 @@ for(let s=sec.smin;s<=sec.smax;s+=2)for(const d of band?[4,6]:[3,5]){const p=thi
   // ---------- l'armement des ouvrages ----------
   // l'emplacement de pièce d'un Tobrouk reçoit une mitrailleuse lourde ; celui d'une casemate, d'une fosse ou d'une batterie un canon ; dans les blockhaus, les premiers postes de
   // tir (selon le type) reçoivent un fusil-mitrailleur ; une arme servie a ses servants (les camarades de l'ouvrage, à la case voisine de la pièce)
-  fortHeavyOf(type){return {tobrouk:'bee_mg_lourde',tobrouk_double:'bee_mg_lourde',fosse_mortier:'bee_canon',casemate_canon:'bee_canon',casemate_lourde:'bee_canon',batterie:'bee_canon'}[type]||null;},
+  fortHeavyOf(type){const at=!!(this.s.beee?.sawArmor&&this.design('bee_canon_at')?.status==='adopte');const canon=at?'bee_canon_at':'bee_canon';
+    return {tobrouk:'bee_mg_lourde',tobrouk_double:'bee_mg_lourde',fosse_mortier:'bee_canon',casemate_canon:canon,casemate_lourde:canon,batterie:'bee_canon'}[type]||null;},
   fortMgPosts(type){return {poste_mg:2,double_mg:2,blockhaus_s:1,blockhaus_m:2,blockhaus_l:3,fortin:4,blockhaus_rond:2,blockhaus_l_coin:2,poste_commandement:1}[type]||0;},
   // ce que les ouvrages (finis ou en chantier) réclament en armes : {id: nombre}
   fortArmsWant(){const out={};if(!this.fortActive?.()&&!this.s.beee.cityForts)return out;for(const b of this.s.buildings){if(b.f!=='beee'||b.ruin)continue;const id=BUILDINGS[b.k]?.bunker;if(!id)continue;

@@ -145,7 +145,7 @@ export class EnginsBureau{
       <div class="vz-kv"><span>Volume</span><b>${fr(D.lay.used/1000,1)} L occupés, ${fr(D.lay.libre/1000,1)} L libres</b></div>
       <div class="vz-kv"><span>Au garage</span><b>${D.heures} h</b></div><p class="small">${esc(res)}</p>
       ${D.errs.map(e=>`<p class="bad small">✗ ${esc(e)}</p>`).join('')}${D.warns.map(e=>`<p class="warn small">! ${esc(e)}</p>`).join('')}
-      <div class="dz-go"><button data-vz="save" ${D.ok?'':'disabled'}>Enregistrer la conception</button><p class="vz-say quiet small"></p></div>
+      <div class="dz-go"><button data-vz="save" ${D.ok?'':'disabled'}>Lancer l’étude</button><p class="vz-say quiet small"></p></div>
       <p class="quiet small vz-legend">${Object.entries(KNAME).map(([k,n])=>`<i style="background:#${KCOL[k].toString(16).padStart(6,'0')}"></i>${n}`).join(' ')}</p>`;}
   // ---------- la vue de dessus ----------
   topFrame(){const cv=this.host.querySelector('#vz-ctop');if(!cv)return null;const w=cv.clientWidth||300,h=cv.clientHeight||300,dpr=devicePixelRatio||1;if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);}

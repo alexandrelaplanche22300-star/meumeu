@@ -28,6 +28,9 @@ export const DEFAULT_DESIGNS=[
   // creuse rustique : 14 mm à toute distance, mais une portée utile de 16 m — il faut ramper jusqu'au char)
   {id:'bee_at_lourd',f:'beee',name:'Fusil antichar lourd bèè',status:'urgence',base:true,p:AT_P({d:7.2,l:24,c:.6,L:900,mag:3})},
   {id:'bee_lrac',f:'beee',name:'Lance-roquettes antichar bèè',status:'urgence',base:true,p:{...kitToP({...KIT_PRESETS.find(p=>p.id==='rocket').design,name:'Lance-roquettes antichar bèè',caliberMm:9,massG:23.4,motorNs:8,barrelLengthCm:36}),cons:'creuse_bee'}},
+  // canon de casemate : le canon de campagne du concepteur, raccourci en 16 mm perforant, affût à pieux, trois servants.
+  // Mesuré : 6,0 mm d'acier à 30 m — le flanc d'un char moyen (5 mm), pas son avant (13 mm) ni le flanc d'un lourd.
+  {id:'bee_canon_at',f:'beee',name:'Canon antichar de casemate bèè',status:'urgence',base:true,p:kitToP({...KIT_PRESETS.find(p=>p.id==='field').design,name:'Canon antichar de casemate bèè',role:'Casemate',caliberMm:16,barrelLengthCm:78,filler:0,ogive:.62,coreDensity:7.8,meplat:.08,massG:90,caseLenCm:12,assignedCrew:3,carriage:'emplaced'})},
   {id:'mle1',f:'meumeu',name:'Fusil Mle 1',status:'adopte',base:true,
     p:{d:1.8,l:6.5,nose:'pointue',base:'plat',cons:'fmj',c:.032,L:140,twist:60,action:'verrou',rof:600,mag:5,heavy:false}},
   {id:'fam1',f:'meumeu',name:'Fusil d’assaut FAM-1',status:'adopte',base:true,

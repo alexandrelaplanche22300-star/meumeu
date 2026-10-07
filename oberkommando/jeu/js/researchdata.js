@@ -3,8 +3,8 @@
 export {ROLES} from './techaxes.js';
 
 // le bâtiment → le métier qui y travaille, et combien de savants y tiennent
-export const LAB_KIND={centre_recherche:'physicien',labo:'chimiste',armurerie:'ingenieur'};
-export const LAB_SEATS={centre_recherche:10,labo:6,armurerie:5};
+export const LAB_KIND={centre_recherche:'physicien',labo:'chimiste',armurerie:'ingenieur',bureau_engins:'ingenieur'};
+export const LAB_SEATS={centre_recherche:10,labo:6,armurerie:5,bureau_engins:12};
 // l'idée d'un ouvrier (INNOV, la pratique) : le métier qui la mène
 export const DOM_ROLE={bois:'ingenieur',pierre:'ingenieur',vivres:'chimiste',mine:'ingenieur',atelier:'ingenieur',logistique:'ingenieur',construction:'ingenieur',
   armement:'ingenieur',tir:'physicien',defense:'ingenieur',soins:'chimiste',chimie:'chimiste'};

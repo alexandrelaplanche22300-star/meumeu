@@ -16,7 +16,7 @@ import {LAB_KIND,LAB_SEATS,GRADES,gradeOf,MEETINGS,MEET_PHASES} from './research
 import {ROLES,GOALS,AXES,nums,metricOk,confOf,ideaTitle,applyEdit,conflictOf,leverOk,LEVER_NAME,rangeOf,wallF} from './techaxes.js';
 
 const ACT={etude:'étudie',cours:'fait cours',reunion:'en réunion',travail:'travaille',reflexion:'réfléchit',dort:'dort',attente:'attend',oisif:'sans programme',marche:'en chemin'};
-const AU={centre_recherche:'au centre de recherche',labo:'au laboratoire de chimie',armurerie:'au bureau d’études'};
+const AU={centre_recherche:'au centre de recherche',labo:'au laboratoire de chimie',armurerie:'au bureau d’études',bureau_engins:'au bureau des engins'};
 const KIND={piste:'Piste',idee:'Idée en l’air',rebond:'Rebond',compromis:'Compromis',combinaison:'Combinaison',contre:'Contre-proposition'};
 const ST={lancement:'Lancement',actif:'En développement',pret:'Prête',suivi:'En service — variantes',fini:'Close',abandon:'Abandonnée'};
 const LEAD_ST={exploration:'en cours',mure:'mûre',proposee:'sur la table',retenue:'retenue',refusee:'refusée',impasse:'impasse',caduque:'caduque'};
