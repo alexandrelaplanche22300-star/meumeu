@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Contrôle d'un modèle</title>
+<style>body{margin:0;background:#20232a;color:#ddd;font:13px sans-serif}#g{display:grid;grid-template-columns:repeat(4,1fr);gap:2px}canvas{width:100%;display:block;background:#3a3f48}#info{padding:4px 8px}</style></head>
+<body><div id="info"></div><div id="g"></div>
+<script type="module">
+// Page de contrôle (dev, exclue de la construction ; V12.7, pour détacher la cape de l’élite et contrôler le roi) : un modèle d’assets3d (?m=nom) sous huit angles, avec ses couleurs ; les triangles choisis par
+// la règle (#r=<expression JS sur t = {cx,cy,cz, nx,ny,nz, r,g,b}> — centre, normale, couleur 0..1) en magenta. ?cut=1 : les montrer seuls.
+import * as THREE from './js/lib/three.module.js';
+const Q=new URLSearchParams(location.search),name=Q.get('m')||'meumeu';
+const J=await (await fetch('assets3d/'+name+'.json')).json();
+const B=s=>{const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u.buffer;};
+const p=new Int16Array(B(J.p)),cc=new Uint8Array(B(J.c)),idx=new Uint16Array(B(J.i)),k=J.half/32767;const V=i=>[p[3*i]*k,p[3*i+1]*k,p[3*i+2]*k];
+const rule=new Function('t','return '+(decodeURIComponent(location.hash.replace(/^#r=/,''))||'false'));
+const pos=[],col=[];let n=0;const only=Q.get('cut');
+const cen=[],isRed=[];for(let t=0;t<idx.length/3;t++){const ids=[0,1,2].map(c=>idx[3*t+c]),v=ids.map(V);cen.push([0,1,2].map(a=>(v[0][a]+v[1][a]+v[2][a])/3));const r=cc[ids[0]*3],g=cc[ids[0]*3+1],b=cc[ids[0]*3+2];isRed.push(r>77&&g<41&&b<56);}
+const RC=cen.filter((_,t)=>isRed[t]);const dRed=c=>{let m=9;for(const q of RC){const d=Math.hypot(q[0]-c[0],q[1]-c[1],q[2]-c[2]);if(d<m)m=d;}return m;};
+for(let t=0;t<idx.length/3;t++){const ids=[0,1,2].map(c=>idx[3*t+c]),v=ids.map(V);const c=[0,1,2].map(a=>(v[0][a]+v[1][a]+v[2][a])/3);
+  const e1=v[1].map((x,a)=>x-v[0][a]),e2=v[2].map((x,a)=>x-v[0][a]);let nn=[e1[1]*e2[2]-e1[2]*e2[1],e1[2]*e2[0]-e1[0]*e2[2],e1[0]*e2[1]-e1[1]*e2[0]];const L=Math.hypot(...nn)||1;nn=nn.map(x=>x/L);
+  const rgb=[0,1,2].map(a=>(cc[ids[0]*3+a]+cc[ids[1]*3+a]+cc[ids[2]*3+a])/3/255);
+  const sel=rule({cx:c[0],cy:c[1],cz:c[2],nx:nn[0],ny:nn[1],nz:nn[2],r:rgb[0],g:rgb[1],b:rgb[2],red:isRed[t],get d(){return dRed(c);}});if(sel)n++;if(only&&!sel)continue;
+  for(let q=0;q<3;q++){pos.push(...v[q]);col.push(...(sel&&!only?[1,0,1]:[0,1,2].map(a=>Math.pow(cc[ids[q]*3+a]/255,2.2))));}}
+const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setAttribute('color',new THREE.Float32BufferAttribute(col,3));geo.computeVertexNormals();
+document.getElementById('info').textContent=`${name} · ${idx.length/3} triangles · ${n} choisis · ext ${J.ext.map(x=>x.toFixed(3)).join(' × ')} · règle : ${decodeURIComponent(location.hash.replace(/^#r=/,''))||'—'}`;
+const H=J.ext[1],S0=Math.max(...J.ext)*.62;
+for(const [a,el] of [0,Math.PI/2,Math.PI,3*Math.PI/2,0,Math.PI/2,Math.PI,3*Math.PI/2].map((y,i)=>[y,i<4?.15:.9])){const cv=document.createElement('canvas');cv.width=400;cv.height=400;document.getElementById('g').appendChild(cv);
+  const R=new THREE.WebGLRenderer({canvas:cv,antialias:true});R.outputColorSpace=THREE.SRGBColorSpace;const S=new THREE.Scene();S.add(new THREE.HemisphereLight(0xffffff,0x555555,1.4));const D=new THREE.DirectionalLight(0xffffff,1.2);D.position.set(1,2,1.5);S.add(D);
+  S.add(new THREE.Mesh(geo,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide,flatShading:true})));
+  const C=new THREE.OrthographicCamera(-S0,S0,S0,-S0,.01,10);C.position.set(Math.sin(a)*2*Math.cos(el),H/2+2*Math.sin(el),Math.cos(a)*2*Math.cos(el));C.lookAt(0,H/2,0);R.render(S,C);}
+window.__done=true;
+</script></body></html>

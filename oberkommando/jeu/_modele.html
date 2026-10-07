@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Contrôle d'un modèle</title>
+<style>body{margin:0;background:#20232a;color:#ddd;font:13px sans-serif}#g{display:grid;grid-template-columns:repeat(4,1fr);gap:2px}canvas{width:100%;display:block;background:#3a3f48}#info{padding:4px 8px}</style></head>
+<body><div id="info"></div><div id="g"></div>
+<script type="module">
+// Page de contrôle (dev, exclue de la construction) : un modèle de assets3d (?m=nom, ?p=pièce), sous quatre angles et de plus haut, ses couleurs de sommets,
+// les triangles choisis par la règle en rouge (#r=<expression JS sur t = {cx,cy,cz, nx,ny,nz, r, H, W, D, cr,cg,cb}> : le centre du triangle, sa normale, son rayon
+// horizontal, la hauteur, la largeur, la profondeur du modèle, la couleur moyenne de ses sommets entre 0 et 1) ; ?cut=1 : les triangles choisis sont retirés au lieu d'être rougis.
+// Repère : y vers le haut ; le devant d'une peluche est +Z (son lacet vaut atan2(fx, fy) dans scene3d.js).
+import * as THREE from './js/lib/three.module.js';
+const Q=new URLSearchParams(location.search),name=Q.get('m')||'meumeu';
+const J=await (await fetch('assets3d/'+name+'.json')).json();
+const src=J.parts?J.parts.find(p=>p.n===(Q.get('p')||J.parts[0].n)):J;
+const B=s=>{const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u.buffer;};
+const p=new Int16Array(B(src.p)),idx=new Uint16Array(B(src.i)),c8=src.c?new Uint8Array(B(src.c)):null,k=J.half/32767;const V=i=>[p[3*i]*k,p[3*i+1]*k,p[3*i+2]*k];
+const [Wd,Ht,Dp]=J.ext;
+const rule=new Function('t','return '+(decodeURIComponent(location.hash.replace(/^#r=/,''))||'false'));
+const pos=[],col=[];let n=0;
+for(let t=0;t<idx.length/3;t++){const v=[0,1,2].map(c=>V(idx[3*t+c]));const c=[0,1,2].map(a=>(v[0][a]+v[1][a]+v[2][a])/3);
+  const e1=v[1].map((x,a)=>x-v[0][a]),e2=v[2].map((x,a)=>x-v[0][a]);let nn=[e1[1]*e2[2]-e1[2]*e2[1],e1[2]*e2[0]-e1[0]*e2[2],e1[0]*e2[1]-e1[1]*e2[0]];const L=Math.hypot(...nn)||1;nn=nn.map(x=>x/L);
+  const cc=c8?[0,1,2].map(q=>(c8[3*idx[3*t]+q]+c8[3*idx[3*t+1]+q]+c8[3*idx[3*t+2]+q])/765):[.8,.8,.8];
+  const sel=rule({cx:c[0],cy:c[1],cz:c[2],nx:nn[0],ny:nn[1],nz:nn[2],r:Math.hypot(c[0],c[2]),H:Ht,W:Wd,D:Dp,cr:cc[0],cg:cc[1],cb:cc[2]});if(sel)n++;if(sel&&Q.get('cut'))continue;
+  for(let q=0;q<3;q++){pos.push(...v[q]);const vi=idx[3*t+q];col.push(...(sel?[1,.1,.1]:c8?[c8[3*vi]/255,c8[3*vi+1]/255,c8[3*vi+2]/255]:[.78,.76,.72]));}}
+const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setAttribute('color',new THREE.Float32BufferAttribute(col,3));geo.computeVertexNormals();
+document.getElementById('info').textContent=`${name}${J.parts?' · pièce '+src.n:''} · ${idx.length/3} triangles · ${n} choisis (rouge) · ext ${J.ext.map(x=>x.toFixed(3)).join(' × ')} · règle : ${decodeURIComponent(location.hash.replace(/^#r=/,''))||'—'}`;
+const R0=Math.max(Wd,Ht,Dp)*.62,cy=Ht/2;
+for(const [a,el] of [0,Math.PI/2,Math.PI,3*Math.PI/2,0,Math.PI/2,Math.PI,3*Math.PI/2].map((y,i)=>[y,i<4?.15:1.0])){const cv=document.createElement('canvas');cv.width=400;cv.height=400;document.getElementById('g').appendChild(cv);
+  const R=new THREE.WebGLRenderer({canvas:cv,antialias:true});const S=new THREE.Scene();S.add(new THREE.HemisphereLight(0xffffff,0x444444,1.2));const D=new THREE.DirectionalLight(0xffffff,.8);D.position.set(1,2,1.5);S.add(D);
+  S.add(new THREE.Mesh(geo,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide,flatShading:true})));
+  const C=new THREE.OrthographicCamera(-R0,R0,R0,-R0,.01,20);C.position.set(Math.sin(a)*3*Math.cos(el),cy+3*Math.sin(el),Math.cos(a)*3*Math.cos(el));C.lookAt(0,cy,0);R.render(S,C);}
+window.__done=true;
+</script></body></html>

@@ -1,0 +1,47 @@
+OBERKOMMANDO DER MEUMEU — V12.8 « ENGINS » : LE PLAN
+=====================================================
+Espace : « Oberkommando V12.8 Engins » (copie de la V12.7, exe V12.8). Git : resources/jeu, branche « engins » ;
+le dépôt de la V12.7 est le remote « v127 » (les corrections faites pendant les parties V12.7 se récupèrent par git fetch v127).
+
+LA DEMANDE DU JOUEUR (6 octobre 2026), résumée fidèlement
+- Les canons des chars ne sont pas des armes à part : ils entrent dans le prix en ressources de l'engin, au garage.
+- Le garage ne se débloque qu'après de très longues recherches, des équipes entières dessus.
+- Supprimer tous les modèles d'engins qu'il avait fournis (jeep, jeep à mitrailleuse, automitrailleuse, automitrailleuse à canon,
+  automoteur à casemate ; et la jeep qui dessinait la charrette). Les barges (générées par le code) restent. Il n'y a pas d'avion.
+- Un BUREAU DE CONCEPTION DES ENGINS, complexe et très complet :
+  * plusieurs châssis : jeeps, voitures blindées 14-18 et 39-45 (4×4, 6×6), engins blindés rapides, semi-chenillés, chenillés
+    (léger, moyen, lourd, losange 14-18), transports blindés, camions de ravitaillement ;
+  * une ou plusieurs tourelles de formes géométriques différentes (cylindre, cône, boîte, hexagone, dôme, casemate, affût),
+    chacune configurable (taille, plaques, angles) pour un aspect unique ; la taille de la tourelle dépend du poids de l'arme ;
+  * les armes des tourelles : une copie du concepteur d'armes, modifiée pour les engins — 1 tireur et 1 chargeur par tourelle ;
+  * le blindage : épaisseur et angle de chaque plaque, tailles ;
+  * le moteur : plusieurs types, plus ou moins puissants, gourmands en essence et en ressources ; le réservoir prend de la place ;
+  * l'espace : chaque engin a un volume selon sa taille ; poids et volume sont des compromis (peu de blindage = vitesse et essence
+    économisée ; des passagers = moins d'armes ou de blindage) ;
+  * les munitions choisies sont rangées dans un ou plusieurs râteliers PHYSIQUES dans l'habitacle (la balistique peut les toucher),
+    les gros obus prennent plus de place ; une soute à ressources (les jeeps et véhicules de ravitaillement) ;
+  * une vue 3D de l'engin et de ses espaces (conducteur, tireur, chargeur, mitrailleur…), à la manière de Panzerfront (exemple fourni :
+    Downloads/panzerfront-v6.html — plaques OBB, angle d'incidence, ricochet, marche du pénétrateur dans l'habitacle, éclats),
+    mais avec NOTRE modèle balistique.
+- L'ESSENCE devient une ressource essentielle : de l'essence synthétique tirée du CHARBON, au laboratoire de chimie, après une
+  recherche où une équipe complète travaille (choix du joueur). Le « carburant » au bois disparaît.
+
+L'ÉCHELLE (décidée après mesure)
+- Les engins se conçoivent en centimètres de peluche, aux proportions réelles (÷6, comme HUMAN=6 des armes) : un char moyen ≈ 1 m de long,
+  un équipage de Meumeu de 30 cm assis dedans. Masses ÷216, puissances ÷216 (les ch/t restent ceux d'un vrai char), blindage en mm de peluche
+  (le fusil perce 0,95 mm à 30 m, le fusil de précision lourd 2,2 mm).
+- À l'écran : 2 cases par mètre de peluche (un Meumeu est dessiné ≈ 0,6 case) — un char moyen fait 2 cases, comme l'ancien.
+- La consommation d'essence est calée pour le jeu (un char moyen ≈ 400 cases avec son plein) mais reste proportionnelle à la physique
+  (masse, puissance, type de moteur).
+
+LES ÉTAPES (chacune testée, commitée, notée dans JOURNAL-MODIFICATIONS-V12.8.txt)
+ A. Le modèle de conception (js/engins.js) : tables (châssis, moteurs, formes de tourelles, postes), deriveVeh (masses, volumes,
+    disposition de l'habitacle en boîtes, vitesse, essence, coûts, équipage, plaques en 3D), test/engins.mjs.
+ B. Le bureau des engins (js/engins-ui.js) : vue 3D en coupe (Three.js), placement des tourelles et râteliers, réglages, le concepteur
+    d'armes en mode « engin » pour chaque tourelle.
+ C. En jeu : les engins conçus remplacent les anciens (VEHDEF terrestres et modèles supprimés), engin 3D généré, conduite selon
+    puissance et poids, essence consommée et ravitaillée, munitions rechargées depuis les ressources, soute de ravitaillement.
+ D. Balistique 3D sur les engins : rayon contre les plaques (angle, ricochet, perforation par notre formule), trajet dans l'habitacle
+    (équipage, râteliers qui explosent, moteur, réservoir en feu), éclats.
+ E. Recherche : le garage et les techniques (moteur, chenille, tourelle) après de longs programmes à équipes entières ; l'essence de
+    charbon (programme puis production au laboratoire de chimie).

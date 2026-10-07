@@ -1,0 +1,6 @@
+node_modules/
+release/
+.runtime/
+*.exe
+jeu/test/.perf-*
+jeu/test/_electron_bins/

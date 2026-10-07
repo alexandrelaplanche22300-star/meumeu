@@ -1,0 +1,59 @@
+# Oberkommando der Meumeu : à chaque mise à jour de main, les bancs de test tournent, puis une machine Windows
+# fabrique l'application (Electron : son propre moteur, aucun navigateur) et la publie dans les « Releases ». Le dernier est toujours ici :
+# https://github.com/alexandrelaplanche22300-star/meumeu/releases/latest/download/OberkommandoDerMeumeu.exe
+name: Fabriquer l'exe
+
+on:
+  push:
+    branches: [main, 'claude/**']
+    paths: ['oberkommando/**', '.github/workflows/exe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bancs:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: oberkommando/jeu
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Les bancs de test
+        run: node test/node.mjs
+
+  exe:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: oberkommando
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Outils (Electron, electron-builder)
+        run: npm ci
+      - name: Fabriquer l'application
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --win portable --publish never
+      - name: Garder l'exe (toutes les branches)
+        uses: actions/upload-artifact@v4
+        with:
+          name: OberkommandoDerMeumeu
+          path: oberkommando/release/*.exe
+      - name: Publier (main seulement)
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release create "jeu-${{ github.run_number }}" release/OberkommandoDerMeumeu.exe \
+            --title "Oberkommando der Meumeu — version ${{ github.run_number }}" \
+            --notes "Téléchargez OberkommandoDerMeumeu.exe ci-dessous et double-cliquez : c'est une vraie application, avec son propre moteur — ni navigateur, ni Edge, ni rien à installer (Windows 10 ou 11). F11 : plein écran. Les parties sont sauvées dans %APPDATA%\\Oberkommando der Meumeu." \
+            --latest

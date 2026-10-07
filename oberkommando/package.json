@@ -1,0 +1,54 @@
+{
+  "name": "oberkommando-der-meumeu",
+  "productName": "Oberkommando der Meumeu V12.4",
+  "version": "12.8.0",
+  "description": "Oberkommando der Meumeu — gestion et guerre totale chez les peluches",
+  "author": "Meumeu",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.4.5",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "fr.meumeu.oberkommando",
+    "productName": "Oberkommando der Meumeu V12.8",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "jeu",
+        "to": "jeu",
+        "filter": [
+          "**/*",
+          "!test/**",
+          "!**/_*",
+          "!**/_*/**"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "electron/icon.png"
+    },
+    "portable": {
+      "artifactName": "OberkommandoDerMeumeu.exe"
+    }
+  }
+}
