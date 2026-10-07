@@ -93,7 +93,14 @@ export class World{
     if(options.sci)this.sciStart(cap,ci,cj);   // (V12.7) partie de test de la recherche   // partie de test : le départ établi, plus de gros stocks ; le brouillard reste (bouton « Brouillard » pour le lever)
     for(const [n,p] of G.beee.slice(0,BEEE.cities).entries())this.makeBeeeCity(...p,BEEE_CITIES[n]);
     this.spawnFauna();
-    this.log(CITY_NAMES[0],'La capitale est fondée. Les Bèè commencent eux aussi avec un centre-ville et des villageois. Les filons éloignés attisent déjà la rivalité ; les premières offensives attendront que les industries puissent tourner.');}
+    this.log(CITY_NAMES[0],'La capitale est fondée. Les Bèè commencent eux aussi avec un centre-ville et des villageois. Les filons éloignés attisent déjà la rivalité ; les premières offensives attendront que les industries puissent tourner.');
+    this.clearTreesNear(this.s.buildings.filter(b=>b.f==='meumeu'&&!b.ally&&Math.hypot(b.i-ci,b.j-cj)<50),10);}
+  // autour des bâtiments du départ : plus d'arbres à moins de `pad` cases du mur. Le bois reste plus loin.
+  clearTreesNear(list,pad=10){if(!list?.length)return;const N=this.N,kill=[];
+    for(const n of this.s.nodes){if(n.type!=='tree'||!(n.left>0))continue;for(const b of list){const [w,h]=this.sizeOf(b);
+      const dx=n.i+.5<b.i?b.i-(n.i+.5):n.i+.5>b.i+w?(n.i+.5)-(b.i+w):0,dy=n.j+.5<b.j?b.j-(n.j+.5):n.j+.5>b.j+h?(n.j+.5)-(b.j+h):0;
+      if(Math.hypot(dx,dy)<pad){kill.push(n);break;}}}
+    for(const n of kill){n.left=0;this.nodeAt[n.j*N+n.i]=-1;}}
   // Départ optionnel pour jouer immédiatement au système militaire et logistique sans escamoter la progression : les ateliers sont
   // construits, mais les choix de production, les ouvriers et l'expansion restent ceux du joueur.
   assistedStart(cap,ci,cj){

@@ -286,10 +286,11 @@ export function kitCalc(k0){const k={...KIT_DEF,...k0};const d=clamp(+k.caliberM
   const recvCm=k.receiver==='breech'?d/10*3:k.receiver==='mortar'?d/10:R.len*Math.max(1,k.caseLenCm/4.4)*Math.pow(d/7.2,.3);
   const lengthCm=(C.wheels||C.fixed?0:S.cm)+recvCm+Lc+(Z.mod==='manchon'?Math.max(3,d*.5)*Math.pow(supV/250,.5):Z.kg>.005?d*.4:0);
   const radius=clamp(Math.min(+k.sightRadiusCm||10,lengthCm),2,200);
-  // les servants : un minimum par la masse et l'affût ; chacun de plus allège la poussée
-  // (plafonné selon l'affût : épaule 1, bipied 2, trépied 3, pieux 4, roues 5 — une pièce plus lourde n'exige pas une foule,
-  // elle se pousse plus lentement ; trop lourde pour son affût, le bureau le dit)
-  const cmax={shoulder:1,bipod:2,tripod:3,emplaced:4,wheels:5,shield:5}[k.carriage]??1;const crewMin=Math.max(1,Math.min(cmax,Math.ceil(massKg/C.cap)));const crew=Math.max(crewMin,Math.min(cmax+3,Math.round(k.assignedCrew||1)));const overload=!C.fixed&&massKg/crewMin>C.cap*1.6;const perKg=massKg/crew;const speed=C.fixed?0:C.v*Math.exp(-perKg/C.k);
+  // les servants : la même formule que l'atelier (teamSize). L'affût plafonne l'équipe ;
+  // le poids n'y ajoute des bras que jusqu'à ce plafond. assignedCrew n'y change rien.
+  const piece=k.receiver==='breech'||(k.receiver==='mortar'&&k.carriage!=='shoulder'&&k.carriage!=='bipod'&&k.carriage!=='none');
+  const crew=teamSize({mass:massKg,have:C.have,howitzer:piece,carriage:k.carriage==='emplaced'?'pieux':k.carriage==='none'?'none':(k.carriage==='wheels'||k.carriage==='shield')?'roues':'porte',wheels:k.carriage==='wheels'||k.carriage==='shield'});
+  const crewMin=Math.max(1,Math.min(crew,C.fixed?5:6));const overload=!C.fixed&&massKg/crewMin>C.cap*1.6;const perKg=massKg/crew;const speed=C.fixed?0:C.v*Math.exp(-perKg/C.k);
   // le viseur : l'œil (distance d'identification) et l'erreur de visée — jamais V₀
   const bonus=k.sight==='none'?.5:clamp(radius/28,.3,1.35);const seeM=46*V.q*Math.pow(mag,.74)*bonus;
   const sightErr=V.mag?1.25/Math.sqrt(mag):k.sight==='none'?8:2.5*(32/radius)*(V.err||1);const sightMul=k.sight==='none'?.85:V.mag?1+.27*Math.log2(mag):1;
@@ -421,8 +422,14 @@ function compute(p){if(ACTIONS[p.action]?.mortar&&p.mag!==1)p={...p,mag:1};const
   const have=K?K.have:mods.has('trepied')||mods.has('roues')?'trepied':mods.has('bipied')?'bipied':A.mortar?need:'epaule';const mountOk=MOUNTS[have].rank>=MOUNTS[need].rank;
   const rk=rk0*(have==='trepied'?.25:have==='bipied'?.55:ST.rk);
   // les servants : l'arme, son affût et ce qu'il faut de munitions pour tenir (quatre chargeurs, ou 200 coups en bande)
-  const supply=(FD.belt?Math.max(200,p.mag*2):Math.max(4*p.mag,20))*rm/1000;const load=mass+supply;const perBearer=SHOOTER_KG*.3;
-  let crew=Math.max(have==='trepied'?2:1,Math.ceil(mass/(perBearer*1.4)))+(supply>perBearer?1:0)+(FD.crew||0);if(FD.belt)crew=Math.max(crew,2);if(K)crew=K.crew;const fixed=K?K.fixed:p.carriage==='pieux'||p.carriage==='fixe';crew=Math.min(12,crew);
+  const supply=(FD.belt?Math.max(200,p.mag*2):Math.max(4*p.mag,20))*rm/1000;const load=mass+supply;
+  // L'affût décide de l'équipe, pas la masse seule. Un Meumeu porte environ 0,45 kg ; jusqu'à 0,63 kg il s'en charge encore.
+  // Au-delà on ajoute des bras, puis on s'arrête : épaule 1, bipied 2, trépied 4, obusier ou roues 6, pièce ancrée 5.
+  // Le surplus se paie en lenteur, pas en une foule de pourvoyeurs.
+  const served=MOUNTS[need].rank>MOUNTS[have].rank?need:have;
+  const mnt=crewMount(p,A,mods);
+  const crewN=teamSize({mass,have:served,supply,feed:FD,...mnt});
+  const crew=crewN;const fixed=K?K.fixed:p.carriage==='pieux'||p.carriage==='fixe';
   const roles=Array.from({length:crew},(_,i)=>ROLES[i]||`pourvoyeur ${i-2}`);const setup=K?K.setup:(have==='trepied'?6+2*(crew-1):have==='bipied'?1.5:0)*(A.howitzer?CG.setup:1);
   // la signature : l'éclair (d'autant plus qu'il reste de la poudre à brûler à la bouche), le bruit, le claquement supersonique
   const flash=rocket?Math.max(.15,1-(boost.ig||0)*3):Math.min(1,(1-eta/.32+.15)*Math.sqrt(c/.032)*.6)*(mods.has('cacheflamme')?.2:1)*(mods.has('frein')?1.3:1)*(mods.has('manchon')?.1:1);
@@ -457,10 +464,11 @@ function compute(p){if(ACTIONS[p.action]?.mortar&&p.mag!==1)p={...p,mag:1};const
   const coreK=C.core||coreF?1+(.55-(p.coreD??.55))*.6:1;const pen=K&&!C.shaped?K.penAt:v=>C.shaped?C.shaped*d:coreK*C.K*(1+coreF*1.6)*Math.pow(mp,.7)*Math.pow(Math.max(0,v),1.43)/Math.pow(dpr,1.07)*(C.core?1:Math.max(0,Math.min(1,(v-150)/350)));
   // la portée utile : là où un tireur moyen touche encore un Meumeu debout (7 cm × 20 cm) une fois sur trois
   const erf=z=>{const t=1/(1+.3275911*Math.abs(z));const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-z*z);return z>=0?y:-y;};
-  const sigAt=R=>{const r2=at(R+1),r=at(R);const slope=Math.abs(r2.drop-r.drop);const mag=mods.has('lunette')?Math.max(1,Math.min(16,p.sightMag??2)):1;const radius=Math.max(2,Math.min((p.sightRadius??Math.min(32,p.L/10+8)),p.L/10+18));const eye=K?K.aimMrad:mods.has('lunette')?.95/Math.sqrt(mag):mods.has('reflex')?(R<40?1.05:1.5):1.8*32/radius;return Math.hypot(moa*.291*R/1000,eye*(have==='trepied'?.45:have==='bipied'?.65:1)*R/1000*(mods.has('lunette')&&R<15?1.6:1),slope*.12*R,.004);};
+  const partsAt=R=>{const r2=at(R+1),r=at(R);const slope=Math.abs(r2.drop-r.drop);const mag=mods.has('lunette')?Math.max(1,Math.min(16,p.sightMag??2)):1;const radius=Math.max(2,Math.min((p.sightRadius??Math.min(32,p.L/10+8)),p.L/10+18));const eye=K?K.aimMrad:mods.has('lunette')?.95/Math.sqrt(mag):mods.has('reflex')?(R<40?1.05:1.5):1.8*32/radius;return {disp:moa*.291*R/1000,aim:eye*(have==='trepied'?.45:have==='bipied'?.65:1)*R/1000*(mods.has('lunette')&&R<15?1.6:1),drop:slope*.12*R};};
+  const sigAt=R=>{const q=partsAt(R);return Math.hypot(q.disp,q.aim,q.drop,.004);};
   const hitP=R=>{const sig=sigAt(R);const pHit=erf(.035/(sig*Math.SQRT2))*erf(.1/(sig*Math.SQRT2));if(pel<2)return pHit;
     const cone=(C.spread||20)/1000*R/2;const cover=Math.min(1,(.07*.2)/(Math.PI*cone*cone+1e-9));return Math.min(1,1-Math.pow(1-Math.max(pHit*.6,cover),Math.max(1,pel*.6)));};
-  let eff=0;for(let R=2;R<=600;R+=2){if(hitP(R)<.33||at(R).beyond)break;eff=R;}
+  let eff=0,effWhy='frein';for(let R=2;R<=600;R+=2){if(at(R).beyond){effWhy='frein';break;}if(hitP(R)<.33){const q=partsAt(R);effWhy=q.disp>=q.aim&&q.disp>=q.drop?'dispersion':q.aim>=q.drop?'visee':'chute';break;}eff=R;}
   // ce que ça coûte (en caisses) : pour mille coups, pour une arme
   // plomb : le noyau ; cuivre : la chemise et l'étui ; fer : le noyau dur des perforantes ; poudre : la charge (et la charge explosive)
   const core=m*(C.rare?.45:1)*(C.ferx||1);const costK={plomb:C.mono?0:core*(C.ferx>1?.3:C.soft?1:.8)/CRATE_KG,fer:(C.ferx>1?core*.7:coreF*m*.6)/CRATE_KG,cuivre:(core*(C.mono?1:C.soft?0:.2)+caseMass+(C.shaped?m*.3:0))/CRATE_KG,poudre:c/(CRATE_KG*500)*1000+(C.inc?m*.1/CRATE_KG:0)+(C.shaped?m*.3/CRATE_KG:0)+(C.tracer?.05:0),pieces:.15+(C.tracer?.08:0)+(C.he?.2:0)};
@@ -488,13 +496,15 @@ function compute(p){if(ACTIONS[p.action]?.mortar&&p.mag!==1)p={...p,mag:1};const
   const carry=solo?Math.max(p.mag,Math.min(carryKg,A.auto?p.mag*6:Math.max(p.mag*4,Math.ceil(60/p.mag)*p.mag))):carryKg;
   // ce qui entre dans le corps : pour une gerbe, un plomb (ou une fléchette) ; pour un sabot, le dard
   const proj={p:{...p,d:dpr,l:lpr,nose:pel>1&&!C.dart?'ronde':p.nose},m:mp,l:lpr,Sg:Math.max(Sg,pel>1||sub<1?5:Sg),dart:!!C.dart};
-  const D={p:{...p,l},Dc,neckL,shL,shAng,caseless,meplat,fins,barrels,salvo,feed:FD,tube:TP,carriage:CG,bull:!!ST.bull,rocket,boost,vTop,m,mp,pel,proj,l,noseLen,v0,E0,P,eta,Sg,stab,BC,SD,A_mm2,caseLen,COL,caseMass,rm,perCrate,mass,massEmpty,recoil,rk,mg,life,heatShot,sustain,rpm,cyc,aim,moa,table,at,pen,eff,hitP,costK,costW,hoursW,carry,pistol,sigAt,hef,core:coreF,jacket,wallx,tracer:!!C.tracer,mods:[...mods],modKg,shield,need,have,mountOk,rk0,crew,fixed,roles,setup,supply,flash,ir:mods.has('infrarouge')?irOf(p):null,dB,dB0:Math.round(dB0),actDb,sup:sup&&{V:sup.V,n:sup.n,arch:sup.arch,R:+sup.R.toFixed(1),life:sup.A.life||0,floor:sup.A.floor||1,wet:sup.A.wet||0,wetK:sup.A.wetK||1},crackDb,crack:v0>C_SOUND,zero,hs,los,th,he,lead,human:HUMAN,name:`${fmt(d,1)} × ${fmt(caseLen,caseLen<10?1:0)}`};
+  const D={p:{...p,l},Dc,neckL,shL,shAng,caseless,meplat,fins,barrels,salvo,feed:FD,tube:TP,carriage:CG,bull:!!ST.bull,rocket,boost,vTop,m,mp,pel,proj,l,noseLen,v0,E0,P,eta,Sg,stab,BC,SD,A_mm2,caseLen,COL,caseMass,rm,perCrate,mass,massEmpty,recoil,rk,mg,life,heatShot,sustain,rpm,cyc,aim,moa,table,at,pen,eff,effWhy,hitP,costK,costW,hoursW,carry,pistol,sigAt,hef,core:coreF,jacket,wallx,tracer:!!C.tracer,mods:[...mods],modKg,shield,need,have,mountOk,rk0,crew,fixed,roles,setup,supply,flash,ir:mods.has('infrarouge')?irOf(p):null,dB,dB0:Math.round(dB0),actDb,sup:sup&&{V:sup.V,n:sup.n,arch:sup.arch,R:+sup.R.toFixed(1),life:sup.A.life||0,floor:sup.A.floor||1,wet:sup.A.wet||0,wetK:sup.A.wetK||1},crackDb,crack:v0>C_SOUND,zero,hs,los,th,he,lead,human:HUMAN,name:`${fmt(d,1)} × ${fmt(caseLen,caseLen<10?1:0)}`};
   {const base={verrou:.002,bascule:.001,levier:.004,pompe:.004,semi:.006,gaz:.005,recul:.007,auto:.008,rotatif:.004,bouche:.001,culasse:.002}[p.action]??.005;const FDk={interne:.8,boite:1,courbe:1.05,tambour:1.6,bande:1.2,plateau:1.3,tube:1,helicoidal:1.8,tremie:2.2};
     const CMk=CASEMATS[p.caseMat]||CASEMATS.laiton,RMk=p.rim||'sans';let r=base*(FDk[p.feed]||1)*(D.P>460?1+(D.P-460)/200:1)*(p.caseMat==='alu'&&D.P>380?2:1)*(p.caseMat==='polymere'?1.2:1)*(D.caseless?1.5:1)
       *(RMk==='bourrelet'&&['boite','tambour','helicoidal'].includes(p.feed)?1.8:1)*(C.soft&&D.v0>550?2:1)*((p.shoulder??30)>50?1.3:1)*((p.neck??1.1)<.5?1.4:1)*(D.mods.includes('manchon')?1.2:1)*(D.barrels>1&&!ACTIONS[p.action]?.multi?1.3:1);
     D.jam=Math.min(.25,r);D.clear=ACTIONS[p.action]?.auto?4:ACTIONS[p.action]?.mortar?3:1.5;}
   // pour le reste du jeu : la vue (détection), les servants minimum, la poussée, la longueur hors tout
-  if(K){D.kit=K;D.overload=K.overload;D.sightMul=K.sightMul;D.sightMag=K.sightMag;D.optic=opticOf(K.sightMag,p.sightObj??K.k?.objectiveMm);D.sightAimMrad=K.aimMrad;D.crewMin=K.crewMin;D.pushMps=K.speed;D.lengthMm=K.lengthMm;D.seeM=K.seeM;D.blastCm=K.blastCm;D.wheels=K.wheels;}
+  if(K){K.crew=crew;const per=mass/Math.max(1,crew);const speed=K.fixed?0:K.carr.v*Math.exp(-per/K.carr.k);K.speed=speed;K.crewMin=crew;
+    K.mobility=K.fixed?'Fixe sur pieux : on l’a choisi, elle ne bouge plus.':K.wheels?`Sur roues, poussée par ${crew} meumeu. Plus c’est lourd par servant, plus c’est lent.`:crew>1?`Portée par ${crew} meumeu.`:'Épaulée ou portée par un seul servant.';
+    D.kit=K;D.overload=K.overload;D.sightMul=K.sightMul;D.sightMag=K.sightMag;D.optic=opticOf(K.sightMag,p.sightObj??K.k?.objectiveMm);D.sightAimMrad=K.aimMrad;D.crewMin=crew;D.pushMps=speed;D.lengthMm=K.lengthMm;D.seeM=K.seeM;D.blastCm=K.blastCm;D.wheels=K.wheels;}
   else{const lu=mods.has('lunette'),mag=lu?Math.max(1,Math.min(16,p.sightMag??2)):1;D.sightMul=lu?1+.27*Math.log2(mag):1;D.sightMag=mag;D.optic=opticOf(mag,p.sightObj);D.crewMin=crew;{const pieux=p.carriage==='pieux'||p.carriage==='fixe';const kgS=mass/Math.max(1,crew);D.pushMps=pieux?0:A.howitzer||have==='trepied'&&mass>8?.86*Math.exp(-kgS/10):.78*Math.exp(-kgS/2.15);D.fixed=pieux;}D.lengthMm=Math.round(p.L+COL*2.4+8+((STOCKS[p.stock]||STOCKS.bois).kg?Math.max(55,60+COL*1.6):COL*.3+6));const radius=Math.max(2,Math.min(p.sightRadius??Math.min(32,p.L/10+8),D.lengthMm/10));D.sightRadius=radius;D.sightAimMrad=lu?.95/Math.sqrt(mag):mods.has('reflex')?1.05:1.8*32/radius;D.seeM=46*(lu?1.15*Math.pow(mag,.74):1.14)*Math.max(.5,Math.min(1.35,radius/28));D.blastCm=0;D.wheels=!!A.howitzer;}
   D.verdicts=verdicts(D,p,C);return D;}
 // Ce qu'on en dit, en clair : ses forces, ses défauts — chaque avantage a son prix.
@@ -579,7 +589,28 @@ export function gel(D0,v,rnd=Math.random,len=.16){const D=D0.proj||D0;const R={d
   for(const q of R.path)if(yawAt==null&&q.yaw>.35&&q.p[2]>=0)yawAt=q.p[2];for(const t of R.tc)if(t.r>maxTc){maxTc=t.r;tcAt=t.p[2];}
   return {R,len,depth,exit:!!bullet.exit,yawAt,fragAt:R.fragAt?R.fragAt[2]:null,maxTc,tcAt,fragmented:R.fragmented,expanded:R.expanded,E:R.E,vOut:bullet.exit?bullet.v:0,neck:neckOf(D)};}
 
+// Les servants nécessaires. L'affût plafonne l'équipe ; le poids ne fait qu'y ajouter des bras, jamais une foule.
+// Même appel pour l'atelier ancien, la fiche continue et les canons d'engin (carriage 'none' : pas un affût à roues).
+export function crewMount(p,A,mods){
+  const k=p?.kit,set=mods?.has?mods:new Set(p?.mods||[]);
+  if(k?.carriage){
+    const piece=k.receiver==='breech'||(k.receiver==='mortar'&&k.carriage!=='shoulder'&&k.carriage!=='bipod'&&k.carriage!=='none')||!!A?.howitzer;
+    return {howitzer:piece,carriage:k.carriage==='emplaced'?'pieux':k.carriage==='none'?'none':(k.carriage==='wheels'||k.carriage==='shield')?'roues':'porte',wheels:k.carriage==='wheels'||k.carriage==='shield'||set.has('roues')};
+  }
+  return {howitzer:!!A?.howitzer,carriage:p?.carriage,wheels:set.has('roues')};
+}
+export function teamSize({mass,have,supply=0,feed,howitzer=false,carriage,wheels=false}){
+  const haul=SHOOTER_KG*.3*1.4, planted=carriage==='pieux'||carriage==='fixe'||carriage==='plateforme';
+  const wheeled=wheels||(howitzer&&carriage!=='none'&&(carriage==='roues'||carriage==='bifleche'||!carriage));
+  let cap=have==='epaule'?1:have==='bipied'?2:planted?5:wheeled||howitzer?6:4;
+  const base=howitzer?3:have==='trepied'?2:1; cap=Math.max(cap,Math.min(6,base));
+  let crew=Math.max(base,Math.min(cap,Math.ceil(Math.max(0,mass)/haul)));
+  const belt=!!feed?.belt, extra=!!feed?.crew;
+  if((belt||extra)&&crew<cap)crew++;
+  else if(supply>SHOOTER_KG*.3*1.2&&crew<cap)crew++;
+  return Math.max(1,Math.min(6,crew));}
 // Les servants nécessaires quand le porteur ne ressent qu'une part k du poids (la troupe de choc : k = 0,5) — même formule que derive(), jamais plus que D.crew.
-export function crewOf(D,k=1){if(!D||k>=1)return D?.crew||1;const FD=D.feed||{},mag=D.p?.mag||1,rm=D.rm||0;const supply=(FD.belt?Math.max(200,mag*2):Math.max(4*mag,20))*rm/1000*k;const pb=SHOOTER_KG*.3;
-  let c=Math.max(D.have==='trepied'?2:1,Math.ceil(D.mass*k/(pb*1.4)))+(supply>pb?1:0)+(FD.crew||0);if(FD.belt)c=Math.max(c,2);return Math.max(1,Math.min(D.crew,12,c));}
+export function crewOf(D,k=1){if(!D||k>=1)return D?.crew||1;const A=ACTIONS[D.p?.action]||{};const served=(MOUNTS[D.need]?.rank||0)>(MOUNTS[D.have]?.rank||0)?D.need:D.have;
+  const c=teamSize({mass:D.mass*k,have:served,supply:(D.supply||0)*k,feed:D.feed,...crewMount(D.p,A)});
+  return Math.max(1,Math.min(D.crew,c));}
 export const heavyFor=(D,k=1)=>D.mass*k>SHOOTER_KG*.08;

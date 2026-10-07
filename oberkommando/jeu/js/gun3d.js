@@ -10,6 +10,11 @@ import {MATS} from './armor.js';
 import {loadModel} from './mesh3d.js';
 
 const PI=Math.PI;
+// La tête penche vers le canon. Ça vaut pour n'importe quel maillage (peluche, soldat, tenue) : le haut du corps tourne, le torse non.
+export function nodHead(src,ang=.62){const g=src.clone(),P=g.attributes.position,n=P.count;let H=0;for(let v=0;v<n;v++)H=Math.max(H,P.getY(v));
+  const py=H*.58,c=Math.cos(ang),s=Math.sin(ang);
+  for(let v=0;v<n;v++){const y0=P.getY(v),t=Math.max(0,Math.min(1,(y0-H*.50)/(H*.16)));if(t<=0)continue;const yy=y0-py,z=P.getZ(v),y2=yy*c-z*s,z2=yy*s+z*c;P.setY(v,py+yy+(y2-yy)*t);P.setZ(v,z+(z2-z)*t);}
+  P.needsUpdate=true;g.computeVertexNormals();return g;}
 class Build{
   constructor(){this.P=[];this.N=[];this.C=[];this.col=new THREE.Color();this.m=new THREE.Matrix4();this.nm=new THREE.Matrix3();this.xf=null;}
   // xf : une transformation appliquée à tout ce qu'on ajoute tant qu'elle est posée (la grappe de tubes inclinée d'une batterie)
@@ -215,7 +220,7 @@ export class GunViewer{
     const m=gunModel(D);this.m=m;const mesh=new THREE.Mesh(m.geo,this.mat);mesh.castShadow=true;mesh.receiveShadow=true;this.holder.add(mesh);this.mesh=mesh;
     this.floorY=-(D.have==='epaule'&&!D.rocket?185:D.have==='bipied'?50:m.gh||100);this.floor.position.y=this.floorY;this.grid.position.y=this.floorY;
     // des Meumeu de 30 cm derrière l'arme : le tireur, le chargeur, les pourvoyeurs — tous à la même échelle, uniforme (couché : le même Meumeu, basculé)
-    if(this.meumeu){const M=this.meumeu,k=300/M.ext[1];const add=(x,z,pose,tint=0xe6dcc6,yaw=PI/2)=>{const g=new THREE.Mesh(M.geo,new THREE.MeshLambertMaterial(M.mat?{map:M.mat.map,color:tint,flatShading:true}:{vertexColors:true,color:tint,flatShading:true}));g.scale.setScalar(k);g.castShadow=true;
+    if(this.meumeu){const M=this.meumeu,k=300/M.ext[1];const add=(x,z,pose,tint=0xe6dcc6,yaw=PI/2)=>{const geo=pose==='couche'?(M.nod||(M.nod=nodHead(M.geo))):M.geo;const g=new THREE.Mesh(geo,new THREE.MeshLambertMaterial(M.mat?{map:M.mat.map,color:tint,flatShading:true}:{vertexColors:true,color:tint,flatShading:true}));g.scale.setScalar(k);g.castShadow=true;
         g.position.set(x,this.floorY,z);g.rotation.y=yaw;if(pose==='couche'){g.rotation.set(PI/2,0,0);g.rotation.order='YXZ';g.rotation.y=yaw;g.position.y=this.floorY+60;}this.people.add(g);};
       const bear=(D.roles||[]).filter(r=>r!=='tireur'&&r!=='chargeur').length;const G=layout(D);
       add(-75,0,D.have==='epaule'?'debout':D.have==='bipied'?'couche':'genou');

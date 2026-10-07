@@ -201,6 +201,7 @@ table.dem td{padding:3px 4px;border-bottom:1px dotted var(--line);vertical-align
 .dz .tip{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle;border:1px solid #0003}
 .dz-mods{display:flex;flex-wrap:wrap;gap:4px;padding-top:4px}.dz-mods .chip{font-size:12px}
 .dz-help{background:var(--card);border:1px solid var(--teal);border-radius:10px;padding:4px 12px 8px;margin-bottom:6px;min-height:120px}.dz-help p{font-size:12.5px;line-height:1.45;margin:0}
+.dz-levers{margin:2px 0 6px;padding:4px 0 2px;border-bottom:1px solid color-mix(in srgb,var(--teal) 35%,transparent)}.dz-levers p{margin:0 0 3px}
 .dz-help .bad,.dz-crew .bad{color:var(--red)}.dz-crew .good{color:var(--good)}.dz-roles{display:flex;gap:4px;flex-wrap:wrap;margin:4px 0}.dz-crew p{margin:4px 0}
 .dz-cal i{display:block;font-style:normal;font-size:11px;color:var(--muted)}
 .dz-mid h3 .small{margin-left:auto}

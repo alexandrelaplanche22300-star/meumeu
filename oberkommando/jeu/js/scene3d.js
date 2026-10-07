@@ -7,7 +7,7 @@
 import * as THREE from './lib/three.module.js';
 import {loadModel,materialOf} from './mesh3d.js';
 import {T,DAY,ORE_COL,CARRY,BUILDINGS} from './data.js';
-import {gunModel} from './gun3d.js';
+import {gunModel,nodHead} from './gun3d.js';
 import {derive} from './ballistics.js';
 import {layout} from './gunart.js';
 import {VEHDEF} from './vehicules.js';
@@ -267,6 +267,7 @@ export class Scene3D{
     const hand=[pv[0]+dir.x*A.len,pv[1]+dir.y*A.len,pv[2]+dir.z*A.len],G=layout(D),sMm=H/300*1.12,grip=(G.rs||60)*sMm/sc,back=(st.kick||0)*.03*Hmod;
     const b=toW(hand[0],hand[1],hand[2]-grip-back);const e=this.gunEntry(u,D);if(e.pool)e.pool.add(b[0],b[1],b[2],yaw-PI/2,sMm,sMm,sMm,{roll:-.35*k});}
   // le modèle 3D d'une arme et son groupe d'instances (gardés par conception)
+  nodPool(name){const key='nod_'+name;if(this.pools[key])return this.pools[key];const m=this.M[name];if(!m?.geo)return null;const p=new Pool(nodHead(m.geo),{cap:500,base:m.mat||null});this.scene.add(p.mesh);this.pools[key]=p;return p;}
   gunEntry(u,D){const crew=D.crew>1;const key=u.w+'|'+JSON.stringify(D.p)+'|'+(D.mods||[]).join(',')+'|'+(crew?'m':'h');
     let e=this.guns.get(key);if(!e){try{const m=gunModel(D,{inhand:!crew});e={m,pool:new Pool(m.geo,{cap:300,flat:false})};this.scene.add(e.pool.mesh);}catch(err){console.warn('arme 3D',err);e={m:null,pool:null};}this.guns.set(key,e);}
     this.gunsUsed.add(e);return e;}
@@ -557,7 +558,7 @@ export class Scene3D{
       else if(skr)this.holdSkin(u,Wg,H,Hmod,sc,y,ux,uy,pose,mod,{ph,amp,tint,kick,aiming,reloading,rp});
       else if(pose==='up'){pool.add(ux,0,uy,y,sc,sc,sc,{tint,ph,amp,arm,kick});}
       else if(pose==='crouch'){pool.add(ux,0,uy,y,sc,sc*.72,sc,{tint,ph:0,amp:0,arm,kick});}
-      else{const r=Hmod*sc*.22;pool.add(u.x,r,u.y,y,sc,sc,sc,{tint:down?0x9a8a80:tint,pitch:down?-PI/2:PI/2});}
+      else{const r=Hmod*sc*.22,bip=pose==='prone'&&Wg?.have==='bipied',use=bip?(this.nodPool(mod)||pool):pool;use.add(u.x,r,u.y,y,sc,sc,sc,{tint:down?0x9a8a80:tint,pitch:down?-PI/2:PI/2});}
       // ce qu'on porte, devant soi (les bras le tiennent) : des bûches, des pierres, un sac de vivres, un tonnelet, des caisses
       const front=(dx,dy,dz)=>[ux+hx*(.30*H+dz)-hz*dx,dy,uy+hz*(.30*H+dz)+hx*dx];
       if(carry&&pose!=='down'){const res=u.carry.k,f=Math.min(1,u.carry.n/CARRY),cnt=1+Math.floor(f*2.99),h0=H*(pose==='crouch'?.38:.50);
