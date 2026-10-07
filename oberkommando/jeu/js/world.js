@@ -125,14 +125,19 @@ export class World{
     Object.assign(cap.stock,{bois:1600,pierre:1200,vivres:1600,pieces:520,charbon:420,fer:320,plomb:160,cuivre:140,salpetre:140,poudre:140,explosifs:50,sante:40});
     for(let n=0;n<16;n++){const a=n/16*Math.PI*2+.3;this.addUnit(F,'villageois',ci+Math.cos(a)*8.6,cj+Math.sin(a)*8.6);}
     const C=(()=>{const at=this.buildSpot(F,'centre_recherche',ci,cj,8,30);return at?this.addBuilding(F,'centre_recherche',at[0],at[1],true):null;})();
-    for(const k of ['four','fonderie']){const at=this.buildSpot(F,k,ci,cj,8,30);if(at)this.addBuilding(F,k,at[0],at[1],true);}
+    if(!this.s.innov.done.includes('bureau_vehicules'))this.s.innov.done.push('bureau_vehicules');
+    for(const k of ['four','fonderie','bureau_engins']){const at=this.buildSpot(F,k,ci,cj,8,36);if(at)this.addBuilding(F,k,at[0],at[1],true);}
     const have=new Set(this.s.buildings.filter(b=>b.f===F&&b.k==='mine'&&b.ore!=null).map(b=>this.s.nodes[b.ore]?.res));
-    const more=this.placeMines(F,ci,cj,COMMON_ORES.filter(r=>!have.has(r)),2,110);
+    const more=this.placeMines(F,ci,cj,COMMON_ORES.filter(r=>!have.has(r)),2,280);
+    const idle=()=>this.s.units.filter(u=>u.f===F&&u.k==='villageois'&&!u.task&&!u.ally);
+    for(const b of this.s.buildings){if(b.f!==F||!b.done||(b.k!=='arsenal'&&b.k!=='manufacture'))continue;for(const u of idle().slice(0,BUILDINGS[b.k].workers||2))u.task={kind:'work',b:b.id};}
+    const barr=this.s.buildings.find(b=>b.f===F&&b.k==='caserne'&&b.done);
+    for(let i=0;i<8;i++)this.addUnit(F,'soldat',(barr?barr.i+1:ci)+(i%4)*.85,(barr?barr.j+4:cj+8)+Math.floor(i/4)*.8,{rounds:40,armor:'gilet'});
     const L=this.s.buildings.find(b=>b.f===F&&b.k==='labo'),A=this.s.buildings.find(b=>b.f===F&&b.k==='armurerie');
-    const V=this.s.units.filter(u=>u.f===F&&u.k==='villageois'&&!u.task&&!u.ally);const posts={ingenieur:A,chimiste:L,physicien:C};let n=0;
+    const V=idle();const posts={ingenieur:A,chimiste:L,physicien:C};let n=0;
     for(const [role,xp] of [['ingenieur',180],['ingenieur',90],['ingenieur',30],['ingenieur',5],['chimiste',140],['chimiste',70],['chimiste',30],['chimiste',0],['physicien',330],['physicien',80],['physicien',40],['physicien',20],['physicien',0]]){const u=V[n++];const b=posts[role];if(!u||!b)continue;
       u.k='savant';u.sci={role,xp,born:this.s.t,task:null,pid:null,papers:0,bold:+this.rand().toFixed(2)};this.labEnter(u,b);}
-    this.log(CITY_NAMES[0],`Partie de test de la recherche : centre de recherche, laboratoire de chimie, bureau d’études, four, fonderie, mines sur tous les filons${more.length?' (dont '+more.join(', ')+')':''}, treize savants à leur poste. Concevez une arme au bureau d’études, puis « Lancer le programme ».`,'good');}
+    this.log(CITY_NAMES[0],`Recherche : centre, laboratoire, bureau d’études, bureau des engins, four, fonderie, atelier, arsenal et manufacture au travail, garnison à la caserne, mines sur tous les filons${more.length?' (ajout : '+more.join(', ')+')':''}, savants à leur poste.`,'good');}
   // Une case libre pour un bâtiment, en spirale autour de (x,y) entre les rayons r0 et r1.
   buildSpot(F,k,x,y,r0=4,r1=26){for(let r=r0;r<r1;r++)for(let a=0;a<48;a++){const i=Math.round(x+Math.cos(a/48*6.283)*r-BUILDINGS[k].size[0]/2),j=Math.round(y+Math.sin(a/48*6.283)*r-BUILDINGS[k].size[1]/2);if(this.canPlace(F,k,i,j).ok)return [i,j];}return null;}
   // Une mine en service sur le filon le plus proche de chaque ressource demandée (la mine d'abord : elle exige de l'espace autour
