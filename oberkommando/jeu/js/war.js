@@ -3,7 +3,7 @@
 //  · approche : en ligne, au pas du plus lent, vers l'objectif (un point stratégique : gare, mine, dépôt chargé…) ;
 //  · feu : au contact (ou dès qu'on leur tire dessus), ils s'arrêtent à la limite de leur portée utile, se couchent derrière
 //    ce qui couvre (arbre, rocher, mur, ruine) et tirent — jamais en marchant ;
-//  · bond : si l'ennemi est hors de portée ou caché, une moitié avance pendant que l'autre la couvre, puis l'inverse ;
+//  · bond : hors de portée, une moitié avance pendant que l'autre couvre. Sous le feu, le même bond, court, puis on s'arrête pour tirer — sans se coller ;
 //  · assaut : quand ils sont bien plus nombreux que ce qu'ils voient et que l'ennemi est cloué au sol, ils chargent ;
 //  · repli : trop de pertes, trop de feu : fumigènes, les valides emportent les blessés, retour à la ville ;
 //  · objectif : plus personne pour le défendre, ils saccagent la cible (feu, charges).
@@ -430,7 +430,7 @@ export const WAR={
           if(!enemy&&supp>.2&&b.kind!=='defense')for(const u of up)u.charge=true;
           // au contact, ou dès qu'on leur tire dessus : ils se déploient là, à distance de tir, au lieu de marcher sous le feu
           if(enemy&&(d2(enemy.x,enemy.y,c[0],c[1])<range*1.55||supp>.2)){const de0=d2(enemy.x,enemy.y,c[0],c[1]);
-          if(de0<=range*1.02){this.bandSet(b,'feu','à portée : on s’arrête pour tirer');b.dir=[(enemy.x-c[0])/(de0||1),(enemy.y-c[1])/(de0||1)];for(const u of up){u.charge=false;u.task.tx=u.x;u.task.ty=u.y;u.path=null;}break;}
+          if(de0<=range*1.02){this.bandSet(b,'feu','à portée : on s’arrête pour tirer');b.creep=0;b.creepAt=this.s.t+.55;b.dir=[(enemy.x-c[0])/(de0||1),(enemy.y-c[1])/(de0||1)];for(const u of up){u.charge=false;u.task.tx=u.x;u.task.ty=u.y;u.path=null;}break;}
           this.bandDeploy(b,up,c,enemy,stand);break;}
           if(goal&&b.kind!=='defense'&&b.kind!=='contre'&&d2(goal[0],goal[1],c[0],c[1])<(b.kind==='rail'?2.5:Math.max(3,range*.7))&&!enemy){this.bandSet(b,'objectif');if(b.kind!=='rail')for(const u of up)this.bandToObjective(u,b);break;}
           const g0=goal||b.from;
@@ -458,17 +458,24 @@ export const WAR={
           if(b.eval>0)break;b.eval=EVAL;
           const de=d2(enemy.x,enemy.y,c[0],c[1]);const esupp=seen.reduce((a,e)=>a+(e.supp||0),0)/seen.length;
           if(esupp>.45&&b.morale>.6)this.bandLine(b,up,b.anchor||c,b.dir||[1,0],enemy);
-          if(de>range*1.05){this.bandSet(b,'bond','hors de portée : un bond, puis on se recale pour tirer');b.half=0;this.bandBound(b,up,c,enemy,stand);break;}
-          if(de<range*.45&&b.morale<.75){this.bandDeploy(b,up,c,enemy,stand);}   // trop près, pas assez sûrs : on reprend ses distances
-          // l'assaut en masse : deux fois plus nombreux, le moral haut, l'ennemi plaqué au sol (ou l'échange qui s'éternise)
-          else if(de>range*.82&&up.length>=6&&up.length>=Math.max(1,seen.filter(e=>e.w||UDEF(e).img).length)*2&&b.morale>.6&&(esupp>.3||(b.fightT||0)>1)&&de<range*1.02){this.bandSet(b,'bond','on avance un peu, par bonds, sans se coller');b.half=0;this.bandBound(b,up,c,enemy,stand);
-            const L=up[0];this.log('Front',`${up.length} Bèè montent à l’assaut par bonds contre ${seen.length} des nôtres !`,'bad');if(L)this.s.fog||this.emit({type:'wave',n:up.length,x:L.x,y:L.y,from:[L.x,L.y]});}
+          if(de>range*1.05){this.bandSet(b,'bond','hors de portée : un bond, puis on se recale pour tirer');b.half=0;b.creep=0;this.bandBound(b,up,c,enemy,stand);break;}
+          if(de<range*.45&&b.morale<.75){b.creepAt=this.s.t+1.2;this.bandDeploy(b,up,c,enemy,stand);}   // trop près, pas assez sûrs : on reprend ses distances
+          // une salve, puis un pas (une moitié) sans descendre sous 62 % de la portée. Le cri d'assaut reste réservé au vrai surnombre.
+          else if(de>range*.62+1.1&&de<range*1.02&&b.morale>.45&&(b.fightT||0)>.3&&this.s.t>=(b.creepAt||0)){
+            const big=up.length>=6&&up.length>=Math.max(1,seen.filter(e=>e.w||UDEF(e).img).length)*2&&b.morale>.6&&(esupp>.3||(b.fightT||0)>1);
+            this.bandSet(b,'bond',big?'on avance un peu, par bonds, sans se coller':'un pas, puis on se recale pour tirer');
+            b.half=1-(b.half||0);b.creep=1;this.bandBound(b,up,c,enemy,stand);
+            if(big){const L=up[0];this.log('Front',`${up.length} Bèè montent à l’assaut par bonds contre ${seen.length} des nôtres !`,'bad');if(L)this.s.fog||this.emit({type:'wave',n:up.length,x:L.x,y:L.y,from:[L.x,L.y]});}
+          }
           break;}
         case 'bond':{for(const u of up)u.charge=false;
           const movers=up.filter((u,q)=>q%2===b.half);const done=movers.every(u=>d2(u.x,u.y,u.task.tx,u.task.ty)<.6);
-          if(enemy&&d2(enemy.x,enemy.y,c[0],c[1])<=range*.55){this.bandDeploy(b,up,c,enemy,stand);break;}
-          if(enemy&&d2(enemy.x,enemy.y,c[0],c[1])<=range){this.bandSet(b,'feu','à portée : on s’arrête pour tirer');for(const u of up){u.charge=false;u.task.tx=u.x;u.task.ty=u.y;u.path=null;}break;}
-          if(done||b.t>3){b.half=1-b.half;b.t=0;if(!enemy&&this.s.t-b.contactT>2){this.bandSet(b,'approche');break;}this.bandBound(b,up,c,enemy,stand);}break;}
+          const de=enemy?d2(enemy.x,enemy.y,c[0],c[1]):1e9;
+          if(enemy&&de<=range*.58){b.creep=0;b.creepAt=this.s.t+1.2;this.bandDeploy(b,up,c,enemy,stand);break;}
+          // se mettre à portée : on s'arrête dès qu'on y est. Le petit pas sous le feu, lui, va jusqu'au bout.
+          if(!b.creep&&enemy&&de<=range){this.bandSet(b,'feu','à portée : on s’arrête pour tirer');b.creepAt=this.s.t+.6;for(const u of up){u.charge=false;u.task.tx=u.x;u.task.ty=u.y;u.path=null;}break;}
+          if(b.creep&&(done||b.t>.45)){b.creep=0;b.creepAt=this.s.t+.7;this.bandSet(b,'feu','on s’arrête pour tirer');for(const u of up){u.charge=false;u.task.tx=u.x;u.task.ty=u.y;u.path=null;}break;}
+          if(!b.creep&&(done||b.t>3)){b.half=1-b.half;b.t=0;if(!enemy&&this.s.t-b.contactT>2){this.bandSet(b,'approche');break;}this.bandBound(b,up,c,enemy,stand);}break;}
         case 'assaut':{if(!enemy){this.bandSet(b,goal?'approche':'repli');break;}
           if(b.morale<.45){this.bandDeploy(b,up,c,enemy,stand);break;}
           // un assaut organisé : chacun garde son couloir (l'écart de la ligne) ; par bonds alternés de trois cases — une moitié court pendant que
@@ -489,11 +496,14 @@ export const WAR={
           if(done){this.bandDisband(b,up);break;}
           const wp=d2(home[0],home[1],c[0],c[1])>8?this.bandWaypoint(b,c,home):home;for(const u of up){if(u.task?.kind==='bandcarry'){u.task.tx=wp[0];u.task.ty=wp[1];continue;}u.task.tx=wp[0]+(u.id%5-2)*.8;u.task.ty=wp[1]+((u.id/5|0)%3-1)*.8;u.charge=false;}break;}}}},
   bandDeploy(b,up,c,enemy,stand){const dx=c[0]-enemy.x,dy=c[1]-enemy.y,L=Math.hypot(dx,dy)||1;const dir=[-dx/L,-dy/L];b.dir=dir;
-    const at=[enemy.x+dx/L*stand,enemy.y+dy/L*stand];b.anchor=at;this.bandSet(b,'feu','au contact : ligne de feu à bonne distance');this.bandLine(b,up,at,dir,enemy);},
-  // un bond : la moitié qui bouge avance d'un tiers de portée vers l'ennemi (ou l'objectif) ; l'autre tient sa place et tire
+    const at=[enemy.x+dx/L*stand,enemy.y+dy/L*stand];b.anchor=at;b.creep=0;if(!(b.creepAt>this.s.t+.5))b.creepAt=this.s.t+.5;this.bandSet(b,'feu','au contact : ligne de feu à bonne distance');this.bandLine(b,up,at,dir,enemy);},
+  // un bond : la moitié qui bouge avance vers l'ennemi (ou l'objectif) ; l'autre tient sa place et tire.
+  // sous le feu (creep), le pas est court et s'arrête à 62 % de la portée — le recalage sur la ligne de stand, lui, ne bouge pas quand on y est déjà.
   bandBound(b,up,c,enemy,stand){const g=enemy?[enemy.x,enemy.y]:(this.building(b.target)?this.bc(this.building(b.target)):b.from);const dx=g[0]-c[0],dy=g[1]-c[1],L=Math.hypot(dx,dy)||1;const dir=[dx/L,dy/L];b.dir=dir;
-    const step=Math.min(Math.max(2,this.bandRange(up)*.35),Math.max(0,L-stand));const at=[c[0]+dir[0]*step,c[1]+dir[1]*step];
-    const movers=up.filter((u,q)=>q%2===b.half);const px=-dir[1],py=dir[0];movers.forEach((u,q)=>{const off=(q-(movers.length-1)/2)*b.spacing*2;u.task.tx=at[0]+px*off;u.task.ty=at[1]+py*off;});},
+    const rg=this.bandRange(up),floor=b.creep?rg*.62:stand;
+    const step=b.creep?Math.min(2.2,Math.max(0,L-floor)):Math.min(Math.max(2,rg*.35),Math.max(0,L-stand));
+    const at=[c[0]+dir[0]*step,c[1]+dir[1]*step];
+    const movers=up.filter((u,q)=>q%2===b.half);const px=-dir[1],py=dir[0];movers.forEach((u,q)=>{const off=(q-(movers.length-1)/2)*b.spacing*2;u.task.tx=at[0]+px*off;u.task.ty=at[1]+py*off;if(b.creep)u.path=null;});},
   bandToObjective(u,b){const t=this.building(b.target);if(!t)return;const [tw,th]=this.sizeOf(t);u.task={kind:'assault',targetId:t.id,approach:b.from,tx:t.i+tw/2,ty:t.j+th/2,band:b.id};u.path=null;},
   // le repli : fumigènes entre eux et l'ennemi, les valides emportent les blessés, tous rentrent
   bandRetreat(b,up,c,quiet=false){{const L=this.s.beee.lostFront;if(b.state!=='repli'&&!quiet&&L&&!L.done&&(b.kind==='reprise'||b.kind==='defense'&&d2(c[0],c[1],L.x,L.y)<40))L.failed++;}
@@ -520,8 +530,11 @@ export const WAR={
       if(de<=rg*.98){u.charge=false;if(u.post==='debout')u.post='accroupi';if(!this.engage(u,e)){u.path=null;u.anim='aim';this.face(u,e.x-u.x,e.y-u.y);}return;}
       if(T0.rush&&d2(u.x,u.y,T0.tx,T0.ty)>.8){u.post='debout';this.go(u,T0.tx,T0.ty);return;}
       if(u.post==='debout')u.post='accroupi';if(!this.engage(u,e)){u.path=null;u.anim='aim';this.face(u,e.x-u.x,e.y-u.y);}return;}}
-    if(armed&&b.state!=='repli'){const e=this.nearestEnemy(u,this.engageRange(u));if(e&&d2(u.x,u.y,e.x,e.y)<=this.engageRange(u)*.98){u.charge=false;if(u.post==='debout')u.post='accroupi';if(this.engage(u,e))return;u.path=null;u.anim='aim';this.face(u,e.x-u.x,e.y-u.y);return;}}
-    if(!at&&d2(u.x,u.y,T0.tx,T0.ty)>1.15){this.go(u,T0.tx,T0.ty);return;}
+    if(armed&&b.state!=='repli'){const rg=this.engageRange(u);const e=this.nearestEnemy(u,rg);
+      const creeping=b.state==='bond'&&b.creep&&d2(u.x,u.y,T0.tx,T0.ty)>.55;
+      const tooClose=e&&d2(u.x,u.y,e.x,e.y)<=rg*.58;
+      if(!(creeping&&!tooClose)&&e&&d2(u.x,u.y,e.x,e.y)<=rg*.98){u.charge=false;if(u.post==='debout')u.post='accroupi';if(this.engage(u,e))return;u.path=null;u.anim='aim';this.face(u,e.x-u.x,e.y-u.y);return;}}
+    if(!at&&d2(u.x,u.y,T0.tx,T0.ty)>((b.state==='bond'&&b.creep)?0.55:1.15)){if(b.state==='bond'&&b.creep)u.post='debout';this.go(u,T0.tx,T0.ty);return;}
     if(b.dir)this.face(u,b.dir[0],b.dir[1]);
     if(armed&&(b.state==='feu'||b.state==='bond'||b.state==='approche'||b.state==='rassemblement'||b.state==='attente')){const e=this.nearestEnemy(u,Math.max(this.sight(),this.engageRange(u)));if(e&&this.engage(u,e))return;}
     u.anim=u.anim==='aim'?'aim':'idle';},
@@ -548,9 +561,13 @@ export const WAR={
         if(d2(u.x,u.y,T0.bnd.x,T0.bnd.y)>.5){u.post='debout';this.go(u,T0.bnd.x,T0.bnd.y);return;}}
       if(u.post==='debout')u.post='accroupi';}
     if(enemy){T0.sabotage=false;T0.look=null;const dist=d2(u.x,u.y,enemy.x,enemy.y);
-      const hold=Math.max(8,Math.min(desired,range*.78));
-      if(dist<=range*.98){if(u.post==='debout')u.post='accroupi';
-        if((T0.didFire||0)&&dist>hold+2.4&&this.s.t-(T0.boundAt||-9)>.55){const dx=enemy.x-u.x,dy=enemy.y-u.y,L=Math.hypot(dx,dy)||1,step=Math.min(2.4,dist-hold);const [bx,by]=this.freeSpot(u.x+dx/L*step,u.y+dy/L*step,1);T0.boundAt=this.s.t;T0.didFire=0;T0.eng={id:enemy.id,t:this.s.t,tx:bx,ty:by};u.post='debout';this.go(u,bx,by);return;}
+      const hold=Math.max(8,Math.min(desired,range*.78)),floor=Math.max(6,range*.62);
+      if(dist<=range*.98){
+        if(T0.boundAt==null)T0.boundAt=this.s.t;
+        if(T0.step&&d2(u.x,u.y,T0.step.x,T0.step.y)>.55&&dist>range*.58){u.post='debout';this.go(u,T0.step.x,T0.step.y);return;}
+        T0.step=null;if(u.post==='debout')u.post='accroupi';
+        // une salve, puis un pas vers l'ennemi, jamais sous le plancher : on s'arrête ensuite pour tirer encore
+        if(dist>floor+1.1&&this.s.t-T0.boundAt>.6&&this.s.t-(u.firedAt||-9)<.5){const dx=enemy.x-u.x,dy=enemy.y-u.y,L=Math.hypot(dx,dy)||1,step=Math.min(2.2,dist-floor);const [bx,by]=this.freeSpot(u.x+dx/L*step,u.y+dy/L*step,1);T0.boundAt=this.s.t;T0.didFire=0;T0.step={x:bx,y:by};u.post='debout';this.go(u,bx,by);return;}
         if(this.engage(u,enemy)){if(this.s.t-(u.firedAt||-9)<.2)T0.didFire=1;return;}
         if(!T0.side||T0.side.id!==enemy.id){const a=Math.atan2(enemy.y-u.y,enemy.x-u.x)+this.beeeLane(u)*.8;const [sx2,sy2]=this.freeSpot(u.x+Math.cos(a+1.57)*1.6,u.y+Math.sin(a+1.57)*1.6,1.2);T0.side={id:enemy.id,x:sx2,y:sy2};}
         if(d2(u.x,u.y,T0.side.x,T0.side.y)>.5){u.post='accroupi';this.go(u,T0.side.x,T0.side.y);return;}

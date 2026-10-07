@@ -922,12 +922,18 @@ export class World{
     // proche, pour rompre le contact — sinon on s'éloigne : s'arrêter pour riposter à chaque Bèè en vue la clouait sur place)
     if(((D.arm&&u.w)||D.img)&&!u.holdFire&&(u.roe!=='riposte'||u.supp>.1)&&!((D.scout||u.scoutRole)&&!D.sniper&&(u.supp||0)<.2&&!this.spotted(u,u.f==='meumeu'?'beee':'meumeu'))&&(!T0||T0.kind==='assault'||T0.kind==='guard'||T0.kind==='search'||T0.kind==='patrol'||(T0.kind==='move'&&T0.hold)||(u.quiet&&threat&&(T0.kind==='sabotage'&&!this.spotted(u,u.f==='meumeu'?'beee':'meumeu')||T0.kind==='move'&&(!(T0.retreat||u.sneakHome)||d2(threat.x,threat.y,u.x,u.y)<5)))||(T0.kind==='zone'&&threat&&d2(threat.x,threat.y,u.x,u.y)<4))){const e=threat||(T0?.kind==='assault'?null:null);
       // Un assaillant bèè choisit d'abord sa distance de tir ; la réponse automatique ne doit pas le faire charger.
-      if(!(u.f==='beee'&&T0?.kind==='assault'&&(u.w||D.img))&&e){if(this.engage(u,e))return;if(T0?.kind!=='assault'&&!u.hold&&!u.quiet&&u.f==='beee'){const rg=this.engageRange(u),dist=d2(u.x,u.y,e.x,e.y);
-        if(dist<=rg*.98){u.path=null;u.anim='aim';this.face(u,e.x-u.x,e.y-u.y);if(u.post==='debout')u.post='accroupi';return;}
-        const hold=Math.max(8,rg*.78),dx=e.x-u.x,dy=e.y-u.y,L=Math.hypot(dx,dy)||1,tx=e.x-dx/L*hold,ty=e.y-dy/L*hold;
-        if(!u.beeHold||this.s.t-(u.beeHold.t||0)>.7||d2(u.beeHold.ex,u.beeHold.ey,e.x,e.y)>2.5)u.beeHold={t:this.s.t,ex:e.x,ey:e.y,tx,ty};
-        this.go(u,u.beeHold.tx,u.beeHold.ty);return;}
-      if(T0?.kind!=='assault'&&!u.hold&&!u.quiet&&u.f!=='meumeu'){this.go(u,e.x,e.y);return;}}}
+      if(!(u.f==='beee'&&T0?.kind==='assault'&&(u.w||D.img))&&e){
+        if(T0?.kind!=='assault'&&!u.hold&&!u.quiet&&u.f==='beee'){const rg=this.engageRange(u),dist=d2(u.x,u.y,e.x,e.y),floor=Math.max(6,rg*.62);
+          if(u.beeStep&&dist>rg*.58&&d2(u.x,u.y,u.beeStep.x,u.beeStep.y)>.5){u.post='debout';this.go(u,u.beeStep.x,u.beeStep.y);return;}
+          u.beeStep=null;
+          if(dist<=rg*.98){if(u.boundAt==null)u.boundAt=this.s.t;
+            if(dist>floor+1.1&&this.s.t-u.boundAt>.6&&this.s.t-(u.firedAt||-9)<.5){const dx=e.x-u.x,dy=e.y-u.y,L=Math.hypot(dx,dy)||1,step=Math.min(2.2,dist-floor);const [bx,by]=this.freeSpot(u.x+dx/L*step,u.y+dy/L*step,1);u.boundAt=this.s.t;u.beeStep={x:bx,y:by};u.post='debout';this.go(u,bx,by);return;}}
+          if(this.engage(u,e))return;
+          if(dist<=rg*.98){u.path=null;u.anim='aim';this.face(u,e.x-u.x,e.y-u.y);if(u.post==='debout')u.post='accroupi';return;}
+          const hold=Math.max(8,rg*.78),dx=e.x-u.x,dy=e.y-u.y,L=Math.hypot(dx,dy)||1,tx=e.x-dx/L*hold,ty=e.y-dy/L*hold;
+          if(!u.beeHold||this.s.t-(u.beeHold.t||0)>.7||d2(u.beeHold.ex,u.beeHold.ey,e.x,e.y)>2.5)u.beeHold={t:this.s.t,ex:e.x,ey:e.y,tx,ty};
+          this.go(u,u.beeHold.tx,u.beeHold.ty);return;}
+        if(this.engage(u,e))return;if(T0?.kind!=='assault'&&!u.hold&&!u.quiet&&u.f!=='meumeu'){this.go(u,e.x,e.y);return;}}}
     if(!T0){u.anim=u.anim==='aim'?'aim':'idle';if(u.carry&&u.k==='villageois')this.deliverTick(u);return;}
     switch(T0.kind){
       case 'search':case 'patrol':{if(this.s.t>T0.until||!T0.pts?.length){u.task={kind:'guard',tx:T0.home[0]+(this.rand()-.5)*6,ty:T0.home[1]+(this.rand()-.5)*6};u.path=null;return;}
