@@ -429,7 +429,9 @@ export const WAR={
           // pris sous un feu qu'ils ne voient pas : ils avancent en tirant au lieu de marcher l'arme à la bretelle (de jour comme de nuit : la nuit les couvre aussi)
           if(!enemy&&supp>.2&&b.kind!=='defense')for(const u of up)u.charge=true;
           // au contact, ou dès qu'on leur tire dessus : ils se déploient là, à distance de tir, au lieu de marcher sous le feu
-          if(enemy&&(d2(enemy.x,enemy.y,c[0],c[1])<range*1.35||supp>.2)){this.bandDeploy(b,up,c,enemy,Math.min(stand,d2(enemy.x,enemy.y,c[0],c[1])));break;}
+          if(enemy&&(d2(enemy.x,enemy.y,c[0],c[1])<range*1.55||supp>.2)){const de0=d2(enemy.x,enemy.y,c[0],c[1]);
+          if(de0<=range*1.02){this.bandSet(b,'feu','à portée : on s’arrête pour tirer');b.dir=[(enemy.x-c[0])/(de0||1),(enemy.y-c[1])/(de0||1)];for(const u of up){u.charge=false;u.task.tx=u.x;u.task.ty=u.y;u.path=null;}break;}
+          this.bandDeploy(b,up,c,enemy,stand);break;}
           if(goal&&b.kind!=='defense'&&b.kind!=='contre'&&d2(goal[0],goal[1],c[0],c[1])<(b.kind==='rail'?2.5:Math.max(3,range*.7))&&!enemy){this.bandSet(b,'objectif');if(b.kind!=='rail')for(const u of up)this.bandToObjective(u,b);break;}
           const g0=goal||b.from;
           // la marche d'approche : chacun a sa place fixe dans la ligne d'arrivée (face à la cible, à portée) et s'y rend par son
@@ -456,26 +458,28 @@ export const WAR={
           if(b.eval>0)break;b.eval=EVAL;
           const de=d2(enemy.x,enemy.y,c[0],c[1]);const esupp=seen.reduce((a,e)=>a+(e.supp||0),0)/seen.length;
           if(esupp>.45&&b.morale>.6)this.bandLine(b,up,b.anchor||c,b.dir||[1,0],enemy);
-          if(de>range*1.05){this.bandSet(b,'bond','hors de portée : on avance par bonds');b.half=0;this.bandBound(b,up,c,enemy,stand);break;}
+          if(de>range*1.05){this.bandSet(b,'bond','hors de portée : un bond, puis on se recale pour tirer');b.half=0;this.bandBound(b,up,c,enemy,stand);break;}
           if(de<range*.45&&b.morale<.75){this.bandDeploy(b,up,c,enemy,stand);}   // trop près, pas assez sûrs : on reprend ses distances
           // l'assaut en masse : deux fois plus nombreux, le moral haut, l'ennemi plaqué au sol (ou l'échange qui s'éternise)
-          else if(up.length>=6&&up.length>=Math.max(1,seen.filter(e=>e.w||UDEF(e).img).length)*2&&b.morale>.6&&(esupp>.3||(b.fightT||0)>1)&&de<range*1.02){this.bandSet(b,'assaut','deux fois plus nombreux : à l’assaut, par bonds');
+          else if(de>range*.82&&up.length>=6&&up.length>=Math.max(1,seen.filter(e=>e.w||UDEF(e).img).length)*2&&b.morale>.6&&(esupp>.3||(b.fightT||0)>1)&&de<range*1.02){this.bandSet(b,'bond','on avance un peu, par bonds, sans se coller');b.half=0;this.bandBound(b,up,c,enemy,stand);
             const L=up[0];this.log('Front',`${up.length} Bèè montent à l’assaut par bonds contre ${seen.length} des nôtres !`,'bad');if(L)this.s.fog||this.emit({type:'wave',n:up.length,x:L.x,y:L.y,from:[L.x,L.y]});}
           break;}
         case 'bond':{for(const u of up)u.charge=false;
           const movers=up.filter((u,q)=>q%2===b.half);const done=movers.every(u=>d2(u.x,u.y,u.task.tx,u.task.ty)<.6);
-          if(enemy&&d2(enemy.x,enemy.y,c[0],c[1])<=range){this.bandDeploy(b,up,c,enemy,stand);break;}
+          if(enemy&&d2(enemy.x,enemy.y,c[0],c[1])<=range*.55){this.bandDeploy(b,up,c,enemy,stand);break;}
+          if(enemy&&d2(enemy.x,enemy.y,c[0],c[1])<=range){this.bandSet(b,'feu','à portée : on s’arrête pour tirer');for(const u of up){u.charge=false;u.task.tx=u.x;u.task.ty=u.y;u.path=null;}break;}
           if(done||b.t>3){b.half=1-b.half;b.t=0;if(!enemy&&this.s.t-b.contactT>2){this.bandSet(b,'approche');break;}this.bandBound(b,up,c,enemy,stand);}break;}
         case 'assaut':{if(!enemy){this.bandSet(b,goal?'approche':'repli');break;}
           if(b.morale<.45){this.bandDeploy(b,up,c,enemy,stand);break;}
           // un assaut organisé : chacun garde son couloir (l'écart de la ligne) ; par bonds alternés de trois cases — une moitié court pendant que
           // l'autre tire — au lieu de tous courir sur le même homme
-          {const E=[seen.reduce((a,e)=>a+e.x,0)/seen.length,seen.reduce((a,e)=>a+e.y,0)/seen.length],dx=E[0]-c[0],dy=E[1]-c[1],L=Math.hypot(dx,dy)||1,px=-dy/L,py=dx/L,n=up.length;
+          {const E=[seen.reduce((a,e)=>a+e.x,0)/seen.length,seen.reduce((a,e)=>a+e.y,0)/seen.length],dx=E[0]-c[0],dy=E[1]-c[1],L=Math.hypot(dx,dy)||1,px=-dy/L,py=dx/L,n=up.length,floor=Math.max(8,stand);
            const movers=up.filter((u,q)=>q%2===(b.half??0)&&u.task?.rush);
            if(b.t>.35||!movers.length||movers.every(u=>d2(u.x,u.y,u.task.tx,u.task.ty)<.7)){b.half=1-(b.half??0);b.t=0;
-             up.forEach((u,q)=>{u.charge=false;const off=(q-(n-1)/2)*Math.max(1.2,b.spacing*.8),lx=E[0]+px*off,ly=E[1]+py*off,dd=d2(u.x,u.y,lx,ly);
-               if(q%2===b.half){const k=Math.min(1,3/Math.max(.01,dd));u.task.tx=u.x+(lx-u.x)*k;u.task.ty=u.y+(ly-u.y)*k;u.task.rush=true;}else{u.task.tx=u.x;u.task.ty=u.y;u.task.rush=false;}
-               u.task.foe=seen.slice().sort((a,z)=>d2(a.x,a.y,lx,ly)-d2(z.x,z.y,lx,ly))[0].id;});}}
+             up.forEach((u,q)=>{u.charge=false;const off=(q-(n-1)/2)*Math.max(1.2,b.spacing*.8);
+               const de=d2(u.x,u.y,E[0],E[1]);
+               if(q%2===b.half&&de>floor+1.4){const step=Math.min(2.4,de-floor);u.task.tx=u.x+dx/L*step+px*off*.15;u.task.ty=u.y+dy/L*step+py*off*.15;u.task.rush=true;}else{u.task.tx=u.x;u.task.ty=u.y;u.task.rush=false;}
+               u.task.foe=seen.slice().sort((a,z)=>d2(a.x,a.y,u.x,u.y)-d2(z.x,z.y,u.x,u.y))[0].id;});}}
           break;}
         case 'objectif':{if(b.kind==='rail'){if(enemy){this.bandDeploy(b,up,c,enemy,stand);break;}if(this.bandRailCut(b,up))this.bandRetreat(b,up,c,true);break;}
           if(enemy){for(const u of up){u.task={kind:'band',tx:u.x,ty:u.y};u.path=null;}this.bandDeploy(b,up,c,enemy,stand);break;}
@@ -512,13 +516,12 @@ export const WAR={
     if(b.state==='repli'){if(!at)this.go(u,T0.tx,T0.ty);else u.anim='idle';return;}
     // la charge : on court sur l'ennemi en tirant (mal)
     // l'assaut : un tiers reste et couvre (il tire, arrêté) ; les autres courent sans tirer jusqu'à trois cases, puis tirent
-    if(b.state==='assaut'&&armed){const e=T0.foe!=null&&this.unit(T0.foe);if(e&&active(e)){const de=d2(u.x,u.y,e.x,e.y);
-      // au contact (moins de 3 cases) : on tire, on finit ; sinon ceux qui courent courent (debout, sans tirer) jusqu'à leur place, les autres tirent
-      if(de<=3.2){if(!this.engage(u,e))this.go(u,e.x,e.y);return;}
-      if(T0.rush&&d2(u.x,u.y,T0.tx,T0.ty)>.5){u.post='debout';this.go(u,T0.tx,T0.ty);return;}
-      if(u.post==='debout')u.post='accroupi';if(!this.engage(u,e)){u.anim='aim';this.face(u,e.x-u.x,e.y-u.y);}return;}}
-    // à sa place : on tire (après s'être calé) ; en route : on ne tire pas
-    if(!at){this.go(u,T0.tx,T0.ty);return;}
+    if(b.state==='assaut'&&armed){const e=T0.foe!=null&&this.unit(T0.foe);if(e&&active(e)){const de=d2(u.x,u.y,e.x,e.y),rg=this.engageRange(u);
+      if(de<=rg*.98){u.charge=false;if(u.post==='debout')u.post='accroupi';if(!this.engage(u,e)){u.path=null;u.anim='aim';this.face(u,e.x-u.x,e.y-u.y);}return;}
+      if(T0.rush&&d2(u.x,u.y,T0.tx,T0.ty)>.8){u.post='debout';this.go(u,T0.tx,T0.ty);return;}
+      if(u.post==='debout')u.post='accroupi';if(!this.engage(u,e)){u.path=null;u.anim='aim';this.face(u,e.x-u.x,e.y-u.y);}return;}}
+    if(armed&&b.state!=='repli'){const e=this.nearestEnemy(u,this.engageRange(u));if(e&&d2(u.x,u.y,e.x,e.y)<=this.engageRange(u)*.98){u.charge=false;if(u.post==='debout')u.post='accroupi';if(this.engage(u,e))return;u.path=null;u.anim='aim';this.face(u,e.x-u.x,e.y-u.y);return;}}
+    if(!at&&d2(u.x,u.y,T0.tx,T0.ty)>1.15){this.go(u,T0.tx,T0.ty);return;}
     if(b.dir)this.face(u,b.dir[0],b.dir[1]);
     if(armed&&(b.state==='feu'||b.state==='bond'||b.state==='approche'||b.state==='rassemblement'||b.state==='attente')){const e=this.nearestEnemy(u,Math.max(this.sight(),this.engageRange(u)));if(e&&this.engage(u,e))return;}
     u.anim=u.anim==='aim'?'aim':'idle';},
@@ -545,11 +548,17 @@ export const WAR={
         if(d2(u.x,u.y,T0.bnd.x,T0.bnd.y)>.5){u.post='debout';this.go(u,T0.bnd.x,T0.bnd.y);return;}}
       if(u.post==='debout')u.post='accroupi';}
     if(enemy){T0.sabotage=false;T0.look=null;const dist=d2(u.x,u.y,enemy.x,enemy.y);
-      if(dist<=range&&this.engage(u,enemy))return;
-      if(G?.mode==='bond'&&T0.bnd){u.anim='aim';this.face(u,enemy.x-u.x,enemy.y-u.y);return;}   // pendant les bonds, on tient sa place
-      // chacun sa place sur l'arc, à bonne distance : l'angle pris au premier contact, décalé de son couloir
-      if(T0.eng?.id!==enemy.id){const a=Math.atan2(u.y-enemy.y,u.x-enemy.x)+this.beeeLane(u)*1.2/Math.max(4,desired);T0.eng={id:enemy.id,a};}
-      this.go(u,enemy.x+Math.cos(T0.eng.a)*desired,enemy.y+Math.sin(T0.eng.a)*desired);return;}
+      const hold=Math.max(8,Math.min(desired,range*.78));
+      if(dist<=range*.98){if(u.post==='debout')u.post='accroupi';
+        if((T0.didFire||0)&&dist>hold+2.4&&this.s.t-(T0.boundAt||-9)>.55){const dx=enemy.x-u.x,dy=enemy.y-u.y,L=Math.hypot(dx,dy)||1,step=Math.min(2.4,dist-hold);const [bx,by]=this.freeSpot(u.x+dx/L*step,u.y+dy/L*step,1);T0.boundAt=this.s.t;T0.didFire=0;T0.eng={id:enemy.id,t:this.s.t,tx:bx,ty:by};u.post='debout';this.go(u,bx,by);return;}
+        if(this.engage(u,enemy)){if(this.s.t-(u.firedAt||-9)<.2)T0.didFire=1;return;}
+        if(!T0.side||T0.side.id!==enemy.id){const a=Math.atan2(enemy.y-u.y,enemy.x-u.x)+this.beeeLane(u)*.8;const [sx2,sy2]=this.freeSpot(u.x+Math.cos(a+1.57)*1.6,u.y+Math.sin(a+1.57)*1.6,1.2);T0.side={id:enemy.id,x:sx2,y:sy2};}
+        if(d2(u.x,u.y,T0.side.x,T0.side.y)>.5){u.post='accroupi';this.go(u,T0.side.x,T0.side.y);return;}
+        u.path=null;u.anim='aim';this.face(u,enemy.x-u.x,enemy.y-u.y);return;}
+      T0.side=null;
+      if(G?.mode==='bond'&&T0.bnd){u.anim='aim';this.face(u,enemy.x-u.x,enemy.y-u.y);return;}
+      if(!T0.eng||T0.eng.id!==enemy.id||this.s.t-(T0.eng.t||0)>.8||d2(T0.eng.ex||0,T0.eng.ey||0,enemy.x,enemy.y)>3){const a=Math.atan2(u.y-enemy.y,u.x-enemy.x)+this.beeeLane(u)*1.1/Math.max(4,hold);T0.eng={id:enemy.id,a,t:this.s.t,ex:enemy.x,ey:enemy.y,tx:enemy.x+Math.cos(a)*hold,ty:enemy.y+Math.sin(a)*hold};}
+      u.post='debout';this.go(u,T0.eng.tx,T0.eng.ty);return;}
     // on se fait tirer dessus sans voir d'où : on se tourne vers le bruit, on se baisse et l'on cherche (le saccage attend) ; si rien ne se
     // montre au bout d'une demi-heure, on avance de quatre cases vers le bruit, chacun dans son couloir
     {const L=this.beeeHeard(u);if(L){if(!T0.look||t-T0.look.t>.45)T0.lookSince=t;T0.look=L;}}
