@@ -1,12 +1,33 @@
 // Le bureau des engins (V12.8) : concevoir un véhicule — châssis, caisse et plaques, moteur, réservoir, tourelles et leurs armes, mitrailleuse de caisse,
 // râteliers, bancs, soute. La vue 3D (extérieur, coupe, épaisseurs) et la vue de dessus (on y fait glisser tourelles et râteliers) lisent la même
-// conception que la balistique et le jeu (engins.js). Les armes des tourelles se retouchent au concepteur d'armes, en mode engin.
+// conception que la balistique et le jeu (engins.js). L'arme d'une tourelle se retouche au concepteur d'armes ;
+// le bureau en reprend les chiffres (poids, recul, rechargement, vitesse, perforation) pour la tourelle.
 import * as THREE from './lib/three.module.js';
-import {CHASSIS,MOTEURS,FORMES,VEH_ARMES,EXEMPLES,newVehicle,newTurret,exemple,deriveVeh,armeVeh,polyCenter} from './engins.js';
+import {CHASSIS,MOTEURS,FORMES,VEH_ARMES,EXEMPLES,newVehicle,newTurret,exemple,deriveVeh,armeVeh,serviceArme,polyCenter} from './engins.js';
 import {derive} from './ballistics.js';
 
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fr=(x,d=1)=>(Math.round(x*10**d)/10**d).toString().replace('.',',');
+// la fiche : les mêmes lignes que le concepteur d'armes (poids, recul, cadence, visée), l'affût étant la tourelle
+function fiche(s,mass,A){if(!s||!A)return '';
+  const j=x=>x>=100?fr(x,0):x>=10?fr(x,1):fr(x,2);
+  return `<div class="vz-arme">
+    <div class="vz-kv"><span>Arme chargée</span><b>${fr(s.g,0)} g</b></div>
+    <div class="vz-kv"><span>Cartouche</span><b>${fr(s.rm,1)} g</b></div>
+    <div class="vz-kv"><span>Recul</span><b>${j(s.recul)} J</b></div>
+    <p class="quiet small">Le même recul que le concepteur d’armes (celui d’une épaule de 30 cm). Sur la tourelle de ${fr(mass||0,1)} kg, la même impulsion ne laisse que ${j(s.reculJ)} J — ${fr(s.kick,1)} m/s. Comme le trépied d’une mitrailleuse ou l’affût à roues d’un canon.</p>
+    <div class="vz-kv"><span>Rechargement</span><b>${fr(s.cyc,s.cyc<1?2:1)} s</b></div>
+    <p class="quiet small">${s.auto?`Cycle du concepteur entre deux balles. Cadence ${fr(s.rpm,0)} coups/min, chargeur de ${s.mag}.`:`Cycle de la culasse au concepteur d’armes. Cadence ${fr(s.rpm,0)} coups/min, un coup à la fois.`}</p>
+    <div class="vz-kv"><span>Temps pour viser</span><b>${fr(s.aim,2)} s</b></div>
+    <div class="vz-kv"><span>Cadence</span><b>${fr(s.rpm,0)} /min</b></div>
+    <div class="vz-kv"><span>Vitesse</span><b>${fr(s.v0,0)} m/s</b></div>
+    <div class="vz-kv"><span>Énergie</span><b>${fr(s.E0,s.E0<10?1:0)} J</b></div>
+    <div class="vz-kv"><span>Perce à 30 m</span><b>${fr(s.pen30,s.pen30<10?2:0)} mm</b>${s.blast?` <small class="quiet">souffle ${fr(s.blast*100,0)} cm</small>`:''}</div>
+    <div class="vz-kv"><span>Dispersion</span><b>${fr(s.moa,1)} MOA</b></div>
+    <div class="vz-kv"><span>Pression</span><b>${fr(s.P,0)} MPa</b></div>
+    <div class="vz-kv"><span>Équipe</span><b>${A.crew>1?'1 tireur + 1 chargeur':'1 tireur'}</b> <small class="quiet">couronne ${fr(A.Dmin,0)} cm min.</small></div>
+  </div>`;
+}
 const KCOL={moteur:0x7a7f84,essence:0xd0583a,munitions:0xe8bf3a,equipage:0x4f9fd0,passager:0x5fb36a,soute:0xa07a48};
 const KNAME={moteur:'moteur',essence:'essence',munitions:'munitions',equipage:'équipage',passager:'passagers',soute:'soute'};
 const PAINT=0x6e7350,PAINT_T=0x787d58,STEELC=0x55595c,TRACK=0x3a3a36,RUBBER=0x262626;
@@ -84,7 +105,8 @@ export class EnginsBureau{
     const turrets=v.tourelles.map((T,i)=>{const t=D.tur[i],A=t?.A;return `<details class="vz-item" ${this.selT===i?'open':''} data-t="${i}"><summary>Tourelle ${i+1} — ${esc(FORMES[T.forme]?.name||T.forme)} · ${esc(A?.name||'sans arme')} <button class="small ghost" data-vz="delT:${i}" title="Retirer">✕</button></summary>
         ${seg('forme:'+i,Object.entries(FORMES).map(([k,o])=>[k,o.name,o.desc]),T.forme)}
         <div class="row small">Arme : <select data-sel="arme:${i}"><option value="">— garder —</option>${wopts.map(([k,n])=>`<option value="${k}">${esc(n)}</option>`).join('')}</select> <button class="small" data-vz="editW:${i}">Concevoir l’arme…</button></div>
-        <p class="quiet small">${A?`${esc(A.name)} · ${fr(A.kg,2)} kg · ${A.crew>1?'1 tireur + 1 chargeur':'1 tireur'} · couronne mini ${fr(A.Dmin,0)} cm`:''}${t?` · ${fr(t.mass,1)} kg · ${t.F.fixe?'fixe, débattement '+t.arc+'°':'rotation '+fr(t.trav,0)+' °/s'}`:''}</p>
+        ${fiche(t?.svc,t?.mass,A)}
+        <p class="quiet small">${t?`${fr(t.mass,1)} kg de tourelle · ${t.F.fixe?'fixe, débattement '+t.arc+'°':'rotation '+fr(t.trav,0)+' °/s'}`:''}${(()=>{if(!T.coax)return '';const Ac=armeVeh(T.coax);if(!Ac)return '';const c=serviceArme(Ac.D,{crew:1,turretKg:t?.mass||6});return ` · coaxiale ${fr(c.g,0)} g, cycle ${fr(c.cyc,2)} s, ${fr(c.rpm,0)}/min`;})()}</p>
         ${R(`t.${i}.D`,'Couronne (0 : la plus petite pour l’arme)',0,160,1,T.D,'',' cm')}${R(`t.${i}.h`,'Hauteur',0,80,1,T.h,'',' cm')}${T.forme==='boite'||T.forme==='hexagone'||T.forme==='casemate'||T.forme==='sponson'?R(`t.${i}.long`,'Longueur (× couronne)',.6,2.5,.05,T.long||1):''}
         ${R(`t.${i}.x`,'Place latérale',-v.W/2,v.W/2,1,T.x,'',' cm')}${R(`t.${i}.z`,'Place (avant +)',-v.L/2,v.L/2,1,T.z,'',' cm')}
         ${['av','fl','ar'].map(k=>`${R(`t.${i}.pl.${k}.0`,{av:'Avant',fl:'Flancs',ar:'Arrière'}[k]+' — épaisseur',0,80,.1,T.pl[k][0],'',' mm')}${R(`t.${i}.pl.${k}.1`,{av:'Avant',fl:'Flancs',ar:'Arrière'}[k]+' — angle',0,70,1,T.pl[k][1],'',' °')}`).join('')}
@@ -140,7 +162,8 @@ export class EnginsBureau{
       <div class="vz-kv"><span>Braquage</span><b>${D.pivot?`pivote à ${fr(D.pivot,0)} °/s`:`rayon ${fr(D.rmin,1)} cases`}</b></div>
       <div class="vz-kv"><span>Blindage (épaisseur vue)</span><b>avant ${fr(fr0,1)} · flanc ${fr(side,1)} · arrière ${fr(rear,1)} mm</b></div>
       <p class="small">${pierce(fr0).length?`<span class="warn">De face, percé à 30 m par : ${pierce(fr0).map(esc).join(', ')}.</span>`:'<span class="good">De face, aucune arme connue ne le perce à 30 m.</span>'}${pierce(side).length?` <span class="quiet">De flanc : ${pierce(side).map(esc).join(', ')}.</span>`:''}</p>
-      <div class="vz-kv"><span>Équipage</span><b>${Object.entries(cnt).map(([r,n])=>`${n} ${r}${n>1?'s':''}`).join(', ')}</b></div>
+      <div class="vz-kv"><span>Équipage</span><b>${Object.entries(cnt).map(([r,n])=>`${n} ${r}${n>1?'s':''}`).join(', ')||'—'}</b></div>
+      ${D.tur.map((t,i)=>t.svc?`<p class="small"><b>Tourelle ${i+1}</b> — ${esc(t.A.name)} · ${fr(t.svc.g,0)} g · recul ${fr(t.svc.recul,0)} J (${fr(t.svc.reculJ,0)} J dans la tourelle) · cycle ${fr(t.svc.cyc,t.svc.cyc<1?2:1)} s · ${fr(t.svc.rpm,0)}/min · ${fr(t.svc.pen30,2)} mm à 30 m</p>`:'').join('')}
       <div class="vz-kv"><span>Passagers · soute</span><b>${v.passagers||0} · ${v.soute||0} caisses</b></div>
       <div class="vz-kv"><span>Volume</span><b>${fr(D.lay.used/1000,1)} L occupés, ${fr(D.lay.libre/1000,1)} L libres</b></div>
       <div class="vz-kv"><span>Au garage</span><b>${D.heures} h</b></div><p class="small">${esc(res)}</p>

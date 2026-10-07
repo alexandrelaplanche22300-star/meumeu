@@ -7,7 +7,7 @@ import {TERRAIN,HOUR_REAL,BUILDINGS} from './data.js';
 import {ACTIONS as ACT,TILE_M as TILE,CONSTRUCTIONS} from './ballistics.js';
 import {fragDesign} from './designs.js';
 import {EXPO} from './explosive.js';
-import {vehDefOf,deriveVeh,VEH_VIS} from './engins.js';
+import {vehDefOf,deriveVeh,VEH_VIS,exemple} from './engins.js';
 import {platesAt,rayPlates,rayMods,inCone,shotRay,seatsOf} from './blindage3d.js';
 const CONS_SHAPED=W=>CONSTRUCTIONS[W.p.cons]?.shaped,CONS_INC=W=>CONSTRUCTIONS[W.p.cons]?.inc;
 
@@ -75,7 +75,11 @@ export const VEHICULES={
   // (V12.8) les engins conçus au bureau des engins : chacun sa fiche (VEHDEF, sous l'identifiant de sa conception) et ses armes (des conceptions « engin »,
   // invisibles au joueur) ; le garage ne propose qu'eux. Refait à chaque nouvelle partie, au chargement, et à chaque conception enregistrée.
   // (V12.8) les engins conçus au bureau : une étude (status etude) n'entre pas au garage ; adoptée, ou un ancien prototype, si.
-  enginsSync(){const s=this.s,VD=s.vdesigns||{};const live=vd=>vd&&vd.status!=='perdu'&&vd.status!=='etude';
+  enginsSync(){const s=this.s,VD=s.vdesigns||(s.vdesigns={});
+    // les trois ravitailleurs, adoptés d'office : une citerne, une charrette de munitions, un camion de munitions
+    for(const [id,name,ex] of [['sd_citerne','Citerne','citerne'],['sd_charrette','Charrette de munitions','charrette_mun'],['sd_camion_mun','Camion de munitions','camion_mun']]){
+      if(VD[id])continue;try{VD[id]={id,f:'meumeu',name,status:'adopte',v:exemple(ex),base:true};}catch(e){console.warn('ravitailleur',name,e);}}
+    const live=vd=>vd&&vd.status!=='perdu'&&vd.status!=='etude';
     for(const k of Object.keys(VEHDEF))if(VEHDEF[k].engin&&!live(VD[k]))delete VEHDEF[k];
     for(const vd of Object.values(VD)){if(!live(vd)){delete VEHDEF[vd.id];continue;}try{VEHDEF[vd.id]=vehDefOf(vd);}catch(e){console.warn('engin',vd.name,e);continue;}
       const reg=(id,p,name)=>{if(p)s.designs[id]={id,f:vd.f||'meumeu',name,status:'engin',p:JSON.parse(JSON.stringify(p))};};
@@ -263,16 +267,46 @@ export const VEHICULES={
     if((v.cargo?.[k]||0)>0){const q=Math.min(want,v.cargo[k]);v.cargo[k]-=q;if(v.cargo[k]<=1e-6)delete v.cargo[k];give(q);}
     if(want>.05)for(const o of this.s.vehicles){if(o===v||o.f!==v.f||o.hp<=0||o.state==='go'||(o.spd||0)>.5||!((o.cargo?.[k]||0)>0)||Math.hypot(o.x-v.x,o.y-v.y)>3)continue;
       const q=Math.min(want,o.cargo[k]);o.cargo[k]-=q;if(o.cargo[k]<=1e-6)delete o.cargo[k];give(q);if(want<=.05)break;}
+    if(want>.05)for(const o of this.s.vehicles){if(o===v||o.f!==v.f||o.hp<=0||o.state==='go'||(o.spd||0)>.5||!(o.cuveN>0)||Math.hypot(o.x-v.x,o.y-v.y)>3)continue;
+      if((VEHDEF[o.k]?.engin?.cuveKind||'')!==k)continue;const q=Math.min(want,o.cuveN);o.cuveN-=q;give(q);if(want<=.05)break;}
     if(want>.05){const q=this.take(v.f,v.x,v.y,k,want,5);if(q>0)give(q);}
     if(v.fuel>got0&&v.dry){v.dry=false;v.why=null;}},
+  // la citerne : sa cuve (à part de son réservoir) se remplit à un dépôt ; les engins arrêtés à 3 cases s'y servent (vehRefuel)
+  vehCuveFill(v,V){if(V.role!=='citerne'||v.state==='go'||(v.spd||0)>.5||this.s.t<(v.cuveT||0))return;v.cuveT=this.s.t+.25;
+    const k=V.engin?.cuveKind;if(!k||!(V.cuve>0))return;const room=V.cuve-(v.cuveN||0);if(room<.5)return;
+    const q=this.take(v.f,v.x,v.y,k,Math.min(room,10),4);if(q>0)v.cuveN=(v.cuveN||0)+q;},
+  // le camion et la charrette de munitions : à l'arrêt, une caisse passe à un engin ami dont l'arme est à moitié vide
+  vehAmmoRun(v,V){if(V.role!=='munitions'||(v.spd||0)>.5||this.s.t-(v.ammoT??-9)<.25)return;v.ammoT=this.s.t;
+    for(const o of this.s.vehicles){if(o===v||o.f!==v.f||o.hp<=0||Math.hypot(o.x-v.x,o.y-v.y)>3.5)continue;const OV=VEHDEF[o.k];if(!OV?.armes)continue;
+      for(let i=0;i<o.mounts.length;i++){const m=o.mounts[i],W=this.W(m.w);if(!W)continue;const cap=OV.armes[i]?.coups||W.p.mag*4;if((m.mag||0)+(m.pouch||0)>=cap*.55)continue;
+        const key='m:'+m.w;if(!((v.cargo?.[key]||0)>=1))continue;m.pouch=(m.pouch||0)+(W.perCrate||W.p.mag);v.cargo[key]-=1;if(v.cargo[key]<=1e-6)delete v.cargo[key];}}},
+  vehAmmoLoad(v,V){if(V.role!=='munitions'||v.supplyHold||v.state==='go'||(v.spd||0)>.5)return;if(this.s.t<(v.ammoLT||0))return;
+    const room=V.soute-this.souteUsed(v);if(room<1||!this.depots(v.f,v.x,v.y,4).length)return;v.ammoLT=this.s.t+.5;
+    const H=this.have(v.f,v.x,v.y,4);let left=Math.min(room,8);
+    for(const k of Object.keys(H)){if(left<1||!k.startsWith('m:')||H[k]<2)continue;const q=this.take(v.f,v.x,v.y,k,Math.min(2,Math.floor(H[k]-1),left),4);if(q>0){v.cargo[k]=(v.cargo[k]||0)+q;left-=q;}}},
+  // la tournée, seulement sans ordre du joueur (un clic droit pose supplyHold : il reste où on l'a mis, et ravitaille quand même autour de lui)
+  vehSupplyDrive(v,V){if(!V.role||v.supplyHold||v.state!=='idle'||!this.vehDriver(v)||this.s.t<(v.supLook||0))return;v.supLook=this.s.t+.5;
+    const go=(x,y,why)=>{const ok=this.vehMove(v,x,y);if(ok)v.why=why;else v.supLook=this.s.t+2;return ok;};
+    if(V.role==='citerne'){const k=V.engin?.cuveKind||'essence';
+      let best=null,bd=80;if((v.cuveN||0)>2)for(const o of this.s.vehicles){if(o===v||o.f!==v.f||o.hp<=0)continue;const E=VEHDEF[o.k]?.engin;if(!E||E.perCase<=0||E.carbu!==k||!(o.fuel<E.plein*.45))continue;const d=Math.hypot(o.x-v.x,o.y-v.y);if(d<bd){bd=d;best=o;}}
+      if(best)return go(best.x,best.y,`va ravitailler ${best.name}`);
+      if((v.cuveN||0)<V.cuve*.35){const D=this.depots(v.f,v.x,v.y,400).find(d=>(d.stock?.[k]||0)>=2);if(D){const [x,y]=this.bc(D);go(x,y,'va remplir la citerne');}}return;}
+    if(V.role!=='munitions')return;
+    const crates=Object.entries(v.cargo||{}).reduce((a,[k,n])=>a+(k.startsWith('m:')?n:0),0);
+    if(crates<1){const D=this.depots(v.f,v.x,v.y,400).find(d=>Object.entries(d.stock||{}).some(([k,n])=>k.startsWith('m:')&&n>=2));if(D){const [x,y]=this.bc(D);go(x,y,'va chercher des caisses');}return;}
+    let best=null,bd=80;for(const o of this.s.vehicles){if(o===v||o.f!==v.f||o.hp<=0||!o.mounts)continue;const OV=VEHDEF[o.k];if(!OV)continue;
+      const low=o.mounts.some((m,i)=>{const W=this.W(m.w);if(!W||!((v.cargo['m:'+m.w]||0)>=1))return false;const cap=OV.armes[i]?.coups||W.p.mag*4;return (m.mag||0)+(m.pouch||0)<cap*.4;});
+      if(!low)continue;const d=Math.hypot(o.x-v.x,o.y-v.y);if(d<bd){bd=d;best=o;}}
+    if(best)go(best.x,best.y,`va porter des munitions à ${best.name}`);},
   combatVehicleTick(v,dt){const V=VEHDEF[v.k];if(V.air){this.airTick(v,V,dt);return;}if(V.nav==='eau'){this.vehSouteSupply(v);this.boatTick(v,V,dt);if(V.armes.length&&v.hp>0){this.vehResupply(v,V);if(this.atWar)this.vehFire(v,V,dt);}return;}if(v.hp<=0){v.spd=0;return;}this.vehSouteSupply(v);
     if(v.fire>0){v.fire-=dt;v.hp-=dt*35;if(v.hp<=0){this.vehDestroyed(v,'brûlé');return;}}
     if(v.comp?.moteur||v.comp?.train){if(v.state==='go'){v.state='idle';v.path=null;v.itin=null;}v.why=v.comp.moteur?'moteur détruit : immobilisé':'train de roulement brisé : immobilisé';}
-    if(V.engin&&!(v.fuel>1e-6)){v.fuel=0;if(v.state==='go'){v.state='idle';v.path=null;v.itin=null;}v.dry=true;v.why=`à sec : il attend ${V.engin.carbu==='charbon'?'du charbon':'de l’essence'} (un dépôt à 5 cases, ou un engin ravitailleur à 3)`;}
+    if(V.engin&&V.engin.perCase>0&&!(v.fuel>1e-6)){v.fuel=0;if(v.state==='go'){v.state='idle';v.path=null;v.itin=null;}v.dry=true;v.why=`à sec : il attend ${V.engin.carbu==='charbon'?'du charbon':'de l’essence'} (un dépôt à 5 cases, ou un engin ravitailleur à 3)`;}
     const drv=this.vehDriver(v),x0=v.x,y0=v.y;
     if(v.state==='go'&&v.itin&&drv){if(!v.path||!v.path.fin&&this.vehRemainLocal(v)<4&&!(this.s.t<v.localWait))this.vehLocal(v);this.vehDrive(v,V,dt);this.vehWatch(v,V);}else this.vehBrake(v,V,dt);
     v.odo+=v.spd*(v.dir||1)*dt;v.x=clamp(v.x,1,this.N-2);v.y=clamp(v.y,1,this.N-2);
     if(V.engin){this.vehBurn(v,V,Math.hypot(v.x-x0,v.y-y0));this.vehRefuel(v,V);}
+    if(V.role){this.vehCuveFill(v,V);this.vehAmmoLoad(v,V);this.vehAmmoRun(v,V);if(v.state!=='go')this.vehSupplyDrive(v,V);}
     if(V.armes.length){this.vehResupply(v,V);if(this.atWar)this.vehFire(v,V,dt);}},
   // personne au volant, le véhicule reste où il est (v.debugDriver : les essais de conduite, sans équipage)
   vehDriver(v){return !!v.debugDriver||(v.crew||[]).some(u=>u.vrole==='conducteur'&&u.hp>0&&u.h?.state!=='hors');},

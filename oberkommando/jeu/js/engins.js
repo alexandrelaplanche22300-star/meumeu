@@ -37,6 +37,8 @@ export const CHASSIS={
     pl:{av:[5,35],avb:[3,30],fl:[1.6,25],ar:[1.6,20],toit:1,sol:.8},desc:'Huit roues : la grande automitrailleuse, presque un char léger qui roule.'},
   camion:{name:'Camion',ere:'39-45',train:'roues',roues:6,moteurAv:true,sb:0,L:[70,100,170],W:[28,37,52],H:[22,33,50],garde:7,crr:.065,cap:11,susp:.14,charge:.02,ouvert:true,
     pl:{av:[.3,10],avb:[.3,0],fl:[.3,0],ar:[.3,0],toit:0,sol:.3},desc:'Le ravitaillement : une cabine et un plateau. Soute, réservoir, passagers — pas de blindage.'},
+  charrette:{name:'Charrette',ere:'14-18',train:'roues',roues:2,moteurAv:true,sb:0,L:[50,85,130],W:[22,30,42],H:[14,20,32],garde:5,crr:.09,cap:3.2,susp:.08,charge:.01,ouvert:true,
+    pl:{av:[.2,0],avb:[.2,0],fl:[.2,0],ar:[.2,0],toit:0,sol:.2},desc:'Deux roues et un brancard : des Meumeu la tirent. Lente, sans essence, une soute pour des caisses.'},
   semi:{name:'Semi-chenillé',ere:'39-45',train:'semi',roues:2,moteurAv:true,L:[70,98,150],W:[28,35,50],H:[20,28,40],garde:6,crr:.08,cap:9,susp:.17,charge:.022,ouvert:true,
     pl:{av:[2.4,30],avb:[2,25],fl:[1.3,20],ar:[1.3,20],toit:0,sol:.6},pivot:0,desc:'Des roues devant pour diriger, des chenilles derrière pour passer : le transport de troupes blindé.'},
   chenT:{name:'Transport chenillé',ere:'39-45',train:'chenilles',moteurAv:true,L:[55,90,160],W:[28,38,60],H:[16,24,40],garde:6,crr:.09,cap:9,susp:.19,charge:.028,pivot:42,ouvert:true,
@@ -59,6 +61,7 @@ export const CHASSIS={
 export const MOTEURS={
   vapeur:{name:'Machine à vapeur',P:[20,300,8000],kgW:.016,volW:55,bsfc:2600,carbu:'charbon',cout:{fer:.012,pieces:.004},heures:.004,desc:'Une chaudière et des pistons : simple, lourde, énorme. Elle brûle du charbon, pas d’essence, et fume.'},
   bicyl:{name:'Bicylindre',P:[15,90,400],kgW:.0048,volW:20,bsfc:450,carbu:'essence',cout:{fer:.006,pieces:.012,cuivre:.0008},heures:.006,desc:'Petit, léger, bon marché : pour une jeep ou une voiture de liaison.'},
+  bras:{name:'Traction (bras)',P:[20,40,80],kgW:.0004,volW:1.2,bsfc:0,carbu:'essence',cout:{bois:.004},heures:.001,desc:'Pas de moteur : des Meumeu tirent. Elle ne brûle ni essence ni charbon.'},
   quatre:{name:'Quatre cylindres',P:[60,250,900],kgW:.0038,volW:17,bsfc:400,carbu:'essence',cout:{fer:.005,pieces:.014,cuivre:.001},heures:.007,desc:'Le moteur de camion : robuste, sobre.'},
   six:{name:'Six cylindres en ligne',P:[150,700,2200],kgW:.0033,volW:15,bsfc:370,carbu:'essence',cout:{fer:.005,pieces:.016,cuivre:.0012},heures:.008,desc:'Le moteur des chars moyens : souple, endurant.'},
   v8:{name:'V8',P:[300,1100,3500],kgW:.0029,volW:13,bsfc:360,carbu:'essence',cout:{fer:.005,pieces:.019,cuivre:.0016},heures:.009,desc:'Compact et puissant : il boit un peu plus.'},
@@ -97,12 +100,12 @@ export const VEH_ARMES={
 export function techNeeded(v){const C=CHASSIS[v.chassis]||{},out=['garage_engins'];if(/chenilles|semi|losange/.test(C.train||''))out.push('chenilles');
   if((v.tourelles||[]).some(T=>T.forme!=='affut'))out.push('tourelles');if(['six','v8','v12'].includes(v.moteur?.type))out.push('gros_moteurs');return out;}
 export function newVehicle(ch='chenM'){const C=CHASSIS[ch];const v={chassis:ch,L:C.L[1],W:C.W[1],H:C.H[1],pl:JSON.parse(JSON.stringify(C.pl)),ouvert:!!C.ouvert,
-    moteur:{type:ch==='jeep'?'bicyl':ch==='camion'||ch==='voiture14'?'quatre':ch==='losange'?'vapeur':ch==='geant'?'v12':['auto4','auto6','auto8','semi','chenL'].includes(ch)?'six':'six',P:0,n:ch==='geant'?3:1,pos:CHASSIS[ch].moteurAv?'avant':'arriere'},
+    moteur:{type:ch==='charrette'?'bras':ch==='jeep'?'bicyl':ch==='camion'||ch==='voiture14'?'quatre':ch==='losange'?'vapeur':ch==='geant'?'v12':['auto4','auto6','auto8','semi','chenL'].includes(ch)?'six':'six',P:0,n:ch==='geant'?3:1,pos:CHASSIS[ch].moteurAv?'avant':'arriere'},
     bidons:0,tourelles:[],mgCaisse:null,racks:[],passagers:0,soute:0};
   const M=MOTEURS[v.moteur.type];v.moteur.P=Math.round(clamp(defaultPower(ch),M.P[0],M.P[2]));v.bidons=Math.round(defaultBidons(ch));return v;}
 // la puissance et le plein proposés : ceux d'un vrai engin de ce châssis (ch/t réels)
-function defaultPower(ch){return {chenT:420,jeep:200,voiture14:200,auto4:330,auto6:450,auto8:800,camion:300,semi:450,chenL:550,chenM:1000,chenH:2100,geant:2400,losange:500}[ch]||500;}
-function defaultBidons(ch){return {chenT:8,jeep:3,voiture14:4,auto4:5,auto6:7,auto8:12,camion:9,semi:8,chenL:8,chenM:22,chenH:25,geant:120,losange:40}[ch]||10;}
+function defaultPower(ch){return {charrette:40,chenT:420,jeep:200,voiture14:200,auto4:330,auto6:450,auto8:800,camion:300,semi:450,chenL:550,chenM:1000,chenH:2100,geant:2400,losange:500}[ch]||500;}
+function defaultBidons(ch){return {charrette:0,chenT:8,jeep:3,voiture14:4,auto4:5,auto6:7,auto8:12,camion:9,semi:8,chenL:8,chenM:22,chenH:25,geant:120,losange:40}[ch]||10;}
 export function newTurret(forme='cylindre',arme='mitrailleuse'){const f=FORMES[forme];
   return {forme,z:0,x:0,D:0,h:0,long:forme==='boite'||forme==='hexagone'?1.3:1,pl:{av:[forme==='affut'?1:3,forme==='cone'||forme==='dome'?35:10],fl:[2,forme==='cone'?25:forme==='dome'?40:15],ar:[2,10],toit:f.ouverte?0:1},arme:VEH_ARMES[arme].p(),coax:null,elec:false};}
 
@@ -168,6 +171,18 @@ export function armeVeh(p){if(!p)return null;let D;try{D=derive(p);}catch(e){ret
   const Dmin=Math.max(crew>1?22:15,1.8*colCm+(crew>1?5:2))+1.2*Math.cbrt(Math.max(.01,D.mass));
   const vol=colCm*Math.pow(dcCm*1.18+.1,2)*1.25;   // cm³ par coup rangé
   return {D,crew,charge,Dmin,vol,colCm,dcCm,rm:D.rm,kg:D.mass,name:p.kit?.name||D.name||'arme'};}
+
+// Les chiffres du concepteur d'armes, pour une arme servie sur un pivot ou une tourelle.
+// Poids, recul, cycle, cadence, visée : les mêmes que pour la mitrailleuse sur trépied et le canon sur affût à roues.
+// Seul le recul change de masse d'appui : ce n'est plus l'épaule d'un Meumeu, c'est la tourelle (même impulsion, I²/2m).
+export function serviceArme(D,{turretKg=0,crew=1}={}){
+  const auto=!!(D.p?.action&&/auto|gaz|recul|rotatif/.test(D.p.action));
+  const Mt=Math.max(D.mass||.2,turretKg||D.mass||.2);
+  const I=Math.sqrt(Math.max(0,2*(D.recoil||0)*(D.mass||.2)));
+  const reculJ=I*I/(2*Mt),kick=I/Mt;
+  const pen30=D.pen(D.at(30).v);
+  return {kg:D.mass,g:(D.mass||0)*1000,recul:D.recoil||0,reculJ,kick,cyc:D.cyc,rpm:D.rpm,aim:D.aim,v0:D.vTop||D.v0,E0:D.E0,pen30,moa:D.moa,rm:D.rm,P:D.P,life:D.life,auto,crew,mag:D.p?.mag||1,blast:D.he&&!D.he.shaped?D.he.blast:0};
+}
 
 // ---------- la disposition de l'habitacle (une grille de cases d'espace) ----------
 // On place, dans l'ordre : le moteur (et la transmission) à son bout, l'essence contre lui, le panier de chaque tourelle (son tireur et son
@@ -264,7 +279,9 @@ function deriveVeh0(v){const C=CHASSIS[v.chassis]||CHASSIS.chenM,M=MOTEURS[v.mot
     const geo=turretGeom(T,base,v);let area=0,kg=0;for(const f of geo.faces){const a=polyArea(f.poly);area+=a;kg+=a*f.t/10*STEEL/1000;}
     const ring=Math.PI*T.D*(T.pl.av[0]/10+.5)*1.2*STEEL/1000;const mech=.12*(A?.kg||0)+ring;
     const mass=kg+mech+(A?.kg||0)+(Ac?.kg||0);const trav=F.fixe?0:clamp((T.elec?55:24)/Math.pow(Math.max(.2,mass),.45),2,120);
-    return {T,A,Ac,F,geo,base,area,plates:kg,mass,trav,crew:A?.crew||1,arc:F.fixe?(F.flanc?120:24):360};});
+    const svc=A?serviceArme(A.D,{crew:A.crew,turretKg:mass}):null;
+    if(svc&&svc.kick>8)warns.push(`La ${tName(ti)} est légère pour ce recul : ${fmt1(svc.kick)} m/s (${fmt1(svc.reculJ)} J dans ${fmt1(mass)} kg). Le concepteur d’armes compte ${fmt1(svc.recul)} J dans l’arme seule.`);
+    return {T,A,Ac,F,geo,base,area,plates:kg,mass,trav,crew:A?.crew||1,arc:F.fixe?(F.flanc?120:24):360,svc};});
   // les masses (kg de peluche)
   let armor=0;const hullPl=[];for(const f of G.faces){const a=polyArea(f.poly);const kg=a*Math.max(.3,f.t)/10*STEEL/1000;armor+=kg;hullPl.push({...f,n:polyNormal(f.poly,inside),c:polyCenter(f.poly),area:a,part:'caisse'});}
   const frame=.0011*v.L*v.W*(C.train==='roues'?1:1.25);const nEng=Math.max(1,v.moteur.n|0),Pw=v.moteur.P*nEng;const engKg=Pw*M.kgW*(nEng>1?1.08:1);
@@ -324,8 +341,9 @@ export function vehDefOf(vd){const v=vd.v,D=deriveVeh(v),C=D.C,k=VEH_VIS/100;
     blindage:{avant:face('av')||[.3,0],flanc:face('flg')||face('flgh')||[.3,0],arriere:face('ar')||[.3,0],dessus:v.ouvert?[0,0]:[v.pl.toit,85],...(t0?{tourelle:[t0.pl.av[0],t0.pl.av[1]],tourelle_flanc:[t0.pl.fl[0],t0.pl.fl[1]]}:{})},
     hp:Math.round(40+6*Math.pow(D.mass,.8)),places:{servants:Math.max(0,D.crew.length-1),passagers:v.passagers||0},soute:v.soute||0,armes,
     cout:{...D.cout,...D.plein},heures:D.heures,faction:vd.f||'meumeu',
-    why:`${C.name} conçu au bureau des engins : ${fmt1(D.mass)} kg, ${fmt1(D.chT)} ch/t, ${fmt1(D.vmax)} cases/h, ${Math.round(D.range)} cases d’autonomie, ${D.crew.length} d’équipage${v.passagers?', '+v.passagers+' passagers':''}${v.soute?', '+v.soute+' caisses':''}.`,
-    engin:{id:vd.id,v,carbu:D.carbu,plein:v.bidons,perCase:D.perCase,ouvert:!!v.ouvert}};}
+    why:`${C.name} conçu au bureau des engins : ${fmt1(D.mass)} kg, ${fmt1(D.chT)} ch/t, ${fmt1(D.vmax)} cases/h, ${D.perCase>0?Math.round(D.range)+' cases d’autonomie':'tirée, sans carburant'}, ${D.crew.length} d’équipage${v.passagers?', '+v.passagers+' passagers':''}${v.soute?', '+v.soute+' caisses':''}${v.role==='citerne'?`. Citerne : ${v.cuve|0} ${D.carbu==='charbon'?'caisses de charbon':'bidons'} à verser aux engins arrêtés à 3 cases`:''}${v.role==='munitions'?'. Porte des caisses de munitions aux engins et aux Meumeu tout près':''}.`,
+    role:v.role||null,cuve:v.role==='citerne'?Math.max(0,v.cuve|0):0,
+    engin:{id:vd.id,v,carbu:D.carbu,plein:v.bidons,perCase:D.perCase,ouvert:!!v.ouvert,cuveKind:D.carbu}};}
 
 // ---------- des conceptions d'exemple (le bureau les propose ; les tests les mesurent) ----------
 export function exemple(id){const T=(f,a,o)=>({...newTurret(f,a),...o});let v;
@@ -336,6 +354,9 @@ export function exemple(id){const T=(f,a,o)=>({...newTurret(f,a),...o});let v;
     case 'auto4':v=newVehicle('auto4');v.tourelles=[T('ouverte','mitrailleuse',{z:-4,D:22,h:9,pl:{av:[2,30],fl:[1.3,30],ar:[1.3,30],toit:0}})];v.racks=[{ti:0,n:2000}];return v;
     case 'auto8':v=newVehicle('auto8');v.tourelles=[T('boite','antichar',{z:-8,D:24,h:14,pl:{av:[5,15],fl:[2.5,20],ar:[2,20],toit:1}})];v.tourelles[0].coax=HMG();v.racks=[{ti:0,n:55},{ti:'x0',n:1200}];return v;
     case 'camion':v=newVehicle('camion');v.soute=30;v.passagers=2;v.bidons=30;return v;
+    case 'citerne':v=newVehicle('camion');v.L=140;v.H=32;v.soute=2;v.passagers=0;v.bidons=20;v.role='citerne';v.cuve=80;return v;
+    case 'charrette_mun':v=newVehicle('charrette');v.soute=12;v.passagers=0;v.bidons=0;v.role='munitions';return v;
+    case 'camion_mun':v=newVehicle('camion');v.L=130;v.soute=32;v.passagers=1;v.bidons=16;v.role='munitions';return v;
     case 'chenT':v=newVehicle('chenT');v.passagers=6;v.soute=8;return v;
     case 'semi':v=newVehicle('semi');v.L=110;v.W=40;v.mgCaisse=HMG();v.racks=[{ti:'c',n:1500}];v.passagers=8;return v;
     case 'chenM':v=newVehicle('chenM');v.tourelles=[T('boite','canon_court',{z:6,D:0,h:15,pl:{av:[8,10],fl:[5,25],ar:[5,10],toit:1.7}})];v.tourelles[0].coax=HMG();v.mgCaisse=HMG();
@@ -352,4 +373,4 @@ export function exemple(id){const T=(f,a,o)=>({...newTurret(f,a),...o});let v;
   }
   return newVehicle();}
 export const EXEMPLES={jeep:'Jeep de liaison',jeep_mg:'Jeep à mitrailleuse',rolls:'Voiture blindée 14-18',auto4:'Automitrailleuse de reconnaissance',auto8:'Automitrailleuse lourde 8×8',
-  camion:'Camion de ravitaillement',chenT:'Chenillette de transport',semi:'Semi-chenillé de transport',chenM:'Char moyen',t34:'Char moyen incliné',tigre:'Char lourd',geant:'Char géant à six tourelles',losange:'Char losange 14-18',automoteur:'Automoteur à casemate'};
+  camion:'Camion de ravitaillement',citerne:'Citerne',charrette_mun:'Charrette de munitions',camion_mun:'Camion de munitions',chenT:'Chenillette de transport',semi:'Semi-chenillé de transport',chenM:'Char moyen',t34:'Char moyen incliné',tigre:'Char lourd',geant:'Char géant à six tourelles',losange:'Char losange 14-18',automoteur:'Automoteur à casemate'};
