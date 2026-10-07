@@ -104,7 +104,8 @@ function meumeuRig(M){const g=M?.geo;if(!g?.index)return null;const P=g.attribut
 const LAB_WANT={
   centre_recherche:{reine:['reine','orateur','table'],etude:['ecole'],cours:['maitre'],reunion:['table','orateur','reine'],orateur:['orateur'],travail:['bureau','maitre','table'],reflexion:['maitre','bureau','fenetre','livres'],pause:['cafe','fenetre'],dort:['bureau','table'],attente:['livres','fenetre','bureau'],oisif:['livres','fenetre','cafe','bureau']},
   labo:{travail:['paillasse','hotte','balance','cuve'],reflexion:['balance','paillasse','etagere','hotte'],ouvrier:['ouvrier','cuve'],pause:['evier','etagere'],dort:['paillasse'],attente:['etagere','evier','balance'],oisif:['etagere','balance','evier','hotte']},
-  armurerie:{travail:['planche','maquette'],reflexion:['planche','plans','maquette'],pause:['plans'],dort:['planche'],attente:['plans','maquette'],oisif:['plans','maquette']}};
+  armurerie:{travail:['planche','maquette'],reflexion:['planche','plans','maquette'],pause:['plans'],dort:['planche'],attente:['plans','maquette'],oisif:['plans','maquette']},
+  bureau_engins:{travail:['caisse','moteur','blindage','planche','paillasse','maquette'],reflexion:['caisse','blindage','planche','bureau'],pause:['bureau','maquette'],dort:['bureau'],attente:['caisse','planche','moteur'],oisif:['caisse','moteur','blindage','planche','bureau']}};
 const wrap=a=>((a+PI)%(2*PI)+2*PI)%(2*PI)-PI;
 // la reine Meumeu (le joueur en réunion) : une figure de la vue recherche, sans unité dans le monde
 const KING={id:'reine',k:'reine',name:'La reine Meumeu',sci:null};

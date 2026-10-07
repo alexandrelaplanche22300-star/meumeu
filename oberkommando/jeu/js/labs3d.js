@@ -19,6 +19,7 @@ function at(B,x0,z0,r=0){const c=[1,0,-1,0][r&3],s=[0,1,0,-1][r&3],sw=r&1,T=(dx,
     dome(dx,y,dz,r,hex){const [x,z]=T(dx,dz);B.dome(x,y,z,r,hex);return o;},
     rod(a,b,r,hex){const [ax,az]=T(a[0],a[2]),[bx,bz]=T(b[0],b[2]);B.rod([ax,a[1],az],[bx,b[1],bz],r,hex);return o;},
     p:(dx,dz)=>T(dx,dz),dir:(dx,dz)=>{const [x,z]=T(dx,dz);return [x-x0,z-z0];}};return o;}
+function layCyl(B,x,y,z,r,len,hex,axis='x',seg=8){const g=new THREE.CylinderGeometry(r,r,len,seg);if(axis==='x')g.rotateZ(Math.PI/2);else if(axis==='z')g.rotateX(Math.PI/2);g.translate(x,y,z);B.add(g,hex);}
 const Y0=.08;   // le dessus du plancher
 // le socle, le plancher en damier (carreaux de t), les murs : hauts au fond (−X, −Z), bas devant (+X, +Z), une porte dans le mur de droite (+X)
 function shell(B,W,D,{floor=['floorA','floorB'],t=.5,hb=.9,hf=.15,door=[.55,.72]}={}){B.box(0,0,0,W,.06,D,0xb9ad8e);
@@ -91,6 +92,11 @@ function centreInterior(W,D){const B=new Build(),S=shell(B,W,D,{hb:.92});const s
   P('cafe',1.55,1.2,1,0,0,[[1.3,.17],[1.3,1.2]]);P('cafe',2.12,1.05,-1,.3,0,[[2.2,.17],[2.2,.9]]);P('cafe',1.82,1.64,0,-1,0,[[1.3,.17],[1.3,1.64]]);P('cafe',1.48,1.55,.7,-.7,0,[[1.3,.17],[1.3,1.55]]);
   // la fenêtre (le mur bas de droite), une plante, un globe
   P('fenetre',2.2,.17,1,0);P('fenetre',2.25,-1.45,1,.3,0,[[2.3,.17],[2.3,-1.45]]);plant(B,2.2,-1.65);plant(B,-2.2,-1.6);B.cyl(.62,Y0,1.72,.03,.03,.2,C.woodD,6);B.dome(.62,Y0+.25,1.72,.09,C.blue);B.dome(.62,Y0+.25,1.72,-.09,0x4f8f5a);
+  // le banc d'optique, le pendule, les classeurs : on est dans un laboratoire, pas dans une salle de classe vide
+  B.box(.05,Y0,-1.78,.86,.14,.16,C.woodD);B.box(.05,Y0+.14,-1.78,.9,.015,.18,C.steel);B.rod([-.32,Y0+.18,-1.78],[.42,Y0+.18,-1.78],.007,C.brass);
+  B.cyl(-.12,Y0+.18,-1.78,.045,.045,.012,C.glass,10);B.cyl(.18,Y0+.18,-1.78,.03,.03,.012,C.glass,10);B.box(.38,Y0+.16,-1.78,.04,.08,.08,C.dark);
+  B.rod([-2.2,Y0+.05,.15],[-2.2,Y0+.72,.15],.01,C.brass);B.rod([-2.2,Y0+.68,.15],[-2.02,Y0+.34,.15],.005,C.brass);B.dome(-2.02,Y0+.26,.15,.055,C.brass);
+  B.box(-.95,Y0,1.72,.42,.32,.18,C.woodD);for(let i=0;i<3;i++)B.box(-.95,Y0+.06+i*.09,1.72,.38,.015,.16,C.woodL);B.box(-.78,Y0+.34,1.72,.1,.05,.08,C.steelD);
   return {geo:B.geo(),st,door:S.door,aisle:{z:.17}};}
 
 // ---------- le laboratoire de chimie (3 × 3) : la paillasse, la hotte, les étagères de flacons, l'évier, la balance — et la production : la cuve de cuivre,
@@ -112,6 +118,9 @@ function laboInterior(W,D){const B=new Build(),S=shell(B,W,D,{floor:['tileA','ti
   P('evier',.85,.74,0,1,0,[[.9,.74]]);
   // des bouteilles de gaz, un bocal (un spécimen), une plante
   for(const z of [-.15,.0])B.cyl(-1.18,Y0,z+.35,.05,.05,.36,C.blueprint,8);B.cyl(.3,Y0+.225,-.32,.06,.06,.12,C.glass,10);B.dome(.3,Y0+.33,-.32,.055,C.amber);plant(B,1.18,1.18);
+  board(B,-.15,.85,D,{seed:9,y:.36,h:.34});
+  B.box(1.15,Y0,1.22,.28,.36,.22,C.steelD);B.box(1.15,Y0+.12,1.22+.01,.2,.08,.02,C.amber);B.box(1.15,Y0+.24,1.22+.01,.2,.08,.02,C.green);
+  B.rod([.2,Y0+.55,-.9],[1.05,Y0+.62,-1.05],.012,C.copper);B.rod([-.4,Y0+.55,-.55],[.2,Y0+.55,-.9],.012,C.copper);
   return {geo:B.geo(),st,door:S.door,aisle:{x:.9}};}
 
 // ---------- le bureau d'études (2 × 2) : trois planches à dessin, l'établi et sa maquette, les plans au mur ----------
@@ -123,15 +132,40 @@ function bureauInterior(W,D){const B=new Build(),S=shell(B,W,D,{floor:['plank','
   // les plans épinglés au fond et à gauche
   for(let k=0;k<4;k++)B.box(-.62+k*.38,.34+(k%2)*.06,-D/2+.12,.26,.18,.006,k%2?C.blueprint:C.paper);for(let k=0;k<3;k++)B.box(-W/2+.12,.32+(k%2)*.07,-.55+k*.42,.006,.18,.26,k%2?C.paper:C.blueprint);
   P('plans',-.02,-.8,0,-1,0,gap);shelf(B,-W/2+.2,.15,.5,.5,0,4);
+  B.box(.72,Y0,-.05,.16,.2,.36,C.steelD);layCyl(B,.72,Y0+.24,-.05,.03,.32,C.steel,'z',8);B.box(.72,Y0+.2,.16,.1,.06,.06,C.wood);
+  B.box(0,.42,-D/2+.13,.55,.22,.02,C.steel);for(const [a,b] of [[-.12,.04],[.08,-.02],[.16,.06]])B.cyl(a,.5,-D/2+.15,.012,.012,.01,C.dark,6);
+  for(let k=0;k<6;k++){layCyl(B,-.7+k*.08,Y0+.28,.78,.012,.05,k%2?C.brass:C.copper,'y',6);B.cone(-.7+k*.08,Y0+.33,.78,.012,.02,C.dark,5);}
   return {geo:B.geo(),st,door:S.door,aisle:{z:.03}};}
 
-// ---------- le bureau des engins (5 × 4) : planches, paillasse, maquette de caisse. Les trois métiers y tiennent ensemble. ----------
-function enginsInterior(W,D){const B=new Build(),S=shell(B,W,D,{floor:['concrete','concreteD'],t:.5,hb:.86,door:[.38,.62]});const st=[];const P=(k,x,z,fx,fz,sit=0,via=null)=>st.push({k,x,z,f:[fx,fz],sit,via});
-  board(B,-.2,2.1,D,{seed:11,h:.4});drafting(B,-1.55,-.85,1);P('planche',-1.55,-1.1,0,1,1);drafting(B,-.55,-.85,1);P('planche',-.55,-1.1,0,1,1);drafting(B,.45,-.85,1);P('planche',.45,-1.1,0,1,1);
+// ---------- le bureau des engins (5 × 4) : la halle d'étude des blindés. Caisse ouverte, tourelle, moteur au banc, plaques d'essai. ----------
+function enginsInterior(W,D){const B=new Build(),S=shell(B,W,D,{floor:['concrete','concreteD'],t:.5,hb:.92,door:[.38,.62]});const st=[];const P=(k,x,z,fx,fz,sit=0,via=null)=>st.push({k,x,z,f:[fx,fz],sit,via});
+  board(B,-1.35,1.35,D,{seed:11,h:.42});board(B,.85,.9,D,{cork:true,y:.36,h:.38});
+  drafting(B,-1.55,-.85,1);P('planche',-1.55,-1.1,0,1,1);drafting(B,-.55,-.85,1);P('planche',-.55,-1.1,0,1,1);drafting(B,.45,-.85,1);P('planche',.45,-1.1,0,1,1);
   desk(B,1.55,-.55,1,1);P('bureau',1.35,-.55,0,1,1);desk(B,1.55,.45,1,4);P('bureau',1.35,.45,0,1,1);
-  bench(B,-1.45,.85,1.2,0,2);P('paillasse',-1.05,.85,1,0);P('paillasse',-1.7,.85,1,0);
-  B.box(-.1,Y0,.5,.95,.08,.46,C.steelD);B.box(-.1,Y0+.08,.5,.72,.16,.3,C.steel);B.box(.08,Y0+.24,.46,.24,.1,.22,C.steelD);B.cyl(.08,Y0+.28,.6,.02,.02,.18,C.dark,6);P('maquette',-.1,.95,0,-1);
-  shelf(B,-W/2+.18,.15,.7,.55,0,6);plant(B,1.85,1.4);
+  bench(B,-1.55,.95,1.05,0,2);P('paillasse',-1.15,.95,1,0);P('paillasse',-1.8,.95,1,0);
+  // la caisse d'étude, ouverte : on voit les sièges et la culasse ; la tourelle et le tube sont dessus
+  {const x=-.15,z=.42,L=1.02,Wv=.56,y=Y0;
+    B.box(x,y,z-Wv*.46,L,.09,.08,C.dark);B.box(x,y,z+Wv*.46,L,.09,.08,C.dark);
+    for(let i=-3;i<=3;i++){const wx=x+i*L/7.4;B.cyl(wx,y+.015,z-Wv*.46,.05,.05,.065,C.steelD,7);B.cyl(wx,y+.015,z+Wv*.46,.05,.05,.065,C.steelD,7);}
+    B.box(x,y+.07,z,L*.76,.14,Wv*.58,0x6a726e);
+    B.box(x-.04,y+.14,z-Wv*.2,.72,.09,.028,C.steel);B.box(x-.04,y+.14,z+Wv*.2,.72,.09,.028,C.steel);
+    B.box(x-.36,y+.14,z,.035,.11,Wv*.46,C.steelD);B.box(x+.34,y+.09,z,.1,.09,Wv*.52,C.steelD);
+    B.box(x-.08,y+.15,z-.07,.09,.045,.07,C.woodD);B.box(x-.08,y+.15,z+.07,.09,.045,.07,C.woodD);
+    B.box(x+.1,y+.18,z,.07,.07,.07,C.dark);layCyl(B,x+.2,y+.22,z,.02,.18,C.dark,'x',6);
+    B.cyl(x-.02,y+.21,z,.14,.16,.11,C.steel,10);B.box(x-.02,y+.31,z,.24,.03,.18,0x5a6166);
+    B.box(x+.08,y+.27,z,.05,.045,.06,C.steelD);layCyl(B,x+.32,y+.275,z,.026,.5,C.dark,'x',8);
+    P('maquette',x,z+.55,0,-1);P('caisse',x-.42,z+.55,.4,-1);P('caisse',x+.4,z+.55,-.3,-1);P('caisse',x,z-.42,0,1);}
+  // le pont roulant, au-dessus de la caisse
+  B.box(-1.35,Y0,.05,.05,.78,.05,C.steelD);B.box(.85,Y0,.05,.05,.78,.05,C.steelD);B.box(-.25,Y0+.78,.05,2.3,.035,.04,C.steel);B.cyl(-.15,Y0+.58,.05,.018,.018,.18,C.brass,6);
+  // le moteur au banc, à droite
+  B.box(.95,Y0,1.28,.46,.07,.28,C.woodD);B.box(.95,Y0+.07,1.28,.34,.13,.2,C.dark);B.cyl(.82,Y0+.14,1.28,.055,.055,.07,C.steel,8);
+  B.box(1.05,Y0+.2,1.28,.1,.035,.07,C.brass);layCyl(B,1.16,Y0+.16,1.42,.016,.14,C.steelD,'z',6);P('moteur',.55,1.28,1,0);
+  // les plaques d'essai, au fond à droite, avec leurs impacts
+  B.box(2.15,Y0,-1.32,.1,.04,.85,C.woodD);
+  for(let i=0;i<4;i++){const g=new THREE.BoxGeometry(.016,.24,.15);g.rotateY(-.4);g.translate(2.12,Y0+.16,-1.58+i*.18);B.add(g,[C.steel,C.steelD,0x9aa0a4,0xb09058][i]);B.cyl(2.02,Y0+.2,-1.58+i*.18,.012,.012,.008,C.dark,5);}
+  P('blindage',1.72,-1.32,1,0);
+  shelf(B,-W/2+.18,-1.15,.55,.6,0,6,true);shelf(B,-W/2+.18,.35,.6,.55,0,3);plant(B,2.15,1.55);
+  B.box(-2.15,Y0,1.45,.28,.16,.2,C.steelD);B.cyl(-2.15,Y0+.16,1.45,.06,.04,.1,C.dark,8);
   return {geo:B.geo(),st,door:S.door,aisle:{z:.05}};}
 
 const MAKE={centre_recherche:centreInterior,labo:laboInterior,armurerie:bureauInterior,bureau_engins:enginsInterior};
