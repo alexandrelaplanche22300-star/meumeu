@@ -454,8 +454,9 @@ export class World{
   // Une pièce hors escouade prend ses servants d'elle-même : les servants de pièce libres (ou sans arme) à moins de huit cases,
   // les plus proches d'abord ; ceux d'une pièce détruite ou partie se libèrent (unitTick). Sans cela elle restait sans équipage.
   crewTick(){this.crT=(this.crT||0)+this.dt;if(this.crT<.25)return;this.crT=0;
+    for(const o of this.s.units){if(o.k!=='savant')continue;let off=false;if(o.serve){o.serve=null;off=true;}if(o.sq){this.leave(o);off=true;}if(off&&o.task&&(o.task.kind==='guard'||o.task.kind==='move'||o.task.kind==='assault')){o.task=null;o.path=null;}}
     for(const g of this.s.units){if(g.sq||!g.w||!active(g))continue;const need=(this.W(g.w).crew||1)-1;if(need<=0)continue;const have=this.s.units.filter(o=>o.serve===g.id&&active(o)).length;if(have>=need)continue;
-      const free=this.s.units.filter(o=>o.f===g.f&&o!==g&&!o.sq&&!o.serve&&active(o)&&o.k!=='villageois'&&!UNITS[o.k]?.medic&&(o.servant||!o.w)&&Math.hypot(o.x-g.x,o.y-g.y)<8).sort((a,b)=>Math.hypot(a.x-g.x,a.y-g.y)-Math.hypot(b.x-g.x,b.y-g.y));
+      const free=this.s.units.filter(o=>o.f===g.f&&o!==g&&!o.sq&&!o.serve&&active(o)&&o.k!=='villageois'&&o.k!=='savant'&&!UNITS[o.k]?.medic&&(o.servant||!o.w)&&Math.hypot(o.x-g.x,o.y-g.y)<8).sort((a,b)=>Math.hypot(a.x-g.x,a.y-g.y)-Math.hypot(b.x-g.x,b.y-g.y));
       for(const o of free.slice(0,need-have))o.serve=g.id;}}
   // une escouade répartit ses rôles : pour chaque pièce, ses servants (les plus proches) ; le reste tire
   assignCrews(sq){const ms=this.members(sq).filter(active),inside=new Set(ms.map(u=>u.id));
@@ -463,7 +464,7 @@ export class World{
     for(const u of this.members(sq))if(u.serve){const gun=ms.find(g=>g.id===u.serve);if(!active(u)||!gun||crewOf(gun)<=1||u.id===gun.id)u.serve=null;}
     for(const g of ms){const need=Math.max(0,crewOf(g)-1);if(!need)continue;let assigned=ms.filter(o=>o.serve===g.id).sort((a,b)=>Math.hypot(a.x-g.x,a.y-g.y)-Math.hypot(b.x-g.x,b.y-g.y));
       for(const o of assigned.slice(need))o.serve=null;if(assigned.length>=need)continue;
-      const free=ms.filter(o=>o!==g&&!o.serve&&o.role!=='munitions'&&!UNITS[o.k]?.medic&&!(o.w&&this.W(o.w).crew>1)).sort((a,b)=>Math.hypot(a.x-g.x,a.y-g.y)-Math.hypot(b.x-g.x,b.y-g.y));for(const o of free.slice(0,need-assigned.length))if(inside.has(o.id))o.serve=g.id;}}
+      const free=ms.filter(o=>o!==g&&!o.serve&&o.k!=='savant'&&o.role!=='munitions'&&!UNITS[o.k]?.medic&&!(o.w&&this.W(o.w).crew>1)).sort((a,b)=>Math.hypot(a.x-g.x,a.y-g.y)-Math.hypot(b.x-g.x,b.y-g.y));for(const o of free.slice(0,need-assigned.length))if(inside.has(o.id))o.serve=g.id;}}
   // la ligne droite entre deux cases est-elle libre (sans couper un coin bloqué) ?
   clearLine(ax,ay,bx,by,cost){const N=this.N;const d=Math.hypot(bx-ax,by-ay);const n=Math.ceil(d/.3);for(let k=1;k<n;k++){const x=ax+(bx-ax)*k/n,y=ay+(by-ay)*k/n;for(const [ox,oy] of [[0,0],[.28,0],[-.28,0],[0,.28],[0,-.28]]){if(cost(Math.floor(y+oy)*N+Math.floor(x+ox))>=20)return false;}}return true;}
   smooth(si,sj,path,cost){if(path.length<3)return path;const out=[];let ax=si+.5,ay=sj+.5,k=0;
@@ -490,7 +491,7 @@ export class World{
 
   // ---------- les escouades ----------
   // Des soldats choisis, la touche G : une escouade. On la commande d'un bloc ; elle se met en formation, se couvre, se soigne.
-  formSquad(ids){const us=ids.map(id=>this.unit(id)).filter(u=>alive(u)&&u.f==='meumeu'&&u.k!=='villageois');if(us.length<2)return {ok:false,why:['au moins deux soldats']};
+  formSquad(ids){const us=ids.map(id=>this.unit(id)).filter(u=>alive(u)&&u.f==='meumeu'&&u.k!=='villageois'&&u.k!=='savant');if(us.length<2)return {ok:false,why:['au moins deux soldats']};
     for(const u of us)if(u.sq)this.leave(u);const n=++this.s.squadN;const sq={id:this.id(),f:'meumeu',name:`${n}${n===1?'re':'e'} escouade`,m:us.map(u=>u.id),leader:us.slice().sort((a,b)=>(b.xp||0)-(a.xp||0))[0].id,morale:1,form:'ligne'};
     for(const u of us)u.sq=sq.id;this.s.squads.push(sq);this.assignCrews(sq);this.log('Armée',`${sq.name} formée : ${us.length} ${us.length>1?'hommes':'homme'}.`,'good');return {ok:true,sq,text:`${sq.name} : ${us.length}`};}
   squad(id){return this.s.squads.find(q=>q.id===id)||null;}
@@ -505,7 +506,7 @@ export class World{
     if(aid)dep.stock['p:'+aid]-=1;if(u.armor)this.put(dep,'p:'+u.armor,1);u.armor=aid||null;u.plates={};return {ok:true};}
   // le rôle dans l'escouade : tireur, servant d'une pièce, porteur de munitions
   setRole(u,role){if(role==='munitions'){u.role='munitions';u.serve=null;}else if(role?.startsWith('serve:')){u.role=null;u.serve=+role.slice(6);}else{u.role=null;u.serve=null;}return {ok:true};}
-  joinSquad(u,sid){const sq=this.squad(sid);if(!u||u.f!=='meumeu'||!alive(u)||u.k==='villageois'||!sq)return {ok:false,why:['soldat ou escouade introuvable']};if(u.sq===sq.id)return {ok:true,text:`${u.name||'Le soldat'} est déjà dans ${sq.name}`};if(u.sq)this.leave(u);if(!sq.m.includes(u.id))sq.m.push(u.id);u.sq=sq.id;this.assignCrews(sq);this.log('Armée',`${u.name||'Un soldat'} rejoint ${sq.name}.`,'good');return {ok:true,text:`${u.name||'Le soldat'} rejoint ${sq.name}`};}
+  joinSquad(u,sid){const sq=this.squad(sid);if(!u||u.f!=='meumeu'||!alive(u)||u.k==='villageois'||u.k==='savant'||!sq)return {ok:false,why:['soldat ou escouade introuvable']};if(u.sq===sq.id)return {ok:true,text:`${u.name||'Le soldat'} est déjà dans ${sq.name}`};if(u.sq)this.leave(u);if(!sq.m.includes(u.id))sq.m.push(u.id);u.sq=sq.id;this.assignCrews(sq);this.log('Armée',`${u.name||'Un soldat'} rejoint ${sq.name}.`,'good');return {ok:true,text:`${u.name||'Le soldat'} rejoint ${sq.name}`};}
   // Le porteur de munitions : deux caisses au plus, des munitions de l'arme la plus portée de son escouade ; il les prend au
   // dépôt quand il passe à portée, et remplit les cartouchières de ceux qui sont à moins de 1,5 case et ont moins de la moitié.
   bearerTick(u){if(u.crewAmmo)return;const sq=this.squad(u.sq);if(!sq)return;const ms=this.members(sq).filter(o=>o.w&&alive(o));if(!ms.length)return;
