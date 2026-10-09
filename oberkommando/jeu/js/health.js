@@ -13,6 +13,7 @@
 //    vaisseaux sous garrot (le membre est sauvé), suture de la panse et des intestins (plus d'infection) ;
 //  · l'hôpital seul guérit tout à fait : le sang revient, les os se ressoudent.
 import {PART,REGION,BLOOD,BODY_KG,MUSCLE_BLEED} from './body.js';
+import {chemTick} from './gaz-sante.js';   // (V12.9) la guerre chimique : symptômes, infection, incurable
 
 export const PLASMA=15;            // mL : une dose de plasma
 // ce que les innovations changent aux soins (le monde les règle) : durée d'un garrot, plasma par dose, vitesse de l'infection
@@ -86,7 +87,8 @@ export function bleedRate(h){let s=0;for(const b of h.bleeds)s+=b.rate*bleedFact
 // La convalescence, hors de l'hôpital : quand plus rien ne saigne, le sang revient (2 % par heure de jeu, soit par 4 s de combat)
 // et une blessure légère se referme en deux jours. Un os cassé, un poumon percé, un saignement interne : il faut l'hôpital.
 const REST=2*24*HOUR;
-export function tickHealth(h,dts){if(h.state==='mort'||(h.state==='ok'&&!h.bleeds.length&&!h.pneumo&&h.conc<=0))return null;const before=h.state;
+export function tickHealth(h,dts){if(h.cx&&h.state!=='mort'){const c=chemTick(h,dts);if(c==='mort')return 'mort';}
+  if(h.state==='mort'||(h.state==='ok'&&!h.bleeds.length&&!h.pneumo&&h.conc<=0))return null;const before=h.state;
   for(const b of h.bleeds){if(b.rate<.02&&!b.internal)b.rate*=Math.exp(-dts/90);                // les petits saignements coagulent
     if(b.tq&&!b.lost){b.tqT=(b.tqT||0)+dts;if(b.tqT>TQ_LIMIT*MED.tq&&b.limb){b.lost=true;if(!h.lost.includes(b.limb+(b.name.includes('droit')?'D':'G')))h.lost.push(b.limb+(b.name.includes('droit')?'D':'G'));
       h.log?.push({dt:0,what:`membre perdu : le garrot sur ${b.name} a tenu trop longtemps`,bad:1});if(b.limb==='leg')h.legs=Math.max(h.legs,1);else h.arms=Math.max(h.arms,1);}}}

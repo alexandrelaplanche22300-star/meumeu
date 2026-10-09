@@ -37,6 +37,7 @@ import {RESEARCH} from './research.js';
 import {artInit} from './techaxes.js';
 const UNLOCK_H=3;
 import {bunkerPlan} from './bunkerdata.js';
+import {GAZ} from './gaz.js';   // (V12.9) la guerre chimique
 // Le chemin d'un train : les centres des cases, et à chaque virage à angle droit un quart de cercle (rayon : une demi-case) —
 // la même courbe que celle que dessine la voie. Chaque point est [x - 0,5, y - 0,5, case] (slide ajoute la demi-case).
 export function railCurve(cells,N){const P=cells.map(k=>[k%N+.5,((k/N)|0)+.5,k]);const out=[];
@@ -879,7 +880,7 @@ export class World{
     s.units=s.units.filter(u=>{if(alive(u))return true;if(u.f==='beee'&&s.beee){const L=s.beee.lossAt??=[];L.push({x:u.x,y:u.y,t:s.t});if(L.length>400)L.splice(0,L.length-400);}this.uIndex.delete(u.id);if(u.sq)this.leave(u);return false;});
     for(const b of [...s.buildings]){if(b.f==='beee'&&!(b.fire>0)&&far(b.i,b.j))lod(b,d=>this.buildingTick(b,d));else this.buildingTick(b,dt);}
     for(const v of [...s.vehicles])this.vehicleTick(v,dt);
-    this.detectTick(dt);this.intelTick(dt);this.noiseTick(dt);this.stepsTick(dt);this.chargesTick();this.salvoTick();this.shotsTick(dt);this.fallsTick(dt);this.minesTick();this.bunkerTick();this.amphiTick();this.allyTick();this.flakTick(dt);this.defenseTick();this.squadTick();this.crewTick();this.operationTick();this.beeeTick(dt);this.bandsTick(dt);this.innovTick(dt);this.researchTick(dt);
+    this.detectTick(dt);this.intelTick(dt);this.noiseTick(dt);this.stepsTick(dt);this.chargesTick();this.salvoTick();this.shotsTick(dt);this.fallsTick(dt);this.minesTick();this.bunkerTick();this.amphiTick();this.allyTick();this.flakTick(dt);this.defenseTick();this.squadTick();this.crewTick();this.operationTick();this.beeeTick(dt);this.bandsTick(dt);this.innovTick(dt);this.researchTick(dt);this.gasTick(dt);
     this.bushT=(this.bushT||0)+dt;if(this.bushT>=.5){const g=this.bushT;this.bushT=0;/* (V12.5, choix du joueur : tout se renouvelle sauf les arbres) les buissons, les rochers et les filons regarnissent ; un rocher épuisé et retiré de la carte, non */
       for(const nd of this.regrowing??=s.nodes.filter(n=>NODES[n.type]?.regrow))if(nd.left<nd.max&&(nd.type!=='rock'||this.nodeAt[nd.j*this.N+nd.i]===nd.id))nd.left=Math.min(nd.max,nd.left+g*nd.max/NODES[nd.type].regrow);}
     if(s.corpses.length&&s.t-s.corpses[0].t>3*DAY)s.corpses.shift();
@@ -1914,3 +1915,4 @@ Object.assign(World.prototype,ALLIE);
 Object.assign(World.prototype,AIRCRAFT);
 Object.assign(World.prototype,BEEE_FORT);
 Object.assign(World.prototype,RESEARCH);
+Object.assign(World.prototype,GAZ);
