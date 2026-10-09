@@ -13,6 +13,14 @@ export const FILLS={
   tolite:{name:'Tolite',k:1,gur:1,res:'explosifs',x:1,desc:'l’explosif de l’usine chimique : la référence'},
   brisant:{name:'Explosif brisant',k:1.35,gur:1.2,res:'explosifs_brisants',x:1.5,desc:'transformé à l’usine chimique : plus de souffle et des éclats plus rapides, au prix de salpêtre, fer et pièces'},
   // (débloqués par la recherche : amatol, thermite, phosphore blanc)
+  // (V12.9) LES OBUS À GAZ (agents FICTIFS, gaz.js) : une petite charge d'ouverture (peu de souffle, peu d'éclats) et l'agent ; gas : l'agent lâché.
+  // À partir de 18 mm, un vrai nuage (gaz-nuages.js) ; en dessous, une bouffée locale. res/x : le coût en caisses d'agent.
+  gaz_ortie:{name:'Gaz : ortie',k:.08,gur:.15,res:'agent_ortie',x:1,gas:'ortie',desc:'un irritant : larmes et toux, il force l’ennemi à se masquer'},
+  gaz_foin:{name:'Gaz : foin',k:.08,gur:.15,res:'agent_foin',x:1,gas:'foin',desc:'un suffocant jaune-vert, plus lourd que l’air : il coule dans les tranchées et noie les poumons ; le masque l’arrête'},
+  gaz_miel:{name:'Gaz : miel',k:.08,gur:.15,res:'agent_miel',x:1,gas:'miel',desc:'un vésicant persistant : il arrose le sol, interdit le terrain des jours ; cloques de sang, infection, brûlures jusqu’aux organes'},
+  gaz_xg:{name:'Gaz : X-G',k:.08,gur:.15,res:'agent_xg',x:1.4,gas:'xg',desc:'un neurotoxique volatil : convulsions et arrêt respiratoire sans antidote ; très cher'},
+  gaz_xv:{name:'Gaz : X-V',k:.08,gur:.15,res:'agent_xv',x:1.6,gas:'xv',desc:'un neurotoxique huileux qui passe la peau et reste au sol : le terrain devient inhabitable, pour nous aussi'},
+  gaz_cendre:{name:'Gaz : cendre',k:.08,gur:.15,res:'agent_cendre',x:1.2,gas:'cendre',desc:'un agent sanguin ultra-volatil : tout ou rien, le vent l’emporte'},
   amatol:{name:'Amatol',k:.92,gur:.88,res:'explosifs',x:.65,desc:'de la tolite coupée de nitrate d’ammonium : un peu moins brisante, un tiers moins chère — l’obus de la guerre de masse'},
   thermite:{name:'Thermite',k:.5,gur:.42,res:'melange_inc',x:2.4,inc:1,fire:1.9,desc:'fer et oxyde de fer à plus de deux mille degrés : elle fond les tôles et met le feu à tout ; peu de souffle, une flaque de métal en fusion qui brûle bien plus loin que le gel'},
   phosphore:{name:'Phosphore blanc',k:.55,gur:.5,res:'melange_inc',x:2.8,inc:1,fire:1.2,smoke:1,desc:'brûle à l’air libre : un nuage blanc épais qui aveugle une dizaine de secondes, et des particules incandescentes qui collent — couvre une retraite, chasse une tour, brûle les peluches'},

@@ -29,6 +29,8 @@ export const AGENTS={
     voies:{inh:{nerfs:.7,poumons:.2}},desc:'un agent sanguin ultra-volatil : tout ou rien — il faut une concentration énorme, le vent l’emporte aussitôt ; il sature les filtres'},
 };
 export const AGENT_IDS=Object.keys(AGENTS);
+// les marchandises de la guerre chimique (les dépôts et le fret de guerre les portent)
+export const GAS_GOODS=[...AGENT_IDS.map(a=>AGENTS[a].res),'bouteille_gaz','masque_gaz','lunettes_gaz','combinaison','antidote'];
 
 export const GAZ={
   // l'état du gaz dans la sauvegarde : air et sol en cellules clairsemées, le vent, le temps (propriétaire du contenu : gaz-nuages.js)
@@ -48,11 +50,12 @@ export const GAZ={
   // Champs d'unité convenus : u.gasMask (porte un masque), u.maskF (filtre restant, 0-1), u.goggles, u.chemSuit, u.antidote (nombre).
   unitProtection(u){const m=u.gasMask?(u.maskF??1)>0?.92:.3:0;const o=Math.max(u.goggles?.9:0,u.gasMask?.5:0);return {inh:m,oeil:o,cut:u.chemSuit?.85:0};},
   // INTERFACE — exposer une peluche à l'air de sa case pendant dts secondes de combat (dose par organe : gaz-sante.js).
-  gasExpose(u,dts){if(!u.h||u.h.state==='mort')return;const C=this.gasAt(u.x,u.y);let any=false;for(const k in C)if(C[k]>1e-3){any=true;break;}
+  gasExpose(u,dts){if(!u.h||u.h.state==='mort')return;const C=this.gasFeel?this.gasFeel(u.x,u.y):this.gasAt(u.x,u.y);   // (gasFeel : majorée dans un creux, gaz-nuages.js)
+    let any=false;for(const k in C)if(C[k]>1e-3){any=true;break;}
     if(!any&&!u.h.cx?.film)return;const ctx={post:u.post||'debout',run:this.s.t-(u.moved||-9)<.03,trench:!!this.s.sacs?.[Math.floor(u.y)*this.N+Math.floor(u.x)]?.b};
     exposeDose(u.h,C,this.unitProtection(u),dts,ctx);u.gasSeen=this.s.t;},
   // le pas du gaz (appelé par World.tick) : les nuages, les bouteilles, puis l'exposition
-  gasTick(dt){const g=this.s.gas;if(!g)return;this.gasCloudTick?.(dt);this.gasCylTick?.(dt);
+  gasTick(dt){const g=this.s.gas;if(!g)return;this.gasCloudTick?.(dt);this.gasCylTick?.(dt);this.gasGearTick?.(dt);
     this.gasT=(this.gasT||0)+dt;if(this.gasT<.02)return;const step=this.gasT;this.gasT=0;const dts=step*HOUR_REAL;
     for(const u of this.s.units)if(u.hp>0&&u.h&&u.inLab==null)this.gasExpose(u,dts);},
 };

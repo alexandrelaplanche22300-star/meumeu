@@ -23,6 +23,23 @@ de chimique (seuls le phosphore, le gel incendiaire et les thermobariques existe
 | **X-V** | neurotoxique huileux | **très persistant** : au sol 60 h | 1,0 | extrême | nerfs (**à travers la peau** aussi), peau | comme X-G, plus lent par la peau | combinaison + masque + antidote | le plus cher, le plus long ; le terrain devient inhabitable |
 | **Cendre** (extra) | sanguin | ultra volatil (½-vie 0,25 h), monte et se dilue | 0,2 | tout ou rien | sang / nerfs (asphyxie cellulaire) | chute brutale, mort rapide à forte concentration | masque (filtre vite saturé) | il faut une concentration énorme ; le vent le disperse aussitôt |
 
+### La fiche de jeu (`js/gaz-equip.js`, table `FICHE`) — le cœur : foin, miel, X-G, X-V
+
+Aucun agent n'est meilleur partout : chacun a sa parade et ses défauts.
+
+| Agent | Létalité (1-5) | Organes | Parade | Défauts | Temps |
+|---|---|---|---|---|---|
+| **Foin** | 3 meurtrier | poumons, yeux | masque | nuage visible (l'ennemi se masque à temps) ; le vent le ramène ; le masque l'arrête presque tout | frais et calme : idéal ; chaleur : 2× plus vite dissipé ; pluie : rabattu |
+| **Miel** | 4 très meurtrier | peau, yeux, poumons | combinaison + masque + lunettes | terrain interdit des jours, à nous aussi ; colle à la fourrure (contamine les infirmiers) ; effet retardé : n'arrête pas un assaut | chaleur : remonte du sol (plus dangereux, moins durable) ; pluie : fixé au sol |
+| **X-G** | 5 extrême | nerfs, yeux | masque + antidote | très cher, long à chercher ; les lots fuient au labo (2 %/h de production) ; se dissipe vite | vent fort : dilué aussitôt ; nuit calme : stagne |
+| **X-V** | 5 extrême | nerfs (aussi par la peau), peau | combinaison + masque + antidote | le plus cher ; terrain inhabitable : notre avance s'arrête aussi ; peu de nuage, il faut des obus en masse | peu sensible ; la chaleur seule le fait remonter |
+| Ortie (extra) | 1 gêne | yeux, poumons | lunettes, masque | ne tue presque jamais | se dissipe très vite |
+| Cendre (extra) | 4 | nerfs, poumons | masque | concentration énorme nécessaire ; sature les filtres (×5) | inutilisable par vent fort ou chaleur |
+
+Coûts de production (laboratoire de chimie, par lot) : foin 3 salpêtre + 2 charbon, 4 h → 2 caisses ; miel 4 + 3 + 1 cuivre, 8 h → 1 ;
+X-G 6 salpêtre + 3 cuivre + 2 pièces, 14 h → 1 ; X-V 8 + 4 cuivre + 3 pièces + 2 charbon, 20 h → 1. Un obus à gaz coûte ses caisses d'agent
+(×1,4 pour X-G, ×1,6 pour X-V).
+
 Champs d'un agent : `vol` (½-vie dans l'air, h), `sol` (½-vie au sol, h, 0 = pas de dépôt), `dep` (part déposée), `dens` (0-1), `pot`
 (puissance d'une caisse), `voies` (`inh` respiré, `oeil`, `cut` par la peau → poids par organe), `lat` (latence de la peau, h), `col`
 (couleur du nuage), `cout` (recette au labo).
@@ -57,51 +74,83 @@ C'est la face brutale voulue par le joueur.
 Branchement : `tickHealth` (health.js) appelle `chemTick` ; ses états (`hors`, `mort`, causes) passent par le même chemin que les balles,
 les fiches de blessure et le triage (noir = dépassé pour l'incurable). `malus()` ajoute la toux, les larmes, les spasmes.
 
-## 3. Le nuage (`js/gaz-nuages.js` — branche `feat/chimie-nuages`)
+## 3. Le nuage (`js/gaz-nuages.js`)
 
 - Grille clairsemée de cellules de `GAS_CELL` = 2 cases (8 m) : `s.gas.air[key][agent]`, `s.gas.sol[key][agent]` (dépôt), `key = cj*NC+ci`.
-- **Vent** `s.gas.wind` (direction, force en cases/h) qui tourne lentement ; la nuit, vent faible (le gaz stagne) ; **temps** : sec,
-  chaud (évaporation ×2, persistance ÷2), pluie (lessive l'air, fixe le dépôt).
-- **Advection** par le vent, **diffusion** (selon volatilité), **décroissance** (½-vie), **dépôt** puis **réévaporation** (persistants).
-- **Points bas** : un agent dense glisse vers les cratères et les tranchées (sacs) voisins et s'y accumule (×1 à ×2).
-- **Fusion** : deux nuages qui se recouvrent s'additionnent dans les mêmes cellules (grille commune) — rien à fusionner à la main.
-- **Obus** : les chargements `gaz_*` (FILLS) ; à partir de **18 mm**, un vrai nuage (masse ∝ chargement, rayon ∝ ∛masse) ;
-  en dessous, une bouffée locale qui se dissipe trois fois plus vite.
-- Les Bèè (IA) fuient un nuage vers l'amont du vent ; nos soldats, non (le joueur commande).
+  Échelle des concentrations (unités de jeu) : 1 on le sent, 5 dangereux, 20 mortel vite. Une caisse d'agent apporte `pot × 2`.
+- Pas fixe de 0,05 h (`NUAGE.STEP`), au plus 8 pas par appel (jeu accéléré : on ne court pas après le retard).
+- **Vent** `s.gas.wind` {a (rad), v (cases/h)} : marche au hasard (0,35 rad/√h), force 1,5 à 14 cases/h, **×0,35 la nuit** (le gaz stagne).
+  **Temps** `s.gas.meteo` (change toutes les 8 à 20 h) : sec ; chaud (½-vie air et sol ×0,5, réévaporation ×2) ; pluie (½-vie air ×0,6,
+  dépôt ×2,5, réévaporation ×0,2, sol ×1,4).
+- **Advection** : la part qui part sous le vent est répartie sur les voisines (x, y, diagonale) ; un agent dense ne suit qu'à
+  `1 − 0,55·densité` du vent, et moins encore dans un creux. **Diffusion** : `0,9·(1 − 0,8·densité)` par heure, vers les 4 voisines.
+  **Décroissance** : ½-vie `vol` × temps. **Dépôt** : `dep` par heure vers le sol (persistants) ; **réévaporation** 4 %/h du dépôt,
+  qui décroît lui-même avec sa ½-vie `sol` → le miel et X-V interdisent le terrain des jours.
+- **Points bas** : profondeur d'une cellule = cratères (×0,8) + tranchées (sacs) ; un agent dense (> 0,45) glisse vers la voisine plus
+  creuse (0,8 × densité × écart par heure) ; à la case, `gasFeel` majore jusqu'à ×2 dans un trou (c'est ce que respire `gasExpose`).
+- **Fusion** : la grille est commune ; deux nuages qui se recouvrent s'additionnent cellule par cellule.
+- **Obus** (`gasShell`, appelé par `heBlast` quand `E.fill.gas`) : chargements `gaz_*` (FILLS, petite charge d'ouverture `k = 0,08`).
+  **À partir de 18 mm** : vrai nuage, masse ∝ chargement (`g / 250 g` caisses × `pot × 2`), rayon `1 + 1,3·∛caisses` cases (6 au plus) ;
+  un persistant arrose aussi le sol (30 %). **En dessous** : bouffée à 15 %, dont les cellules se dissipent 3× plus vite pendant 2 h.
+- Les Bèè (IA) fuient un nuage (> 0,6) de 8 cases vers l'amont du vent ; nos soldats, non (le joueur commande).
+- Dessin (`view.js`, `drawGas`) : chaque cellule teintée par l'agent dominant (X-G/X-V presque invisibles), flaques sombres au sol.
 
-## 4. Les bouteilles (`js/gaz-bouteilles.js` — branche `feat/chimie-cylindres`)
+## 4. Les bouteilles (`js/gaz-bouteilles.js`)
 
-- **Fabriquer** : `bouteille_gaz` (manufacture : fer, pièces, cuivre) ; un soldat près d'un dépôt en **pose** une au sol.
-- **Remplir** : près d'un dépôt qui a l'agent (`agent_*`), la **barre de remplissage** monte (1 caisse/h, 4 caisses par bouteille).
-- **Porter** : un soldat la charge (vitesse ×0,6) ; **poser** où l'on veut.
-- **Combiner** : les bouteilles à moins de 3 cases forment une **batterie** ; « Ouvrir la batterie » lâche tout d'un coup — un mur de
-  gaz (×1,15 par bouteille en plus) ; il faut la recherche « batteries » pour l'ouverture synchronisée.
-- **Défauts** : vent tournant (retour du nuage), une bouteille touchée par un obus ou des éclats **crève** et vide tout sur place ;
-  petite fuite au fil du temps ; pleine, elle pèse — repérable et lente.
+- **Fabriquer** : `bouteille_gaz` à la manufacture (3 fer, 2 pièces, 1 cuivre, 3 h). **Poser** : un soldat valide à moins de 6 cases d'un
+  dépôt qui en a pose une bouteille vide à ses pieds.
+- **Remplir** : choisir l'agent ; la **barre de remplissage** monte de 1 caisse/h tant qu'un dépôt à 6 cases a l'agent ; 4 caisses = pleine.
+- **Porter** : un soldat à portée la charge (vitesse **×0,6**) ; la bouteille le suit ; **poser** où l'on veut. Porteur tombé : elle tombe.
+- **Ouvrir** : la vanne lâche 6 caisses/h au pied de la bouteille (le vent fait le reste). **Batterie** : les bouteilles posées et chargées
+  à moins de 3 cases de proche en proche ; « Ouvrir la batterie » (découverte « Les batteries de bouteilles ») les ouvre toutes d'un coup,
+  **+15 % de nuage par bouteille en plus** : un seul gros nuage fusionné.
+- **Défauts** : le vent tourne (retour du nuage) ; petite fuite des joints (0,5 %/h) ; un obus tout près (rayon des lésions) la **crève**
+  (tout l'agent sur place, porteur compris) ; un peu plus loin elle se **cabosse** et fuit à 12 %/h ; pleine, elle pèse — repérable et lente.
 
-## 5. La recherche, la protection, les soins, l'interface (branche `feat/chimie-recherche`)
+## 5. La recherche, la protection, les soins, l'interface
 
-Arbre (INNOV, domaine `chimie`, ère 3, programmes de savants : chimiste aux agents, physicien aux nuages, ingénieur aux bouteilles) :
+Arbre (INNOV, ère 3 ; `unlock` : `fill:` obus au bureau d'études, `prod:` une production, `gaz:`/`soin:` une capacité) :
 
-| Découverte | Besoin | Ouvre | Coût indicatif |
+| Découverte (`id`) | Besoin | Ouvre | Heures |
 |---|---|---|---|
-| Les toxiques de combat | phosphore | ortie, foin (agents + obus) | 50 h |
-| Le masque et les lunettes | toxiques | masque_gaz, lunettes_gaz | 30 h |
-| Les bouteilles à gaz | toxiques | bouteille_gaz | 30 h |
-| Le miel | toxiques | agent_miel, obus | 60 h |
-| La combinaison étanche | miel + masque | combinaison | 40 h |
-| La décontamination | masque + antiseptique | lavage de la pellicule, cloques pansées | 25 h |
-| X-G | miel | agent_xg, obus | 90 h |
-| L'antidote | X-G | antidote (auto-injection, infirmiers) | 40 h |
-| X-V | X-G + combinaison | agent_xv, obus | 120 h |
-| Les batteries de bouteilles | bouteilles | ouverture synchronisée, grosses vannes | 35 h |
-| La cendre (extra) | X-G | agent_cendre | 60 h |
+| Les toxiques de combat (`toxiques`) | phosphore | foin (+ ortie) : caisses, obus | 50 |
+| Le masque et les lunettes (`masques`) | toxiques | masque_gaz, lunettes_gaz | 30 |
+| Les bouteilles à gaz (`bouteilles_gaz`) | toxiques | bouteille_gaz | 30 |
+| Le miel (`miel`) | toxiques | agent_miel, obus | 60 |
+| La combinaison étanche (`combinaisons`) | miel + masques | combinaison | 40 |
+| La décontamination (`decontamination`, soins) | masques + antiseptique | lavage de la pellicule par les infirmiers | 25 |
+| X-G (`xg`) | miel | agent_xg, obus | 90 |
+| L'antidote (`antidotes`, soins) | X-G | antidote (hôpital : 3 par lot) | 40 |
+| X-V (`xv`) | X-G + combinaisons | agent_xv, obus | 120 |
+| Les batteries de bouteilles (`batteries_gaz`) | bouteilles | ouverture synchronisée | 35 |
+| La cendre (`cendre`, extra) | X-G | agent_cendre | 60 |
 
-Protection : masque (`inh` 0,92, `oeil` 0,5 ; filtre qui s'use ; visée ×1,3, vue −20 %), lunettes (`oeil` 0,9), combinaison
-(`cut` 0,85 ; vitesse ×0,8, fatigue), antidote (3 par homme). Les infirmiers : décontamination, pansement des cloques, antidote,
-morphine ; l'hôpital : arrête l'infection et les yeux, **jamais** l'état incurable. Le labo : chaque lot d'agent peut fuir (accident).
+Les productions verrouillées n'apparaissent pas dans les usines (`productsOf` filtre `prod:`).
+
+Protection (`js/gaz-equip.js`, prise au dépôt à 6 cases, panneau du soldat) : **masque** (`inh` 0,92, `oeil` 0,5 ; on l'**enfile au premier
+souffle** en 0,25 h — on a déjà respiré une bouffée ; retiré après 1 h sans gaz ; **filtre** qui s'use avec la concentration, ×5 pour la cendre ;
+visée ×1,3), **lunettes** (`oeil` 0,9), **combinaison** (`cut` 0,85 ; vitesse ×0,8), **antidote** (3 par homme, **auto-injection** quand les nerfs
+passent le seuil 2). **Infirmiers** : l'antidote d'abord, puis la décontamination (sans combinaison, l'infirmier prend un dixième de la
+pellicule), puis le pansement des cloques. **Hôpital** : arrête l'infection, soigne poumons, peau et yeux tant que ce n'est pas perdu ;
+**jamais** l'incurable. **Laboratoire** : un lot en cours peut fuir (foin 0,5 %/h, X-G 2 %/h, X-V 1,5 %/h) — un nuage dans les ateliers.
+
+Interface (`js/gaz-ui.js`, dans le panneau du soldat choisi) : le vent et le temps, le gaz sur sa case, sa protection (prendre/rendre),
+« Poser une bouteille vide », pour chaque bouteille à portée : barre de remplissage, choix de l'agent, Remplir, Charger, Ouvrir,
+Ouvrir la batterie (n), Fermer.
 
 ## 6. Tests
 
-`node test/gaz.mjs` (bancs dédiés : dose → symptômes → incurable, protection, antidote, infection). Le banc général `test/node.mjs`
-s'arrête déjà au banc 8 sur main (`free(...) is not iterable`) — antérieur à cette branche.
+- `node test/gaz.mjs` — la santé : dose → stades, masque, incurable (triage noir, hôpital impuissant, mort lente), miel (latence, cloques,
+  infection, pansement, combinaison), X-G (arrêt sans antidote, survie avec), pellicule de X-V et décontamination, intégration `W.update`.
+- `node test/gaz_nuages.mjs` — les nuages (obus ≥ 18 mm / bouffée, vent, fusion, dissipation, persistance, creux), les bouteilles (poser,
+  remplir, porter, batterie, crever), l'arbre de recherche, le masque et la combinaison, une partie qui tourne avec du gaz.
+- Sans Node : `ELECTRON_RUN_AS_NODE=1 ../.runtime/electron.exe test/gaz.mjs` (même chose pour `gaz_nuages.mjs`).
+- Le banc général `test/node.mjs` s'arrête déjà au banc 8 sur main (`free(...) is not iterable`) — antérieur à cette branche.
+
+## 7. Reste à faire
+
+- Les balles ne percent pas encore les bouteilles (seuls les obus et leurs éclats les crèvent).
+- Le masque ne réduit pas encore la vue (−20 % prévu) ; seule la visée est touchée.
+- Les Bèè n'évitent pas un terrain contaminé dans leurs chemins (ils fuient seulement un nuage dense).
+- Pas de rendu 3D (scene3d) des nuages ni des bouteilles ; l'équilibrage des concentrations est à jouer.
+- Les tables `rts_shell_cards` / `rts_shell_injury` et les zips V12.8.4 à V12.8.6 du projet Grok ne sont pas dans le dépôt : cette branche part de main.
