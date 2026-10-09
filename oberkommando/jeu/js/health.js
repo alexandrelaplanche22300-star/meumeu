@@ -13,7 +13,7 @@
 //    vaisseaux sous garrot (le membre est sauvé), suture de la panse et des intestins (plus d'infection) ;
 //  · l'hôpital seul guérit tout à fait : le sang revient, les os se ressoudent.
 import {PART,REGION,BLOOD,BODY_KG,MUSCLE_BLEED} from './body.js';
-import {chemTick} from './gaz-sante.js';   // (V12.9) la guerre chimique : symptômes, infection, incurable
+import {chemTick,chemMalus,chemHeal,chemDown} from './gaz-sante.js';   // (V12.9) la guerre chimique : symptômes, infection, incurable
 
 export const PLASMA=15;            // mL : une dose de plasma
 // ce que les innovations changent aux soins (le monde les règle) : durée d'un garrot, plasma par dose, vitesse de l'infection
@@ -103,13 +103,13 @@ export function tickHealth(h,dts){if(h.cx&&h.state!=='mort'){const c=chemTick(h,
   const loss=(1-h.blood/BLOOD)/(h.vit||1);   // plus de vie (h.vit > 1) : les mêmes seuils pour une perte de sang plus grande
   if(h.pneumo&&!h.sealed)h.pneumo+=dts;if(h.conc>0)h.conc-=dts;if(h.shock>0)h.shock-=dts*(h.morph>0?3:1);
   if(loss>.5||(h.pneumo>420&&!h.sealed)||h.sepsis>=1){h.state='mort';h.cause=loss>.5?'hémorragie':h.sepsis>=1?'péritonite':'asphyxie';}
-  else if(loss>.36||(h.pneumo>150&&!h.sealed)||!legsOk||h.conc>0||h.shock>0||h.sepsis>.75){if(h.state!=='hors'){h.state='hors';h.cause=loss>.36?'hémorragie':h.pneumo>150?'détresse respiratoire':h.sepsis>.75?'fièvre, infection':!legsOk?(h.para?'paralysé':'jambe brisée'):h.cause||'choc';}}
+  else if(loss>.36||(h.pneumo>150&&!h.sealed)||!legsOk||h.conc>0||h.shock>0||h.sepsis>.75||(h.cx&&chemDown(h))){if(h.state!=='hors'){h.state='hors';h.cause=loss>.36?'hémorragie':h.pneumo>150?'détresse respiratoire':h.sepsis>.75?'fièvre, infection':!legsOk?(h.para?'paralysé':'jambe brisée'):h.cause||'choc';}}
   else if(h.state==='hors')h.state=h.wounds.length?'blesse':'ok';
   if(h.state==='hors')h.down+=dts;
   return h.state!==before?h.state:null;}
 // Ce que la blessure retire : précision, vitesse. (Un bras cassé, un œil crevé, c'est viser mal ; la douleur et le sang perdu aussi.)
-export function malus(h){const loss=(1-h.blood/BLOOD)/(h.vit||1);const pain=h.morph>0?0:(h.pain||0)*.05,burn=h.burns||0;
-  return {aim:1+h.arms*1.5+(h.eyes||0)*.9+loss*3+(h.pneumo?.5:0)+pain+burn,move:!(h.legs<=(h.splint||0))||h.para?0:(h.legs?.3:1)*(1-loss*1.2-(h.pneumo?.3:0)-burn*.25)};}
+export function malus(h){const loss=(1-h.blood/BLOOD)/(h.vit||1);const pain=h.morph>0?0:(h.pain||0)*.05,burn=h.burns||0;const cm=h.cx?chemMalus(h):null;   // (V12.9) toux, larmes, spasmes
+  return {aim:1+h.arms*1.5+(h.eyes||0)*.9+loss*3+(h.pneumo?.5:0)+pain+burn+(cm?cm.aim:0),move:!(h.legs<=(h.splint||0))||h.para?0:(h.legs?.3:1)*(1-loss*1.2-(h.pneumo?.3:0)-burn*.25-(cm?cm.move:0))};}
 // ---------- les soins ----------
 // Premiers secours (l'infirmier, et le médecin) : garrot sur les membres, pansement compressif ailleurs, pansement thoracique, plasma.
 export function firstAid(h,kit=1){const done=[];for(const b of h.bleeds){if(b.tq||b.dressed||b.clamped)continue;if(b.limb){b.tq=true;b.tqT=0;done.push(`garrot (${b.name})`);}else{b.dressed=true;done.push(`pansement (${b.name})`);}}
@@ -132,11 +132,13 @@ export function needsCare(h){return h.state!=='mort'&&(h.bleeds.some(b=>!b.tq&&!
 export function needsDoctor(h){return h.state!=='mort'&&(needsCare(h)||(h.pneumo&&!h.drained)||(h.legs+h.arms>(h.splint||0)&&!h.para)||(h.shock>0&&!(h.morph>0))||h.blood<BLOOD*.7||(h.burns||0)>.2);}
 export function needsSurgery(h){return h.state!=='mort'&&(h.bleeds.some(b=>(b.internal&&!b.clamped&&b.rate>.003)||(b.tq&&!b.lost))||(h.gut&&!h.gutFixed));}
 // À l'hôpital : on opère (plus de saignement interne), le sang revient, les os se ressoudent.
-export function heal(h,hours){doctorCare(h,3,true);h.bleeds=[];h.pneumo=0;h.sealed=false;h.drained=false;h.shock=0;h.conc=0;h.sepsis=0;h.gut=0;h.burns=Math.max(0,(h.burns||0)-hours/72);h.blood=Math.min(BLOOD,h.blood+BLOOD*.08*hours);
+export function heal(h,hours){doctorCare(h,3,true);if(h.cx)chemHeal(h,hours);   // (V12.9) l'hôpital soigne le gaz, jamais l'incurable
+  h.bleeds=[];h.pneumo=0;h.sealed=false;h.drained=false;h.shock=0;h.conc=0;h.sepsis=0;h.gut=0;h.burns=Math.max(0,(h.burns||0)-hours/72);h.blood=Math.min(BLOOD,h.blood+BLOOD*.08*hours);
   h.bone=(h.bone||0)+hours;if(h.bone>72){h.legs=0;h.arms=0;h.splint=0;}
   // la convalescence : selon la pire blessure, d'une heure (une égratignure) à deux jours (une blessure critique)
   h.hosp=(h.hosp||0)+hours;const worst=Math.max(0,...h.wounds.map(w=>w.sev||1));h.stay=[0,1,3,8,16,30,48][worst]||0;
-  if(h.blood>=BLOOD*.9&&!h.legs&&!h.arms&&h.hosp>=h.stay){h.state='ok';h.wounds=[];h.pain=0;h.hosp=0;return true;}return false;}
+  const chem=h.cx&&chemDown(h);
+  if(!chem&&h.blood>=BLOOD*.9&&!h.legs&&!h.arms&&h.hosp>=h.stay){h.state='ok';h.wounds=[];h.pain=0;h.hosp=0;return true;}return false;}
 // Les constantes : ce que l'infirmier lit en se penchant sur lui
 export function vitals(h){const loss=1-h.blood/BLOOD;const br=bleedRate(h);
   const pulse=h.state==='mort'?0:Math.round(130*(1+loss*1.9)*(h.shock>0?1.15:1)*(h.sepsis>.3?1.15:1));
@@ -145,7 +147,7 @@ export function vitals(h){const loss=1-h.blood/BLOOD;const br=bleedRate(h);
   const left=br>.002?Math.max(0,(h.blood-BLOOD*.5)/br):null;return {pulse,resp,temp,cons,loss,br,left};}
 // Le triage : qui d'abord. Rouge : il mourra sans soins tout de suite ; jaune : grave mais il tient ; vert : léger ;
 // noir : au-delà de ce qu'on peut faire ici (on soigne les autres d'abord).
-export function triage(h){if(h.state==='mort')return {k:'mort',label:'mort',c:'#222'};const v=vitals(h);
+export function triage(h){if(h.state==='mort')return {k:'mort',label:'mort',c:'#222'};if(h.cx?.doom)return {k:'noir',label:'dépassé (gaz : incurable)',c:'#1d1d1d'};const v=vitals(h);
   if(h.state==='ok'&&!h.bleeds.length)return {k:'ok',label:'indemne',c:'#6f9f78'};
   const internal=h.bleeds.filter(b=>b.internal&&!b.clamped).reduce((a,b)=>a+b.rate*bleedFactor(b),0);
   if((v.left!=null&&v.left<12&&internal>.3)||(h.heart&&internal>.5))return {k:'noir',label:'dépassé',c:'#1d1d1d'};
