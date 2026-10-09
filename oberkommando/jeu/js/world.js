@@ -37,6 +37,10 @@ import {RESEARCH} from './research.js';
 import {artInit} from './techaxes.js';
 const UNLOCK_H=3;
 import {bunkerPlan} from './bunkerdata.js';
+import {GAZ,GAS_GOODS} from './gaz.js';   // (V12.9) la guerre chimique
+import {GAZ_NUAGES} from './gaz-nuages.js';
+import {GAZ_BOUTEILLES,BOUTEILLE} from './gaz-bouteilles.js';
+import {GAZ_EQUIP} from './gaz-equip.js';
 // Le chemin d'un train : les centres des cases, et à chaque virage à angle droit un quart de cercle (rayon : une demi-case) —
 // la même courbe que celle que dessine la voie. Chaque point est [x - 0,5, y - 0,5, case] (slide ajoute la demi-case).
 export function railCurve(cells,N){const P=cells.map(k=>[k%N+.5,((k/N)|0)+.5,k]);const out=[];
@@ -437,7 +441,7 @@ export class World{
       const ck=`${u.f}|${si},${sj}>${key}`,C=this.pathCache??=new Map();let r=C.get(ck);
       if(!r||this.s.t-r.t>3||r.v!==this.occV||r.w!==this.wallV){r=this.pather.find(si,sj,ti,tj,cost,goal,Math.max(30000,N*120));r.t=this.s.t;r.v=this.occV;r.w=this.wallV;C.set(ck,r);if(C.size>4000)C.delete(C.keys().next().value);}else this.pathBudget++;u.path=r.sm||(r.sm=this.smooth(si,sj,r.path,cost));u.pathDone=r.done;u.goal=key;u.pi=0;const tail=r.path[r.path.length-1];const ei=tail?tail[0]:si,ej=tail?tail[1]:sj;u.pathExact=r.done&&!rect&&ei===ti&&ej===tj?[tx,ty]:r.done&&!rect?[ei+.5,ej+.5]:null;if(!r.done&&r.path.length===0){u.path=null;u.pathWait=.25;u.why='passage bloqué : nouvelle recherche en cours';return false;}}
     return this.follow(u,rect?null:(u.pathExact||[tx,ty]));}
-  speedOf(u,raw=false){const D=UDEF(u);const LK=D.choc?.load??1;let s=D.speed*(u.armor?1-(1-(this.armorOf(u.armor)?.D.move||1))*LK:1)*(u.carry?.n>5?.85:1)*(u.carrying!=null?.55*this.mod('brancard'):1)*(u.amput?.7:1);if(u.h){if(u.h.state==='hors')return 0;s*=Math.max(.15,malus(u.h).move);}if(u.post==='couche')s*=.25;else if(u.post==='accroupi')s*=.7;// la charge : l'arme, ses munitions, la batterie de l'infrarouge ; jusqu'au tiers de son poids, on marche presque normalement
+  speedOf(u,raw=false){const D=UDEF(u);const LK=D.choc?.load??1;let s=D.speed*(u.armor?1-(1-(this.armorOf(u.armor)?.D.move||1))*LK:1)*(u.carry?.n>5?.85:1)*(u.carrying!=null?.55*this.mod('brancard'):1)*(u.amput?.7:1)*(u.cyl!=null?BOUTEILLE.SLOW:1)*(u.chemSuit?.8:1);if(u.h){if(u.h.state==='hors')return 0;s*=Math.max(.15,malus(u.h).move);}if(u.post==='couche')s*=.25;else if(u.post==='accroupi')s*=.7;// la charge : l'arme, ses munitions, la batterie de l'infrarouge ; jusqu'au tiers de son poids, on marche presque normalement
     if(u.w){const Wd=this.W(u.w);if(!(Wd.crew>1)){const kg=((Wd.mass||0)+((u.mag||0)+(u.pouch||0))*(Wd.rm||0)/1000+(Wd.ir?.packKg||0)+(u.bino?.03:0)+this.crateKg(u))*LK;const L=kg/1.5;if(L>.3)s*=Math.max(.55,1-(L-.3)*1.1);}}   // une pièce servie : son poids est poussé par ses servants (plus bas)
     if(u.w){const Wd=this.W(u.w);if(Wd.crew>1){const P=this.pushSpeed(u,Wd);if(P!=null)s*=Math.max(0,P/.7);else{const n=this.servants(u,1.5).length;s*=Math.min(.8,.3+.5*n/(Wd.crew-1));}}}if(u.crates>0&&!(u.w&&!(this.W(u.w).crew>1))){const L=this.crateKg(u)/1.5;if(L>.3)s*=Math.max(.55,1-(L-.3)*1.1);}   // les caisses pèsent ce qu'elles contiennent : un obus de 700 g n'est pas 834 cartouches
     // un servant décroché presse le pas
@@ -773,7 +777,7 @@ export class World{
   setRoute(vid,a,b){const v=this.s.vehicles.find(x=>x.id===vid);const A=this.building(a),B=this.building(b);if(!v||!A||!B||a===b)return {ok:false,why:['deux arrêts différents']};if(A.f!==v.f||B.f!==v.f||A.ruin||B.ruin)return {ok:false,why:['deux arrêts de notre camp, non détruits']};
     const need=v.k==='train'?'station':v.k==='avion'?'airfield':'store';if(!BUILDINGS[A.k][need]||!BUILDINGS[B.k][need])return {ok:false,why:[v.k==='train'?'deux gares':v.k==='avion'?'deux aérodromes':'deux dépôts']};
     v.route={a,b,out:['guerre','vivres','industrie','materiaux'],back:['minerais','industrie']};v.mode='ligne';v.job=null;v.state='go';v.leg=0;v.path=null;return {ok:true,text:`${v.name} : ligne ${this.cityName(A)} ↔ ${this.cityName(B)}`};}
-  goodsOf(sets,at){const map={rare:RARE,materiaux:['bois','pierre','charbon'],minerais:['fer','cuivre','plomb','salpetre'],vivres:['vivres','grain','ble_moulu'],industrie:['pieces','essence'],guerre:['poudre','explosifs','explosifs_brisants','melange_inc','sante','jumelles','jumelles_ir','tenue_camo',...Object.keys(at?.stock||{}).filter(k=>k.startsWith('m:')||k.startsWith('a:')||k.startsWith('p:'))]};return [...new Set(sets.flatMap(s=>map[s]||[]))];}
+  goodsOf(sets,at){const map={rare:RARE,materiaux:['bois','pierre','charbon'],minerais:['fer','cuivre','plomb','salpetre'],vivres:['vivres','grain','ble_moulu'],industrie:['pieces','essence'],guerre:['poudre','explosifs','explosifs_brisants','melange_inc','sante','jumelles','jumelles_ir','tenue_camo',...GAS_GOODS,...Object.keys(at?.stock||{}).filter(k=>k.startsWith('m:')||k.startsWith('a:')||k.startsWith('p:'))]};return [...new Set(sets.flatMap(s=>map[s]||[]))];}
   // Charger : dans l'ordre des familles choisies, mais sans qu'un seul bien prenne tout — au plus 40 % de la place au premier tour,
   // puis ce qui reste. Un convoi part mêlé : des munitions, des vivres, des pièces, du bois.
   capOf(v){return VEHICLES[v.k].cap*(v.k==='porteur'?this.mod('cap_porteur'):v.k==='train'?this.mod('cap_train'):1);}
@@ -879,7 +883,7 @@ export class World{
     s.units=s.units.filter(u=>{if(alive(u))return true;if(u.f==='beee'&&s.beee){const L=s.beee.lossAt??=[];L.push({x:u.x,y:u.y,t:s.t});if(L.length>400)L.splice(0,L.length-400);}this.uIndex.delete(u.id);if(u.sq)this.leave(u);return false;});
     for(const b of [...s.buildings]){if(b.f==='beee'&&!(b.fire>0)&&far(b.i,b.j))lod(b,d=>this.buildingTick(b,d));else this.buildingTick(b,dt);}
     for(const v of [...s.vehicles])this.vehicleTick(v,dt);
-    this.detectTick(dt);this.intelTick(dt);this.noiseTick(dt);this.stepsTick(dt);this.chargesTick();this.salvoTick();this.shotsTick(dt);this.fallsTick(dt);this.minesTick();this.bunkerTick();this.amphiTick();this.allyTick();this.flakTick(dt);this.defenseTick();this.squadTick();this.crewTick();this.operationTick();this.beeeTick(dt);this.bandsTick(dt);this.innovTick(dt);this.researchTick(dt);
+    this.detectTick(dt);this.intelTick(dt);this.noiseTick(dt);this.stepsTick(dt);this.chargesTick();this.salvoTick();this.shotsTick(dt);this.fallsTick(dt);this.minesTick();this.bunkerTick();this.amphiTick();this.allyTick();this.flakTick(dt);this.defenseTick();this.squadTick();this.crewTick();this.operationTick();this.beeeTick(dt);this.bandsTick(dt);this.innovTick(dt);this.researchTick(dt);this.gasTick(dt);
     this.bushT=(this.bushT||0)+dt;if(this.bushT>=.5){const g=this.bushT;this.bushT=0;/* (V12.5, choix du joueur : tout se renouvelle sauf les arbres) les buissons, les rochers et les filons regarnissent ; un rocher épuisé et retiré de la carte, non */
       for(const nd of this.regrowing??=s.nodes.filter(n=>NODES[n.type]?.regrow))if(nd.left<nd.max&&(nd.type!=='rock'||this.nodeAt[nd.j*this.N+nd.i]===nd.id))nd.left=Math.min(nd.max,nd.left+g*nd.max/NODES[nd.type].regrow);}
     if(s.corpses.length&&s.t-s.corpses[0].t>3*DAY)s.corpses.shift();
@@ -1268,7 +1272,7 @@ export class World{
   // l'erreur d'estimation de la distance (la chute), puis ce qu'elle rencontre : le couvert (et s'il le perce), le corps.
   resolve(u,e,W,R,burst,share=null){const D=UDEF(u);const skill=(D.skill||2.4)/(1+(u.xp||0)/60)/(u.f==='meumeu'?this.mod('tir'):1);const moving=this.s.t-(u.moved||-9)<.03;
     const irBlur=u.nvOn&&(u.irLeft??0)>0&&this.light()<.4&&d2(u.x,u.y,e.x,e.y)>this.sight()?2.5:1;   // (à l'infrarouge, au-delà de la vue nue : image floue, sans relief)
-    const sigS=irBlur*(this.smokeBetween(u.x,u.y,e.x,e.y)?4.5:1)*skill*POST[u.post||'debout']*(moving?2.4:1)*(1+1.5*(u.supp||0))*(u.h?malus(u.h).aim:1)*(u.armor?1+((this.armorOf(u.armor)?.D.aim||1)-1)*(UDEF(u).choc?.load??1):1);
+    const sigS=irBlur*(this.smokeBetween(u.x,u.y,e.x,e.y)?4.5:1)*skill*POST[u.post||'debout']*(moving?2.4:1)*(1+1.5*(u.supp||0))*(u.h?malus(u.h).aim:1)*(u.gasMask?1.3:1)*(u.armor?1+((this.armorOf(u.armor)?.D.aim||1)-1)*(UDEF(u).choc?.load??1):1);
     const sigW=W.moa*.291*(u.mount?1:(W.mountOk||u.k==='choc'&&W.need==='bipied')?1:2+Math.min(4,W.rk0))*(u.mount?.8:this.trenchRest(u,W));const sigR=burst*W.rk*(u.k==='choc'?.5:1)*9*(u.mount?.5:1);const crewU=u.k==='choc'?crewOf(W,.5):W.crew;const missing=crewU>1&&!u.mount?Math.max(0,crewU-1-this.servants(u).length):0;
     // Le viseur réduit l'erreur angulaire propre du tireur; il n'ajoute pas de
     // vitesse ni de portée balistique. Tirer en mouvement/sous le feu garde ses
@@ -1367,11 +1371,13 @@ export class World{
       if(u.treatT>=(D.doctor?6:5)){u.treatT=0;if(u.kits<=0){u.task=null;u.why='plus de trousses : il faut des fournitures médicales';return true;}
         const done=D.doctor?doctorCare(e.h,u.kits,false):firstAid(e.h,u.kits);this.useKits(u,done);this.medLog(e,u,done);this.practice('soins',1);u.task=null;}return true;}
     if(T0?.kind==='operer')return this.operateTick(u,T0);
+    if(T0?.kind==='gaz')return this.gasMedicTick(u,T0);   // (V12.9) l'antidote, la décontamination
     if(T0?.kind==='evac')return false;
     // sous la tente d'abord, s'il y a quelqu'un à soigner (qui saigne, pour tous ; à opérer, pour le médecin)
     const tneed=p=>D.doctor?(needsSurgery(p.h)||needsDoctor(p.h)):needsCare(p.h);
     if(u.kits>=(D.doctor?2:1)){const t=this.s.buildings.filter(b=>b.f===u.f&&b.done&&BUILDINGS[b.k].tent&&this.distB(b,u.x,u.y)<25&&(b.wardList||[]).some(tneed)).sort((a,z)=>this.distB(a,u.x,u.y)-this.distB(z,u.x,u.y))[0];
       if(t&&(D.doctor||(t.wardList.some(p=>needsCare(p.h))&&!this.s.units.some(e=>e.f===u.f&&e.h&&needsCare(e.h)&&d2(e.x,e.y,u.x,u.y)<6)))){u.task={kind:'operer',b:t.id,auto:true};return true;}}
+    if(this.gasMedic(u))return true;
     if(u.kits>0){let best=null,bs=0;for(const e of this.s.units){if(e.f!==u.f||!e.h||e.h.state==='mort'||e.carriedBy)continue;if(!(D.doctor?needsDoctor(e.h):needsCare(e.h)))continue;const d=d2(e.x,e.y,u.x,u.y);if(d>14)continue;
         const w={rouge:4,jaune:1.6,vert:.6,noir:.25}[triage(e.h).k]||.5;const sc=w*(1+bleedRate(e.h)*2)/(1+d*.15);if(sc>bs){bs=sc;best=e;}}
       if(best){u.task={kind:'soigne',id:best.id,auto:true};u.treatT=0;return true;}}
@@ -1733,6 +1739,8 @@ export class World{
     const boom=o.boom||(E.W>.03?'bomb':E.W>.0015?'shell':E.W>.0002?'grenade':'pop');
     if(!E.air&&boom!=='pop')this.addCrater(x,y,boom==='bomb'?Math.max(1.4,rB*.9):boom==='shell'?Math.max(.6,rB*.6):Math.max(.32,rB*.3),boom==='bomb'?2.1:boom==='shell'?1.5:.65);
     {const S0=boom==='bomb'?[Math.max(1.8,rB*.9),70]:boom==='shell'?[Math.max(1,rB*.6),42]:boom==='grenade'?[.7,12]:[.45,5];this.scorch(x,y,S0[0],S0[1]*(E.air?.3:1));if(E.inc)this.scorch(x,y,Math.max(.6,fireR||.6),22);}
+    if(E.fill?.gas&&!E.air)this.gasShell(x,y,E,o);   // (V12.9) l'obus à gaz : un vrai nuage à partir de 18 mm (gaz-nuages.js)
+    this.gasCylBlast(x,y,E);   // les bouteilles à gaz proches crèvent ou fuient (gaz-bouteilles.js)
     if(E.fill?.smoke){s.smokes.push({x,y,r:Math.min(5,Math.max(2.4,1.6*Math.cbrt(Math.max(1,E.g)/30))),t0:s.t,end:s.t+10});this.emit({type:'smoke',x,y});}   // le phosphore : un nuage qui aveugle
     if(E.inc&&!E.air){const nap=this.mod('napalm');s.groundFires.push({x,y,r:Math.max(.35,fireR)*(1+.35*(nap-1)),end:s.t+FIRE.hours*nap,chemical:true});if(s.groundFires.length>80)s.groundFires.splice(0,s.groundFires.length-80);this.emit({type:'fire-area',x,y,r:fireR});}
     this.emit({type:'boom',src:f,x,y,kind:boom,big:boom!=='grenade',air:!!E.air,r:Math.max(E.danger||0,E.conc)/TILE_M,conc:E.conc/TILE_M,pressure1:E.pressure?.(1)||0,blast:E.blast/TILE_M,fragmentReach:fragReach/TILE_M,fragments:E.n??E.cls?.reduce((n,c)=>n+c.n,0)??0,chargeKg:E.W||0,dB:Math.max(155,Math.min(195,175+10*Math.log10(Math.max(.0001,E.W||.01)/.01))),inc:!!E.inc});}
@@ -1914,3 +1922,7 @@ Object.assign(World.prototype,ALLIE);
 Object.assign(World.prototype,AIRCRAFT);
 Object.assign(World.prototype,BEEE_FORT);
 Object.assign(World.prototype,RESEARCH);
+Object.assign(World.prototype,GAZ);
+Object.assign(World.prototype,GAZ_NUAGES);
+Object.assign(World.prototype,GAZ_BOUTEILLES);
+Object.assign(World.prototype,GAZ_EQUIP);

@@ -156,7 +156,7 @@ export const RESEARCH={
   boldOf(w){if(w.pseudo)return .15;const u=this.unit(w.id);return u?.sci?.bold??((w.id*.6180339)%1);},
   // (V12.8) les explosifs et les coques que la chimie a ouverts entrent aussi dans les propositions des savants
   fillsCtx(P=null){const A=this.s.research.art;if(P&&P.p&&P.d0==null)P.d0=PARAMS.calibre.get(P.p);const open=k=>INNOV.some(I=>I.unlock?.includes(k))&&this.unlocked(k);
-    return {fills:[...new Set(['poudre','tolite','brisant','gelinc',...(A.remplissage||[]),...['tb_charbon','tb_fer','tb_essence'].filter(f=>open('fill:'+f))])],shells:['lisse','rainuree','billes',...['mince','deux_temps'].filter(x=>open('shell:'+x))],d0:P?.d0};},
+    return {fills:[...new Set(['poudre','tolite','brisant','gelinc',...(A.remplissage||[]),...['tb_charbon','tb_fer','tb_essence','gaz_ortie','gaz_foin','gaz_miel','gaz_xg','gaz_xv','gaz_cendre'].filter(f=>open('fill:'+f))])],shells:['lisse','rainuree','billes',...['mince','deux_temps'].filter(x=>open('shell:'+x))],d0:P?.d0};},
   // le programme auquel pense un savant : celui de sa tâche, sinon l'un de ses équipes ; libre, il rejoint de lui-même un programme où son métier sert
   thinkProgram(u){const S=u.sci,all=this.s.research.programs,ok=P=>P.kind==='arme'&&['lancement','actif','suivi','pret'].includes(P.st);
     const P0=S.pid?this.program(S.pid):null;if(P0)return ok(P0)?P0:null;const mine=all.filter(x=>ok(x)&&x.team.includes(u.id));if(mine.length)return mine[Math.floor(this.rand()*mine.length)];

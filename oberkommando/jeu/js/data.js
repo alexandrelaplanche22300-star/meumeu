@@ -61,6 +61,18 @@ export const RES={
   tenue_camo:{name:'Tenues camouflées',icon:['r','soie-de-falaise_fabric-roll']},
   jumelles_ir:{name:'Jumelles infrarouges',icon:['r','common_mechanical-parts']},
   batterie:{name:'Batteries infrarouges',icon:['r','common_mechanical-parts']},
+  // (V12.9) la guerre chimique (agents FICTIFS, voir docs/GUERRE-CHIMIQUE.md) : les agents en caisses scellées, les bouteilles, la protection
+  agent_ortie:{name:'Ortie (caisses)',icon:['r','chem_divers']},
+  agent_foin:{name:'Foin (caisses)',icon:['r','chem_divers']},
+  agent_miel:{name:'Miel (caisses)',icon:['r','chem_divers']},
+  agent_xg:{name:'X-G (caisses)',icon:['r','chem_divers']},
+  agent_xv:{name:'X-V (caisses)',icon:['r','chem_divers']},
+  agent_cendre:{name:'Cendre (caisses)',icon:['r','chem_divers']},
+  bouteille_gaz:{name:'Bouteilles à gaz',icon:['r','common_mechanical-parts']},
+  masque_gaz:{name:'Masques à gaz',icon:['r','soie-de-falaise_fabric-roll']},
+  lunettes_gaz:{name:'Lunettes étanches',icon:['r','common_mechanical-parts']},
+  combinaison:{name:'Combinaisons étanches',icon:['r','soie-de-falaise_fabric-roll']},
+  antidote:{name:'Antidotes',icon:['r','soie-de-falaise_fabric-roll']},
 };
 // plus de ressource rare : tout se fait avec le commun
 export const RARE=[];
@@ -79,7 +91,7 @@ export const FAMILIES={
   energie:{name:'Charbon',goods:['charbon']},
   industrie:{name:'Pièces',goods:['pieces']},
   vivres:{name:'Vivres',goods:['vivres']},
-  guerre:{name:'Guerre',goods:['explosifs','melange_inc','explosifs_brisants','mine','sante','batterie'],prefix:['m:','a:','p:']},
+  guerre:{name:'Guerre',goods:['explosifs','melange_inc','explosifs_brisants','mine','sante','batterie','agent_ortie','agent_foin','agent_miel','agent_xg','agent_xv','agent_cendre','bouteille_gaz','masque_gaz','lunettes_gaz','combinaison','antidote'],prefix:['m:','a:','p:']},
 };
 export const familyOf=k=>{for(const [f,F] of Object.entries(FAMILIES))if(F.goods.includes(k)||(F.prefix||[]).some(p=>k.startsWith(p)))return f;return 'materiaux';};
 // Le fret : une usine commande de quoi faire BUF lots d'avance (au moins BUF_H heures de travail) ; un porteur sert les
@@ -278,6 +290,40 @@ export const INNOV=[
   {id:'chenilles',dom:'logistique',era:3,name:'Les chenilles',text:'Des patins articulés : l’engin passe partout et porte lourd. Ouvre les châssis chenillés et semi-chenillés.',mod:{},needs:['garage_engins'],cost:{fer:60,pieces:50},hours:80,tasks:[{role:'ingenieur',label:'Les patins, les galets, la barbotin',work:110},{role:'physicien',label:'Les calculs : masses, efforts, vitesses',work:80},{role:'chimiste',label:'Les aciers, les huiles, les carburants',work:48}]},
   {id:'tourelles',dom:'logistique',era:3,name:'Les tourelles',text:'Une couronne à billes et un panier : l’arme tourne avec ses servants. Ouvre les tourelles (les affûts restent libres).',mod:{},needs:['garage_engins'],cost:{fer:50,pieces:60,cuivre:15},hours:80,tasks:[{role:'ingenieur',label:'La couronne, le panier, le pointage',work:100},{role:'physicien',label:'Les calculs : masses, efforts, vitesses',work:90},{role:'chimiste',label:'Les aciers, les huiles, les carburants',work:54}]},
   {id:'gros_moteurs',dom:'logistique',era:3,name:'Les gros moteurs',text:'Six cylindres, V8, V12 d’avion : la puissance des chars moyens et lourds.',mod:{},needs:['garage_engins'],cost:{fer:40,pieces:70,cuivre:25},hours:90,tasks:[{role:'ingenieur',label:'Les cylindres, le refroidissement, l’allumage',work:110},{role:'physicien',label:'Les calculs : masses, efforts, vitesses',work:100},{role:'chimiste',label:'Les aciers, les huiles, les carburants',work:60}]},
+  // (V12.9) LA GUERRE CHIMIQUE — agents FICTIFS, nombres de jeu (docs/GUERRE-CHIMIQUE.md §5). unlock : fill: (obus à gaz au bureau d'études),
+  // prod: (une production), gaz: / soin: (une capacité). Le cœur : foin, miel, X-G, X-V ; l'ortie et la cendre en extra.
+  {id:'toxiques',dom:'chimie',era:3,name:'Les toxiques de combat',text:'Des nuages qu’on lâche sur la tranchée d’en face : l’ortie, qui fait pleurer et tousser, et le foin, jaune-vert, qui noie les poumons. Ouvre leurs caisses au laboratoire et les obus à gaz au bureau d’études. Le vent décide : il peut tout ramener chez nous.',
+    mod:{},needs:['phosphore'],unlock:['fill:gaz_ortie','fill:gaz_foin','prod:agent_ortie','prod:agent_foin'],cost:{pieces:30,salpetre:40,charbon:30,cuivre:10},hours:50,
+    tasks:[{role:'chimiste',label:'Les agents : la caisse scellée, la stabilité du lot',work:60},{role:'physicien',label:'Le nuage : le vent, la densité, la portée',work:40}]},
+  {id:'masques',dom:'chimie',era:3,name:'Le masque et les lunettes',text:'Une cagoule à filtre et des lunettes étanches : le masque arrête presque tout ce qu’on respire (le filtre s’use), les lunettes protègent les yeux. On vise moins bien, masqué.',
+    mod:{},needs:['toxiques'],unlock:['prod:masque_gaz','prod:lunettes_gaz'],cost:{pieces:20,cuivre:8,charbon:20},hours:30,
+    tasks:[{role:'chimiste',label:'Le filtre : ce qu’il arrête, combien de temps',work:35},{role:'ingenieur',label:'La cagoule, les oculaires, l’étanchéité',work:25}]},
+  {id:'bouteilles_gaz',dom:'chimie',era:3,name:'Les bouteilles à gaz',text:'Des bouteilles d’acier qu’on remplit au dépôt, qu’on porte à dos jusqu’à la tranchée et qu’on ouvre quand le vent est bon. Lourdes, repérables ; un éclat, et elles crèvent sur nos lignes.',
+    mod:{},needs:['toxiques'],unlock:['prod:bouteille_gaz'],cost:{fer:30,pieces:20,cuivre:10},hours:30,
+    tasks:[{role:'ingenieur',label:'La bouteille, la vanne, le harnais',work:35},{role:'physicien',label:'Le débit et le vent',work:20}]},
+  {id:'miel',dom:'chimie',era:3,name:'Le miel',text:'Un vésicant huileux et persistant : rien pendant des heures, puis les cloques de sang, l’infection, des brûlures qui gagnent les organes. Il interdit le terrain des jours — à nous aussi.',
+    mod:{},needs:['toxiques'],unlock:['fill:gaz_miel','prod:agent_miel'],cost:{pieces:30,salpetre:50,charbon:40,cuivre:15},hours:60,
+    tasks:[{role:'chimiste',label:'L’agent huileux : la persistance au sol',work:70},{role:'physicien',label:'L’épandage : l’obus, la flaque, la réévaporation',work:40}]},
+  {id:'combinaisons',dom:'chimie',era:3,name:'La combinaison étanche',text:'Une combinaison huilée, des gants, des bottes : la peau ne prend presque plus rien. Lourde : on marche à ×0,8, on s’épuise.',
+    mod:{},needs:['miel','masques'],unlock:['prod:combinaison'],cost:{pieces:25,charbon:30,cuivre:10},hours:40,
+    tasks:[{role:'chimiste',label:'Le tissu huilé, les joints',work:35},{role:'ingenieur',label:'La coupe, les gants, les bottes',work:30}]},
+  {id:'decontamination',dom:'soins',era:3,name:'La décontamination',text:'Laver la fourrure, brûler les tenues, panser les cloques : les infirmiers retirent la pellicule de miel ou de X-V avant qu’elle ne passe la peau. Sans combinaison, l’infirmier en prend un peu.',
+    mod:{},needs:['masques','antiseptique'],unlock:['soin:decontamination'],cost:{sante:10,salpetre:10,charbon:10},hours:25},
+  {id:'xg',dom:'chimie',era:3,name:'X-G',text:'Un neurotoxique volatil, presque invisible : spasmes, convulsions, arrêt respiratoire en quelques minutes sans antidote. Très cher, long à chercher — et un lot qui fuit tue les chimistes.',
+    mod:{},needs:['miel'],unlock:['fill:gaz_xg','prod:agent_xg'],cost:{pieces:50,salpetre:80,cuivre:30},hours:90,
+    tasks:[{role:'chimiste',label:'L’agent : la puissance, la stabilité, la sécurité du laboratoire',work:110},{role:'physicien',label:'La dispersion : un nuage bref et dense',work:50}]},
+  {id:'antidotes',dom:'soins',era:3,name:'L’antidote',text:'Une seringue auto-injectable : piquée à temps, elle arrête les convulsions des X. Trois par homme ; les infirmiers en portent aussi. Rien contre le foin ni le miel.',
+    mod:{},needs:['xg'],unlock:['prod:antidote'],cost:{sante:20,salpetre:10,pieces:10},hours:40,
+    tasks:[{role:'chimiste',label:'L’antidote : la dose, la seringue',work:45}]},
+  {id:'xv',dom:'chimie',era:3,name:'X-V',text:'Un neurotoxique huileux qui passe la peau et reste au sol des jours : le terrain devient inhabitable, pour nous aussi. Le plus cher et le plus long.',
+    mod:{},needs:['xg','combinaisons'],unlock:['fill:gaz_xv','prod:agent_xv'],cost:{pieces:60,salpetre:100,cuivre:40,charbon:40},hours:120,
+    tasks:[{role:'chimiste',label:'L’agent huileux : passer la peau, tenir au sol',work:140},{role:'physicien',label:'L’épandage : gouttelettes, flaques',work:60}]},
+  {id:'batteries_gaz',dom:'chimie',era:3,name:'Les batteries de bouteilles',text:'Des bouteilles reliées par un collecteur, ouvertes ensemble d’un seul ordre : un mur de gaz (+15 % par bouteille) plutôt que des bouffées que le vent éparpille.',
+    mod:{},needs:['bouteilles_gaz'],unlock:['gaz:batterie'],cost:{fer:20,pieces:20,cuivre:15},hours:35,
+    tasks:[{role:'ingenieur',label:'Le collecteur, les vannes commandées',work:40}]},
+  {id:'cendre',dom:'chimie',era:3,name:'La cendre (extra)',text:'Un agent sanguin ultra-volatil : tout ou rien. Il faut une concentration énorme, le vent l’emporte aussitôt — mais il sature les filtres.',
+    mod:{},needs:['xg'],unlock:['fill:gaz_cendre','prod:agent_cendre'],cost:{pieces:30,salpetre:60,charbon:40},hours:60,
+    tasks:[{role:'chimiste',label:'L’agent : la concentration utile',work:60}]},
   {id:'lanceflammes',dom:'chimie',era:3,name:'Le lance-flammes',text:'Un projecteur de gel enflammé à courte portée, porté à l’épaule : le bunker et la tranchée n’ont plus de secret. Nouveau modèle au bureau d’études.',mod:{},needs:['napalm'],unlock:['preset:flamethrower'],cost:{fer:25,pieces:18,cuivre:8},hours:20},
 ];
 // Les étapes : ce qu'on fait d'habitude, dans l'ordre, pour se préparer avant la guerre. Rien n'est obligatoire.
@@ -326,6 +372,20 @@ export const PRODUCTS={
   // la batterie du viseur infrarouge : fabriquée à l'atelier (n'importe quel villageois y travaille), chère en plomb, en cuivre et en pièces ;
   // une fois chargée elle est une marchandise comme une autre — le fret la porte aux dépôts, où un soldat à moitié à plat la change (world.resupply)
   // V12.4 : plus fabriquée (les batteries de l'infrarouge ne se rechargent plus) ; la recette reste pour les anciennes parties, hors des ateliers
+  // (V12.9) LA GUERRE CHIMIQUE — chaque production s'ouvre par sa découverte (prod:…). Les agents (FICTIFS) au laboratoire de chimie : de plus en
+  // plus chers et lents (le défaut de X-G et X-V) ; un lot en cours peut fuir (gaz-equip.js). Les bouteilles à la manufacture ; la protection à l'atelier,
+  // la combinaison à la manufacture, l'antidote à l'hôpital.
+  agent_ortie:{name:'Ortie',at:'labo',in:{salpetre:1,charbon:1},out:{agent_ortie:2},hours:2,limit:20},
+  agent_foin:{name:'Foin',at:'labo',in:{salpetre:3,charbon:2},out:{agent_foin:2},hours:4,limit:20},
+  agent_miel:{name:'Miel',at:'labo',in:{salpetre:4,charbon:3,cuivre:1},out:{agent_miel:1},hours:8,limit:12},
+  agent_xg:{name:'X-G',at:'labo',in:{salpetre:6,cuivre:3,pieces:2},out:{agent_xg:1},hours:14,limit:8},
+  agent_xv:{name:'X-V',at:'labo',in:{salpetre:8,cuivre:4,pieces:3,charbon:2},out:{agent_xv:1},hours:20,limit:6},
+  agent_cendre:{name:'Cendre',at:'labo',in:{salpetre:5,charbon:4},out:{agent_cendre:1},hours:10,limit:8},
+  bouteille_gaz:{name:'Bouteilles à gaz',at:'manufacture',in:{fer:3,pieces:2,cuivre:1},out:{bouteille_gaz:1},hours:3,limit:24},
+  masque_gaz:{name:'Masques à gaz',at:'atelier',in:{pieces:2,cuivre:1,charbon:2},out:{masque_gaz:2},hours:3,limit:40},
+  lunettes_gaz:{name:'Lunettes étanches',at:'atelier',in:{pieces:1,cuivre:1},out:{lunettes_gaz:2},hours:2,limit:30},
+  combinaison:{name:'Combinaisons étanches',at:'manufacture',in:{pieces:4,charbon:3,cuivre:2},out:{combinaison:1},hours:6,limit:20},
+  antidote:{name:'Antidotes',at:'hopital',in:{sante:2,salpetre:1},out:{antidote:3},hours:3,limit:30},
   batterie:{name:'Batteries infrarouges',at:null,in:{plomb:5,cuivre:2,pieces:4,charbon:1},out:{batterie:1},hours:4,limit:6},
 };
 export const RECIPES=PRODUCTS;

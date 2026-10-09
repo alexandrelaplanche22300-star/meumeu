@@ -22,6 +22,7 @@ import {operationUI} from './operations-ui.js';
 import {VEHDEF} from './vehicules.js';
 import {researchUI} from './research-ui.js';
 import {EnginsBureau} from './engins-ui.js';
+import {gasPaneHtml,gasAction} from './gaz-ui.js';   // (V12.9) la guerre chimique
 
 const $=s=>document.querySelector(s);
 // Une erreur de démarrage ne doit plus laisser une fenêtre muette : elle est
@@ -293,6 +294,7 @@ function unitsPane(sel){const by={};for(const u of sel)by[u.k]=(by[u.k]||0)+1;co
     if(one.f==='meumeu'&&one.w&&one.h){const gd=world.gearDepot(one);const st=gd?.stock||{};const G=[['jumelles','Jumelles',!!one.jum&&!one.bino],['jumelles_ir','Jumelles IR',!!one.bino],['tenue_camo','Tenue camouflée',!!one.camoSuit]];
       h+=`<div class="kv"><span>Équipement</span><b>${world.isCommando(one)?'<span class="good">commando</span> · ':''}${[one.bino?'jumelles IR (44 cases de jour, 22 de nuit)':one.jum?'jumelles (44 cases de jour)':'',one.camoSuit?'tenue camouflée':'',(one.charges||0)>0?`${one.charges} charge${one.charges>1?'s':''}`:''].filter(Boolean).join(' · ')||'<span class="quiet">rien</span>'}</b></div>
         <div class="row small">${gd?G.map(([k,n,on])=>on?`<button class="small ghost" data-gear="${k}:0">Rendre ${n.toLowerCase()}</button>`:`<button class="small" data-gear="${k}:1" ${(st[k]||0)>=1?'':'disabled'} title="${n0(st[k]||0)} au dépôt">${n} (${n0(st[k]||0)})</button>`).join(''):'<span class="quiet">Près d’un dépôt (6 cases), il peut y prendre jumelles, tenue ou charges de démolition.</span>'}${gd?`<button class="small" data-gear="charge:1" ${(st.explosifs||0)>=.5&&(one.charges||0)<4?'':'disabled'} title="une charge de démolition : une demi-caisse d’explosifs (${fmt(st.explosifs||0,1)} au dépôt) ; quatre au plus par homme">+ Charge de démolition</button>${(one.charges||0)>0?`<button class="small ghost" data-gear="charge:0">Rendre une charge</button>`:''}`:''}</div>`;}
+    h+=gasPaneHtml(world,one);   // (V12.9) la protection chimique, les bouteilles, le vent
      if(one.role==='munitions'&&!one.sq&&world.s.squads.length){h+=`<div class="row"><label class="small">Escouade à ravitailler <select data-join-target="${one.id}">${world.s.squads.map(sq=>`<option value="${sq.id}">${esc(sq.name)} · ${world.members(sq).length} soldats</option>`).join('')}</select></label><button class="small" data-join="${one.id}">Rallier</button></div>`;}
     // rééquiper un soldat déjà formé : une autre arme (prise au dépôt proche), un autre rôle
     if(UNITS[one.k].arm&&one.h){const dep=world.depots('meumeu',one.x,one.y)[0];const have=dep?dep.stock:{};const guns=world.designsOf('meumeu');const arms=world.armorsOf('meumeu');
@@ -712,6 +714,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b
   if(d.scout!=null){const ids=[...view.sel];const one=d.scout==='1';for(const id of ids){const u=world.unit(id);if(u)u.scoutRole=false;}if(one){const u=world.unit(ids[0]);if(u)u.scoutRole=true;}say(one?'Éclaireur désigné : il voit plus loin et ne tire que découvert.':'Plus d’éclaireur désigné.','info');renderPanel(true);return;}
   if(d.fire!=null){for(const id of view.sel){const u=world.unit(id);if(u){u.roe=d.fire==='1'?'retenu':d.fire==='2'?'discret':'libre';u.holdFire=d.fire==='1';u.quiet=d.fire==='2';}}say(d.fire==='1'?'Tir tenu : ils ne tireront pas, même repérés.':d.fire==='2'?'Tir discret : le risque est évalué sur les ennemis connus.':'Tir libre : ils répondent à ce qu’ils repèrent.','info');renderPanel(true);return;}
   if(d.fuse){for(const id of view.sel){const u=world.unit(id);if(u)u.fuse=+d.fuse;}renderPanel(true);return;}
+  if(d.gas){const u=world.unit([...view.sel][0]);const r=gasAction(world,u,d.gas);say(r.ok?r.text:r.why[0],r.ok?'good':'bad');renderPanel(true);return;}
   if(d.gear){const [k,on]=d.gear.split(':');const u=world.unit([...view.sel][0]);if(u){const r=world.equip(u,k,on==='1');say(r.ok?r.text:r.why[0],r.ok?'good':'bad');}renderPanel(true);return;}
   if(d.reln){const bd=world.building(view.selB);const L=bd?.inside?.length||0;ui.relN=Math.max(1,Math.min(L,(ui.relN??L)+(+d.reln)));renderPanel(true);return;}
   if(d.relone){const bd=world.building(view.selB);if(bd){const r=world.releaseRecruits(bd,1,BUILDINGS[bd.k].trains.includes('choc')?'choc':'soldat',ui.trainW[bd.id]||$(`[data-trainw="${bd.id}"]`)?.value,($(`[data-traina="${bd.id}"]`)?.value)||null,[+d.relone]);say(r.ok?r.text:r.why[0],r.ok?'good':'bad');}renderPanel(true);return;}

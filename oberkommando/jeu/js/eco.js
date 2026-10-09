@@ -49,7 +49,7 @@ export const ECO={
   linkedTo(d){const o={sup:[],out:[],site:[]};for(const b of this.s.buildings){if(b.f!==d.f)continue;if(b.sup===d.id&&this.takesIn(b))o.sup.push(b);if(b.out===d.id&&this.givesOut(b))o.out.push(b);if(b.site===d.id&&!b.done&&!b.ruin)o.site.push(b);}return o;},
 
   // ---------- les usines ----------
-  productsOf(b){const B=BUILDINGS[b.k];if(!B.factory)return [];const L=Object.keys(PRODUCTS).filter(k=>madeAt(k,b.k));
+  productsOf(b){const B=BUILDINGS[b.k];if(!B.factory)return [];const L=Object.keys(PRODUCTS).filter(k=>madeAt(k,b.k)&&this.unlocked('prod:'+k));   // (V12.9 : prod: — une production que la recherche ouvre)
     if(B.arsenal)L.unshift(...[...this.designsOf(b.f),...this.designsOf(b.f,'engin')].map(d=>'m:'+d.id));
     if(B.manufacture)L.push(...this.designsOf(b.f).map(d=>'a:'+d.id),...this.armorsOf(b.f).map(a=>'p:'+a.id));
     return L;},
@@ -279,10 +279,11 @@ export const ECO={
   // jumelles : la vue porte à 44 cases de jour (u.jum) ; jumelles IR : de plus 22 cases de nuit dans le faisceau (u.bino, 8 h de
   // batterie) ; tenue camouflée : moins visible ; charge de démolition : une demi-caisse d'explosifs, quatre au plus par homme.
   // Avec des charges, c'est ce qui fait un commando.
-  gearOf(u){const L=[];if(u.bino)L.push('jumelles_ir');else if(u.jum)L.push('jumelles');if(u.camoSuit)L.push('tenue_camo');return L;},
+  gearOf(u){const L=[];if(u.bino)L.push('jumelles_ir');else if(u.jum)L.push('jumelles');if(u.camoSuit)L.push('tenue_camo');if(u.maskKit)L.push('masque_gaz');if(u.goggles)L.push('lunettes_gaz');if(u.chemSuit)L.push('combinaison');return L;},
   isCommando(u){return !!(u&&((u.charges||0)>0||u.camoSuit||u.jum||u.bino||u.k==='commando'));},
   gearDepot(u){return this.depots(u.f,u.x,u.y,6).find(D=>!BUILDINGS[D.k].foodOnly)||null;},
-  equip(u,k,on=true){if(!u||!u.w)return {ok:false,why:['seul un soldat armé s’équipe']};if(!['jumelles','jumelles_ir','tenue_camo','charge'].includes(k))return {ok:false,why:['équipement inconnu']};
+  equip(u,k,on=true){if(['masque_gaz','lunettes_gaz','combinaison','antidote'].includes(k))return this.gasEquip(u,k,on);   // (V12.9) la protection chimique (gaz-equip.js)
+    if(!u||!u.w)return {ok:false,why:['seul un soldat armé s’équipe']};if(!['jumelles','jumelles_ir','tenue_camo','charge'].includes(k))return {ok:false,why:['équipement inconnu']};
     const D=this.gearDepot(u);if(!D)return {ok:false,why:['il faut être à moins de 6 cases d’un dépôt (ou sortir de la caserne équipé)']};
     if(k==='charge'){const n=u.charges||0;if(on){if(n>=4)return {ok:false,why:['quatre charges au plus par homme']};if((D.stock.explosifs||0)<.5)return {ok:false,why:[`pas assez d’explosifs au ${this.depotName(D)} (une charge : une demi-caisse ; la poudrerie en fabrique)`]};
         D.stock.explosifs-=.5;u.charges=n+1;return {ok:true,text:`${u.name||'Le soldat'} : ${n+1} charge${n+1>1?'s':''} de démolition`};}

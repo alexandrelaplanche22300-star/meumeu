@@ -14,6 +14,7 @@ import {bunkerPlan} from './bunkerdata.js';
 import {BLOOD,BODY_H} from './body.js';
 import {bleedRate,triage} from './health.js';
 import {LABVIEW} from './labview.js';
+import {AGENTS,GAS_CELL} from './gaz.js';   // (V12.9) la guerre chimique : les nuages et les bouteilles
 
 export const TW=64,TH=32;
 const ELEV0=Math.asin(.5);   // l'élévation de l'isométrie d'origine (30°)
@@ -301,7 +302,7 @@ export class View{
     if(fog&&!g3)this.drawFog();
     this.drawNight();
     if(fog)this.drawIntel();else this.drawHeard();
-    this.stepParts(dt);this.drawShots();this.drawStreaks(dt);this.drawParts(false);this.drawSmokes();this.drawFx(dt);this.drawLogistics();this.drawFocus();
+    this.stepParts(dt);this.drawShots();this.drawStreaks(dt);this.drawParts(false);this.drawSmokes();this.drawGas();this.drawFx(dt);this.drawLogistics();this.drawFocus();
     for(const v of s.vehicles)if(v.alt>0&&inView(v.x,v.y,12))this.drawVehicle(v);
     this.drawCones();this.drawCharges();this.drawParts(true);this.drawLinks();
     this.drawPostMarkers();if(this.placing&&this.hover)this.drawGhost();if(this.lining?.cells)this.drawLinePlan();
@@ -862,6 +863,19 @@ export class View{
     try{const G=gunLayout(D);const s=2.4,pad=Math.ceil(10*s);const RH=Math.max((D.Dc||D.p.d*1.45)*3.2+6,D.p.d*3);const w=Math.ceil((G.Lw+30)*s)+pad,h=Math.ceil(RH*6*s)+8;const cv=document.createElement('canvas');cv.width=w;cv.height=h;
       const x=cv.getContext('2d');const ay=Math.round(h*.4);drawWeapon(x,D,{bx:pad,ay,s,ground:h-2,t:0,G,inhand:true});bm={cv,pad,ay,s,Lw:G.Lw};}catch(e){console.error(e);bm=null;}
     this.gunBms.set(key,bm);if(this.gunBms.size>40)this.gunBms.delete(this.gunBms.keys().next().value);return bm;}
+  // (V12.9) les nuages de gaz : chaque cellule, teintée par l'agent dominant, d'autant plus opaque que c'est concentré (X-G presque invisible) ;
+  // le dépôt au sol en flaque sombre ; les bouteilles et leur barre de remplissage
+  drawGas(){const W=this.world,g=W.s.gas;if(!g)return;const ctx=this.ctx,z=this.z(),NC=Math.ceil(W.N/GAS_CELL),t=W.t;ctx.save();
+    const blob=(ks,cell,ground)=>{const k=+ks,ci=k%NC,cj=(k-ci)/NC;const x=(ci+.5)*GAS_CELL,y=(cj+.5)*GAS_CELL;if(this.near(x,y)<=0)return;let tot=0,top=null,m=0;for(const a in cell){tot+=cell[a];if(cell[a]>m){m=cell[a];top=a;}}
+      const A=AGENTS[top];if(!A)return;const vis=top==='xg'||top==='xv'?.35:1;const a=Math.min(ground?.35:.55,tot/(ground?30:14))*vis;if(a<.02)return;
+      const q=this.toScreen(x+Math.sin(t*.7+k)*.2,y+Math.cos(t*.6+k)*.2,ground?0:.2+.3*(1-A.dens));const r=GAS_CELL*TW*z*(ground?.45:.75);
+      ctx.globalAlpha=a;ctx.fillStyle=ground?'#3a3020':A.col;ctx.beginPath();ctx.ellipse(q.x,q.y,r,r*.5,0,0,6.283);ctx.fill();};
+    for(const ks in g.sol)blob(ks,g.sol[ks],true);for(const ks in g.air)blob(ks,g.air[ks],false);
+    for(const c of g.cyl||[]){if(this.near(c.x,c.y)<=0)continue;const q=this.toScreen(c.x,c.y,.3);const s=Math.max(3,6*z);ctx.globalAlpha=1;
+      ctx.fillStyle='#4a4f45';ctx.fillRect(q.x-s*.35,q.y-s*1.6,s*.7,s*1.6);const lv=Math.max(0,Math.min(1,c.amt/4));
+      ctx.fillStyle='#222';ctx.fillRect(q.x-s,q.y+s*.2,s*2,Math.max(2,s*.3));ctx.fillStyle=AGENTS[c.agent]?.col||'#888';ctx.fillRect(q.x-s,q.y+s*.2,s*2*lv,Math.max(2,s*.3));
+      if(c.open){ctx.globalAlpha=.6;ctx.fillStyle=AGENTS[c.agent]?.col||'#ccc';ctx.beginPath();ctx.arc(q.x,q.y-s*1.9,s*.8,0,6.283);ctx.fill();}}
+    ctx.restore();}
   // les fumigènes : un nuage épais qui gonfle, tourne lentement, puis se dissipe
   drawSmokes(){const ctx=this.ctx,z=this.z(),W=this.world;const im=img('fx/smoke_cloud.webp'),im2=img('fx/smoke_gray1.webp');if(!im)return;
     for(const s of W.s.smokes){if(this.near(s.x,s.y)<=0)continue;const age=W.t-s.t0,left=s.end-W.t;const a=Math.min(1,age*3)*Math.min(1,left/2);const grow=Math.min(1,.4+age*1.5);
